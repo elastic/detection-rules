@@ -2,7 +2,9 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,17 +19,35 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.file-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler File Deletion"
+references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
+risk_score = 47
+rule_id = "c4818812-d44f-47be-aaef-4cfb2f9cc799"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type == "deletion" and
+  file.extension : "dll" and file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.dll" and
+  not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -62,31 +82,6 @@ The Print Spooler service in Windows manages print jobs and interactions with pr
 - Apply the latest security patches and updates to the Print Spooler service and related components to mitigate known vulnerabilities.
 - Monitor the affected system and network for any signs of further suspicious activity, focusing on similar file deletion patterns or privilege escalation attempts.
 - Escalate the incident to the security operations center (SOC) or relevant IT security team for further investigation and to assess the need for broader organizational response measures."""
-references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
-risk_score = 47
-rule_id = "c4818812-d44f-47be-aaef-4cfb2f9cc799"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
-    "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "windows" and event.type == "deletion" and
-  file.extension : "dll" and file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.dll" and
-  not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe")
-'''
 
 
 [[rule.threat]]

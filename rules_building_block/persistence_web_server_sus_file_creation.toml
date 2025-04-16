@@ -3,16 +3,18 @@ bypass_bbr_timing = true
 creation_date = "2025/03/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/03"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
+updated_date = "2025/03/06"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-This rule detects unusual file creations from a web server parent process. Adversaries may attempt to create files from
-a web server parent process to establish persistence, execute malicious scripts, or exfiltrate data. ES|QL rules have
-limited fields available in its alert documents. Make sure to review the original documents to aid in the investigation
-of this alert.
+This rule detects unusual file creations from a web server parent process. Adversaries may attempt to
+create files from a web server parent process to establish persistence, execute malicious scripts, or
+exfiltrate data. ES|QL rules have limited fields available in its alert documents. Make sure to review
+the original documents to aid in the investigation of this alert.
 """
 from = "now-61m"
 interval = "1h"
@@ -59,10 +61,9 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
-
 query = '''
 from logs-endpoint.events.file-*
-| keep @timestamp, host.os.type, event.type, event.action, user.name, user.id, process.name, process.executable, file.path, agent.id, host.name
+| keep @timestamp, host.os.type, event.type, event.action, user.name, user.id, process.name, process.executable, file.path, agent.id
 | where @timestamp > now() - 1 hours
 | where host.os.type == "linux" and event.type == "change" and event.action in ("rename", "creation") and (
      user.name in (
@@ -80,57 +81,57 @@ from logs-endpoint.events.file-*
     process.name like "ruby*" or
     process.name like "perl*"
    )
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable, file.path
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable, file.path
 | where agent_count == 1 and cc < 5
 | sort cc asc
 | limit 100
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Persistence"
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
-
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1071"
-name = "Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1071/"
-
 
 [rule.threat.tactic]
-id = "TA0011"
 name = "Command and Control"
+id = "TA0011"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"

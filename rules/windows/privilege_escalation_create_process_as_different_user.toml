@@ -2,7 +2,9 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,36 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Creation via Secondary Logon"
+references = ["https://attack.mitre.org/techniques/T1134/002/"]
+risk_score = 47
+rule_id = "42eeee3d-947f-46d3-a14d-7036b962c266"
+setup = """## Setup
+
+Audit events 4624 and 4688 are needed to trigger this rule.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by winlog.computer_name with maxspan=1m
+
+[authentication where event.action:"logged-in" and
+ event.outcome == "success" and user.id : ("S-1-5-21-*", "S-1-12-1-*") and
+
+ /* seclogon service */
+ process.name == "svchost.exe" and
+ winlog.event_data.LogonProcessName : "seclogo*" and source.ip == "::1" ] by winlog.event_data.TargetLogonId
+
+[process where event.type == "start"] by winlog.event_data.TargetLogonId
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,36 +81,6 @@ The Secondary Logon service in Windows allows users to run processes with differ
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the full scope of the breach.
 - Implement stricter access controls and monitoring on the Secondary Logon service to detect and prevent similar privilege escalation attempts in the future.
 - Update and reinforce endpoint detection and response (EDR) solutions to enhance monitoring of process creation events and logon activities, ensuring they are aligned with the latest threat intelligence."""
-references = ["https://attack.mitre.org/techniques/T1134/002/"]
-risk_score = 47
-rule_id = "42eeee3d-947f-46d3-a14d-7036b962c266"
-setup = """## Setup
-
-Audit events 4624 and 4688 are needed to trigger this rule.
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by winlog.computer_name with maxspan=1m
-
-[authentication where event.action:"logged-in" and
- event.outcome == "success" and user.id : ("S-1-5-21-*", "S-1-12-1-*") and
-
- /* seclogon service */
- process.name == "svchost.exe" and
- winlog.event_data.LogonProcessName : "seclogo*" and source.ip == "::1" ] by winlog.event_data.TargetLogonId
-
-[process where event.type == "start"] by winlog.event_data.TargetLogonId
-'''
 
 
 [[rule.threat]]

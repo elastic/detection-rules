@@ -2,7 +2,9 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +28,27 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming Execution via WinRM Remote Shell"
+risk_score = 47
+rule_id = "1cd01db9-be24-4bef-8e7c-e923f0ff78ab"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=30s
+   [network where host.os.type == "windows" and process.pid == 4 and network.direction : ("incoming", "ingress") and
+    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
+   [process where host.os.type == "windows" and
+    event.type == "start" and process.parent.name : "winrshost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -61,27 +84,6 @@ Windows Remote Management (WinRM) is a protocol that allows for remote managemen
 - Restore the affected system from a known good backup if any malicious activity or unauthorized changes are confirmed.
 - Implement network segmentation to limit the ability of threats to move laterally across the network, focusing on restricting access to critical systems.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
-risk_score = 47
-rule_id = "1cd01db9-be24-4bef-8e7c-e923f0ff78ab"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by host.id with maxspan=30s
-   [network where host.os.type == "windows" and process.pid == 4 and network.direction : ("incoming", "ingress") and
-    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
-   [process where host.os.type == "windows" and
-    event.type == "start" and process.parent.name : "winrshost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
-'''
 
 
 [[rule.threat]]

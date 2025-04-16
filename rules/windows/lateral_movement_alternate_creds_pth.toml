@@ -2,7 +2,9 @@
 creation_date = "2023/03/29"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,20 @@ index = ["winlogbeat-*", "logs-windows.forwarded*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Pass-the-Hash (PtH) Attempt"
+references = ["https://attack.mitre.org/techniques/T1550/002/"]
+risk_score = 47
+rule_id = "daafdf96-e7b1-4f14-b494-27e0d24b11f6"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Windows Security Event Logs", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:"windows" and
+event.category : "authentication" and event.action : "logged-in" and
+winlog.logon.type : "NewCredentials" and event.outcome : "success" and
+user.id : (S-1-5-21-* or S-1-12-1-*) and winlog.event_data.LogonProcessName : "seclogo"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,27 +67,6 @@ Pass-the-Hash (PtH) is a technique where attackers use stolen password hashes to
 - Deploy endpoint detection and response (EDR) tools to monitor for any further suspicious activity or attempts to use stolen hashes.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach.
 - Implement additional logging and monitoring for the "seclogo" logon process to enhance detection of future pass-the-hash attempts."""
-references = ["https://attack.mitre.org/techniques/T1550/002/"]
-risk_score = 47
-rule_id = "daafdf96-e7b1-4f14-b494-27e0d24b11f6"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-host.os.type:"windows" and
-event.category : "authentication" and event.action : "logged-in" and
-winlog.logon.type : "NewCredentials" and event.outcome : "success" and
-user.id : (S-1-5-21-* or S-1-12-1-*) and winlog.event_data.LogonProcessName : "seclogo"
-'''
 
 
 [[rule.threat]]

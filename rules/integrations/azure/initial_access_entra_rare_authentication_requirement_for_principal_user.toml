@@ -2,7 +2,7 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/03/25"
+updated_date = "2025/03/10"
 
 [rule]
 author = ["Elastic"]
@@ -13,13 +13,13 @@ an attempt to bypass conditional access policies (CAP) and multi-factor authenti
 authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
 """
 from = "now-9m"
-index = ["filebeat-*", "logs-azure.signinlogs-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Microsoft Entra ID Rare Authentication Requirement for Principal User"
+name = "Azure Entra ID Rare Authentication Requirement for Principal User"
 note = """## Triage and analysis
 
-### Investigating Microsoft Entra ID Rare Authentication Requirement for Principal User
+### Investigating Azure Entra ID Rare Authentication Requirement for Principal User
 
 Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
 
@@ -72,8 +72,8 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Data Source: Azure",
-    "Data Source: Microsoft Entra ID",
-    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-in",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
@@ -85,10 +85,8 @@ type = "new_terms"
 query = '''
 event.dataset: "azure.signinlogs" and event.category: "authentication"
     and azure.signinlogs.properties.user_type: "Member"
-    and azure.signinlogs.properties.authentication_details.authentication_method: "Password"
-    and not azure.signinlogs.properties.device_detail.browser: *
+    and not azure.signinlogs.properties.client_app_used: "Browser"
     and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
-    and not azure.signinlogs.properties.authentication_requirement: "multiFactorAuthentication"
 '''
 
 
@@ -109,24 +107,6 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1110"
-name = "Brute Force"
-reference = "https://attack.mitre.org/techniques/T1110/"
-[[rule.threat.technique.subtechnique]]
-id = "T1110.003"
-name = "Password Spraying"
-reference = "https://attack.mitre.org/techniques/T1110/003/"
-
-
-
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.new_terms]
 field = "new_terms_fields"

@@ -2,7 +2,9 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +19,23 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GitHub Repository Deleted"
+risk_score = 47
+rule_id = "345889c4-23a8-4bc0-b7ca-756bd17ce83b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Impact",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and event.dataset == "github.audit" and event.action == "repo.destroy"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -50,23 +69,6 @@ GitHub repositories are essential for managing code and collaboration within org
 - Implement additional access controls, such as multi-factor authentication and role-based access, to prevent unauthorized deletions in the future.
 - Escalate the incident to higher management and legal teams if intellectual property theft or significant data loss is suspected.
 - Enhance monitoring and alerting mechanisms to detect similar unauthorized actions promptly, leveraging the MITRE ATT&CK framework for guidance on potential threat vectors."""
-risk_score = 47
-rule_id = "345889c4-23a8-4bc0-b7ca-756bd17ce83b"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Impact",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-configuration where event.module == "github" and event.dataset == "github.audit" and event.action == "repo.destroy"
-'''
 
 
 [[rule.threat]]

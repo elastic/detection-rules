@@ -2,7 +2,9 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious .NET Code Compilation"
+risk_score = 47
+rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("csc.exe", "vbc.exe") and
+  process.parent.name : ("wscript.exe", "mshta.exe", "cscript.exe", "wmic.exe", "svchost.exe", "rundll32.exe", "cmstp.exe", "regsvr32.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,32 +88,6 @@ note = """## Triage and analysis
 - Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated through cleaning.
 - Implement application whitelisting to prevent unauthorized execution of compilers and scripting engines by non-standard parent processes.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the need for broader organizational response measures."""
-risk_score = 47
-rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : ("csc.exe", "vbc.exe") and
-  process.parent.name : ("wscript.exe", "mshta.exe", "cscript.exe", "wmic.exe", "svchost.exe", "rundll32.exe", "cmstp.exe", "regsvr32.exe")
-'''
 
 
 [[rule.threat]]

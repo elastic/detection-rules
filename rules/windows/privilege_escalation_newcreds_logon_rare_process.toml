@@ -2,7 +2,9 @@
 creation_date = "2023/11/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,17 @@ index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen NewCredentials Logon Process"
+references = ["https://www.elastic.co/pt/blog/how-attackers-abuse-access-token-manipulation"]
+risk_score = 47
+rule_id = "e468f3f6-7c4c-45bb-846a-053738b3fe5d"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Windows Security Event Logs", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,24 +62,6 @@ The NewCredentials logon type in Windows allows processes to impersonate a user 
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring for similar suspicious logon activities across the network to detect and respond to potential future attempts promptly.
 - Review and update access control policies and token management practices to mitigate the risk of access token manipulation in the future."""
-references = ["https://www.elastic.co/pt/blog/how-attackers-abuse-access-token-manipulation"]
-risk_score = 47
-rule_id = "e468f3f6-7c4c-45bb-846a-053738b3fe5d"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
-'''
 
 
 [[rule.threat]]

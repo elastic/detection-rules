@@ -2,7 +2,9 @@
 creation_date = "2021/03/08"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,17 +13,40 @@ Identifies suspicious processes being spawned by the Microsoft Exchange Server w
 indicate exploitation activity or access to an existing web shell backdoor.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Worker Spawning Suspicious Processes"
+references = [
+    "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
+    "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
+    "https://discuss.elastic.co/t/detection-and-response-for-hafnium-activity/266289",
+]
+risk_score = 73
+rule_id = "f81ee52c-297e-46d9-9205-07e66931df26"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "w3wp.exe" and process.parent.args : "MSExchange*AppPool" and
+  (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") or
+  ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,36 +83,6 @@ Microsoft Exchange Server uses the worker process (w3wp.exe) to handle web reque
 - Apply the latest security patches and updates to the Microsoft Exchange Server to mitigate known vulnerabilities and prevent exploitation.
 - Monitor network traffic and server logs for any signs of continued or attempted exploitation, focusing on unusual outbound connections or repeated access attempts.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised."""
-references = [
-    "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
-    "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
-    "https://discuss.elastic.co/t/detection-and-response-for-hafnium-activity/266289",
-]
-risk_score = 73
-rule_id = "f81ee52c-297e-46d9-9205-07e66931df26"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Initial Access",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "w3wp.exe" and process.parent.args : "MSExchange*AppPool" and
-  (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") or
-  ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
-'''
 
 
 [[rule.threat]]

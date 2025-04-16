@@ -193,7 +193,6 @@ class RulesConfig:
     exception_dir: Optional[Path] = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
-    no_tactic_filename: bool = False
 
     def __post_init__(self):
         """Perform post validation on packages.yaml file."""
@@ -312,10 +311,6 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     if contents['bypass_optional_elastic_validation']:
         set_all_validation_bypass(contents['bypass_optional_elastic_validation'])
 
-    # no_tactic_filename
-    contents['no_tactic_filename'] = loaded.get('no_tactic_filename', False)
-
-    # return the config
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)
     except (ValueError, TypeError) as e:

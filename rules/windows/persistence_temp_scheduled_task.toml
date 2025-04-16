@@ -2,7 +2,9 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,26 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Temporarily Scheduled Task Creation"
+references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
+risk_score = 47
+rule_id = "81ff45f8-f8c2-4e28-992e-5a0e8d98e0fe"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
+   [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
+   [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -50,26 +72,6 @@ Scheduled tasks in Windows environments automate routine tasks, but adversaries 
 - Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems are affected.
 - Implement additional monitoring and alerting for similar scheduled task activities to enhance detection and prevent recurrence of this threat."""
-references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
-risk_score = 47
-rule_id = "81ff45f8-f8c2-4e28-992e-5a0e8d98e0fe"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Execution",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
-   [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
-   [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
-'''
 
 
 [[rule.threat]]

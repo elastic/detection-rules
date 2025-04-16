@@ -2,7 +2,9 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,16 +13,35 @@ Identifies User Account Control (UAC) bypass attempts via the ICMLuaUtil Elevate
 to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass via ICMLuaUtil Elevated COM Interface"
+risk_score = 73
+rule_id = "68d56fdc-7ffa-4419-8e95-81641bd6f845"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name == "dllhost.exe" and
+ process.parent.args in ("/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}", "/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}") and
+ process.pe.original_file_name != "WerFault.exe"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,31 +77,6 @@ The ICMLuaUtil Elevated COM Interface is a Windows component that facilitates Us
 - Update and patch the operating system and all installed software to mitigate any known vulnerabilities that could be exploited for UAC bypass.
 - Implement application whitelisting to prevent unauthorized applications from executing, focusing on blocking the execution of `dllhost.exe` with suspicious arguments.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
-risk_score = 73
-rule_id = "68d56fdc-7ffa-4419-8e95-81641bd6f845"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
- process.parent.name == "dllhost.exe" and
- process.parent.args in ("/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}", "/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}") and
- process.pe.original_file_name != "WerFault.exe"
-'''
 
 
 [[rule.threat]]

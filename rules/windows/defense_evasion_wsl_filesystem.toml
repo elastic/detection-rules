@@ -2,7 +2,9 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +22,31 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Host Files System Changes via Windows Subsystem for Linux"
+references = ["https://github.com/microsoft/WSL"]
+risk_score = 47
+rule_id = "e88d1fe9-b2f4-48d4-bace-a026dc745d4b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=5m
+ [process where host.os.type == "windows" and event.type == "start" and
+  process.name : "dllhost.exe" and
+   /* Plan9FileSystem CLSID - WSL Host File System Worker */
+  process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
+ [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -54,31 +81,6 @@ Windows Subsystem for Linux (WSL) allows users to run a Linux environment direct
 - Update and patch the Windows Subsystem for Linux and related components to mitigate any known vulnerabilities that could be exploited.
 - Monitor for any recurrence of similar activities by setting up alerts for processes and file operations involving "dllhost.exe" and the Plan9FileSystem.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
-references = ["https://github.com/microsoft/WSL"]
-risk_score = 47
-rule_id = "e88d1fe9-b2f4-48d4-bace-a026dc745d4b"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-sequence by process.entity_id with maxspan=5m
- [process where host.os.type == "windows" and event.type == "start" and
-  process.name : "dllhost.exe" and
-   /* Plan9FileSystem CLSID - WSL Host File System Worker */
-  process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
- [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
-'''
 
 
 [[rule.threat]]

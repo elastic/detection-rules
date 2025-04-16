@@ -2,7 +2,9 @@
 creation_date = "2022/01/31"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +20,29 @@ index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AdminSDHolder Backdoor"
+references = [
+    "https://adsecurity.org/?p=1906",
+    "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-c--protected-accounts-and-groups-in-active-directory#adminsdholder",
+]
+risk_score = 73
+rule_id = "6e9130a5-9be6-48e5-943a-9628bfc74b18"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -53,29 +78,6 @@ The AdminSDHolder object in Active Directory is crucial for maintaining consiste
 - Implement additional monitoring on the AdminSDHolder object and other critical Active Directory objects to detect any future unauthorized modifications promptly.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach, including identifying any other compromised systems or accounts.
 - Review and update access control policies and security configurations to prevent similar attacks, ensuring that only authorized personnel have the ability to modify critical Active Directory objects."""
-references = [
-    "https://adsecurity.org/?p=1906",
-    "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-c--protected-accounts-and-groups-in-active-directory#adminsdholder",
-]
-risk_score = 73
-rule_id = "6e9130a5-9be6-48e5-943a-9628bfc74b18"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Active Directory",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "query"
-
-query = '''
-event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
-'''
 
 
 [[rule.threat]]

@@ -2,7 +2,9 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +28,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Application Shimming via Sdbinst"
+risk_score = 21
+rule_id = "fd4a992d-6130-4802-9ff8-829b89ae801f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.name : "sdbinst.exe" and
+  process.args : "?*" and
+  not (process.args : "-m" and process.args : "-bg") and
+  not process.args : "-mm"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -61,32 +89,6 @@ Application shimming is a Windows feature designed to ensure software compatibil
 - Review and restore any altered system configurations or registry settings to their default or secure state.
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for `sdbinst.exe` executions across the network to detect and respond to future attempts at application shimming."""
-risk_score = 21
-rule_id = "fd4a992d-6130-4802-9ff8-829b89ae801f"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and process.name : "sdbinst.exe" and
-  process.args : "?*" and
-  not (process.args : "-m" and process.args : "-bg") and
-  not process.args : "-mm"
-'''
 
 
 [[rule.threat]]

@@ -2,23 +2,48 @@
 creation_date = "2024/08/23"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
-description = "This rule detects Linux Access Control List (ACL) modification via the setfacl command.\n"
+description = """
+This rule detects Linux Access Control List (ACL) modification via the setfacl command.
+"""
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Access Control List Modification via setfacl"
+references = ["https://www.uptycs.com/blog/threat-research-report-team/evasive-techniques-used-by-malicious-linux-shell-scripts"]
+risk_score = 21
+rule_id = "999565a2-fc52-4d72-91e4-ba6712c0377e"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "setfacl" and not (
+  process.command_line == "/bin/setfacl --restore=-" or
+  process.args == "/var/log/journal/" or
+  process.parent.name in ("stats.pl", "perl", "find") or
+  process.parent.command_line like~ "/bin/sh -c *ansible*"
+)
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -52,54 +77,21 @@ Access Control Lists (ACLs) in Linux enhance file permission management by allow
 - Update and patch the system to address any vulnerabilities that may have been exploited to gain access.
 - Implement stricter access controls and monitoring on critical systems to detect and prevent unauthorized ACL modifications in the future.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
-references = [
-    "https://www.uptycs.com/blog/threat-research-report-team/evasive-techniques-used-by-malicious-linux-shell-scripts",
-]
-risk_score = 21
-rule_id = "999565a2-fc52-4d72-91e4-ba6712c0377e"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "setfacl" and not (
-  process.command_line == "/bin/setfacl --restore=-" or
-  process.args == "/var/log/journal/" or
-  process.parent.name in ("stats.pl", "perl", "find") or
-  process.parent.command_line like~ "/bin/sh -c *ansible*"
-)
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1222.002"
 name = "Linux and Mac File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

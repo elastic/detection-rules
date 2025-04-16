@@ -2,24 +2,45 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
 description = "Detects attempts to establish persistence on an endpoint by installing a rogue Microsoft Outlook VBA Template."
 false_positives = ["A legitimate VBA for Outlook is usually configured interactively via OUTLOOK.EXE."]
 from = "now-9m"
-index = [
-    "logs-endpoint.events.file-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.file-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Microsoft Outlook VBA"
+references = [
+    "https://www.mdsec.co.uk/2020/11/a-fresh-outlook-on-mail-based-persistence/",
+    "https://www.linkedin.com/pulse/outlook-backdoor-using-vba-samir-b-/",
+]
+risk_score = 47
+rule_id = "397945f3-d39a-4e6f-8bcb-9656c2031438"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type != "deletion" and
+ file.path : "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Outlook\\VbaProject.OTM"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,32 +77,6 @@ Microsoft Outlook supports VBA scripting to automate tasks, which can be exploit
 - Conduct a full antivirus and antimalware scan on the affected endpoint using tools like Microsoft Defender for Endpoint to identify and remove any additional threats.
 - Review and update endpoint security policies to restrict unauthorized modifications to Outlook VBA files, leveraging application whitelisting or similar controls.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
-references = [
-    "https://www.mdsec.co.uk/2020/11/a-fresh-outlook-on-mail-based-persistence/",
-    "https://www.linkedin.com/pulse/outlook-backdoor-using-vba-samir-b-/",
-]
-risk_score = 47
-rule_id = "397945f3-d39a-4e6f-8bcb-9656c2031438"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "windows" and event.type != "deletion" and
- file.path : "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Outlook\\VbaProject.OTM"
-'''
 
 
 [[rule.threat]]

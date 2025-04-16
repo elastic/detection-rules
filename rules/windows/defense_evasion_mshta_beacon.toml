@@ -2,7 +2,9 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +22,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Mshta Making Network Connections"
+references = [
+    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
+]
+risk_score = 47
+rule_id = "c2d90150-0133-451c-a783-533e736c12d7"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=10m
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
+     not process.parent.name : "Microsoft.ConfigurationManagement.exe" and
+     not (process.parent.executable : "C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe" or
+          process.parent.executable : "C:\\TeamViewer\\TeamViewer.exe") and
+     not process.args : "ADSelfService_Enroll.hta"]
+  [network where host.os.type == "windows" and process.name : "mshta.exe"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -53,32 +81,6 @@ Mshta.exe is a legitimate Windows utility used to execute Microsoft HTML Applica
 - Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated.
 - Implement application whitelisting to prevent unauthorized execution of mshta.exe and similar system binaries.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
-references = [
-    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
-]
-risk_score = 47
-rule_id = "c2d90150-0133-451c-a783-533e736c12d7"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by process.entity_id with maxspan=10m
-  [process where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
-     not process.parent.name : "Microsoft.ConfigurationManagement.exe" and
-     not (process.parent.executable : "C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe" or
-          process.parent.executable : "C:\\TeamViewer\\TeamViewer.exe") and
-     not process.args : "ADSelfService_Enroll.hta"]
-  [network where host.os.type == "windows" and process.name : "mshta.exe"]
-'''
 
 
 [[rule.threat]]

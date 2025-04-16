@@ -2,7 +2,9 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +23,31 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming DCOM Lateral Movement via MSHTA"
+references = ["https://codewhitesec.blogspot.com/2018/07/lethalhta.html"]
+risk_score = 73
+rule_id = "622ecb68-fa81-4601-90b5-f8cd661e4520"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+  [process where host.os.type == "windows" and event.type == "start" and
+     process.name : "mshta.exe" and process.args : "-Embedding"
+  ] by host.id, process.entity_id
+  [network where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
+     network.direction : ("incoming", "ingress") and network.transport == "tcp" and
+     source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
+  ] by host.id, process.entity_id
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,31 +83,6 @@ DCOM allows software components to communicate over a network, enabling remote e
 - Review and restrict DCOM permissions and configurations on the affected host and other critical systems to limit the potential for similar attacks.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems have been compromised.
 - Update detection mechanisms and threat intelligence feeds to enhance monitoring for similar DCOM-based lateral movement attempts in the future."""
-references = ["https://codewhitesec.blogspot.com/2018/07/lethalhta.html"]
-risk_score = 73
-rule_id = "622ecb68-fa81-4601-90b5-f8cd661e4520"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence with maxspan=1m
-  [process where host.os.type == "windows" and event.type == "start" and
-     process.name : "mshta.exe" and process.args : "-Embedding"
-  ] by host.id, process.entity_id
-  [network where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
-     network.direction : ("incoming", "ingress") and network.transport == "tcp" and
-     source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
-  ] by host.id, process.entity_id
-'''
 
 
 [[rule.threat]]

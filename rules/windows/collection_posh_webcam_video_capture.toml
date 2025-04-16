@@ -2,7 +2,9 @@
 creation_date = "2023/07/18"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,40 +17,6 @@ index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Webcam Video Capture Capabilities"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Webcam Video Capture Capabilities
-
-PowerShell, a powerful scripting language in Windows, can interface with system components like webcams for legitimate tasks such as video conferencing. However, adversaries exploit this by crafting scripts to covertly record video, infringing on privacy. The detection rule identifies suspicious script patterns and API calls linked to webcam access, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the PowerShell script block text associated with the alert to identify any suspicious patterns or API calls, such as "NewFrameEventHandler" or "VideoCaptureDevice".
-- Check the process execution details, including the parent process, to determine how the PowerShell script was initiated and if it was part of a legitimate application or task.
-- Investigate the user account under which the PowerShell script was executed to assess if the account has a history of suspicious activity or if it has been compromised.
-- Examine the host's recent activity logs for any other unusual behavior or alerts that might correlate with the webcam access attempt, such as unauthorized access attempts or data exfiltration.
-- Verify if the host has any legitimate applications that might use webcam access, and cross-reference with the script's behavior to rule out false positives.
-
-### False positive analysis
-
-- Legitimate video conferencing applications may trigger the detection rule due to their use of similar API calls and script patterns. Users can create exceptions for known and trusted applications by whitelisting their process names or script signatures.
-- Security testing tools that simulate webcam access for vulnerability assessments might be flagged. To handle this, users should exclude these tools from monitoring during scheduled testing periods.
-- System diagnostics or maintenance scripts that access webcam components for hardware checks can be mistaken for malicious activity. Users should document and exclude these scripts if they are part of routine system operations.
-- Educational or training software that uses webcam access for interactive sessions may be incorrectly identified. Users can mitigate this by adding these applications to an allowlist after verifying their legitimacy.
-- Custom scripts developed in-house for specific business needs that involve webcam access should be reviewed and, if deemed safe, excluded from the detection rule to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious PowerShell processes identified by the detection rule to stop ongoing webcam recording activities.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious scripts or software.
-- Review and revoke any unauthorized access permissions or credentials that may have been compromised during the incident.
-- Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious script.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for PowerShell activities across the network to detect and respond to similar threats more effectively in the future."""
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/lib/modules/powershell/collection/WebcamRecorder.py",
 ]
@@ -100,6 +68,40 @@ event.category:process and host.os.type:windows and
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Webcam Video Capture Capabilities
+
+PowerShell, a powerful scripting language in Windows, can interface with system components like webcams for legitimate tasks such as video conferencing. However, adversaries exploit this by crafting scripts to covertly record video, infringing on privacy. The detection rule identifies suspicious script patterns and API calls linked to webcam access, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text associated with the alert to identify any suspicious patterns or API calls, such as "NewFrameEventHandler" or "VideoCaptureDevice".
+- Check the process execution details, including the parent process, to determine how the PowerShell script was initiated and if it was part of a legitimate application or task.
+- Investigate the user account under which the PowerShell script was executed to assess if the account has a history of suspicious activity or if it has been compromised.
+- Examine the host's recent activity logs for any other unusual behavior or alerts that might correlate with the webcam access attempt, such as unauthorized access attempts or data exfiltration.
+- Verify if the host has any legitimate applications that might use webcam access, and cross-reference with the script's behavior to rule out false positives.
+
+### False positive analysis
+
+- Legitimate video conferencing applications may trigger the detection rule due to their use of similar API calls and script patterns. Users can create exceptions for known and trusted applications by whitelisting their process names or script signatures.
+- Security testing tools that simulate webcam access for vulnerability assessments might be flagged. To handle this, users should exclude these tools from monitoring during scheduled testing periods.
+- System diagnostics or maintenance scripts that access webcam components for hardware checks can be mistaken for malicious activity. Users should document and exclude these scripts if they are part of routine system operations.
+- Educational or training software that uses webcam access for interactive sessions may be incorrectly identified. Users can mitigate this by adding these applications to an allowlist after verifying their legitimacy.
+- Custom scripts developed in-house for specific business needs that involve webcam access should be reviewed and, if deemed safe, excluded from the detection rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious PowerShell processes identified by the detection rule to stop ongoing webcam recording activities.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious scripts or software.
+- Review and revoke any unauthorized access permissions or credentials that may have been compromised during the incident.
+- Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious script.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for PowerShell activities across the network to detect and respond to similar threats more effectively in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,9 @@
 creation_date = "2024/05/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,40 +18,6 @@ index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential PowerShell HackTool Script by Author"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential PowerShell HackTool Script by Author
-
-PowerShell is a powerful scripting language and automation framework used in Windows environments for task automation and configuration management. Adversaries exploit PowerShell's capabilities to execute malicious scripts, often leveraging well-known offensive tools without altering the original code. The detection rule identifies scripts containing specific author names linked to these tools, flagging potential misuse by recognizing unmodified author artifacts in the script block text.
-
-### Possible investigation steps
-
-- Review the PowerShell script block text associated with the alert to identify the specific author name that triggered the detection. This can provide insight into the potential tool or script being used.
-- Examine the process details, including the parent process and command line arguments, to understand the context in which the PowerShell script was executed. This can help determine if the execution was part of a legitimate task or a suspicious activity.
-- Check the host's recent activity logs for any other unusual or related events, such as network connections, file modifications, or other process executions, to identify potential lateral movement or data exfiltration attempts.
-- Investigate the user account under which the PowerShell script was executed to determine if it has been compromised or if the activity aligns with the user's typical behavior.
-- Correlate the alert with other security tools and logs, such as antivirus or endpoint detection and response (EDR) solutions, to gather additional context and confirm whether the activity is malicious.
-
-### False positive analysis
-
-- Scripts used in legitimate red team exercises may trigger the rule due to the presence of known author names. To manage this, create exceptions for scripts verified as part of authorized security assessments.
-- PowerShell scripts from open-source security tools used for internal testing or training might be flagged. Ensure these tools are documented and approved, then exclude them from the rule.
-- Automated scripts for system administration that include code snippets from well-known authors could be mistakenly identified. Review and whitelist these scripts if they are part of routine operations.
-- Security research and development activities using sample scripts from recognized authors may cause alerts. Maintain a list of such activities and exclude them from detection to avoid unnecessary alerts.
-- Internal development teams using PowerShell scripts for legitimate purposes might inadvertently use code from popular authors. Conduct regular reviews and exclude these scripts if they are deemed non-threatening.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further execution of potentially malicious scripts and lateral movement.
-- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activity.
-- Conduct a thorough review of the PowerShell script block text to confirm the presence of known offensive tool author names and assess the potential impact.
-- Remove any unauthorized or malicious scripts from the affected system and ensure that all legitimate scripts are verified and restored from a clean backup.
-- Update endpoint protection and antivirus signatures to detect and block the specific PowerShell scripts and associated indicators of compromise (IOCs) identified in the alert.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for PowerShell activity across the network to detect similar threats in the future, leveraging the MITRE ATT&CK framework for guidance on relevant techniques and tactics."""
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
 ]
@@ -113,6 +81,40 @@ host.os.type:windows and event.category:process and
       "splinter_code"
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell HackTool Script by Author
+
+PowerShell is a powerful scripting language and automation framework used in Windows environments for task automation and configuration management. Adversaries exploit PowerShell's capabilities to execute malicious scripts, often leveraging well-known offensive tools without altering the original code. The detection rule identifies scripts containing specific author names linked to these tools, flagging potential misuse by recognizing unmodified author artifacts in the script block text.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text associated with the alert to identify the specific author name that triggered the detection. This can provide insight into the potential tool or script being used.
+- Examine the process details, including the parent process and command line arguments, to understand the context in which the PowerShell script was executed. This can help determine if the execution was part of a legitimate task or a suspicious activity.
+- Check the host's recent activity logs for any other unusual or related events, such as network connections, file modifications, or other process executions, to identify potential lateral movement or data exfiltration attempts.
+- Investigate the user account under which the PowerShell script was executed to determine if it has been compromised or if the activity aligns with the user's typical behavior.
+- Correlate the alert with other security tools and logs, such as antivirus or endpoint detection and response (EDR) solutions, to gather additional context and confirm whether the activity is malicious.
+
+### False positive analysis
+
+- Scripts used in legitimate red team exercises may trigger the rule due to the presence of known author names. To manage this, create exceptions for scripts verified as part of authorized security assessments.
+- PowerShell scripts from open-source security tools used for internal testing or training might be flagged. Ensure these tools are documented and approved, then exclude them from the rule.
+- Automated scripts for system administration that include code snippets from well-known authors could be mistakenly identified. Review and whitelist these scripts if they are part of routine operations.
+- Security research and development activities using sample scripts from recognized authors may cause alerts. Maintain a list of such activities and exclude them from detection to avoid unnecessary alerts.
+- Internal development teams using PowerShell scripts for legitimate purposes might inadvertently use code from popular authors. Conduct regular reviews and exclude these scripts if they are deemed non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution of potentially malicious scripts and lateral movement.
+- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activity.
+- Conduct a thorough review of the PowerShell script block text to confirm the presence of known offensive tool author names and assess the potential impact.
+- Remove any unauthorized or malicious scripts from the affected system and ensure that all legitimate scripts are verified and restored from a clean backup.
+- Update endpoint protection and antivirus signatures to detect and block the specific PowerShell scripts and associated indicators of compromise (IOCs) identified in the alert.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for PowerShell activity across the network to detect similar threats in the future, leveraging the MITRE ATT&CK framework for guidance on relevant techniques and tactics."""
 
 
 [[rule.threat]]

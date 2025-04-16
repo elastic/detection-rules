@@ -2,13 +2,15 @@
 creation_date = "2024/09/09"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/02/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the execution of the VScode portable binary with the tunnel command line option indicating an attempt to
-establish a remote tunnel session to Github or a remote VScode instance.
+Detects the execution of the VScode portable binary with the tunnel command line option indicating an
+attempt to establish a remote tunnel session to Github or a remote VScode instance.
 """
 from = "now-9m"
 index = [
@@ -24,6 +26,35 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Establish VScode Remote Tunnel"
+references = [
+    "https://badoption.eu/blog/2023/01/31/code_c2.html",
+    "https://code.visualstudio.com/docs/remote/tunnels"
+]
+risk_score = 47
+rule_id = "0b96dfd8-5b8c-4485-9a1c-69ff7839786a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.args : "tunnel" and (process.args : "--accept-server-license-terms" or process.name : "code*.exe") and
+  not (process.name == "code-tunnel.exe" and process.args == "status" and process.parent.name == "Code.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -59,35 +90,6 @@ Visual Studio Code (VScode) offers a remote tunnel feature enabling developers t
 - Restore the system from a known good backup if any unauthorized changes or malware are detected.
 - Implement network segmentation to limit the ability of similar threats to spread across the environment.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
-references = [
-    "https://badoption.eu/blog/2023/01/31/code_c2.html",
-    "https://code.visualstudio.com/docs/remote/tunnels",
-]
-risk_score = 47
-rule_id = "0b96dfd8-5b8c-4485-9a1c-69ff7839786a"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.args : "tunnel" and (process.args : "--accept-server-license-terms" or process.name : "code*.exe") and
-  not (process.name == "code-tunnel.exe" and process.args == "status" and process.parent.name == "Code.exe")
-'''
 
 
 [[rule.threat]]

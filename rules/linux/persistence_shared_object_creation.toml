@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/11"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -160,20 +160,17 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
-host.os.type:"linux" and event.action:("creation" or "file_create_event" or "file_rename_event" or "rename" or "file_write_event") and
-(file.extension:"so" or file.name:*.so.*) and
-file.path:(
-  /dev/shm/* or /usr/lib/* or /usr/lib64/* or /usr/local/lib/* or /usr/local/lib64/* or /lib/x86_64-linux-gnu/* or
-  /usr/lib/x86_64-linux-gnu/* or /lib/i386-linux-gnu/* or /usr/lib/i386-linux-gnu/* or /lib/* or /lib64/*
-) and not (
+host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and 
+file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and process.name:* and not (
   process.name:(
     "dockerd" or "dpkg" or "rpm" or "snapd" or "yum" or "vmis-launcher" or "pacman" or "apt-get" or "dnf" or "podman" or
     platform-python* or "dnf-automatic" or "unattended-upgrade" or "apk" or "snap-update-ns" or "install" or "exe" or
-    "systemd" or "root" or "sshd" or "pip" or "jlink" or python* or "update-alternatives" or pip* or "crio" or "packagekitd"
+    "systemd" or "root" or "sshd" or "pip" or "jlink" or python* or "update-alternatives" or pip* or
+    "installer.bin.inst" or "uninstall-bin" or "linux_agent.inst" or crio or ssm-agent-worker or packagekitd
   ) or 
-  (process.name:"vmware-install.pl" and file.path:/usr/lib/vmware-tools/*) or
-  (process.name:"ssm-agent-worker" and file.path:/usr/lib/jvm/java*) or 
+  (process.name:vmware-install.pl and file.path:/usr/lib/vmware-tools/*) or
   process.executable : (/dev/fd/* or "/" or "/kaniko/executor" or "/usr/bin/buildah")
 )
 '''

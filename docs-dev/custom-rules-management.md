@@ -94,10 +94,8 @@ be set in `_config.yaml` or as the environment variable `DETECTION_RULES_TEST_CO
 environment variable if both are set. Having both these options allows for configuring testing on prebuilt Elastic rules
 without specifying a rules _config.yaml.
 
-Some notes:
 
-* If set in this file, the path should be relative to the location of this config. If passed as an environment variable, it should be the full path
-* When using the `--no-tactic-filename` flag for kibana imports and exports, be sure to disable the unit test by using the following line `- tests.test_all_rules.TestRuleFiles.test_rule_file_name_tactic` in your test config file.
+* Note: If set in this file, the path should be relative to the location of this config. If passed as an environment variable, it should be the full path
 
 
 ### How the config is used and it's designed portability

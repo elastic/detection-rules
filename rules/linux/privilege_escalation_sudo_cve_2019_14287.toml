@@ -2,7 +2,9 @@
 creation_date = "2023/08/30"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,52 +15,10 @@ that can be chosen arbitrarily. By using the sudo privileges, the command "sudo 
 representing the root user. This exploit may work for sudo versions prior to v1.28.
 """
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Sudo Privilege Escalation via CVE-2019-14287"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Sudo Privilege Escalation via CVE-2019-14287
-
-CVE-2019-14287 exploits a flaw in certain sudo versions, allowing users to execute commands as root by bypassing user ID verification. Attackers can misuse this to gain unauthorized root access, posing significant security risks. The detection rule identifies suspicious sudo commands indicative of this exploit, focusing on specific command patterns that translate to root execution, thereby alerting security teams to potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the suspicious command pattern "sudo -u#-1" in the process arguments, as this is indicative of the CVE-2019-14287 exploit attempt.
-- Identify the user account associated with the process execution to determine if the user should have legitimate access to execute commands with elevated privileges.
-- Examine the process execution timeline to identify any preceding or subsequent suspicious activities that might indicate a broader attack or compromise.
-- Check the version of sudo installed on the affected system to verify if it is vulnerable to CVE-2019-14287, specifically versions prior to v1.28.
-- Investigate the source IP address and hostname of the affected system to assess if it is part of a larger attack pattern or if there are other systems potentially compromised.
-- Review system logs and audit trails for any additional unauthorized access attempts or privilege escalation activities around the time of the alert.
-- If possible, isolate the affected system to prevent further unauthorized access while conducting a more thorough forensic analysis.
-
-### False positive analysis
-
-- Legitimate administrative tasks using sudo with unconventional user ID arguments may trigger the rule. Review the context of the command execution to determine if it aligns with expected administrative activities.
-- Automated scripts or maintenance tools that use sudo with arbitrary user IDs for testing or configuration purposes might be flagged. Identify and document these scripts, then create exceptions in the monitoring system to exclude them from alerts.
-- Development environments where developers have elevated privileges for testing purposes could generate false positives. Ensure that such environments are well-documented and consider excluding them from this specific rule if they consistently trigger alerts.
-- Security tools or monitoring systems that simulate attacks for testing detection capabilities may inadvertently trigger this rule. Coordinate with security teams to whitelist these tools or adjust their configurations to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
-- Terminate any suspicious processes identified with the command pattern "sudo -u#-1" to halt any ongoing unauthorized activities.
-- Conduct a thorough review of system logs and sudo logs to identify any additional unauthorized access attempts or successful privilege escalations.
-- Reset passwords and review user accounts on the affected system to ensure no unauthorized accounts have been created or existing accounts have been compromised.
-- Apply patches or upgrade sudo to a version later than v1.28 to mitigate the vulnerability exploited by CVE-2019-14287.
-- Monitor the network for any signs of data exfiltration or further exploitation attempts, using enhanced logging and alerting mechanisms.
-- Report the incident to the appropriate internal security team or external authorities if required, providing them with detailed findings and actions taken."""
 references = ["https://www.exploit-db.com/exploits/47502"]
 risk_score = 47
 rule_id = "8af5b42f-8d74-48c8-a8d0-6d14b4197288"
@@ -109,6 +69,41 @@ process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
   process.name == "sudo" and process.args == "-u#-1"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Sudo Privilege Escalation via CVE-2019-14287
+
+CVE-2019-14287 exploits a flaw in certain sudo versions, allowing users to execute commands as root by bypassing user ID verification. Attackers can misuse this to gain unauthorized root access, posing significant security risks. The detection rule identifies suspicious sudo commands indicative of this exploit, focusing on specific command patterns that translate to root execution, thereby alerting security teams to potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious command pattern "sudo -u#-1" in the process arguments, as this is indicative of the CVE-2019-14287 exploit attempt.
+- Identify the user account associated with the process execution to determine if the user should have legitimate access to execute commands with elevated privileges.
+- Examine the process execution timeline to identify any preceding or subsequent suspicious activities that might indicate a broader attack or compromise.
+- Check the version of sudo installed on the affected system to verify if it is vulnerable to CVE-2019-14287, specifically versions prior to v1.28.
+- Investigate the source IP address and hostname of the affected system to assess if it is part of a larger attack pattern or if there are other systems potentially compromised.
+- Review system logs and audit trails for any additional unauthorized access attempts or privilege escalation activities around the time of the alert.
+- If possible, isolate the affected system to prevent further unauthorized access while conducting a more thorough forensic analysis.
+
+### False positive analysis
+
+- Legitimate administrative tasks using sudo with unconventional user ID arguments may trigger the rule. Review the context of the command execution to determine if it aligns with expected administrative activities.
+- Automated scripts or maintenance tools that use sudo with arbitrary user IDs for testing or configuration purposes might be flagged. Identify and document these scripts, then create exceptions in the monitoring system to exclude them from alerts.
+- Development environments where developers have elevated privileges for testing purposes could generate false positives. Ensure that such environments are well-documented and consider excluding them from this specific rule if they consistently trigger alerts.
+- Security tools or monitoring systems that simulate attacks for testing detection capabilities may inadvertently trigger this rule. Coordinate with security teams to whitelist these tools or adjust their configurations to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
+- Terminate any suspicious processes identified with the command pattern "sudo -u#-1" to halt any ongoing unauthorized activities.
+- Conduct a thorough review of system logs and sudo logs to identify any additional unauthorized access attempts or successful privilege escalations.
+- Reset passwords and review user accounts on the affected system to ensure no unauthorized accounts have been created or existing accounts have been compromised.
+- Apply patches or upgrade sudo to a version later than v1.28 to mitigate the vulnerability exploited by CVE-2019-14287.
+- Monitor the network for any signs of data exfiltration or further exploitation attempts, using enhanced logging and alerting mechanisms.
+- Report the incident to the appropriate internal security team or external authorities if required, providing them with detailed findings and actions taken."""
 
 
 [[rule.threat]]

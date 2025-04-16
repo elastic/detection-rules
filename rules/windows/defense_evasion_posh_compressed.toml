@@ -2,7 +2,9 @@
 creation_date = "2021/10/19"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -122,14 +124,7 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Resources: Investigation Guide",
-    "Data Source: PowerShell Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -147,14 +142,13 @@ event.category:process and host.os.type:windows and
   not user.id : "S-1-5-18"
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

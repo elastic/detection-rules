@@ -2,7 +2,9 @@
 creation_date = "2024/03/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +25,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Alternate Data Stream Creation/Execution at Volume Root Directory"
+references = ["https://www.crowdstrike.com/blog/anatomy-of-alpha-spider-ransomware/"]
+risk_score = 47
+rule_id = "ff6cf8b9-b76c-4cc1-ac1b-4935164d1029"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.category in ("file", "process") and
+  (
+    (event.type == "creation" and file.path regex~ """[A-Z]:\\:.+""") or
+    (event.type == "start" and process.executable regex~ """[A-Z]:\\:.+""")
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,32 +86,6 @@ Alternate Data Streams (ADS) in Windows allow files to contain multiple streams 
 - Restore affected files from a known good backup to ensure system integrity and remove any compromised data.
 - Monitor network traffic for unusual patterns or connections that may indicate ongoing malicious activity or data exfiltration attempts.
 - Escalate the incident to the security operations center (SOC) or relevant IT security team for further investigation and to assess the need for broader organizational response measures."""
-references = ["https://www.crowdstrike.com/blog/anatomy-of-alpha-spider-ransomware/"]
-risk_score = 47
-rule_id = "ff6cf8b9-b76c-4cc1-ac1b-4935164d1029"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-any where host.os.type == "windows" and event.category in ("file", "process") and
-  (
-    (event.type == "creation" and file.path regex~ """[A-Z]:\\:.+""") or
-    (event.type == "start" and process.executable regex~ """[A-Z]:\\:.+""")
-  )
-'''
 
 
 [[rule.threat]]

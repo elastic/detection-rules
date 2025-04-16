@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/03/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +24,32 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Removable Device"
+references = [
+    "https://winreg-kb.readthedocs.io/en/latest/sources/system-keys/USB-storage.html",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings",
+]
+risk_score = 21
+rule_id = "0859355c-0f08-4b43-8ff5-7d2a4789fc08"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:"registry" and host.os.type:"windows" and registry.value:"FriendlyName" and registry.path:*USBSTOR*
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,32 +84,6 @@ Removable devices, like USB drives, are common in Windows environments for data 
 - Notify the security team and relevant stakeholders about the incident, providing details of the device and any identified threats.
 - Implement a temporary block on the use of removable devices across the network until the threat is fully contained and remediated.
 - Enhance monitoring and detection capabilities by updating security tools and rules to better identify similar threats in the future, focusing on registry changes and device connections."""
-references = [
-    "https://winreg-kb.readthedocs.io/en/latest/sources/system-keys/USB-storage.html",
-    "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings",
-]
-risk_score = 21
-rule_id = "0859355c-0f08-4b43-8ff5-7d2a4789fc08"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Initial Access",
-    "Tactic: Exfiltration",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.category:"registry" and host.os.type:"windows" and registry.value:"FriendlyName" and registry.path:*USBSTOR*
-'''
 
 
 [[rule.threat]]

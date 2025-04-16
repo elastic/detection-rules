@@ -2,24 +2,51 @@
 creation_date = "2024/07/16"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies DACL modifications to deny access to a service, making it unstoppable, or hide it from system and users.\n"
+description = """
+Identifies DACL modifications to deny access to a service, making it unstoppable, or hide it from system and users.
+"""
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-m365_defender.event-*",
-    "logs-crowdstrike.fdr*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service DACL Modification via sc.exe"
+references = [
+  "https://blogs.jpcert.or.jp/en/2024/07/mirrorface-attack-against-japanese-organisations.html",
+  "https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_sc_sdset_deny_service_access.yml",
+  "https://learn.microsoft.com/en-us/windows/win32/secauthz/sid-strings",
+  "https://www.sans.org/blog/red-team-tactics-hiding-windows-services/"
+]
+risk_score = 47
+rule_id = "5188c68e-d3de-4e96-994d-9e242269446f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "sc.exe" or ?process.pe.original_file_name : "sc.exe") and
+  process.args : "sdset" and process.args : "*D;*" and
+  process.args : ("*;IU*", "*;SU*", "*;BA*", "*;SY*", "*;WD*")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,37 +83,6 @@ The `sc.exe` utility in Windows is used to manage services, including modifying 
 - Implement additional monitoring on the affected system and similar systems to detect any further attempts to modify service DACLs, using enhanced logging and alerting mechanisms.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the attack is part of a larger campaign.
 - Review and update endpoint protection policies to prevent similar threats in the future, ensuring that all systems are equipped with the latest security patches and configurations."""
-references = [
-    "https://blogs.jpcert.or.jp/en/2024/07/mirrorface-attack-against-japanese-organisations.html",
-    "https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_sc_sdset_deny_service_access.yml",
-    "https://learn.microsoft.com/en-us/windows/win32/secauthz/sid-strings",
-    "https://www.sans.org/blog/red-team-tactics-hiding-windows-services/",
-]
-risk_score = 47
-rule_id = "5188c68e-d3de-4e96-994d-9e242269446f"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Crowdstrike",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "sc.exe" or ?process.pe.original_file_name : "sc.exe") and
-  process.args : "sdset" and process.args : "*D;*" and
-  process.args : ("*;IU*", "*;SU*", "*;BA*", "*;SY*", "*;WD*")
-'''
 
 
 [[rule.threat]]
@@ -97,10 +93,12 @@ name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

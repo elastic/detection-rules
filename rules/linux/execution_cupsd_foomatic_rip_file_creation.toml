@@ -2,7 +2,9 @@
 creation_date = "2024/09/27"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -108,7 +110,6 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=10s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
@@ -118,17 +119,15 @@ sequence by host.id with maxspan=10s
    not (process.name == "gs" and file.path like "/tmp/gs_*")] by process.parent.entity_id
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1203"
 name = "Exploitation for Client Execution"
 reference = "https://attack.mitre.org/techniques/T1203/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

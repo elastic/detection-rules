@@ -2,21 +2,18 @@
 creation_date = "2025/01/29"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/29"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies processes that are backgrounded by an unusual parent process. This behavior may indicate a process
-attempting to evade detection by hiding its parent process.
+This rule identifies processes that are backgrounded by an unusual parent process. This behavior may indicate
+a process attempting to evade detection by hiding its parent process.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process*",
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Process Backgrounded by Unusual Parent"
@@ -108,7 +105,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 event.category:process and host.os.type:linux and event.type:start and
 event.action:(ProcessRollup2 or exec or exec_event or start) and
@@ -116,37 +112,36 @@ process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
 process.args:(-c and *&)
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.name"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-

@@ -41,7 +41,10 @@ class RemoteConnector:
 
     def __init__(self, parse_config: bool = False, **kwargs):
         es_args = ['cloud_id', 'ignore_ssl_errors', 'elasticsearch_url', 'es_user', 'es_password', 'timeout']
-        kibana_args = ['cloud_id', 'ignore_ssl_errors', 'kibana_url', 'api_key', 'space']
+        kibana_args = [
+            'cloud_id', 'ignore_ssl_errors', 'kibana_url', 'kibana_user', 'kibana_password', 'space', 'kibana_cookie',
+            'provider_type', 'provider_name'
+        ]
 
         if parse_config:
             es_kwargs = {arg: getdefault(arg)() for arg in es_args}
@@ -70,25 +73,17 @@ class RemoteConnector:
                                                   es_password=es_password, timeout=timeout, **kwargs)
         return self.es_client
 
-    def auth_kibana(
-        self,
-        *,
-        api_key: str,
-        cloud_id: str | None = None,
-        kibana_url: str | None = None,
-        space: str | None = None,
-        ignore_ssl_errors: bool = False,
-        **kwargs
-    ) -> Kibana:
+    def auth_kibana(self, *, cloud_id: Optional[str] = None, ignore_ssl_errors: Optional[bool] = None,
+                    kibana_url: Optional[str] = None, kibana_user: Optional[str] = None,
+                    kibana_password: Optional[str] = None, space: Optional[str] = None,
+                    kibana_cookie: Optional[str] = None, provider_type: Optional[str] = None,
+                    provider_name: Optional[str] = None, **kwargs) -> Kibana:
         """Return an authenticated Kibana client."""
-        self.kibana_client = get_kibana_client(
-            cloud_id=cloud_id,
-            ignore_ssl_errors=ignore_ssl_errors,
-            kibana_url=kibana_url,
-            api_key=api_key,
-            space=space,
-            **kwargs
-        )
+        self.kibana_client = get_kibana_client(cloud_id=cloud_id, ignore_ssl_errors=ignore_ssl_errors,
+                                               kibana_url=kibana_url, kibana_user=kibana_user,
+                                               kibana_password=kibana_password, space=space,
+                                               kibana_cookie=kibana_cookie, provider_type=provider_type,
+                                               provider_name=provider_name, **kwargs)
         return self.kibana_client
 
 

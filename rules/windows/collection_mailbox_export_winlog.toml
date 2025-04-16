@@ -2,13 +2,14 @@
 creation_date = "2023/01/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2024/10/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, to export the contents of a primary
-mailbox or archive to a .pst file. Adversaries may target user email to collect sensitive information.
+Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, to export the contents of a primary mailbox or archive to a .pst file. Adversaries may target user email to collect sensitive information.
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
@@ -62,14 +63,7 @@ references = [
 risk_score = 47
 rule_id = "54a81f68-5f2a-421e-8eed-f888278bb712"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Collection",
-    "Resources: Investigation Guide",
-    "Data Source: PowerShell Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -78,28 +72,27 @@ event.category:process and host.os.type:windows and
   powershell.file.script_block_text : "New-MailboxExportRequest"
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\TEMP\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\TEMP\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -111,6 +104,7 @@ reference = "https://attack.mitre.org/techniques/T1005/"
 id = "T1114"
 name = "Email Collection"
 reference = "https://attack.mitre.org/techniques/T1114/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1114.001"
 name = "Local Email Collection"
@@ -122,9 +116,7 @@ name = "Remote Email Collection"
 reference = "https://attack.mitre.org/techniques/T1114/002/"
 
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-

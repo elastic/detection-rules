@@ -2,7 +2,9 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,41 +17,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Windows Service Installed"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Remote Windows Service Installed
-
-Windows services are crucial for running background processes. Adversaries exploit this by installing services remotely to maintain persistence or move laterally within a network. The detection rule identifies suspicious service installations following a network logon, excluding known legitimate services, to flag potential unauthorized activities. This helps in identifying and mitigating threats early.
-
-### Possible investigation steps
-
-- Review the source IP address from the authentication event to determine if it is from a known or trusted network segment. Investigate any unfamiliar or suspicious IP addresses.
-- Check the winlog.logon.id to correlate the logon session with the service installation event, ensuring they are part of the same session.
-- Investigate the user account associated with the logon session to determine if the activity aligns with their typical behavior or role within the organization.
-- Examine the service file path from the service-installed event to identify if it is a known or legitimate application. Pay special attention to any paths not excluded in the query.
-- Look into the history of the computer where the service was installed (winlog.computer_name) for any previous suspicious activities or alerts.
-- Assess the timing and frequency of similar events to determine if this is an isolated incident or part of a broader pattern of suspicious behavior.
-
-### False positive analysis
-
-- Administrative activities can trigger false positives when administrators frequently install or update services remotely. To manage this, create exceptions for known administrative accounts or specific IP addresses used by IT staff.
-- Legitimate software installations or updates may appear as suspicious service installations. Maintain an updated list of authorized software paths and exclude these from the detection rule.
-- Automated deployment tools like PDQ Deploy or Veeam Backup can cause false positives. Identify and exclude the service paths associated with these tools to reduce noise.
-- Scheduled tasks that install or update services as part of routine maintenance can be mistaken for threats. Document and exclude these tasks from the rule to prevent unnecessary alerts.
-- Internal security tools that perform regular checks or updates may also trigger alerts. Ensure these tools are recognized and their service paths are excluded from the detection criteria.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the adversary. This can be done by disabling network interfaces or using network segmentation tools.
-- Terminate any unauthorized services identified by the alert to stop any malicious processes from running. Use task management tools or command-line utilities to stop and disable these services.
-- Conduct a thorough review of recent logon events and service installations on the affected system to identify any additional unauthorized activities or compromised accounts.
-- Change passwords for any accounts that were used in the unauthorized service installation, especially if they have administrative privileges, to prevent further unauthorized access.
-- Restore the affected system from a known good backup if any malicious changes or persistence mechanisms are detected that cannot be easily remediated.
-- Implement network monitoring and alerting for similar suspicious activities, such as unexpected service installations or network logons, to enhance detection and response capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or accounts have been compromised."""
 risk_score = 47
 rule_id = "d33ea3bf-9a11-463e-bd46-f648f2a0f4b1"
 severity = "medium"
@@ -97,6 +64,41 @@ event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and 
                 "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
                 "?:\\Windows\\System32\\taskhostex.exe")]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote Windows Service Installed
+
+Windows services are crucial for running background processes. Adversaries exploit this by installing services remotely to maintain persistence or move laterally within a network. The detection rule identifies suspicious service installations following a network logon, excluding known legitimate services, to flag potential unauthorized activities. This helps in identifying and mitigating threats early.
+
+### Possible investigation steps
+
+- Review the source IP address from the authentication event to determine if it is from a known or trusted network segment. Investigate any unfamiliar or suspicious IP addresses.
+- Check the winlog.logon.id to correlate the logon session with the service installation event, ensuring they are part of the same session.
+- Investigate the user account associated with the logon session to determine if the activity aligns with their typical behavior or role within the organization.
+- Examine the service file path from the service-installed event to identify if it is a known or legitimate application. Pay special attention to any paths not excluded in the query.
+- Look into the history of the computer where the service was installed (winlog.computer_name) for any previous suspicious activities or alerts.
+- Assess the timing and frequency of similar events to determine if this is an isolated incident or part of a broader pattern of suspicious behavior.
+
+### False positive analysis
+
+- Administrative activities can trigger false positives when administrators frequently install or update services remotely. To manage this, create exceptions for known administrative accounts or specific IP addresses used by IT staff.
+- Legitimate software installations or updates may appear as suspicious service installations. Maintain an updated list of authorized software paths and exclude these from the detection rule.
+- Automated deployment tools like PDQ Deploy or Veeam Backup can cause false positives. Identify and exclude the service paths associated with these tools to reduce noise.
+- Scheduled tasks that install or update services as part of routine maintenance can be mistaken for threats. Document and exclude these tasks from the rule to prevent unnecessary alerts.
+- Internal security tools that perform regular checks or updates may also trigger alerts. Ensure these tools are recognized and their service paths are excluded from the detection criteria.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement by the adversary. This can be done by disabling network interfaces or using network segmentation tools.
+- Terminate any unauthorized services identified by the alert to stop any malicious processes from running. Use task management tools or command-line utilities to stop and disable these services.
+- Conduct a thorough review of recent logon events and service installations on the affected system to identify any additional unauthorized activities or compromised accounts.
+- Change passwords for any accounts that were used in the unauthorized service installation, especially if they have administrative privileges, to prevent further unauthorized access.
+- Restore the affected system from a known good backup if any malicious changes or persistence mechanisms are detected that cannot be easily remediated.
+- Implement network monitoring and alerting for similar suspicious activities, such as unexpected service installations or network logons, to enhance detection and response capabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or accounts have been compromised."""
 
 
 [[rule.threat]]

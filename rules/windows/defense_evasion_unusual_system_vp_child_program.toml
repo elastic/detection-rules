@@ -2,7 +2,9 @@
 creation_date = "2020/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +23,30 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Child Process from a System Virtual Process"
+risk_score = 73
+rule_id = "de9bd7e0-49e9-4e92-a64d-53ade2e66af1"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.pid == 4 and process.executable : "?*" and
+  not process.executable : ("Registry", "MemCompression", "?:\\Windows\\System32\\smss.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,30 +83,6 @@ In Windows environments, the System process (PID 4) is a critical component resp
 - Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated through other means.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for the affected system and similar environments to detect any recurrence of the threat, focusing on process creation events and anomalies related to the System process."""
-risk_score = 73
-rule_id = "de9bd7e0-49e9-4e92-a64d-53ade2e66af1"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.pid == 4 and process.executable : "?*" and
-  not process.executable : ("Registry", "MemCompression", "?:\\Windows\\System32\\smss.exe")
-'''
 
 
 [[rule.threat]]

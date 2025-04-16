@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/07/19"
-integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+integration = ["endpoint", "windows", "system","sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,35 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential WSUS Abuse for Lateral Movement"
+references = ["https://www.thehacker.recipes/a-d/movement/mitm-and-coerced-authentications/wsus-spoofing"]
+risk_score = 47
+rule_id = "8e2485b6-a74f-411b-bf7f-38b819f3a846"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.parent.name : "wuauclt.exe" and
+process.executable : (
+    "?:\\Windows\\SoftwareDistribution\\Download\\Install\\*",
+    "\\Device\\HarddiskVolume?\\Windows\\SoftwareDistribution\\Download\\Install\\*"
+) and
+(process.name : "psexec64.exe" or ?process.pe.original_file_name : "psexec.c")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -59,35 +90,6 @@ Windows Server Update Services (WSUS) is a system that manages updates for Micro
 - Reset credentials for any accounts that may have been compromised or used in the lateral movement attempt, especially those with administrative privileges.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been affected.
 - Implement enhanced monitoring and logging for WSUS activities and PsExec executions to detect and respond to similar threats more effectively in the future."""
-references = ["https://www.thehacker.recipes/a-d/movement/mitm-and-coerced-authentications/wsus-spoofing"]
-risk_score = 47
-rule_id = "8e2485b6-a74f-411b-bf7f-38b819f3a846"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and process.parent.name : "wuauclt.exe" and
-process.executable : (
-    "?:\\Windows\\SoftwareDistribution\\Download\\Install\\*",
-    "\\Device\\HarddiskVolume?\\Windows\\SoftwareDistribution\\Download\\Install\\*"
-) and
-(process.name : "psexec64.exe" or ?process.pe.original_file_name : "psexec.c")
-'''
 
 
 [[rule.threat]]

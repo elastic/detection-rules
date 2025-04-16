@@ -2,7 +2,9 @@
 creation_date = "2021/10/13"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2024/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -76,16 +78,7 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Tactic: Collection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: PowerShell Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Collection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -124,14 +117,13 @@ event.category:process and host.os.type:windows and
   )
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -143,7 +135,6 @@ id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
 
-
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
@@ -153,16 +144,15 @@ id = "T1087.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1087/001/"
 
+[[rule.threat.technique]]
+id = "T1482"
+name = "Domain Trust Discovery"
+reference = "https://attack.mitre.org/techniques/T1482/"
 
 [[rule.threat.technique]]
 id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
-
-[[rule.threat.technique]]
-id = "T1482"
-name = "Domain Trust Discovery"
-reference = "https://attack.mitre.org/techniques/T1482/"
 
 
 [rule.threat.tactic]
@@ -191,13 +181,15 @@ reference = "https://attack.mitre.org/techniques/T1106/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1039"
 name = "Data from Network Shared Drive"
 reference = "https://attack.mitre.org/techniques/T1039/"
-
 
 [rule.threat.tactic]
 id = "TA0009"

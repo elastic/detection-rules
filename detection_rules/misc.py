@@ -16,7 +16,19 @@ from typing import NoReturn, Optional
 import click
 import requests
 
-from kibana import Kibana
+
+# this is primarily for type hinting - all use of the github client should come from GithubClient class
+try:
+    from github import Github
+    from github.Repository import Repository
+    from github.GitRelease import GitRelease
+    from github.GitReleaseAsset import GitReleaseAsset
+except ImportError:
+    # for type hinting
+    Github = None  # noqa: N806
+    Repository = None  # noqa: N806
+    GitRelease = None  # noqa: N806
+    GitReleaseAsset = None  # noqa: N806
 
 from .utils import add_params, cached, get_path, load_etc_dump
 
@@ -336,28 +348,57 @@ def get_elasticsearch_client(cloud_id: str = None, elasticsearch_url: str = None
         client_error(error_msg, e, ctx=ctx, err=True)
 
 
-def get_kibana_client(
-    *,
-    api_key: str,
-    cloud_id: str | None = None,
-    kibana_url: str | None = None,
-    space: str | None = None,
-    ignore_ssl_errors: bool = False,
-    **kwargs
-):
+def get_kibana_client(cloud_id: str, kibana_url: str, kibana_user: str, kibana_password: str, kibana_cookie: str,
+                      space: str, ignore_ssl_errors: bool, provider_type: str, provider_name: str, api_key: str,
+                      **kwargs):
     """Get an authenticated Kibana client."""
+    from requests import HTTPError
+    from kibana import Kibana
+
     if not (cloud_id or kibana_url):
         client_error("Missing required --cloud-id or --kibana-url")
 
+    if not (kibana_cookie or api_key):
+        # don't prompt for these until there's a cloud id or Kibana URL
+        kibana_user = kibana_user or click.prompt("kibana_user")
+        kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
+
     verify = not ignore_ssl_errors
-    return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+
+    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, **kwargs) as kibana:
+        if kibana_cookie:
+            kibana.add_cookie(kibana_cookie)
+            return kibana
+        elif api_key:
+            kibana.add_api_key(api_key)
+            return kibana
+
+        try:
+            kibana.login(kibana_user, kibana_password, provider_type=provider_type, provider_name=provider_name)
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                err_msg = f'Authentication failed for {kibana_url}. If credentials are valid, check --provider-name'
+                client_error(err_msg, exc, err=True)
+            else:
+                raise
+
+        return kibana
 
 
 client_options = {
     'kibana': {
-        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
-        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'), help="ID of the cloud instance."),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'),
+                                 help="ID of the cloud instance."),
         'api_key': click.Option(['--api-key'], default=getdefault('api_key')),
+        'kibana_cookie': click.Option(['--kibana-cookie', '-kc'], default=getdefault('kibana_cookie'),
+                                      help='Cookie from an authed session'),
+        'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
+        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
+        'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
+        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type'),
+                                      help="Elastic Cloud providers: basic and saml (for SSO)"),
+        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name'),
+                                      help="Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)"),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
         'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },

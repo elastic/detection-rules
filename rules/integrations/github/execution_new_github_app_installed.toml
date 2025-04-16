@@ -2,7 +2,9 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +20,16 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New GitHub App Installed"
+risk_score = 47
+rule_id = "1ca62f14-4787-4913-b7af-df11745a49da"
+severity = "medium"
+tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Github", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.dataset == "github.audit" and event.action == "integration_installation.create"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -52,22 +64,6 @@ GitHub Apps enhance functionality by integrating with repositories and organizat
 - Escalate the incident to higher-level security management if the app installation is linked to a broader security breach or if sensitive data has been compromised.
 - Implement stricter access controls and approval processes for future GitHub App installations to prevent unauthorized installations.
 - Update detection mechanisms to include additional indicators of compromise related to GitHub App installations, enhancing future threat detection capabilities."""
-risk_score = 47
-rule_id = "1ca62f14-4787-4913-b7af-df11745a49da"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-configuration where event.dataset == "github.audit" and event.action == "integration_installation.create"
-'''
 
 
 [[rule.threat]]

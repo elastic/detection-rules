@@ -2,7 +2,9 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +28,31 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming Execution via PowerShell Remoting"
+references = [
+    "https://docs.microsoft.com/en-us/powershell/scripting/learn/remoting/running-remote-commands?view=powershell-7.1",
+]
+risk_score = 47
+rule_id = "2772264c-6fb9-4d9d-9014-b416eed21254"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan = 30s
+   [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
+    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
+   [process where host.os.type == "windows" and
+    event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -61,31 +88,6 @@ PowerShell Remoting enables administrators to execute commands on remote Windows
 - Apply patches and updates to the affected systems to address any vulnerabilities that may have been exploited.
 - Enhance monitoring on the network for unusual activity on ports 5985 and 5986 to detect any future attempts at unauthorized PowerShell Remoting.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
-references = [
-    "https://docs.microsoft.com/en-us/powershell/scripting/learn/remoting/running-remote-commands?view=powershell-7.1",
-]
-risk_score = 47
-rule_id = "2772264c-6fb9-4d9d-9014-b416eed21254"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by host.id with maxspan = 30s
-   [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
-    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
-   [process where host.os.type == "windows" and
-    event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
-'''
 
 
 [[rule.threat]]

@@ -2,7 +2,9 @@
 creation_date = "2023/09/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,23 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New GitHub Owner Added"
+risk_score = 47
+rule_id = "24401eca-ad0b-4ff9-9431-487a8e183af9"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.dataset == "github.audit" and event.action == "org.add_member" and github.permission == "admin"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,23 +70,6 @@ GitHub organizations allow collaborative management of repositories, where the '
 - Review and update access control policies to ensure that owner roles are granted only to verified and necessary personnel.
 - Implement additional monitoring and alerting for any future changes to GitHub organization roles to detect similar threats promptly.
 - If evidence of compromise is found, consider engaging with a digital forensics team to assess the full impact and scope of the breach."""
-risk_score = 47
-rule_id = "24401eca-ad0b-4ff9-9431-487a8e183af9"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Persistence",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-iam where event.dataset == "github.audit" and event.action == "org.add_member" and github.permission == "admin"
-'''
 
 
 [[rule.threat]]

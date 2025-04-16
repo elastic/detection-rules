@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2024/05/04"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/17"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects potential resource exhaustion or data breach attempts by monitoring for users who consistently generate high
-input token counts, submit numerous requests, and receive large responses. This behavior could indicate an attempt to
-overload the system or extract an unusually large amount of data, possibly revealing sensitive information or causing
-service disruptions.
+Detects potential resource exhaustion or data breach attempts by monitoring for users who consistently generate high input token counts, submit numerous requests, and receive
+large responses. This behavior could indicate an attempt to overload the system or extract an unusually large amount of data, possibly revealing sensitive information or
+causing service disruptions.
 """
 false_positives = ["Authorized heavy usage of the system that is business justified and monitored."]
 from = "now-60m"
@@ -17,6 +18,13 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Abuse of Resources by High Token Count and Large Response Sizes"
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+]
+risk_score = 47
+rule_id = "b1773d05-f349-45fb-9850-287b8f92f02d"
 note = """## Triage and analysis
 
 ### Investigating Potential Abuse of Resources by High Token Count and Large Response Sizes
@@ -51,13 +59,6 @@ Bedrock offers a variety of pretrained models from Amazon (such as the Titan ser
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://atlas.mitre.org/techniques/AML.T0051",
-    "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-]
-risk_score = 47
-rule_id = "b1773d05-f349-45fb-9850-287b8f92f02d"
 setup = """## Setup
 
 This rule requires that guardrails are configured in AWS Bedrock. For more information, see the AWS Bedrock documentation:
@@ -73,7 +74,7 @@ tags = [
     "Use Case: Potential Overload",
     "Use Case: Resource Exhaustion",
     "Mitre Atlas: LLM04",
-    "Resources: Investigation Guide",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -91,4 +92,3 @@ from logs-aws_bedrock.invocation-*
 | where risk_factor > 10
 | sort risk_factor desc
 '''
-

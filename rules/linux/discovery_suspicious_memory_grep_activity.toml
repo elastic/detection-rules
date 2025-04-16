@@ -2,7 +2,9 @@
 creation_date = "2024/02/05"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -12,15 +14,32 @@ specific process, detailing the memory segments, permissions, and what files are
 read a process's memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Memory grep Activity"
+references = ["https://github.com/arget13/DDexec"]
+risk_score = 21
+rule_id = "d74d6506-427a-4790-b170-0c2a6ddac799"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,41 +75,16 @@ In Linux, the `/proc/*/maps` file reveals a process's memory layout, crucial for
 - Apply patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for similar attacks.
 - Implement stricter access controls and monitoring on sensitive files and directories, such as `/proc/*/maps`, to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the need for broader organizational response measures."""
-references = ["https://github.com/arget13/DDexec"]
-risk_score = 21
-rule_id = "d74d6506-427a-4790-b170-0c2a6ddac799"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

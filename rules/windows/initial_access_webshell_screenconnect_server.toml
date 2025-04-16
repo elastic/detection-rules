@@ -2,7 +2,9 @@
 creation_date = "2024/03/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,34 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "ScreenConnect Server Spawning Suspicious Processes"
+references = ["https://blackpointcyber.com/resources/blog/breaking-through-the-screen/"]
+risk_score = 73
+rule_id = "3d00feab-e203-4acc-a463-c3e15b7e9a73"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "ScreenConnect.Service.exe" and
+  (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "csc.exe") or
+  ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,34 +90,6 @@ ScreenConnect, a remote support tool, allows administrators to control systems r
 - Apply security patches and updates to the ScreenConnect server and any other vulnerable applications to mitigate exploitation risks.
 - Restore the system from a known good backup if evidence of compromise is confirmed, ensuring that the backup is free from malicious artifacts.
 - Report the incident to the appropriate internal security team or external authorities if required, providing them with detailed findings and evidence for further investigation."""
-references = ["https://blackpointcyber.com/resources/blog/breaking-through-the-screen/"]
-risk_score = 73
-rule_id = "3d00feab-e203-4acc-a463-c3e15b7e9a73"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Initial Access",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "ScreenConnect.Service.exe" and
-  (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "csc.exe") or
-  ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
-'''
 
 
 [[rule.threat]]

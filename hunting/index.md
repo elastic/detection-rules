@@ -36,7 +36,6 @@ Here are the queries currently available:
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
 - [Azure Entra Unusual Failed Authentication Attempts Behind Rare User Agents](./azure/docs/entra_authentication_attempts_behind_rare_user_agents.md) (ES|QL)
-- [Microsoft Entra ID Credentials Added to Rare Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
 
 
 ## linux

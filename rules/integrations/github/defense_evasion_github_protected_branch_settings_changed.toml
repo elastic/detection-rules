@@ -2,7 +2,9 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +19,17 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GitHub Protected Branch Settings Changed"
+risk_score = 47
+rule_id = "07639887-da3a-4fbf-9532-8ce748ff8c50"
+severity = "medium"
+tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Github", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.dataset == "github.audit"
+  and github.category == "protected_branch" and event.type == "change"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,23 +64,6 @@ GitHub's protected branch settings are crucial for maintaining code integrity by
 - Implement additional monitoring on the affected repository to detect any further unauthorized changes or suspicious activities.
 - Review and update access controls and permissions for the repository to ensure that only authorized personnel can modify branch protection settings.
 - Document the incident, including the timeline of events and actions taken, to improve future response efforts and update incident response plans."""
-risk_score = 47
-rule_id = "07639887-da3a-4fbf-9532-8ce748ff8c50"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-configuration where event.dataset == "github.audit"
-  and github.category == "protected_branch" and event.type == "change"
-'''
 
 
 [[rule.threat]]

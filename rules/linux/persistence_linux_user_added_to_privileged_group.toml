@@ -2,7 +2,9 @@
 creation_date = "2023/02/13"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [transform]
 [[transform.osquery]]
@@ -29,14 +31,7 @@ Identifies attempts to add a user to a privileged group. Attackers may add users
 establish persistence on a system.
 """
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux User Added to Privileged Group"
@@ -129,7 +124,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
@@ -142,22 +136,20 @@ process where host.os.type == "linux" and event.type == "start" and
   )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

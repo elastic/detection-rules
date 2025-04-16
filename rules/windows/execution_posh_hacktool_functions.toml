@@ -2,7 +2,9 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -28,7 +30,6 @@ SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, des
 services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
-
 
 [rule]
 author = ["Elastic"]
@@ -108,7 +109,7 @@ Adversaries often exploit PowerShell's capabilities to execute malicious scripts
 """
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
-    "https://github.com/BC-SECURITY/Empire",
+    "https://github.com/BC-SECURITY/Empire"
 ]
 risk_score = 47
 rule_id = "cde1bafa-9f01-4f43-a872-605b678968b0"
@@ -131,14 +132,7 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: PowerShell Logs",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: PowerShell Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -327,14 +321,13 @@ event.category:process and host.os.type:windows and
   not user.id : ("S-1-5-18" or "S-1-5-19")
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

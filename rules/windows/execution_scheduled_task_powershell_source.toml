@@ -2,7 +2,9 @@
 creation_date = "2020/12/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +23,30 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Outbound Scheduled Task Activity via PowerShell"
+references = [
+    "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
+]
+risk_score = 47
+rule_id = "5cd55388-a19c-47c7-8ec4-f41656c2fded"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by host.id, process.entity_id with maxspan = 5s
+ [any where host.os.type == "windows" and (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+  (?dll.name : "taskschd.dll" or file.name : "taskschd.dll") and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe")]
+ [network where host.os.type == "windows" and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and destination.port == 135 and not destination.address in ("127.0.0.1", "::1")]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -54,30 +80,6 @@ PowerShell, a powerful scripting language in Windows, can automate tasks via the
 - Reset credentials for any accounts that were used or potentially compromised during the incident to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the attack.
 - Implement enhanced monitoring for similar PowerShell and scheduled task activities across the network to detect and respond to future threats promptly."""
-references = [
-    "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
-    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
-]
-risk_score = 47
-rule_id = "5cd55388-a19c-47c7-8ec4-f41656c2fded"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by host.id, process.entity_id with maxspan = 5s
- [any where host.os.type == "windows" and (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
-  (?dll.name : "taskschd.dll" or file.name : "taskschd.dll") and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe")]
- [network where host.os.type == "windows" and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and destination.port == 135 and not destination.address in ("127.0.0.1", "::1")]
-'''
 
 
 [[rule.threat]]

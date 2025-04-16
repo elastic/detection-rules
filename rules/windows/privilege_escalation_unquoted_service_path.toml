@@ -2,7 +2,9 @@
 creation_date = "2023/07/13"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +25,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Exploitation of an Unquoted Service Path Vulnerability"
+risk_score = 21
+rule_id = "12de29d4-bbb0-4eef-b687-857e8a163870"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+    process.executable : "?:\\Program.exe" or
+    process.executable regex """(C:\\Program Files \(x86\)\\|C:\\Program Files\\)\w+.exe"""
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,32 +86,6 @@ Unquoted service paths in Windows can be exploited by adversaries to escalate pr
 - Restore the affected system from a known good backup if malicious activity is confirmed and system integrity is compromised.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for similar suspicious activities across the network to detect and respond to future attempts promptly."""
-risk_score = 21
-rule_id = "12de29d4-bbb0-4eef-b687-857e8a163870"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Data Source: Sysmon",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (
-    process.executable : "?:\\Program.exe" or
-    process.executable regex """(C:\\Program Files \(x86\)\\|C:\\Program Files\\)\w+.exe"""
-  )
-'''
 
 
 [[rule.threat]]

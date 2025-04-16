@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2020/09/01"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an Azure Conditional Access policy is modified. Azure Conditional Access policies control access to
+resources via if-then statements. For example, if a user wants to access a resource, then they must complete an action
+such as using multi-factor authentication to access it. An adversary may modify a Conditional Access policy in order to
+weaken their target's security controls.
+"""
+from = "now-25m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Conditional Access Policy Modified"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Conditional Access Policy Modified
+
+Azure Conditional Access policies are critical for managing secure access to resources by enforcing specific conditions, such as requiring multi-factor authentication. Adversaries may exploit this by altering policies to weaken security, potentially bypassing authentication measures. The detection rule monitors logs for successful modifications to these policies, flagging potential unauthorized changes that could indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the Azure activity and audit logs to identify the specific user account associated with the "Update conditional access policy" action and verify if the modification was authorized.
+- Examine the details of the modified Conditional Access policy to understand the changes made, focusing on any alterations that could weaken security, such as the removal of multi-factor authentication requirements.
+- Check the event.outcome field to confirm the success of the policy modification and correlate it with any recent access attempts or suspicious activities involving the affected resources.
+- Investigate the history of changes to the Conditional Access policies to identify any patterns or repeated unauthorized modifications that could indicate persistent malicious activity.
+- Assess the user's role and permissions to determine if they have legitimate access to modify Conditional Access policies, and review any recent changes to their account or role assignments.
+
+### False positive analysis
+
+- Routine administrative updates to Conditional Access policies by authorized IT personnel can trigger alerts. To manage this, maintain a list of authorized users and their expected activities, and create exceptions for these users in the monitoring system.
+- Scheduled policy reviews and updates as part of regular security audits may also result in false positives. Document these activities and schedule them during known maintenance windows to differentiate them from unauthorized changes.
+- Automated scripts or tools used for policy management might generate alerts if they modify policies. Ensure these tools are properly documented and their actions are logged separately to distinguish them from potential threats.
+- Changes made during the onboarding or offboarding of employees can appear as suspicious activity. Implement a process to log these events separately and cross-reference them with HR records to verify legitimacy.
+- Integration with third-party security solutions that modify policies for compliance or optimization purposes can lead to false positives. Establish a clear change management process and whitelist these integrations to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately review the modified Conditional Access policy to understand the changes made and assess the potential impact on security controls.
+- Revert any unauthorized or suspicious changes to the Conditional Access policy to restore the original security posture.
+- Conduct a thorough investigation to identify the source of the modification, including reviewing audit logs for unusual activity or unauthorized access attempts.
+- Temporarily increase monitoring and logging of Conditional Access policy changes to detect any further unauthorized modifications.
+- Notify the security team and relevant stakeholders about the incident and the steps taken to mitigate the risk.
+- If malicious activity is confirmed, initiate an incident response process, including isolating affected accounts and conducting a full security assessment.
+- Implement additional security measures, such as stricter access controls or enhanced multi-factor authentication requirements, to prevent similar incidents in the future.
+
+## Setup
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview"]
+risk_score = 47
+rule_id = "bc48bba7-4a23-4232-b551-eca3ca1e3f20"
+severity = "medium"
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:(azure.activitylogs or azure.auditlogs) and
+event.action:"Update conditional access policy" and event.outcome:(Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

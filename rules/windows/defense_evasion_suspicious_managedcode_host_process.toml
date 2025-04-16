@@ -2,7 +2,9 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,18 +13,43 @@ Identifies a suspicious managed code hosting process which could indicate code i
 code execution.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.file-*",
-    "logs-windows.sysmon_operational-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Managed Code Hosting Process"
+references = [
+    "http://web.archive.org/web/20230329154538/https://blog.menasec.net/2019/07/interesting-difr-traces-of-net-clr.html",
+]
+risk_score = 73
+rule_id = "acf738b5-b5b2-4acc-bad9-1e18ee234f40"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type != "deletion" and
+  file.name : ("wscript.exe.log",
+               "cscript.exe.log",
+               "mshta.exe.log",
+               "wmic.exe.log",
+               "svchost.exe.log",
+               "dllhost.exe.log",
+               "cmstp.exe.log",
+               "regsvr32.exe.log")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,39 +85,6 @@ Managed code hosting processes like wscript.exe, cscript.exe, and others are int
 - Collect and preserve relevant logs and forensic data from the affected system for further analysis and to aid in understanding the scope and impact of the incident.
 - Notify the security operations center (SOC) or incident response team to escalate the incident for further investigation and to determine if additional systems are affected.
 - Implement additional monitoring and detection rules to enhance visibility and prevent similar threats in the future, focusing on the specific processes and behaviors identified in the alert."""
-references = [
-    "http://web.archive.org/web/20230329154538/https://blog.menasec.net/2019/07/interesting-difr-traces-of-net-clr.html",
-]
-risk_score = 73
-rule_id = "acf738b5-b5b2-4acc-bad9-1e18ee234f40"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "windows" and event.type != "deletion" and
-  file.name : ("wscript.exe.log",
-               "cscript.exe.log",
-               "mshta.exe.log",
-               "wmic.exe.log",
-               "svchost.exe.log",
-               "dllhost.exe.log",
-               "cmstp.exe.log",
-               "regsvr32.exe.log")
-'''
 
 
 [[rule.threat]]

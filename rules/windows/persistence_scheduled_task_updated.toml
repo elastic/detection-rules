@@ -2,7 +2,9 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,39 +19,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "A scheduled task was updated"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating A scheduled task was updated
-
-Scheduled tasks in Windows automate routine tasks, enhancing efficiency. However, adversaries exploit this by modifying tasks to maintain persistence, often altering legitimate tasks to evade detection. The detection rule identifies suspicious updates by filtering out benign changes, such as those by system accounts or known safe tasks, focusing on anomalies that suggest malicious intent.
-
-### Possible investigation steps
-
-- Review the event logs to identify the specific scheduled task that was updated, focusing on the winlog.event_data.TaskName field to determine if it matches any known malicious patterns.
-- Investigate the user account associated with the update by examining the user.name field to ensure it is not a compromised account or an unauthorized user.
-- Check the winlog.event_data.SubjectUserSid field to verify if the update was made by a system account or a potentially malicious user, as system accounts like S-1-5-18, S-1-5-19, and S-1-5-20 are typically benign.
-- Analyze the history of changes to the scheduled task to identify any unusual or unauthorized modifications that could indicate persistence mechanisms.
-- Correlate the scheduled task update with other security events or alerts to determine if it is part of a broader attack pattern or campaign.
-
-### False positive analysis
-
-- Scheduled tasks updated by system accounts can be false positives. Exclude updates made by system accounts by filtering out user names ending with a dollar sign.
-- Legitimate Microsoft tasks often update automatically. Exclude tasks with names containing "Microsoft" to reduce noise from these updates.
-- Commonly updated tasks like User Feed Synchronization and OneDrive Reporting are typically benign. Exclude these specific task names to avoid unnecessary alerts.
-- Tasks updated by well-known service SIDs such as S-1-5-18, S-1-5-19, and S-1-5-20 are generally safe. Exclude these SIDs to prevent false positives from routine system operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Review the specific scheduled task that was updated to determine if it was altered by an unauthorized user or process. Revert any unauthorized changes to their original state.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
-- Analyze the user account that made the changes to the scheduled task. If the account is compromised, reset the password and review recent activities for further signs of compromise.
-- Implement additional monitoring on the affected system and similar systems to detect any further unauthorized scheduled task updates or related suspicious activities.
-- Escalate the incident to the security operations team for further investigation and to determine if the threat is part of a larger attack campaign.
-- Review and update access controls and permissions related to scheduled tasks to ensure only authorized personnel can make changes, reducing the risk of future unauthorized modifications."""
 references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
 risk_score = 47
 rule_id = "a02cb68e-7c93-48d1-93b2-2c39023308eb"
@@ -86,6 +55,39 @@ iam where event.action == "scheduled-task-updated" and
            "\\Microsoft\\VisualStudio\\Updates\\BackgroundDownload") and
   not winlog.event_data.SubjectUserSid :  ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating A scheduled task was updated
+
+Scheduled tasks in Windows automate routine tasks, enhancing efficiency. However, adversaries exploit this by modifying tasks to maintain persistence, often altering legitimate tasks to evade detection. The detection rule identifies suspicious updates by filtering out benign changes, such as those by system accounts or known safe tasks, focusing on anomalies that suggest malicious intent.
+
+### Possible investigation steps
+
+- Review the event logs to identify the specific scheduled task that was updated, focusing on the winlog.event_data.TaskName field to determine if it matches any known malicious patterns.
+- Investigate the user account associated with the update by examining the user.name field to ensure it is not a compromised account or an unauthorized user.
+- Check the winlog.event_data.SubjectUserSid field to verify if the update was made by a system account or a potentially malicious user, as system accounts like S-1-5-18, S-1-5-19, and S-1-5-20 are typically benign.
+- Analyze the history of changes to the scheduled task to identify any unusual or unauthorized modifications that could indicate persistence mechanisms.
+- Correlate the scheduled task update with other security events or alerts to determine if it is part of a broader attack pattern or campaign.
+
+### False positive analysis
+
+- Scheduled tasks updated by system accounts can be false positives. Exclude updates made by system accounts by filtering out user names ending with a dollar sign.
+- Legitimate Microsoft tasks often update automatically. Exclude tasks with names containing "Microsoft" to reduce noise from these updates.
+- Commonly updated tasks like User Feed Synchronization and OneDrive Reporting are typically benign. Exclude these specific task names to avoid unnecessary alerts.
+- Tasks updated by well-known service SIDs such as S-1-5-18, S-1-5-19, and S-1-5-20 are generally safe. Exclude these SIDs to prevent false positives from routine system operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Review the specific scheduled task that was updated to determine if it was altered by an unauthorized user or process. Revert any unauthorized changes to their original state.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
+- Analyze the user account that made the changes to the scheduled task. If the account is compromised, reset the password and review recent activities for further signs of compromise.
+- Implement additional monitoring on the affected system and similar systems to detect any further unauthorized scheduled task updates or related suspicious activities.
+- Escalate the incident to the security operations team for further investigation and to determine if the threat is part of a larger attack campaign.
+- Review and update access controls and permissions related to scheduled tasks to ensure only authorized personnel can make changes, reducing the risk of future unauthorized modifications."""
 
 
 [[rule.threat]]

@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/25"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,27 @@ index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Injection by the Microsoft Build Engine"
+risk_score = 21
+rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae9"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and
+  event.provider == "Microsoft-Windows-Sysmon" and
+  /* CreateRemoteThread */
+  event.code == "8" and process.name: "MSBuild.exe"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,27 +74,6 @@ The Microsoft Build Engine (MSBuild) is a platform for building applications, of
 - Escalate the incident to the security operations center (SOC) or incident response team for a comprehensive investigation and to determine the scope of the intrusion.
 - Implement application whitelisting to prevent unauthorized execution of MSBuild.exe or similar tools in non-development environments.
 - Enhance monitoring and detection capabilities by ensuring Sysmon is configured to log detailed process creation and thread injection events across the network."""
-risk_score = 21
-rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae9"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Privilege Escalation",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and
-  event.provider == "Microsoft-Windows-Sysmon" and
-  /* CreateRemoteThread */
-  event.code == "8" and process.name: "MSBuild.exe"
-'''
 
 
 [[rule.threat]]

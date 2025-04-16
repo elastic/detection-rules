@@ -2,23 +2,62 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious parent child process relationship with cmd.exe descending from an unusual process."
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-m365_defender.event-*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Parent Process for cmd.exe"
+risk_score = 47
+rule_id = "3b47900d-e793-49e8-968f-c90dc3526aa1"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Microsoft Defender for Endpoint", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "cmd.exe" and
+  process.parent.name : ("lsass.exe",
+                         "csrss.exe",
+                         "epad.exe",
+                         "regsvr32.exe",
+                         "dllhost.exe",
+                         "LogonUI.exe",
+                         "wermgr.exe",
+                         "spoolsv.exe",
+                         "jucheck.exe",
+                         "jusched.exe",
+                         "ctfmon.exe",
+                         "taskhostw.exe",
+                         "GoogleUpdate.exe",
+                         "sppsvc.exe",
+                         "sihost.exe",
+                         "slui.exe",
+                         "SIHClient.exe",
+                         "SearchIndexer.exe",
+                         "SearchProtocolHost.exe",
+                         "FlashPlayerUpdateService.exe",
+                         "WerFault.exe",
+                         "WUDFHost.exe",
+                         "unsecapp.exe",
+                         "wlanext.exe" ) and
+  not (process.parent.name : "dllhost.exe" and process.parent.args : "/Processid:{CA8C87C1-929D-45BA-94DB-EF8E6CB346AD}")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,61 +94,6 @@ Cmd.exe is a command-line interpreter on Windows systems, often used for legitim
 - Update and run a full antivirus and anti-malware scan on the affected system to detect and remove any additional threats.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for cmd.exe and its parent processes to detect similar anomalies in the future."""
-risk_score = 47
-rule_id = "3b47900d-e793-49e8-968f-c90dc3526aa1"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : "cmd.exe" and
-  process.parent.name : ("lsass.exe",
-                         "csrss.exe",
-                         "epad.exe",
-                         "regsvr32.exe",
-                         "dllhost.exe",
-                         "LogonUI.exe",
-                         "wermgr.exe",
-                         "spoolsv.exe",
-                         "jucheck.exe",
-                         "jusched.exe",
-                         "ctfmon.exe",
-                         "taskhostw.exe",
-                         "GoogleUpdate.exe",
-                         "sppsvc.exe",
-                         "sihost.exe",
-                         "slui.exe",
-                         "SIHClient.exe",
-                         "SearchIndexer.exe",
-                         "SearchProtocolHost.exe",
-                         "FlashPlayerUpdateService.exe",
-                         "WerFault.exe",
-                         "WUDFHost.exe",
-                         "unsecapp.exe",
-                         "wlanext.exe" ) and
-  not (process.parent.name : "dllhost.exe" and process.parent.args : "/Processid:{CA8C87C1-929D-45BA-94DB-EF8E6CB346AD}")
-'''
 
 
 [[rule.threat]]

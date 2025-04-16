@@ -2,7 +2,9 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,39 @@ index = ["auditbeat-*", "winlogbeat-*", "logs-endpoint.events.*", "logs-windows.
 language = "eql"
 license = "Elastic License v2"
 name = "WebServer Access Logs Deleted"
+risk_score = 47
+rule_id = "665e7a4f-c58e-4fc6-bc83-87a7572670ac"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type == "deletion" and
+  file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log",
+               "/var/log/apache*/access.log",
+               "/etc/httpd/logs/access_log",
+               "/var/log/httpd/access_log",
+               "/var/www/*/logs/access.log")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,39 +84,6 @@ Web server access logs are crucial for monitoring and analyzing web traffic, pro
 - Review and tighten access controls and permissions on log files to ensure only authorized personnel can modify or delete them.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
 - Document the incident, including all actions taken, and update incident response plans to improve future detection and response capabilities."""
-risk_score = 47
-rule_id = "665e7a4f-c58e-4fc6-bc83-87a7572670ac"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: Windows",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where event.type == "deletion" and
-  file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log",
-               "/var/log/apache*/access.log",
-               "/etc/httpd/logs/access_log",
-               "/var/log/httpd/access_log",
-               "/var/www/*/logs/access.log")
-'''
 
 
 [[rule.threat]]

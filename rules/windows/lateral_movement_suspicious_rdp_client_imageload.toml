@@ -2,7 +2,9 @@
 creation_date = "2020/11/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,40 +17,6 @@ index = ["logs-endpoint.events.library-*", "winlogbeat-*", "logs-windows.sysmon_
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious RDP ActiveX Client Loaded"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious RDP ActiveX Client Loaded
-
-The Remote Desktop Services ActiveX Client, mstscax.dll, facilitates remote desktop connections, enabling users to access and control other systems. Adversaries may exploit this by loading the DLL in unauthorized contexts to move laterally within a network. The detection rule identifies unusual loading of mstscax.dll outside typical system paths, flagging potential misuse indicative of lateral movement attempts.
-
-### Possible investigation steps
-
-- Review the process executable path to determine if mstscax.dll was loaded from an unusual or unauthorized location, as specified in the query.
-- Check the associated process and user context to identify who initiated the process and whether it aligns with expected behavior or known user activity.
-- Investigate the network connections associated with the process to identify any suspicious remote connections or lateral movement attempts.
-- Examine recent login events and RDP session logs for the involved user account to detect any unauthorized access or anomalies.
-- Correlate the alert with other security events or logs to identify potential patterns or related suspicious activities within the network.
-
-### False positive analysis
-
-- Legitimate administrative tools or scripts that load mstscax.dll from non-standard paths may trigger false positives. To mitigate this, identify and document these tools, then add their paths to the exclusion list in the detection rule.
-- Software updates or installations that temporarily load mstscax.dll from unusual locations can cause false alerts. Monitor and log these activities, and consider excluding these paths if they are consistently flagged during known update periods.
-- Virtualization software or sandbox environments that use mstscax.dll for legitimate purposes might be flagged. Verify the use of such software and exclude their executable paths from the rule to prevent unnecessary alerts.
-- Custom user scripts or automation tasks that involve remote desktop functionalities may load mstscax.dll in unexpected ways. Review these scripts and, if deemed safe, add their execution paths to the exclusion list to reduce noise.
-- Network drive mappings or shared folders that involve remote desktop components could lead to false positives. Ensure these are part of regular operations and exclude their paths if they are frequently flagged without malicious intent.
-
-### Response and remediation
-
-- Isolate the affected system from the network immediately to prevent further lateral movement by the adversary.
-- Terminate any suspicious processes associated with the unauthorized loading of mstscax.dll to halt potential malicious activities.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malware or unauthorized software.
-- Review and analyze the system and network logs to identify any other systems that may have been accessed or compromised by the adversary.
-- Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
-- Implement network segmentation to limit the ability of adversaries to move laterally within the network in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or data have been affected."""
 references = [
     "https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3",
     "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
@@ -101,6 +69,40 @@ any where host.os.type == "windows" and
     "?:\\Windows\\System32\\hvsirdpclient.exe"
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious RDP ActiveX Client Loaded
+
+The Remote Desktop Services ActiveX Client, mstscax.dll, facilitates remote desktop connections, enabling users to access and control other systems. Adversaries may exploit this by loading the DLL in unauthorized contexts to move laterally within a network. The detection rule identifies unusual loading of mstscax.dll outside typical system paths, flagging potential misuse indicative of lateral movement attempts.
+
+### Possible investigation steps
+
+- Review the process executable path to determine if mstscax.dll was loaded from an unusual or unauthorized location, as specified in the query.
+- Check the associated process and user context to identify who initiated the process and whether it aligns with expected behavior or known user activity.
+- Investigate the network connections associated with the process to identify any suspicious remote connections or lateral movement attempts.
+- Examine recent login events and RDP session logs for the involved user account to detect any unauthorized access or anomalies.
+- Correlate the alert with other security events or logs to identify potential patterns or related suspicious activities within the network.
+
+### False positive analysis
+
+- Legitimate administrative tools or scripts that load mstscax.dll from non-standard paths may trigger false positives. To mitigate this, identify and document these tools, then add their paths to the exclusion list in the detection rule.
+- Software updates or installations that temporarily load mstscax.dll from unusual locations can cause false alerts. Monitor and log these activities, and consider excluding these paths if they are consistently flagged during known update periods.
+- Virtualization software or sandbox environments that use mstscax.dll for legitimate purposes might be flagged. Verify the use of such software and exclude their executable paths from the rule to prevent unnecessary alerts.
+- Custom user scripts or automation tasks that involve remote desktop functionalities may load mstscax.dll in unexpected ways. Review these scripts and, if deemed safe, add their execution paths to the exclusion list to reduce noise.
+- Network drive mappings or shared folders that involve remote desktop components could lead to false positives. Ensure these are part of regular operations and exclude their paths if they are frequently flagged without malicious intent.
+
+### Response and remediation
+
+- Isolate the affected system from the network immediately to prevent further lateral movement by the adversary.
+- Terminate any suspicious processes associated with the unauthorized loading of mstscax.dll to halt potential malicious activities.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malware or unauthorized software.
+- Review and analyze the system and network logs to identify any other systems that may have been accessed or compromised by the adversary.
+- Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
+- Implement network segmentation to limit the ability of adversaries to move laterally within the network in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or data have been affected."""
 
 
 [[rule.threat]]

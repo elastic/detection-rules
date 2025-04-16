@@ -2,7 +2,9 @@
 creation_date = "2020/08/17"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,38 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via TelemetryController Scheduled Task Hijack"
+references = ["https://www.trustedsec.com/blog/abusing-windows-telemetry-for-persistence"]
+risk_score = 73
+rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "CompatTelRunner.exe" and process.args : "-cv*" and
+  not process.name : ("conhost.exe",
+                      "DeviceCensus.exe",
+                      "CompatTelRunner.exe",
+                      "DismHost.exe",
+                      "rundll32.exe",
+                      "powershell.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,38 +94,6 @@ The Microsoft Compatibility Appraiser, part of Windows telemetry, uses scheduled
 - Analyze the system for any unauthorized changes to user accounts or privileges, and revert any modifications to ensure that only legitimate users have access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for the affected system and similar scheduled tasks across the network to detect any future attempts at hijacking or unauthorized modifications."""
-references = ["https://www.trustedsec.com/blog/abusing-windows-telemetry-for-persistence"]
-risk_score = 73
-rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "CompatTelRunner.exe" and process.args : "-cv*" and
-  not process.name : ("conhost.exe",
-                      "DeviceCensus.exe",
-                      "CompatTelRunner.exe",
-                      "DismHost.exe",
-                      "rundll32.exe",
-                      "powershell.exe")
-'''
 
 
 [[rule.threat]]

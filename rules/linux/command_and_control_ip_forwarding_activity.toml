@@ -2,7 +2,9 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,35 @@ index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_
 language = "eql"
 license = "Elastic License v2"
 name = "IPv4/IPv6 Forwarding Activity"
+risk_score = 21
+rule_id = "5a138e2e-aec3-4240-9843-56825d0bc569"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
+process.parent.executable != null and process.command_line like (
+  "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
+  "*/proc/sys/net/ipv6/conf/all/forwarding*"
+) and (
+  (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
+  (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+    process.command_line like "*echo *"
+  )
+) and
+not process.parent.name like~ ("privsep-helper", "platform-python*", "init.ipv6-global", "wsl-bootstrap")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,48 +82,16 @@ IPv4/IPv6 forwarding allows a Linux system to route traffic between network inte
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are compromised.
 - Implement network segmentation to limit the ability of attackers to pivot between networks in the future.
 - Enhance monitoring and alerting for similar suspicious activities by tuning detection systems to recognize patterns associated with IP forwarding misuse."""
-risk_score = 21
-rule_id = "5a138e2e-aec3-4240-9843-56825d0bc569"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
-process.parent.executable != null and process.command_line like (
-  "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
-  "*/proc/sys/net/ipv6/conf/all/forwarding*"
-) and (
-  (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
-  (
-    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
-    process.command_line like "*echo *"
-  )
-) and
-not process.parent.name like~ ("privsep-helper", "platform-python*", "init.ipv6-global", "wsl-bootstrap")
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

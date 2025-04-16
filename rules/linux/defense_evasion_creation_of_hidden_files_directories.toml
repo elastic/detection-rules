@@ -2,7 +2,9 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -11,16 +13,30 @@ Identify activity related where adversaries can add the 'hidden' flag to files t
 to evade detection.
 """
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-endpoint.events.file*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Hidden Files and Directories via Hidden Flag"
+risk_score = 21
+rule_id = "5124e65f-df97-4471-8dcb-8e3953b3ea97"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and process.name == "chflags"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,44 +72,21 @@ In Unix-like systems, the 'hidden' flag can be set on files to conceal them from
 - Implement file integrity monitoring to detect unauthorized changes to file attributes, including the hidden flag, on critical systems.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
 - Update and enhance endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future."""
-risk_score = 21
-rule_id = "5124e65f-df97-4471-8dcb-8e3953b3ea97"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "linux" and event.type == "creation" and process.name == "chflags"
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

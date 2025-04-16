@@ -2,7 +2,9 @@
 creation_date = "2020/11/27"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -21,40 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Script Interpreter Executing Process via WMI"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows Script Interpreter Executing Process via WMI
-
-Windows Management Instrumentation (WMI) is a powerful Windows feature that allows for system management and automation. Adversaries exploit WMI to execute scripts or processes stealthily, often using script interpreters like cscript.exe or wscript.exe. The detection rule identifies suspicious activity by monitoring for these interpreters executing processes via WMI, especially when initiated by non-system accounts, indicating potential malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific script interpreter (cscript.exe or wscript.exe) and the process it executed. Check the process name and executable path for any anomalies or known malicious indicators.
-- Examine the user account associated with the process execution. Verify if the user domain is not "NT AUTHORITY" and assess whether the account is expected to perform such actions. Investigate any unusual or unauthorized account activity.
-- Investigate the parent process wmiprvse.exe to determine how it was initiated. Look for any preceding suspicious activities or processes that might have triggered the WMI execution.
-- Check the system for any additional indicators of compromise, such as unexpected network connections, changes in system configurations, or other alerts related to the same host or user.
-- Correlate the event with other security logs and alerts to identify any patterns or related incidents that might indicate a broader attack campaign or persistent threat.
-
-### False positive analysis
-
-- Legitimate administrative scripts or automation tasks may trigger this rule if they use cscript.exe or wscript.exe via WMI. To handle this, identify and document these scripts, then create exceptions for their specific execution paths or user accounts.
-- Software installations or updates that utilize script interpreters through WMI can be mistaken for malicious activity. Monitor and whitelist known installation processes or update mechanisms that are frequently used in your environment.
-- Custom applications or internal tools that rely on WMI for process execution might be flagged. Review these applications and exclude their specific process names or executable paths from the rule.
-- Scheduled tasks or system maintenance scripts executed by non-system accounts could generate alerts. Verify these tasks and exclude them by specifying the user accounts or domains that are authorized to perform such actions.
-- Security tools or monitoring solutions that leverage WMI for legitimate purposes may also be detected. Identify these tools and add them to the exception list based on their process names or executable locations.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious processes identified in the alert, such as cscript.exe or wscript.exe, that are running under non-system accounts.
-- Conduct a thorough review of the affected host's scheduled tasks, startup items, and services to identify and remove any persistence mechanisms.
-- Analyze the parent process wmiprvse.exe and its command-line arguments to understand the scope of the attack and identify any additional compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger campaign.
-- Implement additional monitoring and alerting for similar activities across the network, focusing on WMI-based script execution and non-standard process launches.
-- Review and update endpoint protection policies to block or alert on the execution of high-risk processes like those listed in the detection query, especially when initiated by non-system accounts."""
 risk_score = 47
 rule_id = "b64b183e-1a76-422d-9179-7b389513e74d"
 severity = "medium"
@@ -102,6 +70,40 @@ sequence by host.id with maxspan = 5s
      )
     ]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Script Interpreter Executing Process via WMI
+
+Windows Management Instrumentation (WMI) is a powerful Windows feature that allows for system management and automation. Adversaries exploit WMI to execute scripts or processes stealthily, often using script interpreters like cscript.exe or wscript.exe. The detection rule identifies suspicious activity by monitoring for these interpreters executing processes via WMI, especially when initiated by non-system accounts, indicating potential malicious intent.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific script interpreter (cscript.exe or wscript.exe) and the process it executed. Check the process name and executable path for any anomalies or known malicious indicators.
+- Examine the user account associated with the process execution. Verify if the user domain is not "NT AUTHORITY" and assess whether the account is expected to perform such actions. Investigate any unusual or unauthorized account activity.
+- Investigate the parent process wmiprvse.exe to determine how it was initiated. Look for any preceding suspicious activities or processes that might have triggered the WMI execution.
+- Check the system for any additional indicators of compromise, such as unexpected network connections, changes in system configurations, or other alerts related to the same host or user.
+- Correlate the event with other security logs and alerts to identify any patterns or related incidents that might indicate a broader attack campaign or persistent threat.
+
+### False positive analysis
+
+- Legitimate administrative scripts or automation tasks may trigger this rule if they use cscript.exe or wscript.exe via WMI. To handle this, identify and document these scripts, then create exceptions for their specific execution paths or user accounts.
+- Software installations or updates that utilize script interpreters through WMI can be mistaken for malicious activity. Monitor and whitelist known installation processes or update mechanisms that are frequently used in your environment.
+- Custom applications or internal tools that rely on WMI for process execution might be flagged. Review these applications and exclude their specific process names or executable paths from the rule.
+- Scheduled tasks or system maintenance scripts executed by non-system accounts could generate alerts. Verify these tasks and exclude them by specifying the user accounts or domains that are authorized to perform such actions.
+- Security tools or monitoring solutions that leverage WMI for legitimate purposes may also be detected. Identify these tools and add them to the exception list based on their process names or executable locations.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified in the alert, such as cscript.exe or wscript.exe, that are running under non-system accounts.
+- Conduct a thorough review of the affected host's scheduled tasks, startup items, and services to identify and remove any persistence mechanisms.
+- Analyze the parent process wmiprvse.exe and its command-line arguments to understand the scope of the attack and identify any additional compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger campaign.
+- Implement additional monitoring and alerting for similar activities across the network, focusing on WMI-based script execution and non-standard process launches.
+- Review and update endpoint protection policies to block or alert on the execution of high-risk processes like those listed in the detection query, especially when initiated by non-system accounts."""
 
 
 [[rule.threat]]

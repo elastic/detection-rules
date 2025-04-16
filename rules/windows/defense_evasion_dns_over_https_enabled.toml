@@ -2,7 +2,9 @@
 creation_date = "2021/07/22"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Austin Songer"]
@@ -12,17 +14,41 @@ data. With this enabled, an organization will lose visibility into data such as 
 IP, which are used to determine bad actors.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.registry-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "DNS-over-HTTPS Enabled via Registry"
+references = [
+    "https://www.tenforums.com/tutorials/151318-how-enable-disable-dns-over-https-doh-microsoft-edge.html",
+    "https://chromeenterprise.google/policies/?policy=DnsOverHttpsMode",
+]
+risk_score = 21
+rule_id = "a22a09c2-2162-4df0-a356-9aacbeb56a04"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Edge\\BuiltInDnsClientEnabled" and
+  registry.data.strings : ("1", "0x00000001")) or
+  (registry.path : "*\\SOFTWARE\\Google\\Chrome\\DnsOverHttpsMode" and
+  registry.data.strings : "secure") or
+  (registry.path : "*\\SOFTWARE\\Policies\\Mozilla\\Firefox\\DNSOverHTTPS" and
+  registry.data.strings : ("1", "0x00000001"))
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,37 +82,6 @@ DNS-over-HTTPS (DoH) encrypts DNS queries to enhance privacy and security, preve
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring for registry changes related to DNS settings across the organization to detect similar threats in the future.
 - Review and update security policies to ensure that DNS-over-HTTPS is only enabled through approved channels and for legitimate purposes, reducing the risk of misuse."""
-references = [
-    "https://www.tenforums.com/tutorials/151318-how-enable-disable-dns-over-https-doh-microsoft-edge.html",
-    "https://chromeenterprise.google/policies/?policy=DnsOverHttpsMode",
-]
-risk_score = 21
-rule_id = "a22a09c2-2162-4df0-a356-9aacbeb56a04"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Edge\\BuiltInDnsClientEnabled" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "*\\SOFTWARE\\Google\\Chrome\\DnsOverHttpsMode" and
-  registry.data.strings : "secure") or
-  (registry.path : "*\\SOFTWARE\\Policies\\Mozilla\\Firefox\\DNSOverHTTPS" and
-  registry.data.strings : ("1", "0x00000001"))
-'''
 
 
 [[rule.threat]]

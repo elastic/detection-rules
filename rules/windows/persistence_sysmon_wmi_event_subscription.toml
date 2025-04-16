@@ -2,7 +2,7 @@
 creation_date = "2023/02/02"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2025/04/15"
+updated_date = "2025/01/15"
 min_stack_version = "8.15.0"
 min_stack_comments = "Elastic Defend WMI events were added in Elastic Defend 8.15.0."
 
@@ -40,10 +40,10 @@ query = '''
 any where
  (
    (event.dataset == "windows.sysmon_operational" and event.code == "21" and
-    ?winlog.event_data.Operation : "Created" and ?winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
+    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
 
-   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and ?process.Ext.api.name == "IWbemServices::PutInstance" and
-    ?process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
+   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and process.Ext.api.name == "IWbemServices::PutInstance" and
+    process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
  )
 '''
 note = """## Triage and analysis

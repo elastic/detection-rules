@@ -2,7 +2,9 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -11,50 +13,10 @@ This rule identifies when a web server is spawned via Python. Attackers may use 
 exfiltrate/infiltrate data or to move laterally within a network.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Web Server Spawned via Python"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Web Server Spawned via Python
-
-Python's built-in HTTP server module allows quick web server deployment, often used for testing or file sharing. Adversaries exploit this to exfiltrate data or facilitate lateral movement within networks. The detection rule identifies processes starting a Python-based server, focusing on command patterns and shell usage, to flag potential misuse on Linux systems.
-
-### Possible investigation steps
-
-- Review the process details to confirm the presence of a Python-based web server by checking the process name and arguments, specifically looking for "python" with "http.server" or "SimpleHTTPServer".
-- Investigate the user account associated with the process to determine if it is a known or expected user for running such services.
-- Examine the command line used to start the process for any unusual or suspicious patterns, especially if it involves shell usage like "bash" or "sh" with the command line containing "python -m http.server".
-- Check the network activity from the host to identify any unusual outbound connections or data transfers that could indicate data exfiltration.
-- Correlate the event with other logs or alerts from the same host to identify any preceding or subsequent suspicious activities that might suggest lateral movement or further exploitation attempts.
-- Assess the host's security posture and recent changes to determine if there are any vulnerabilities or misconfigurations that could have been exploited to spawn the web server.
-
-### False positive analysis
-
-- Development and testing environments often use Python's HTTP server for legitimate purposes such as serving static files or testing web applications. To manage this, create exceptions for known development servers by excluding specific hostnames or IP addresses.
-- Automated scripts or cron jobs may start a Python web server for routine tasks like file distribution within a controlled environment. Identify these scripts and exclude their execution paths or user accounts from the detection rule.
-- Educational or training sessions might involve participants using Python's HTTP server to learn web technologies. Exclude these activities by setting time-based exceptions during scheduled training periods.
-- System administrators might use Python's HTTP server for quick file transfers or troubleshooting. Document these use cases and exclude the associated user accounts or process command lines from triggering alerts.
-- Internal tools or utilities developed in-house may rely on Python's HTTP server for functionality. Review these tools and exclude their specific command patterns or execution contexts from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further data exfiltration or lateral movement.
-- Terminate the suspicious Python process identified by the detection rule to stop the unauthorized web server.
-- Conduct a forensic analysis of the affected system to identify any data that may have been accessed or exfiltrated and to determine the initial access vector.
-- Review and secure any exposed credentials or sensitive data that may have been compromised during the incident.
-- Apply patches and updates to the affected system and any related software to mitigate vulnerabilities that may have been exploited.
-- Implement network segmentation to limit the ability of unauthorized processes to communicate across the network.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation and recovery actions are taken."""
 risk_score = 21
 rule_id = "99c2b626-de44-4322-b1f9-157ca408c17e"
 setup = """## Setup
@@ -96,7 +58,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
@@ -108,35 +69,69 @@ process where host.os.type == "linux" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Spawned via Python
+
+Python's built-in HTTP server module allows quick web server deployment, often used for testing or file sharing. Adversaries exploit this to exfiltrate data or facilitate lateral movement within networks. The detection rule identifies processes starting a Python-based server, focusing on command patterns and shell usage, to flag potential misuse on Linux systems.
+
+### Possible investigation steps
+
+- Review the process details to confirm the presence of a Python-based web server by checking the process name and arguments, specifically looking for "python" with "http.server" or "SimpleHTTPServer".
+- Investigate the user account associated with the process to determine if it is a known or expected user for running such services.
+- Examine the command line used to start the process for any unusual or suspicious patterns, especially if it involves shell usage like "bash" or "sh" with the command line containing "python -m http.server".
+- Check the network activity from the host to identify any unusual outbound connections or data transfers that could indicate data exfiltration.
+- Correlate the event with other logs or alerts from the same host to identify any preceding or subsequent suspicious activities that might suggest lateral movement or further exploitation attempts.
+- Assess the host's security posture and recent changes to determine if there are any vulnerabilities or misconfigurations that could have been exploited to spawn the web server.
+
+### False positive analysis
+
+- Development and testing environments often use Python's HTTP server for legitimate purposes such as serving static files or testing web applications. To manage this, create exceptions for known development servers by excluding specific hostnames or IP addresses.
+- Automated scripts or cron jobs may start a Python web server for routine tasks like file distribution within a controlled environment. Identify these scripts and exclude their execution paths or user accounts from the detection rule.
+- Educational or training sessions might involve participants using Python's HTTP server to learn web technologies. Exclude these activities by setting time-based exceptions during scheduled training periods.
+- System administrators might use Python's HTTP server for quick file transfers or troubleshooting. Document these use cases and exclude the associated user accounts or process command lines from triggering alerts.
+- Internal tools or utilities developed in-house may rely on Python's HTTP server for functionality. Review these tools and exclude their specific command patterns or execution contexts from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further data exfiltration or lateral movement.
+- Terminate the suspicious Python process identified by the detection rule to stop the unauthorized web server.
+- Conduct a forensic analysis of the affected system to identify any data that may have been accessed or exfiltrated and to determine the initial access vector.
+- Review and secure any exposed credentials or sensitive data that may have been compromised during the incident.
+- Apply patches and updates to the affected system and any related software to mitigate vulnerabilities that may have been exploited.
+- Implement network segmentation to limit the ability of unauthorized processes to communicate across the network.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation and recovery actions are taken."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.006"
 name = "Python"
 reference = "https://attack.mitre.org/techniques/T1059/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Lateral Movement"
+id = "TA0008"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
 [[rule.threat.technique]]
 id = "T1570"
 name = "Lateral Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1570/"
-
-
-[rule.threat.tactic]
-id = "TA0008"
-name = "Lateral Movement"
-reference = "https://attack.mitre.org/tactics/TA0008/"
-

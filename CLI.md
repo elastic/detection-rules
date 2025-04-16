@@ -265,7 +265,6 @@ Options:
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
-  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -h, --help                      Show this message and exit.
 ```
 
@@ -482,7 +481,7 @@ Options:
 
 ### Exporting rules
 
-This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs-dev/custom-rules-management.md) for more information.
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs-dev/custom-rules.md) for more information.
 
 ```
 python -m detection_rules kibana export-rules -h
@@ -521,7 +520,6 @@ Options:
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
-  -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
   -h, --help                      Show this message and exit.
 
 ```

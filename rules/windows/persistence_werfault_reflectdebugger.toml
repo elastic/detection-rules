@@ -2,7 +2,9 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,16 +13,37 @@ Identifies the registration of a Werfault Debugger. Attackers may abuse this mec
 every time the utility is executed with the "-pr" parameter.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-windows.sysmon_operational-*",
-]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Werfault ReflectDebugger Persistence"
+references = ["https://cocomelonc.github.io/malware/2022/11/02/malware-pers-18.html"]
+risk_score = 21
+rule_id = "205b52c4-9c28-4af4-8979-935f3278d61a"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : (
+    "HKLM\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger",
+    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger",
+    "MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger"
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,33 +78,6 @@ Werfault, the Windows Error Reporting service, can be manipulated by attackers t
 - Review and restore any system or application configurations that may have been altered by the attacker to their original state.
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
 - Implement enhanced monitoring and alerting for registry changes in the specified paths to detect and respond to similar threats in the future."""
-references = ["https://cocomelonc.github.io/malware/2022/11/02/malware-pers-18.html"]
-risk_score = 21
-rule_id = "205b52c4-9c28-4af4-8979-935f3278d61a"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-  registry.path : (
-    "HKLM\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger",
-    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger",
-    "MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger"
-  )
-'''
 
 
 [[rule.threat]]

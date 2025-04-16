@@ -2,7 +2,9 @@
 creation_date = "2025/01/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/22"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +25,31 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "File with Right-to-Left Override Character (RTLO) Created/Executed"
+risk_score = 47
+rule_id = "7e763fd1-228a-4d43-be88-3ffc14cd7de1"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.category in ("file", "process") and 
+  (
+    (event.type == "creation" and file.path : "*\u{202E}*") or 
+    (event.type == "start" and process.name : "*\u{202E}*")
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,31 +85,6 @@ The RTLO character reverses text direction, often used to disguise file extensio
 - Review and analyze system logs and security alerts to determine the extent of the compromise and identify any lateral movement or additional affected systems.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment measures are necessary.
 - Implement enhanced monitoring and detection rules to identify future attempts to use RTLO characters for masquerading, ensuring that similar threats are detected promptly."""
-risk_score = 47
-rule_id = "7e763fd1-228a-4d43-be88-3ffc14cd7de1"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-any where host.os.type == "windows" and event.category in ("file", "process") and 
-  (
-    (event.type == "creation" and file.path : "*\u{202E}*") or 
-    (event.type == "start" and process.name : "*\u{202E}*")
-  )
-'''
 
 
 [[rule.threat]]

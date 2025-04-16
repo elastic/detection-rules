@@ -2,7 +2,9 @@
 creation_date = "2021/10/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/27"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Austin Songer"]
@@ -18,7 +20,7 @@ index = [
     "logs-windows.sysmon_operational-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
-    "endgame-*",
+    "endgame-*"
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -99,7 +101,7 @@ registry where host.os.type == "windows" and event.type == "change" and process.
       ) and registry.data.strings : ("0", "0x00000000")
     ) or
     (
-      registry.value : (
+      registry.path : (
         "DisableAntiSpyware", "DisableRealtimeMonitoring", "DisableIntrusionPreventionSystem", "DisableScriptScanning",
         "DisableIOAVProtection", "DisableEnhancedNotifications", "DisableBlockAtFirstSeen", "DisableBehaviorMonitoring"
       ) and registry.data.strings : ("1", "0x00000001")

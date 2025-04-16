@@ -2,7 +2,9 @@
 creation_date = "2020/03/19"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,24 @@ index = ["winlogbeat-*", "logs-windows.forwarded*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)"
+risk_score = 21
+rule_id = "56557cde-d923-4b88-adee-c61b3f3b5dc3"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Use Case: Vulnerability",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.provider:"Microsoft-Windows-Audit-CVE" and message:"[CVE-2020-0601]" and host.os.type:windows
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,24 +69,6 @@ The Windows CryptoAPI is crucial for validating ECC certificates, ensuring secur
 - Review and update endpoint protection configurations to ensure they are set to detect and block similar spoofing attempts.
 - Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems may be affected.
 - Implement enhanced monitoring for signs of defense evasion tactics, focusing on event logs and messages related to certificate validation processes."""
-risk_score = 21
-rule_id = "56557cde-d923-4b88-adee-c61b3f3b5dc3"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Use Case: Vulnerability",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "query"
-
-query = '''
-event.provider:"Microsoft-Windows-Audit-CVE" and message:"[CVE-2020-0601]" and host.os.type:windows
-'''
 
 
 [[rule.threat]]

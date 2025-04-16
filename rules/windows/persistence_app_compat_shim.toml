@@ -2,7 +2,9 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,17 +13,42 @@ Identifies the installation of custom Application Compatibility Shim databases. 
 abused by attackers to stealthily gain persistence and arbitrary code execution in legitimate Windows processes.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "endgame-*",
-]
+index = ["logs-endpoint.events.registry-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Installation of Custom Shim Databases"
+risk_score = 47
+rule_id = "c5ce48a6-7f57-4ee8-9313-3d0024caee10"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+    registry.path : (
+        "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
+        "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
+        "MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"
+    ) and
+    not process.executable :
+                       ("?:\\Program Files (x86)\\DesktopCentral_Agent\\swrepository\\1\\swuploads\\SAP-SLC\\SAPSetupSLC02_14-80001954\\Setup\\NwSapSetup.exe",
+                        "?:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe",
+                         "?:\\Program Files (x86)\\SAP\\SAPsetup\\setup\\NwSapSetup.exe",
+                         "?:\\Program Files (x86)\\SAP\\SapSetup\\OnRebootSvc\\NWSAPSetupOnRebootInstSvc.exe",
+                         "?:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky Security for Windows Server\\kavfs.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,38 +84,6 @@ Application Compatibility Shim databases are used in Windows to ensure older app
 - Review and restore any altered system configurations or files to their original state to ensure system integrity.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for the specified registry paths and associated processes to detect and respond to similar threats in the future."""
-risk_score = 47
-rule_id = "c5ce48a6-7f57-4ee8-9313-3d0024caee10"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-    registry.path : (
-        "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
-        "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
-        "MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"
-    ) and
-    not process.executable :
-                       ("?:\\Program Files (x86)\\DesktopCentral_Agent\\swrepository\\1\\swuploads\\SAP-SLC\\SAPSetupSLC02_14-80001954\\Setup\\NwSapSetup.exe",
-                        "?:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe",
-                         "?:\\Program Files (x86)\\SAP\\SAPsetup\\setup\\NwSapSetup.exe",
-                         "?:\\Program Files (x86)\\SAP\\SapSetup\\OnRebootSvc\\NWSAPSetupOnRebootInstSvc.exe",
-                         "?:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky Security for Windows Server\\kavfs.exe")
-'''
 
 
 [[rule.threat]]

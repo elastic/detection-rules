@@ -2,19 +2,21 @@
 creation_date = "2024/06/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/03"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by creating a
-new set of credentials for an existing user. This rule looks for use of the IAM `CreateAccessKey` API operation to
-create new programmatic access keys for another IAM user.
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
+creating a new set of credentials for an existing user. This rule looks for use of the IAM `CreateAccessKey` API operation
+to create new programmatic access keys for another IAM user.
 """
 false_positives = [
     """
-    While this can be normal behavior, it should be investigated to ensure validity. Verify whether the user identity
-    should be using the IAM `CreateAccessKey` for the targeted user.
+    While this can be normal behavior, it should be investigated to ensure validity.
+    Verify whether the user identity should be using the IAM `CreateAccessKey` for the targeted user.
     """,
 ]
 from = "now-6m"
@@ -117,42 +119,6 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     aws.cloudtrail.user_identity.type
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
-[[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
-
-
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
-[[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
-
-
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -169,4 +135,37 @@ field_names = [
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements",
 ]
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

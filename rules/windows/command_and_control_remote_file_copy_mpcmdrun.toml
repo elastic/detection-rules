@@ -2,40 +2,11 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
-[[transform.investigate]]
-label = "Alerts associated with the user in the last 48h"
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the host in the last 48h"
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Investigate the Subject Process Network Events"
-providers = [
-  [
-    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
-    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
-  ]
-]
-
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
 query = "SELECT * FROM dns_cache"
@@ -59,6 +30,37 @@ SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, des
 services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
+
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+    [
+        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
+        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
+    ]
+]
 
 
 [rule]

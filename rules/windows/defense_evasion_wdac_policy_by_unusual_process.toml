@@ -2,7 +2,9 @@
 creation_date = "2025/02/28"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/28"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,14 +13,7 @@ Identifies the creation of a Windows Defender Application Control (WDAC) policy 
 may use a secially crafted WDAC policy to restrict the execution of security products.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.file-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "WDAC Policy File by an Unusual Process"
@@ -51,7 +46,7 @@ note = """## Triage and analysis
 """
 references = [
     "https://github.com/logangoins/Krueger/tree/main",
-    "https://beierle.win/2024-12-20-Weaponizing-WDAC-Killing-the-Dreams-of-EDR/",
+    "https://beierle.win/2024-12-20-Weaponizing-WDAC-Killing-the-Dreams-of-EDR/"
 ]
 risk_score = 73
 rule_id = "3aaf37f3-05a1-40a5-bb6e-e380c4f92c52"
@@ -86,8 +81,8 @@ name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

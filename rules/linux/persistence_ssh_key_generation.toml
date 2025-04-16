@@ -2,7 +2,9 @@
 creation_date = "2024/05/31"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +19,29 @@ index = ["logs-endpoint.events.file*", "endgame-*", "logs-sentinel_one_cloud_fun
 language = "eql"
 license = "Elastic License v2"
 name = "SSH Key Generated via ssh-keygen"
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
+risk_score = 21
+rule_id = "7df3cb8b-5c0c-4228-b772-bb6cd619053c"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
+process.executable == "/usr/bin/ssh-keygen" and file.path : ("/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*") and
+not file.name : "known_hosts.*"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -52,29 +77,6 @@ SSH keys, created using the ssh-keygen tool, are essential for secure authentica
 - Monitor network traffic and system logs for any signs of further unauthorized access attempts or suspicious activity related to SSH.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach.
 - Implement additional monitoring and alerting for SSH key generation activities across the network to enhance detection of similar threats in the future."""
-references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
-risk_score = 21
-rule_id = "7df3cb8b-5c0c-4228-b772-bb6cd619053c"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
-process.executable == "/usr/bin/ssh-keygen" and file.path : ("/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*") and
-not file.name : "known_hosts.*"
-'''
 
 
 [[rule.threat]]

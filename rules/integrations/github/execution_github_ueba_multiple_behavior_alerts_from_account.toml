@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2023/12/14"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,24 @@ index = [".alerts-security.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GitHub UEBA - Multiple Alerts from a GitHub Account"
+risk_score = 47
+rule_id = "929223b4-fba3-4a1c-a943-ec4716ad23ec"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Execution",
+    "Rule Type: Higher-Order Rule",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+signal.rule.tags:("Use Case: UEBA" and "Data Source: Github") and kibana.alert.workflow_status:"open"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -50,24 +70,6 @@ User and Entity Behavior Analytics (UEBA) in GitHub environments helps identify 
 - Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional accounts or systems are affected.
 - Implement additional monitoring on the affected account and related systems to detect any further suspicious activity.
 - Update and refine access controls and permissions for the affected account to minimize the risk of future unauthorized actions."""
-risk_score = 47
-rule_id = "929223b4-fba3-4a1c-a943-ec4716ad23ec"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Execution",
-    "Rule Type: Higher-Order Rule",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "threshold"
-
-query = '''
-signal.rule.tags:("Use Case: UEBA" and "Data Source: Github") and kibana.alert.workflow_status:"open"
-'''
 
 
 [[rule.threat]]

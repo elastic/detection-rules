@@ -2,7 +2,9 @@
 creation_date = "2020/08/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -12,17 +14,38 @@ legitimate system administration, but can also be abused by an attacker with dom
 malicious payload remotely on all or a subset of the domain joined machines.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.file-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation or Modification of a new GPO Scheduled Task or Service"
+risk_score = 21
+rule_id = "c0429aa8-9974-42da-bfb6-53a0a515a145"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type != "deletion" and event.action != "open" and
+ file.name : ("ScheduledTasks.xml", "Services.xml") and
+  file.path : (
+    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
+    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Services\\Services.xml"
+  ) and
+  not process.executable : "C:\\Windows\\System32\\dfsrs.exe"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,34 +81,6 @@ Group Policy Objects (GPOs) are crucial for centralized management in Windows en
 - Notify the security operations center (SOC) and escalate the incident to the incident response team for further investigation and to determine the scope of the compromise.
 - Implement additional monitoring on GPO paths and domain admin activities to detect any further unauthorized changes or suspicious behavior.
 - Review and strengthen access controls and auditing policies for GPO management to prevent unauthorized modifications in the future."""
-risk_score = 21
-rule_id = "c0429aa8-9974-42da-bfb6-53a0a515a145"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "windows" and event.type != "deletion" and event.action != "open" and
- file.name : ("ScheduledTasks.xml", "Services.xml") and
-  file.path : (
-    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
-    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Services\\Services.xml"
-  ) and
-  not process.executable : "C:\\Windows\\System32\\dfsrs.exe"
-'''
 
 
 [[rule.threat]]

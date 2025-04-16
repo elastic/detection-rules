@@ -2,7 +2,9 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/25"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,41 +18,6 @@ index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File Creation Time Changed"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Creation Time Changed
-File creation timestamps are crucial for tracking file history and integrity. Adversaries may alter these timestamps, a tactic known as timestomping, to disguise malicious files as benign. This detection rule leverages Sysmon logs to identify suspicious changes in file creation times, excluding trusted processes and file types, thus highlighting potential evasion attempts by attackers.
-
-### Possible investigation steps
-
-- Review the Sysmon logs to confirm the event code 2, which indicates a file creation time change, and verify the associated process and file details.
-- Identify the process executable path that triggered the alert and determine if it is outside the list of trusted paths specified in the query.
-- Check the file extension and name to ensure they are not part of the excluded types such as "temp", "tmp", or "LOG".
-- Investigate the user account associated with the event to determine if it is a non-system account, as the query excludes "SYSTEM", "Local Service", and "Network Service".
-- Correlate the file creation time change event with other security events or logs to identify any related suspicious activities or patterns.
-- Assess the file's location and context to determine if it is in a sensitive or unusual directory that could indicate malicious intent.
-- If necessary, perform a deeper forensic analysis on the file and process to identify any potential malicious behavior or indicators of compromise.
-
-### False positive analysis
-
-- Trusted software updates or installations may alter file creation times. Exclude known update processes like msiexec.exe from detection to reduce noise.
-- System maintenance tasks, such as disk cleanup, can modify timestamps. Exclude cleanmgr.exe to prevent these benign changes from triggering alerts.
-- User-initiated actions in trusted applications like Chrome or Firefox might change file creation times. Exclude these applications to avoid unnecessary alerts.
-- Temporary files created by legitimate processes may have altered timestamps. Exclude file extensions like temp and tmp to minimize false positives.
-- System accounts such as SYSTEM or Local Service may perform legitimate file operations. Exclude these user names to focus on suspicious activities.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement by the adversary.
-- Conduct a thorough review of the file in question to determine if it is malicious. Use a combination of antivirus scans and manual analysis to assess the file's behavior and origin.
-- If the file is confirmed to be malicious, remove it from the system and any other locations it may have been copied to. Ensure that all associated processes are terminated.
-- Restore any affected files from a known good backup to ensure data integrity and continuity.
-- Review and update endpoint protection settings to ensure that similar threats are detected and blocked in the future. This may include adjusting Sysmon configurations to enhance logging and detection capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised.
-- Document the incident, including all actions taken, to improve future response efforts and update threat intelligence databases with any new indicators of compromise (IOCs) identified."""
 risk_score = 47
 rule_id = "166727ab-6768-4e26-b80c-948b228ffc06"
 severity = "medium"
@@ -88,6 +55,41 @@ file where host.os.type == "windows" and
   not file.extension : ("temp", "tmp", "~tmp", "xml", "newcfg") and not user.name : ("SYSTEM", "Local Service", "Network Service") and
   not file.name : ("LOG", "temp-index", "license.rtf", "iconcache_*.db")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Creation Time Changed
+File creation timestamps are crucial for tracking file history and integrity. Adversaries may alter these timestamps, a tactic known as timestomping, to disguise malicious files as benign. This detection rule leverages Sysmon logs to identify suspicious changes in file creation times, excluding trusted processes and file types, thus highlighting potential evasion attempts by attackers.
+
+### Possible investigation steps
+
+- Review the Sysmon logs to confirm the event code 2, which indicates a file creation time change, and verify the associated process and file details.
+- Identify the process executable path that triggered the alert and determine if it is outside the list of trusted paths specified in the query.
+- Check the file extension and name to ensure they are not part of the excluded types such as "temp", "tmp", or "LOG".
+- Investigate the user account associated with the event to determine if it is a non-system account, as the query excludes "SYSTEM", "Local Service", and "Network Service".
+- Correlate the file creation time change event with other security events or logs to identify any related suspicious activities or patterns.
+- Assess the file's location and context to determine if it is in a sensitive or unusual directory that could indicate malicious intent.
+- If necessary, perform a deeper forensic analysis on the file and process to identify any potential malicious behavior or indicators of compromise.
+
+### False positive analysis
+
+- Trusted software updates or installations may alter file creation times. Exclude known update processes like msiexec.exe from detection to reduce noise.
+- System maintenance tasks, such as disk cleanup, can modify timestamps. Exclude cleanmgr.exe to prevent these benign changes from triggering alerts.
+- User-initiated actions in trusted applications like Chrome or Firefox might change file creation times. Exclude these applications to avoid unnecessary alerts.
+- Temporary files created by legitimate processes may have altered timestamps. Exclude file extensions like temp and tmp to minimize false positives.
+- System accounts such as SYSTEM or Local Service may perform legitimate file operations. Exclude these user names to focus on suspicious activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement by the adversary.
+- Conduct a thorough review of the file in question to determine if it is malicious. Use a combination of antivirus scans and manual analysis to assess the file's behavior and origin.
+- If the file is confirmed to be malicious, remove it from the system and any other locations it may have been copied to. Ensure that all associated processes are terminated.
+- Restore any affected files from a known good backup to ensure data integrity and continuity.
+- Review and update endpoint protection settings to ensure that similar threats are detected and blocked in the future. This may include adjusting Sysmon configurations to enhance logging and detection capabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised.
+- Document the incident, including all actions taken, to improve future response efforts and update threat intelligence databases with any new indicators of compromise (IOCs) identified."""
 
 
 [[rule.threat]]

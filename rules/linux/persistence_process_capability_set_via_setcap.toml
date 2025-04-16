@@ -2,7 +2,9 @@
 creation_date = "2024/06/03"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -17,39 +19,6 @@ index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Set via setcap Utility"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Process Capability Set via setcap Utility
-
-The `setcap` utility in Linux assigns specific capabilities to executables, allowing them to perform privileged tasks without full root access. While beneficial for security, adversaries can exploit this to maintain persistence or escalate privileges by misconfiguring capabilities. The detection rule identifies suspicious `setcap` usage by monitoring process execution patterns, excluding benign parent processes, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the process execution details to confirm the use of the setcap utility, focusing on the process name and event action fields to ensure the alert is not a false positive.
-- Investigate the parent process executable and name to determine if the setcap command was executed by a potentially malicious or unexpected process, especially if it is not among the excluded benign parent processes.
-- Check the capabilities that were set by the setcap command to assess if they could allow privilege escalation or persistence, and determine if they align with normal operational requirements.
-- Examine the timeline of events around the setcap execution to identify any preceding or subsequent suspicious activities that might indicate a broader attack or compromise.
-- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise that could suggest a coordinated attack.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule when package managers like dpkg or Docker set capabilities during their processes. To handle this, exclude paths such as /var/lib/dpkg/* and /var/lib/docker/* from the detection rule.
-- Development environments or containerized applications might use setcap for testing purposes. Exclude processes originating from /tmp/newroot/* and /var/tmp/newroot/* to reduce noise from these environments.
-- Custom scripts or administrative tools that use setcap for legitimate configuration tasks can be excluded by identifying their parent process names and adding them to the exclusion list, similar to the existing exclusions for jem and vzctl.
-- Regular audits of the exclusion list should be conducted to ensure that no malicious processes are inadvertently whitelisted, maintaining a balance between reducing false positives and ensuring security.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the attacker.
-- Terminate any suspicious processes associated with the `setcap` utility that are not part of legitimate administrative tasks.
-- Review and remove any unnecessary capabilities set on executables using the `setcap` utility to prevent privilege escalation.
-- Conduct a thorough audit of the system to identify any backdoors or unauthorized changes made by the attacker, and remove them.
-- Restore affected systems from a known good backup if unauthorized changes or persistent threats are detected.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems are compromised.
-- Implement enhanced monitoring and logging for `setcap` usage and similar privilege escalation attempts to improve future detection capabilities."""
 risk_score = 21
 rule_id = "f18a474c-3632-427f-bcf5-363c994309ee"
 setup = """## Setup
@@ -88,11 +57,10 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name == "setcap" and not (
@@ -101,7 +69,39 @@ process.name == "setcap" and not (
   process.parent.name in ("jem", "vzctl")
 )
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Capability Set via setcap Utility
+
+The `setcap` utility in Linux assigns specific capabilities to executables, allowing them to perform privileged tasks without full root access. While beneficial for security, adversaries can exploit this to maintain persistence or escalate privileges by misconfiguring capabilities. The detection rule identifies suspicious `setcap` usage by monitoring process execution patterns, excluding benign parent processes, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the use of the setcap utility, focusing on the process name and event action fields to ensure the alert is not a false positive.
+- Investigate the parent process executable and name to determine if the setcap command was executed by a potentially malicious or unexpected process, especially if it is not among the excluded benign parent processes.
+- Check the capabilities that were set by the setcap command to assess if they could allow privilege escalation or persistence, and determine if they align with normal operational requirements.
+- Examine the timeline of events around the setcap execution to identify any preceding or subsequent suspicious activities that might indicate a broader attack or compromise.
+- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise that could suggest a coordinated attack.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule when package managers like dpkg or Docker set capabilities during their processes. To handle this, exclude paths such as /var/lib/dpkg/* and /var/lib/docker/* from the detection rule.
+- Development environments or containerized applications might use setcap for testing purposes. Exclude processes originating from /tmp/newroot/* and /var/tmp/newroot/* to reduce noise from these environments.
+- Custom scripts or administrative tools that use setcap for legitimate configuration tasks can be excluded by identifying their parent process names and adding them to the exclusion list, similar to the existing exclusions for jem and vzctl.
+- Regular audits of the exclusion list should be conducted to ensure that no malicious processes are inadvertently whitelisted, maintaining a balance between reducing false positives and ensuring security.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the attacker.
+- Terminate any suspicious processes associated with the `setcap` utility that are not part of legitimate administrative tasks.
+- Review and remove any unnecessary capabilities set on executables using the `setcap` utility to prevent privilege escalation.
+- Conduct a thorough audit of the system to identify any backdoors or unauthorized changes made by the attacker, and remove them.
+- Restore affected systems from a known good backup if unauthorized changes or persistent threats are detected.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are compromised.
+- Implement enhanced monitoring and logging for `setcap` usage and similar privilege escalation attempts to improve future detection capabilities."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -110,6 +110,7 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -117,4 +118,3 @@ framework = "MITRE ATT&CK"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

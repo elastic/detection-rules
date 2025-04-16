@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,28 @@ index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started by a Script Process"
+risk_score = 21
+rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae2"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:windows and event.category:process and event.type:start and (
+  process.name.caseless:"msbuild.exe" or process.pe.original_file_name:"MSBuild.exe") and
+  process.parent.name:("cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or
+    "wscript.exe" or "mshta.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -51,28 +75,6 @@ The Microsoft Build Engine (MSBuild) is a platform for building applications, ty
 - Reset credentials for any user accounts that were active on the affected system during the time of the alert to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for MSBuild and script interpreter activities across the network to detect and respond to similar threats in the future."""
-risk_score = 21
-rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae2"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-host.os.type:windows and event.category:process and event.type:start and (
-  process.name.caseless:"msbuild.exe" or process.pe.original_file_name:"MSBuild.exe") and
-  process.parent.name:("cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or
-    "wscript.exe" or "mshta.exe")
-'''
 
 
 [[rule.threat]]

@@ -2,7 +2,9 @@
 creation_date = "2020/11/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,40 +18,6 @@ index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_op
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler Point and Print DLL"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Print Spooler Point and Print DLL
-
-The Windows Print Spooler service manages print jobs and is integral to printing operations. Adversaries exploit vulnerabilities like CVE-2020-1030 to escalate privileges by loading malicious DLLs into the spooler process, which runs with SYSTEM-level permissions. The detection rule identifies suspicious registry modifications linked to the Print Spooler, indicating potential exploitation attempts by monitoring specific registry paths and data patterns.
-
-### Possible investigation steps
-
-- Review the registry paths specified in the alert to confirm any unauthorized modifications, focusing on the paths: HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory and HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module.
-- Check the registry data strings for any unexpected or suspicious DLLs located in C:\\Windows\\System32\\spool\\drivers\\x64\\4, which may indicate a malicious payload.
-- Investigate the host identified by host.id to determine if there are any other signs of compromise or unusual activity, such as unexpected processes or network connections.
-- Correlate the alert with other security events or logs from the same host to identify any related activities or patterns that could suggest a broader attack.
-- Assess the system's patch level and update status to ensure that all known vulnerabilities, including CVE-2020-1030, have been addressed and mitigated.
-- If a malicious DLL is confirmed, isolate the affected system to prevent further exploitation and begin remediation efforts, such as removing the malicious files and restoring the system to a known good state.
-
-### False positive analysis
-
-- Legitimate printer driver updates or installations may trigger the rule due to registry modifications in the specified paths. Users can create exceptions for known and trusted driver update processes to prevent false alerts.
-- Custom print configurations by IT departments that modify the SpoolDirectory or CopyFiles registry paths might be flagged. Document and exclude these configurations if they are verified as safe and necessary for business operations.
-- Automated scripts or software that manage printer settings and inadvertently modify the monitored registry paths can cause false positives. Identify and whitelist these scripts or applications after confirming their legitimacy.
-- Third-party print management solutions that interact with the Print Spooler service may lead to false detections. Evaluate these solutions and exclude their known benign activities from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
-- Terminate the Print Spooler service on the compromised system to stop any ongoing malicious activity and prevent further DLL loading.
-- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any malicious DLLs or related files.
-- Review and restore the registry paths identified in the detection query to their default values to ensure no malicious configurations remain.
-- Apply the latest security patches and updates from Microsoft to address CVE-2020-1030 and other known vulnerabilities in the Print Spooler service.
-- Monitor the network for any signs of similar exploitation attempts, focusing on the registry paths and data patterns specified in the detection rule.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
 references = [
     "https://www.accenture.com/us-en/blogs/cyber-defense/discovering-exploiting-shutting-down-dangerous-windows-print-spooler-vulnerability",
     "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Privilege%20Escalation/privesc_sysmon_cve_20201030_spooler.evtx",
@@ -86,6 +54,40 @@ sequence by host.id with maxspan=30s
     ) and
  registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Print Spooler Point and Print DLL
+
+The Windows Print Spooler service manages print jobs and is integral to printing operations. Adversaries exploit vulnerabilities like CVE-2020-1030 to escalate privileges by loading malicious DLLs into the spooler process, which runs with SYSTEM-level permissions. The detection rule identifies suspicious registry modifications linked to the Print Spooler, indicating potential exploitation attempts by monitoring specific registry paths and data patterns.
+
+### Possible investigation steps
+
+- Review the registry paths specified in the alert to confirm any unauthorized modifications, focusing on the paths: HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory and HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module.
+- Check the registry data strings for any unexpected or suspicious DLLs located in C:\\Windows\\System32\\spool\\drivers\\x64\\4, which may indicate a malicious payload.
+- Investigate the host identified by host.id to determine if there are any other signs of compromise or unusual activity, such as unexpected processes or network connections.
+- Correlate the alert with other security events or logs from the same host to identify any related activities or patterns that could suggest a broader attack.
+- Assess the system's patch level and update status to ensure that all known vulnerabilities, including CVE-2020-1030, have been addressed and mitigated.
+- If a malicious DLL is confirmed, isolate the affected system to prevent further exploitation and begin remediation efforts, such as removing the malicious files and restoring the system to a known good state.
+
+### False positive analysis
+
+- Legitimate printer driver updates or installations may trigger the rule due to registry modifications in the specified paths. Users can create exceptions for known and trusted driver update processes to prevent false alerts.
+- Custom print configurations by IT departments that modify the SpoolDirectory or CopyFiles registry paths might be flagged. Document and exclude these configurations if they are verified as safe and necessary for business operations.
+- Automated scripts or software that manage printer settings and inadvertently modify the monitored registry paths can cause false positives. Identify and whitelist these scripts or applications after confirming their legitimacy.
+- Third-party print management solutions that interact with the Print Spooler service may lead to false detections. Evaluate these solutions and exclude their known benign activities from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Terminate the Print Spooler service on the compromised system to stop any ongoing malicious activity and prevent further DLL loading.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any malicious DLLs or related files.
+- Review and restore the registry paths identified in the detection query to their default values to ensure no malicious configurations remain.
+- Apply the latest security patches and updates from Microsoft to address CVE-2020-1030 and other known vulnerabilities in the Print Spooler service.
+- Monitor the network for any signs of similar exploitation attempts, focusing on the registry paths and data patterns specified in the detection rule.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
 
 
 [[rule.threat]]

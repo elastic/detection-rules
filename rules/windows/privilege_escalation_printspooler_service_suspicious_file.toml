@@ -2,7 +2,9 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +25,33 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious PrintSpooler Service Executable File Creation"
+references = [
+    "https://voidsec.com/cve-2020-1337-printdemon-is-dead-long-live-printdemon/",
+    "https://www.thezdi.com/blog/2020/7/8/cve-2020-1300-remote-code-execution-through-microsoft-windows-cab-files",
+]
+risk_score = 21
+rule_id = "5bb4a95d-5a08-48eb-80db-4c3a63ec78a8"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : "file" and host.os.type : "windows" and event.type : "creation" and
+  process.name : "spoolsv.exe" and file.extension : "dll"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,84 +86,56 @@ The Print Spooler service in Windows manages print jobs, but vulnerabilities lik
 - Conduct a thorough review of user accounts and privileges on the affected system to ensure no unauthorized privilege escalation has occurred.
 - Monitor the network for any signs of similar exploitation attempts or related suspicious activity, using enhanced logging and alerting mechanisms.
 - Report the incident to the appropriate internal security team or external authorities if required, providing details of the exploit and actions taken for further investigation and response."""
-references = [
-    "https://voidsec.com/cve-2020-1337-printdemon-is-dead-long-live-printdemon/",
-    "https://www.thezdi.com/blog/2020/7/8/cve-2020-1300-remote-code-execution-through-microsoft-windows-cab-files",
-]
-risk_score = 21
-rule_id = "5bb4a95d-5a08-48eb-80db-4c3a63ec78a8"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
-    "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.category : "file" and host.os.type : "windows" and event.type : "creation" and
-  process.name : "spoolsv.exe" and file.extension : "dll"
-'''
-
 
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = false
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\Sys?????\\\\*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\Sys?????\\\\*"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\Sys?????\\\\PrintConfig.dll"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\Sys?????\\\\PrintConfig.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\Windows\\Sys?????\\u005lrs.dll"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\Sys?????\\\\x5lrs.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\Windows\\system32\\spool\\DRIVERS\\u0064\\\\*.dll"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\x64\\\\*.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\W32X86\\\\*.dll"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\W32X86\\\\*.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\Windows\\system32\\spool\\PRTPROCS\\u0064\\\\*.dll"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\spool\\\\PRTPROCS\\\\x64\\\\*.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\system32\\\\spool\\\\{????????-????-????-????-????????????}\\\\*.dll"
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\spool\\\\{????????-????-????-????-????????????}\\\\*.dll"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -154,5 +155,3 @@ value = ["host.id", "file.path"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-

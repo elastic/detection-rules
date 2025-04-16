@@ -2,57 +2,24 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of D-Bus service files on Linux systems. D-Bus is a message bus system that provides a
-way for applications to talk to one another. D-Bus services are defined in service files that are typically located in
-default directories. The rule looks for the creation of service files that are not associated with known package
-managers or system services. Attackers may create malicious D-Bus services to establish persistence or escalate
-privileges on a system.
+This rule detects the creation of D-Bus service files on Linux systems. D-Bus is a message bus system that provides
+a way for applications to talk to one another. D-Bus services are defined in service files that are typically
+located in default directories. The rule looks for the creation of service files that are not associated with
+known package managers or system services. Attackers may create malicious D-Bus services to establish persistence
+or escalate privileges on a system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "D-Bus Service Created"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating D-Bus Service Created
-
-D-Bus is an inter-process communication system in Linux, enabling applications to communicate. Adversaries may exploit D-Bus by creating unauthorized service files to maintain persistence or escalate privileges. The detection rule identifies suspicious service file creations in key directories, excluding known legitimate processes, to flag potential malicious activity.
-
-### Possible investigation steps
-
-- Review the file path and extension to confirm if the created file is located in one of the monitored directories such as /usr/share/dbus-1/system-services/ or /etc/dbus-1/system.d/, and ensure it has a .service or .conf extension.
-- Examine the process executable that created the file to determine if it is listed as a known legitimate process in the exclusion list. If not, investigate the process further to understand its origin and purpose.
-- Check the process name and path for any unusual or unexpected patterns, especially if it is not part of the known exclusions like ssm-agent-worker or platform-python*.
-- Investigate the file creation time and correlate it with other system activities or logs to identify any suspicious behavior or patterns around the time of the alert.
-- Look into the user account associated with the process that created the file to determine if it has the necessary permissions and if the activity aligns with the user's typical behavior.
-- Search for any related alerts or logs that might indicate a broader attack pattern, such as other unauthorized file creations or modifications in the system.
-
-### False positive analysis
-
-- Package manager operations can trigger false positives when legitimate service files are created during software installations or updates. To manage this, exclude processes associated with known package managers like dpkg, rpm, and yum from the detection rule.
-- System service updates may also result in false positives. Exclude processes such as systemd and crond that are responsible for legitimate system service management.
-- Development and testing environments often involve the creation of temporary or test service files. Exclude paths and processes specific to these environments, such as those under /tmp or /dev/fd, to reduce noise.
-- Automation tools like Puppet and Chef can create service files as part of their configuration management tasks. Exclude these tools by adding their executable paths to the exception list.
-- Custom scripts or tools that mimic package manager behavior might also cause false positives. Identify and exclude these specific scripts or tools by their process names or paths if they are known to be benign.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
-- Terminate any suspicious processes associated with the creation of unauthorized D-Bus service files to halt potential malicious activity.
-- Remove any unauthorized D-Bus service files identified in the specified directories to eliminate persistence mechanisms.
-- Conduct a thorough review of user accounts and privileges on the affected system to ensure no unauthorized privilege escalation has occurred.
-- Restore the system from a known good backup if unauthorized changes or damage to the system are detected.
-- Monitor the system and network for any signs of re-infection or similar suspicious activities, using enhanced logging and alerting mechanisms.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
 risk_score = 21
 rule_id = "952c92af-d67f-4f01-8a9c-725efefa7e07"
 setup = """## Setup
@@ -94,7 +61,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and process.executable != null and
 file.extension in ("service", "conf") and file.path like~ (
@@ -130,30 +96,64 @@ file.extension in ("service", "conf") and file.path like~ (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating D-Bus Service Created
+
+D-Bus is an inter-process communication system in Linux, enabling applications to communicate. Adversaries may exploit D-Bus by creating unauthorized service files to maintain persistence or escalate privileges. The detection rule identifies suspicious service file creations in key directories, excluding known legitimate processes, to flag potential malicious activity.
+
+### Possible investigation steps
+
+- Review the file path and extension to confirm if the created file is located in one of the monitored directories such as /usr/share/dbus-1/system-services/ or /etc/dbus-1/system.d/, and ensure it has a .service or .conf extension.
+- Examine the process executable that created the file to determine if it is listed as a known legitimate process in the exclusion list. If not, investigate the process further to understand its origin and purpose.
+- Check the process name and path for any unusual or unexpected patterns, especially if it is not part of the known exclusions like ssm-agent-worker or platform-python*.
+- Investigate the file creation time and correlate it with other system activities or logs to identify any suspicious behavior or patterns around the time of the alert.
+- Look into the user account associated with the process that created the file to determine if it has the necessary permissions and if the activity aligns with the user's typical behavior.
+- Search for any related alerts or logs that might indicate a broader attack pattern, such as other unauthorized file creations or modifications in the system.
+
+### False positive analysis
+
+- Package manager operations can trigger false positives when legitimate service files are created during software installations or updates. To manage this, exclude processes associated with known package managers like dpkg, rpm, and yum from the detection rule.
+- System service updates may also result in false positives. Exclude processes such as systemd and crond that are responsible for legitimate system service management.
+- Development and testing environments often involve the creation of temporary or test service files. Exclude paths and processes specific to these environments, such as those under /tmp or /dev/fd, to reduce noise.
+- Automation tools like Puppet and Chef can create service files as part of their configuration management tasks. Exclude these tools by adding their executable paths to the exception list.
+- Custom scripts or tools that mimic package manager behavior might also cause false positives. Identify and exclude these specific scripts or tools by their process names or paths if they are known to be benign.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes associated with the creation of unauthorized D-Bus service files to halt potential malicious activity.
+- Remove any unauthorized D-Bus service files identified in the specified directories to eliminate persistence mechanisms.
+- Conduct a thorough review of user accounts and privileges on the affected system to ensure no unauthorized privilege escalation has occurred.
+- Restore the system from a known good backup if unauthorized changes or damage to the system are detected.
+- Monitor the system and network for any signs of re-infection or similar suspicious activities, using enhanced logging and alerting mechanisms.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

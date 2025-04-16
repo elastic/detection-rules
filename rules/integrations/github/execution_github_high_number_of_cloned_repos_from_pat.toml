@@ -2,7 +2,9 @@
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,25 @@ index = ["logs-github.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Cloned GitHub Repos From PAT"
+risk_score = 21
+rule_id = "fb0afac5-bbd6-49b0-b4f8-44e5381e1587"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Execution",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and
+github.repository_public:false
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,25 +70,6 @@ Personal Access Tokens (PATs) facilitate automated access to GitHub repositories
 - Monitor for any unusual activity or further unauthorized access attempts using other PATs or credentials.
 - Escalate the incident to the security team for a comprehensive investigation and to determine if any other systems or data have been compromised.
 - Update and enforce policies regarding the creation, usage, and management of PATs to prevent similar incidents in the future."""
-risk_score = 21
-rule_id = "fb0afac5-bbd6-49b0-b4f8-44e5381e1587"
-severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Execution",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "threshold"
-
-query = '''
-event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and
-github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and
-github.repository_public:false
-'''
 
 
 [[rule.threat]]

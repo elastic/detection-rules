@@ -2,7 +2,9 @@
 creation_date = "2024/05/31"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -19,11 +21,41 @@ index = [
     "winlogbeat-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
-    "endgame-*",
+    "endgame-*"
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "DNS Global Query Block List Modified or Disabled"
+references = [
+    "https://cube0x0.github.io/Pocing-Beyond-DA/",
+    "https://www.thehacker.recipes/ad/movement/mitm-and-coerced-authentications/wpad-spoofing",
+    "https://www.netspi.com/blog/technical-blog/network-penetration-testing/adidns-revisited/"
+]
+risk_score = 47
+rule_id = "57bfa0a9-37c0-44d6-b724-54bf16787492"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+(
+  (registry.value : "EnableGlobalQueryBlockList" and registry.data.strings : ("0", "0x00000000")) or
+  (registry.value : "GlobalQueryBlockList" and not registry.data.strings : "wpad")
+)
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,36 +90,6 @@ The DNS Global Query Block List (GQBL) is a security feature in Windows environm
 - Monitor network traffic for signs of WPAD spoofing or other related attacks, and implement network segmentation to limit the impact of potential threats.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Update security policies and procedures to include specific measures for monitoring and protecting the DNS Global Query Block List, ensuring rapid detection and response to similar threats in the future."""
-references = [
-    "https://cube0x0.github.io/Pocing-Beyond-DA/",
-    "https://www.thehacker.recipes/ad/movement/mitm-and-coerced-authentications/wpad-spoofing",
-    "https://www.netspi.com/blog/technical-blog/network-penetration-testing/adidns-revisited/",
-]
-risk_score = 47
-rule_id = "57bfa0a9-37c0-44d6-b724-54bf16787492"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-(
-  (registry.value : "EnableGlobalQueryBlockList" and registry.data.strings : ("0", "0x00000000")) or
-  (registry.value : "GlobalQueryBlockList" and not registry.data.strings : "wpad")
-)
-'''
 
 
 [[rule.threat]]
@@ -107,6 +109,8 @@ reference = "https://attack.mitre.org/techniques/T1562/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

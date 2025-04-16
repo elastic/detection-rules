@@ -2,7 +2,9 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -12,16 +14,36 @@ functionality. Attackers may abuse this mechanism to execute malicious payloads 
 which can be done by administrators or a scheduled task.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-windows.sysmon_operational-*",
-]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Netsh Helper DLL"
+risk_score = 21
+rule_id = "b0638186-4f12-48ac-83d2-47e686d08e82"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : (
+    "HKLM\\Software\\Microsoft\\netsh\\*",
+    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\netsh\\*",
+    "MACHINE\\Software\\Microsoft\\netsh\\*"
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,32 +77,6 @@ Netsh, a command-line utility in Windows, allows for network configuration and d
 - Review and restore any altered system configurations to their original state to ensure system integrity.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for registry changes related to Netsh Helper DLLs to detect similar threats in the future."""
-risk_score = 21
-rule_id = "b0638186-4f12-48ac-83d2-47e686d08e82"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-  registry.path : (
-    "HKLM\\Software\\Microsoft\\netsh\\*",
-    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\netsh\\*",
-    "MACHINE\\Software\\Microsoft\\netsh\\*"
-  )
-'''
 
 
 [[rule.threat]]

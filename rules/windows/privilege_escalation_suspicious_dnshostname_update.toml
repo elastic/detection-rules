@@ -2,7 +2,9 @@
 creation_date = "2022/05/11"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +19,36 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Computer Account DnsHostName Update"
+references = [
+    "https://research.ifcr.dk/certifried-active-directory-domain-privilege-escalation-cve-2022-26923-9e098fe298f4",
+    "https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2022-26923",
+]
+risk_score = 73
+rule_id = "6bed021a-0afb-461c-acbe-ffdb9574d3f3"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Use Case: Vulnerability",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "changed-computer-account" and user.id : ("S-1-5-21-*", "S-1-12-1-*") and
+
+    /* if DnsHostName value equal a DC DNS hostname then it's highly suspicious */
+    winlog.event_data.DnsHostName : "??*" and
+
+    /* exclude FPs where DnsHostName starts with the ComputerName that was changed */
+    not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -52,36 +84,6 @@ In Active Directory environments, the DnsHostName attribute links computer accou
 - Escalate the incident to the security operations team for further investigation and to assess potential exploitation of CVE-2022-26923 or other vulnerabilities.
 - Implement additional monitoring on the affected system and similar systems to detect any further suspicious activities or attempts to exploit vulnerabilities.
 - Review and update access controls and permissions for computer accounts in Active Directory to ensure only authorized personnel can make changes to critical attributes like DnsHostName."""
-references = [
-    "https://research.ifcr.dk/certifried-active-directory-domain-privilege-escalation-cve-2022-26923-9e098fe298f4",
-    "https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2022-26923",
-]
-risk_score = 73
-rule_id = "6bed021a-0afb-461c-acbe-ffdb9574d3f3"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Active Directory",
-    "Use Case: Vulnerability",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-iam where event.action == "changed-computer-account" and user.id : ("S-1-5-21-*", "S-1-12-1-*") and
-
-    /* if DnsHostName value equal a DC DNS hostname then it's highly suspicious */
-    winlog.event_data.DnsHostName : "??*" and
-
-    /* exclude FPs where DnsHostName starts with the ComputerName that was changed */
-    not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
-'''
 
 
 [[rule.threat]]

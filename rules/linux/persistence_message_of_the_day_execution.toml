@@ -2,7 +2,9 @@
 creation_date = "2023/02/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -30,15 +32,15 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
-
 [rule]
 author = ["Elastic"]
 description = """
 Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or
 a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" directory.
 These scripts run as the root user every time a user connects over SSH or a serial connection. Adversaries may create
-malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing a
-backdoor script or command. This rule detects the execution of potentially malicious processes through the MOTD utility.
+malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing
+a backdoor script or command. This rule detects the execution of potentially malicious processes through the MOTD
+utility.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
@@ -146,7 +148,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where event.type == "start" and host.os.type == "linux" and event.action : ("exec", "exec_event", "start") and
   process.parent.executable : "/etc/update-motd.d/*" and
@@ -199,17 +200,15 @@ process where event.type == "start" and host.os.type == "linux" and event.action
   )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

@@ -2,7 +2,9 @@
 creation_date = "2021/03/22"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,17 +13,42 @@ Identifies NullSessionPipe registry modifications that specify which pipes can b
 indicative of adversary lateral movement preparation by making the added pipe available to everyone.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "endgame-*",
-    "logs-windows.sysmon_operational-*",
-    "winlogbeat-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "NullSessionPipe Registry Modification"
+references = [
+    "https://www.welivesecurity.com/2019/05/29/turla-powershell-usage/",
+    "https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-access-restrict-anonymous-access-to-named-pipes-and-shares",
+]
+risk_score = 47
+rule_id = "ddab1f5f-7089-44f5-9fda-de5b11322e77"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+registry.path : (
+    "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
+    "MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes"
+) and length(registry.data.strings) > 0 and
+not registry.data.strings : "(empty)"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -56,38 +83,6 @@ The NullSessionPipe registry setting in Windows defines which named pipes can be
 - Reset credentials for any accounts that may have been compromised or used in conjunction with the unauthorized access to ensure they cannot be reused by adversaries.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been affected.
 - Implement enhanced monitoring and alerting for changes to the NullSessionPipes registry key and similar registry paths to detect and respond to future unauthorized modifications promptly."""
-references = [
-    "https://www.welivesecurity.com/2019/05/29/turla-powershell-usage/",
-    "https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-access-restrict-anonymous-access-to-named-pipes-and-shares",
-]
-risk_score = 47
-rule_id = "ddab1f5f-7089-44f5-9fda-de5b11322e77"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
-    "MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes"
-) and length(registry.data.strings) > 0 and
-not registry.data.strings : "(empty)"
-'''
 
 
 [[rule.threat]]

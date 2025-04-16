@@ -2,7 +2,9 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +21,44 @@ index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endg
 language = "eql"
 license = "Elastic License v2"
 name = "Pluggable Authentication Module (PAM) Creation in Unusual Directory"
+references = [
+    "https://github.com/zephrax/linux-pam-backdoor",
+    "https://github.com/eurialo/pambd",
+    "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
+    "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
+]
+risk_score = 21
+rule_id = "5c832156-5785-4c9c-a2e7-0d80d2ba3daa"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and file.name like "pam_*.so" and not file.path like (
+  "/lib/security/*",
+  "/lib64/security/*",
+  "/lib/x86_64-linux-gnu/security/*",
+  "/usr/lib/security/*",
+  "/usr/lib64/security/*",
+  "/usr/lib/x86_64-linux-gnu/security/*"
+) and not (
+  process.name in ("dockerd", "containerd", "steam", "buildkitd", "unsquashfs", "pacman") or
+  file.path like (
+    "/build/rootImage/nix/store/*", "/home/*/.local/share/containers/*", "/nix/store/*", "/var/lib/containerd/*",
+    "/var/snap/*", "/usr/share/nix/nix/store/*", "/tmp/cura/squashfs-root/*", "/home/*/docker/*", "/tmp/containerd*"
+  )
+)
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -54,69 +94,29 @@ Pluggable Authentication Modules (PAM) are integral to Linux systems, managing a
 - Restore the affected system from a known good backup to ensure that no malicious modifications persist.
 - Implement additional monitoring on the affected system and similar systems to detect any further attempts to create PAM files in unusual directories.
 - Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
-references = [
-    "https://github.com/zephrax/linux-pam-backdoor",
-    "https://github.com/eurialo/pambd",
-    "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
-    "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
-]
-risk_score = 21
-rule_id = "5c832156-5785-4c9c-a2e7-0d80d2ba3daa"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Credential Access",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-file where host.os.type == "linux" and event.type == "creation" and file.name like "pam_*.so" and not file.path like (
-  "/lib/security/*",
-  "/lib64/security/*",
-  "/lib/x86_64-linux-gnu/security/*",
-  "/usr/lib/security/*",
-  "/usr/lib64/security/*",
-  "/usr/lib/x86_64-linux-gnu/security/*"
-) and not (
-  process.name in ("dockerd", "containerd", "steam", "buildkitd", "unsquashfs", "pacman") or
-  file.path like (
-    "/build/rootImage/nix/store/*", "/home/*/.local/share/containers/*", "/nix/store/*", "/var/lib/containerd/*",
-    "/var/snap/*", "/usr/share/nix/nix/store/*", "/tmp/cura/squashfs-root/*", "/home/*/docker/*", "/tmp/containerd*"
-  )
-)
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
 
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-

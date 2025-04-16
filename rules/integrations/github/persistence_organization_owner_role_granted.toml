@@ -2,7 +2,9 @@
 creation_date = "2023/09/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,23 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GitHub Owner Role Granted To User"
+risk_score = 47
+rule_id = "9b343b62-d173-4cfd-bd8b-e6379f964ca4"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.dataset == "github.audit" and event.action == "org.update_member" and github.permission == "admin"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -49,23 +68,6 @@ In GitHub organizations, the owner role grants comprehensive administrative priv
 - Notify the security team and relevant stakeholders about the potential breach and involve them in the investigation and remediation process.
 - Review and update access control policies to ensure that owner roles are granted only through a formal approval process and are regularly audited.
 - Implement additional monitoring and alerting for changes to high-privilege roles within the organization to detect similar threats in the future."""
-risk_score = 47
-rule_id = "9b343b62-d173-4cfd-bd8b-e6379f964ca4"
-severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Persistence",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-iam where event.dataset == "github.audit" and event.action == "org.update_member" and github.permission == "admin"
-'''
 
 
 [[rule.threat]]

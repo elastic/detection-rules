@@ -2,7 +2,9 @@
 creation_date = "2023/08/22"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 
 [rule]
 author = ["Elastic"]
@@ -12,15 +14,35 @@ specify a DLL which will be executed every time an MS Office application is star
 persistence on a compromised host.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "logs-m365_defender.event-*",
-    "endgame-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.registry-*", "logs-m365_defender.event-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Office Test Registry Persistence"
+references = [
+    "https://unit42.paloaltonetworks.com/unit42-technical-walkthrough-office-test-persistence-method-used-in-recent-sofacy-attacks/",
+]
+risk_score = 21
+rule_id = "14dab405-5dd9-450c-8106-72951af2391f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and
+    registry.path : "*\\Software\\Microsoft\\Office Test\\Special\\Perf\\*"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,31 +77,6 @@ The Office Test Registry key in Windows environments allows specifying a DLL to 
 - Review recent user activity and system logs to identify any unauthorized access or changes that may have led to the registry modification, and reset credentials if necessary.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and alerting for similar registry modifications across the network to detect and respond to future attempts promptly."""
-references = [
-    "https://unit42.paloaltonetworks.com/unit42-technical-walkthrough-office-test-persistence-method-used-in-recent-sofacy-attacks/",
-]
-risk_score = 21
-rule_id = "14dab405-5dd9-450c-8106-72951af2391f"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.action != "deletion" and
-    registry.path : "*\\Software\\Microsoft\\Office Test\\Special\\Perf\\*"
-'''
 
 
 [[rule.threat]]

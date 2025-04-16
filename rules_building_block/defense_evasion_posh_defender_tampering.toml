@@ -3,11 +3,13 @@ bypass_bbr_timing = true
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/13"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies PowerShell scripts containing cmdlets and parameters that attackers can abuse to disable Windows Defender
 features. Attackers can tamper with antivirus to reduce the risk of detection when executing their payloads.
@@ -38,16 +40,10 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: PowerShell Logs",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: PowerShell Logs", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "query"
+building_block_type = "default"
 
 query = '''
 event.category: "process" and host.os.type:windows and

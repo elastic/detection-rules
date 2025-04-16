@@ -2,7 +2,9 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -11,15 +13,64 @@ This rule detects sensitive security file access via common utilities on Linux s
 from sensitive files using common utilities to gather information about the system and its security configuration.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Security File Access via Common Utilities"
+risk_score = 21
+rule_id = "7efca3ad-a348-43b2-b544-c93a78a0ef92"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Crowdstrike",
+        "Data Source: SentinelOne",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
+  process.args like (
+    "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
+    "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+    "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
+    "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
+    "/home/*/.azure/azureProfile.json"
+  ) and 
+not process.parent.name in ("wazuh-modulesd", "lynis")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,62 +106,6 @@ In Linux environments, common utilities like `cat`, `grep`, and `less` are essen
 - Implement stricter access controls and permissions on sensitive security files to limit exposure to only necessary users and processes.
 - Escalate the incident to the security operations team for further investigation and to assess the potential impact on the broader network.
 - Enhance monitoring and logging for similar activities to improve detection and response times for future incidents."""
-risk_score = 21
-rule_id = "7efca3ad-a348-43b2-b544-c93a78a0ef92"
-setup = """## Setup
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
-  process.args like (
-    "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
-    "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
-    "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
-    "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
-    "/home/*/.azure/azureProfile.json"
-  ) and 
-not process.parent.name in ("wazuh-modulesd", "lynis")
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -119,4 +114,3 @@ framework = "MITRE ATT&CK"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

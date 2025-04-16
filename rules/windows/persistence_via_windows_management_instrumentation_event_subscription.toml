@@ -2,7 +2,9 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +28,34 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via WMI Event Subscription"
+references = ["https://www.elastic.co/security-labs/hunting-for-persistence-using-elastic-security-part-1"]
+risk_score = 21
+rule_id = "9b6813a1-daf1-457e-b0e6-0bb4e55b8a4c"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "wmic.exe" or ?process.pe.original_file_name == "wmic.exe") and
+  process.args : "create" and
+  process.args : ("ActiveScriptEventConsumer", "CommandLineEventConsumer")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -59,34 +89,6 @@ Windows Management Instrumentation (WMI) is a powerful framework for managing da
 - Restore the system from a known good backup if the integrity of the system is compromised and cannot be assured through manual remediation.
 - Update and patch the system to the latest security standards to mitigate any vulnerabilities that may have been exploited.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
-references = ["https://www.elastic.co/security-labs/hunting-for-persistence-using-elastic-security-part-1"]
-risk_score = 21
-rule_id = "9b6813a1-daf1-457e-b0e6-0bb4e55b8a4c"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "wmic.exe" or ?process.pe.original_file_name == "wmic.exe") and
-  process.args : "create" and
-  process.args : ("ActiveScriptEventConsumer", "CommandLineEventConsumer")
-'''
 
 
 [[rule.threat]]

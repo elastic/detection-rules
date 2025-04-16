@@ -2,7 +2,9 @@
 creation_date = "2023/08/30"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,35 @@ index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious which Enumeration"
+risk_score = 21
+rule_id = "5b18eef4-842c-4b47-970f-f08d24004bde"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start") and
+  process.name == "which" and process.args_count >= 10 and not (
+    process.parent.name == "jem" or
+    process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
+    process.args == "--tty-only"
+  )
+
+/* potential tuning if rule would turn out to be noisy
+and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and
+process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+*/
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -50,48 +81,16 @@ The `which` command in Linux environments is typically used to locate the execut
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
 - Implement enhanced monitoring and logging for the `which` command and similar enumeration tools to detect future misuse.
 - Review and update access controls and permissions to ensure that only authorized users have the ability to execute potentially sensitive commands and utilities."""
-risk_score = 21
-rule_id = "5b18eef4-842c-4b47-970f-f08d24004bde"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start") and
-  process.name == "which" and process.args_count >= 10 and not (
-    process.parent.name == "jem" or
-    process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
-    process.args == "--tty-only"
-  )
-
-/* potential tuning if rule would turn out to be noisy
-and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and
-process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
-*/
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

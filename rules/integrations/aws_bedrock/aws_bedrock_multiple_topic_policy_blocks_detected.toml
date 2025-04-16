@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/11/20"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/17"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,14 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Unusual High Denied Topic Blocks Detected"
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 47
+rule_id = "266bbea8-fcf9-4b0e-ba7b-fc00f6b1dc73"
 note = """## Triage and analysis
 
 ### Investigating Unusual High Denied Topic Blocks Detected
@@ -50,14 +60,6 @@ and they can establish thresholds for harmful content categories, including hate
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
-    "https://atlas.mitre.org/techniques/AML.T0051",
-    "https://atlas.mitre.org/techniques/AML.T0054",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-]
-risk_score = 47
-rule_id = "266bbea8-fcf9-4b0e-ba7b-fc00f6b1dc73"
 setup = """## Setup
 
 This rule requires that guardrails are configured in AWS Bedrock. For more information, see the AWS Bedrock documentation:
@@ -86,4 +88,3 @@ from logs-aws_bedrock.invocation-*
 | where denied_topics > 5
 | sort denied_topics desc
 '''
-

@@ -2,11 +2,15 @@
 creation_date = "2024/09/09"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/02/21"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe.\n"
+description = """
+Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe.
+"""
 from = "now-9m"
 index = [
     "logs-m365_defender.event-*",
@@ -19,6 +23,28 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Command and Scripting Interpreter via Windows Scripts"
+risk_score = 73
+rule_id = "2d62889e-e758-4c5e-b57e-c735914ee32a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.action == "start" and
+  process.name : ("powershell.exe", "pwsh.exe", "cmd.exe") and
+  process.parent.name : ("wscript.exe", "mshta.exe") and ?process.parent.args : "?:\\Users\\*"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -53,28 +79,6 @@ PowerShell, a powerful scripting language in Windows, is often targeted by adver
 - Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious activity.
 - Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
-risk_score = 73
-rule_id = "2d62889e-e758-4c5e-b57e-c735914ee32a"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.action == "start" and
-  process.name : ("powershell.exe", "pwsh.exe", "cmd.exe") and
-  process.parent.name : ("wscript.exe", "mshta.exe") and ?process.parent.args : "?:\\Users\\*"
-'''
 
 
 [[rule.threat]]

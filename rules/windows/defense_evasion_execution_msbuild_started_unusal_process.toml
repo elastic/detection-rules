@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -27,6 +29,28 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started an Unusual Process"
+references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
+risk_score = 21
+rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:("MSBuild.exe" or "msbuild.exe") and
+process.name:("csc.exe" or "iexplore.exe" or "powershell.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -62,28 +86,6 @@ The Microsoft Build Engine (MSBuild) is a platform for building applications, of
 - Escalate the incident to the security operations team for further analysis and to determine if the threat is part of a larger attack campaign.
 - Implement additional monitoring and logging for MSBuild and related processes to detect any future misuse or anomalies promptly.
 - Review and update endpoint protection configurations to enhance detection and prevention capabilities against similar threats, ensuring that security controls are effectively blocking unauthorized script execution."""
-references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
-risk_score = 21
-rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-host.os.type:windows and event.category:process and event.type:start and process.parent.name:("MSBuild.exe" or "msbuild.exe") and
-process.name:("csc.exe" or "iexplore.exe" or "powershell.exe")
-'''
 
 
 [[rule.threat]]

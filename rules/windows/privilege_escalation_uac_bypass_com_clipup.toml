@@ -2,7 +2,9 @@
 creation_date = "2020/10/28"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,17 +13,37 @@ Identifies attempts to bypass User Account Control (UAC) by abusing an elevated 
 ClipUp program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt with IEditionUpgradeManager Elevated COM Interface"
+references = ["https://github.com/hfiref0x/UACME"]
+risk_score = 73
+rule_id = "b90cdde7-7e0d-4359-8bf0-2c112ce2008a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.name : "Clipup.exe" and
+  not process.executable : "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name : "dllhost.exe" and
+  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
+  process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,33 +79,6 @@ User Account Control (UAC) is a security feature in Windows designed to prevent 
 - Update and patch the operating system and all installed software to the latest versions to mitigate known vulnerabilities.
 - Implement application whitelisting to prevent unauthorized programs from executing, focusing on blocking non-standard paths for critical system executables.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
-references = ["https://github.com/hfiref0x/UACME"]
-risk_score = 73
-rule_id = "b90cdde7-7e0d-4359-8bf0-2c112ce2008a"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and process.name : "Clipup.exe" and
-  not process.executable : "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name : "dllhost.exe" and
-  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
-  process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"
-'''
 
 
 [[rule.threat]]

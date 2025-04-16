@@ -2,7 +2,9 @@
 creation_date = "2022/07/11"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [transform]
 [[transform.osquery]]
@@ -39,13 +41,7 @@ security products. Manually loading a kernel module in this manner should not be
 suspcious or malicious behavior.
 """
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Load via insmod"
@@ -166,7 +162,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko" and
 not process.parent.executable like (
@@ -175,22 +170,20 @@ not process.parent.executable like (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

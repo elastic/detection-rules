@@ -2,7 +2,9 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+min_stack_version = "8.13.0"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -132,6 +134,12 @@ from logs-aws.cloudtrail*
 | sort unique_api_count desc
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "time_window",
+    "aws.cloudtrail.user_identity.arn",
+    "unique_api_count"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -145,7 +153,4 @@ reference = "https://attack.mitre.org/techniques/T1580/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-[rule.investigation_fields]
-field_names = ["time_window", "aws.cloudtrail.user_identity.arn", "unique_api_count"]
 

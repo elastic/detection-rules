@@ -2,7 +2,9 @@
 creation_date = "2024/02/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,41 +27,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution from INET Cache"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Execution from INET Cache
-
-The INetCache folder stores temporary internet files, which can be exploited by adversaries to execute malicious payloads delivered via WININET. Attackers may disguise malware as legitimate files cached during browsing. The detection rule identifies suspicious processes initiated from this cache, especially when launched by common file explorers, signaling potential initial access or command and control activities.
-
-### Possible investigation steps
-
-- Review the process details to confirm the executable path and arguments match the INetCache folder pattern specified in the query.
-- Identify the parent process, such as explorer.exe, winrar.exe, 7zFM.exe, or Bandizip.exe, to determine if the process launch is consistent with typical user behavior or potentially malicious activity.
-- Check the user account associated with the process to assess if the activity aligns with the user's normal behavior or if the account may be compromised.
-- Investigate the file in the INetCache directory for known malware signatures or anomalies using antivirus or endpoint detection tools.
-- Analyze network activity from the host to identify any suspicious connections that may indicate command and control communication.
-- Correlate the event with other security alerts or logs to identify patterns or additional indicators of compromise related to the initial access or command and control tactics.
-
-### False positive analysis
-
-- Legitimate software updates or installations may temporarily use the INetCache folder for storing executable files. Users can create exceptions for known update processes by identifying their specific executable paths and excluding them from the rule.
-- Some browser extensions or plugins might cache executable files in the INetCache folder during normal operations. Users should monitor and whitelist these extensions if they are verified as safe and frequently trigger alerts.
-- Automated scripts or tools that interact with web content might inadvertently store executables in the INetCache folder. Users can adjust the rule to exclude these scripts by specifying their parent process names or paths.
-- Certain enterprise applications may use the INetCache folder for legitimate purposes. Users should collaborate with IT departments to identify these applications and configure exceptions based on their unique process signatures.
-- Regularly review and update the list of excluded processes to ensure that only verified and non-threatening activities are exempt from triggering alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further communication with potential command and control servers.
-- Terminate any suspicious processes identified as originating from the INetCache folder to halt any ongoing malicious activity.
-- Delete any malicious files found within the INetCache directory to remove the immediate threat.
-- Conduct a full antivirus and antimalware scan on the affected system to identify and remove any additional threats.
-- Review and analyze recent email logs and web browsing history to identify potential phishing attempts or malicious downloads that may have led to the initial compromise.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for the INetCache directory and related processes to detect similar threats in the future."""
 references = [
     "https://www.trendmicro.com/en_us/research/24/b/cve202421412-water-hydra-targets-traders-with-windows-defender-s.html",
 ]
@@ -95,6 +62,41 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution from INET Cache
+
+The INetCache folder stores temporary internet files, which can be exploited by adversaries to execute malicious payloads delivered via WININET. Attackers may disguise malware as legitimate files cached during browsing. The detection rule identifies suspicious processes initiated from this cache, especially when launched by common file explorers, signaling potential initial access or command and control activities.
+
+### Possible investigation steps
+
+- Review the process details to confirm the executable path and arguments match the INetCache folder pattern specified in the query.
+- Identify the parent process, such as explorer.exe, winrar.exe, 7zFM.exe, or Bandizip.exe, to determine if the process launch is consistent with typical user behavior or potentially malicious activity.
+- Check the user account associated with the process to assess if the activity aligns with the user's normal behavior or if the account may be compromised.
+- Investigate the file in the INetCache directory for known malware signatures or anomalies using antivirus or endpoint detection tools.
+- Analyze network activity from the host to identify any suspicious connections that may indicate command and control communication.
+- Correlate the event with other security alerts or logs to identify patterns or additional indicators of compromise related to the initial access or command and control tactics.
+
+### False positive analysis
+
+- Legitimate software updates or installations may temporarily use the INetCache folder for storing executable files. Users can create exceptions for known update processes by identifying their specific executable paths and excluding them from the rule.
+- Some browser extensions or plugins might cache executable files in the INetCache folder during normal operations. Users should monitor and whitelist these extensions if they are verified as safe and frequently trigger alerts.
+- Automated scripts or tools that interact with web content might inadvertently store executables in the INetCache folder. Users can adjust the rule to exclude these scripts by specifying their parent process names or paths.
+- Certain enterprise applications may use the INetCache folder for legitimate purposes. Users should collaborate with IT departments to identify these applications and configure exceptions based on their unique process signatures.
+- Regularly review and update the list of excluded processes to ensure that only verified and non-threatening activities are exempt from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with potential command and control servers.
+- Terminate any suspicious processes identified as originating from the INetCache folder to halt any ongoing malicious activity.
+- Delete any malicious files found within the INetCache directory to remove the immediate threat.
+- Conduct a full antivirus and antimalware scan on the affected system to identify and remove any additional threats.
+- Review and analyze recent email logs and web browsing history to identify potential phishing attempts or malicious downloads that may have led to the initial compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for the INetCache directory and related processes to detect similar threats in the future."""
 
 
 [[rule.threat]]

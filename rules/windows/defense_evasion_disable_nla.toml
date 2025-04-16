@@ -2,7 +2,9 @@
 creation_date = "2023/08/25"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -14,16 +16,39 @@ enable persistence methods that require access to the Windows sign-in screen wit
 Accessibility Features persistence methods, like Sticky Keys.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.registry-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-windows.sysmon_operational-*",
-]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network-Level Authentication (NLA) Disabled"
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2023/08/24/flax-typhoon-using-legitimate-software-to-quietly-access-taiwanese-organizations/",
+]
+risk_score = 21
+rule_id = "db65f5ba-d1ef-4944-b9e8-7e51060c2b42"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and registry.value : "UserAuthentication" and
+  registry.path : (
+    "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication",
+    "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication"
+  ) and registry.data.strings :  ("0", "0x00000000")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,35 +82,6 @@ Network-Level Authentication (NLA) enhances security for Remote Desktop Protocol
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring on the affected system and similar endpoints to detect any further attempts to disable NLA or other suspicious activities.
 - Review and update endpoint security policies to ensure that registry changes related to NLA are monitored and alerts are generated for any unauthorized modifications."""
-references = [
-    "https://www.microsoft.com/en-us/security/blog/2023/08/24/flax-typhoon-using-legitimate-software-to-quietly-access-taiwanese-organizations/",
-]
-risk_score = 21
-rule_id = "db65f5ba-d1ef-4944-b9e8-7e51060c2b42"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.action != "deletion" and registry.value : "UserAuthentication" and
-  registry.path : (
-    "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication",
-    "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication"
-  ) and registry.data.strings :  ("0", "0x00000000")
-'''
 
 
 [[rule.threat]]

@@ -1,24 +1,31 @@
 [metadata]
 creation_date = "2024/11/25"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/17"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies multiple AWS Bedrock executions in a one minute time window without guardrails by the same user in the same
-account over a session. Multiple consecutive executions implies that a user may be intentionally attempting to bypass
-security controls, by not routing the requests with the desired guardrail configuration in order to access sensitive
-information, or possibly exploit a vulnerability in the system.
+Identifies multiple AWS Bedrock executions in a one minute time window without guardrails by the same user in the same account over a session. Multiple
+consecutive executions implies that a user may be intentionally attempting to bypass security controls, by not routing the requests with the desired guardrail configuration
+in order to access sensitive information, or possibly exploit a vulnerability in the system.
 """
-false_positives = [
-    "Users testing new model deployments or updated compliance policies without Amazon Bedrock guardrails.",
-]
+false_positives = ["Users testing new model deployments or updated compliance policies without Amazon Bedrock guardrails."]
 from = "now-60m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Bedrock Invocations without Guardrails Detected by a Single User Over a Session"
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 47
+rule_id = "f2c653b7-7daf-4774-86f2-34cdbd1fc528"
 note = """## Triage and analysis
 
 ### Investigating AWS Bedrock Invocations without Guardrails Detected by a Single User Over a Session
@@ -51,14 +58,6 @@ Guardrails help manage risks associated with AI usage and ensure the output alig
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
-    "https://atlas.mitre.org/techniques/AML.T0051",
-    "https://atlas.mitre.org/techniques/AML.T0054",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-]
-risk_score = 47
-rule_id = "f2c653b7-7daf-4774-86f2-34cdbd1fc528"
 setup = """## Setup
 
 This rule requires that guardrails are configured in AWS Bedrock. For more information, see the AWS Bedrock documentation:
@@ -88,4 +87,3 @@ from logs-aws_bedrock.invocation-*
 | where model_invocation_without_guardrails > 5
 | sort model_invocation_without_guardrails desc
 '''
-

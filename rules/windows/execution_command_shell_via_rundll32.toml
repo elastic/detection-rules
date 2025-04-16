@@ -2,24 +2,47 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
 description = "Identifies command shell activity started via RunDLL32, which is commonly abused by attackers to host malicious code."
 false_positives = ["Microsoft Windows installers leveraging RunDLL32 for installation."]
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Command Shell Activity Started via RunDLL32"
+risk_score = 21
+rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Credential Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.name : ("cmd.exe", "powershell.exe") and
+  process.parent.name : "rundll32.exe" and process.parent.command_line != null and
+  /* common FPs can be added here */
+  not process.parent.args : ("C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL",
+                             "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,34 +78,6 @@ RunDLL32 is a legitimate Windows utility used to execute functions in DLLs, ofte
 - Reset credentials for any user accounts that were active on the affected system during the time of the alert to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for rundll32.exe and related processes to detect similar activities in the future and improve response times."""
-risk_score = 21
-rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Credential Access",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
- process.name : ("cmd.exe", "powershell.exe") and
-  process.parent.name : "rundll32.exe" and process.parent.command_line != null and
-  /* common FPs can be added here */
-  not process.parent.args : ("C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL",
-                             "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc")
-'''
 
 
 [[rule.threat]]

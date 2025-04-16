@@ -2,55 +2,22 @@
 creation_date = "2025/01/21"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/22"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects when an unusual child process is spawned from the `dbus-daemon` parent process. The `dbus-daemon`
-process is a message bus system that provides a way for applications to talk to each other. Attackers may abuse this
-process to execute malicious code or escalate privileges.
+process is a message bus system that provides a way for applications to talk to each other. Attackers may abuse
+this process to execute malicious code or escalate privileges.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual D-Bus Daemon Child Process"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual D-Bus Daemon Child Process
-
-The D-Bus daemon is a crucial component in Linux environments, facilitating inter-process communication by allowing applications to exchange information. Adversaries may exploit this by spawning unauthorized child processes to execute malicious code or gain elevated privileges. The detection rule identifies anomalies by monitoring child processes of the D-Bus daemon, excluding known benign processes and paths, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the process details to identify the unusual child process spawned from the dbus-daemon, focusing on the process name and executable path to determine if it is known or potentially malicious.
-- Examine the command-line arguments (process.args) of the unusual child process to understand its intended function and assess if it aligns with typical usage patterns.
-- Investigate the parent process arguments (process.parent.args) to confirm whether the dbus-daemon was running in a session context or another mode that might explain the unusual child process.
-- Check the process start time and correlate it with other system events or logs to identify any related activities or anomalies occurring around the same time.
-- Look into the user context under which the unusual child process was executed to determine if it was initiated by a legitimate user or potentially compromised account.
-- Search for any network connections or file modifications associated with the unusual child process to identify potential data exfiltration or lateral movement activities.
-
-### False positive analysis
-
-- Known benign processes such as gnome-keyring-daemon and abrt-dbus may trigger the rule. Users can exclude these processes by adding them to the exception list in the detection rule.
-- Processes executed from common library paths like /usr/lib/ or /usr/local/lib/ are typically non-threatening. Users should review these paths and consider excluding them if they are consistently generating false positives.
-- The dbus-daemon with the --session argument is generally safe. Users can ensure this argument is included in the exception criteria to prevent unnecessary alerts.
-- Specific applications like software-properties-dbus and serviceHelper.py are known to be benign. Users should verify these applications' legitimacy in their environment and exclude them if they are frequently flagged.
-- Regularly review and update the exception list to include any new benign processes or paths that are identified over time, ensuring the rule remains effective without generating excessive false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Terminate any suspicious child processes spawned by the dbus-daemon that are not recognized as legitimate or necessary for system operations.
-- Conduct a thorough review of the affected system's logs to identify any unauthorized access or changes made by the suspicious process.
-- Restore any altered or compromised system files from a known good backup to ensure system integrity.
-- Update and patch the affected system and any related software to close vulnerabilities that may have been exploited.
-- Implement stricter access controls and monitoring on the dbus-daemon to prevent unauthorized process execution in the future.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
 risk_score = 21
 rule_id = "9705b458-689a-4ec6-afe8-b4648d090612"
 setup = """## Setup
@@ -93,7 +60,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.parent.name == "dbus-daemon" and process.args_count > 1 and not (
@@ -103,47 +69,82 @@ process.parent.name == "dbus-daemon" and process.args_count > 1 and not (
   process.executable like~ ("/usr/lib/*", "/usr/local/lib/*", "/usr/libexec/*", "/tmp/newroot/*")
 )
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual D-Bus Daemon Child Process
+
+The D-Bus daemon is a crucial component in Linux environments, facilitating inter-process communication by allowing applications to exchange information. Adversaries may exploit this by spawning unauthorized child processes to execute malicious code or gain elevated privileges. The detection rule identifies anomalies by monitoring child processes of the D-Bus daemon, excluding known benign processes and paths, thus highlighting potential threats.
+
+### Possible investigation steps
+
+- Review the process details to identify the unusual child process spawned from the dbus-daemon, focusing on the process name and executable path to determine if it is known or potentially malicious.
+- Examine the command-line arguments (process.args) of the unusual child process to understand its intended function and assess if it aligns with typical usage patterns.
+- Investigate the parent process arguments (process.parent.args) to confirm whether the dbus-daemon was running in a session context or another mode that might explain the unusual child process.
+- Check the process start time and correlate it with other system events or logs to identify any related activities or anomalies occurring around the same time.
+- Look into the user context under which the unusual child process was executed to determine if it was initiated by a legitimate user or potentially compromised account.
+- Search for any network connections or file modifications associated with the unusual child process to identify potential data exfiltration or lateral movement activities.
+
+### False positive analysis
+
+- Known benign processes such as gnome-keyring-daemon and abrt-dbus may trigger the rule. Users can exclude these processes by adding them to the exception list in the detection rule.
+- Processes executed from common library paths like /usr/lib/ or /usr/local/lib/ are typically non-threatening. Users should review these paths and consider excluding them if they are consistently generating false positives.
+- The dbus-daemon with the --session argument is generally safe. Users can ensure this argument is included in the exception criteria to prevent unnecessary alerts.
+- Specific applications like software-properties-dbus and serviceHelper.py are known to be benign. Users should verify these applications' legitimacy in their environment and exclude them if they are frequently flagged.
+- Regularly review and update the exception list to include any new benign processes or paths that are identified over time, ensuring the rule remains effective without generating excessive false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious child processes spawned by the dbus-daemon that are not recognized as legitimate or necessary for system operations.
+- Conduct a thorough review of the affected system's logs to identify any unauthorized access or changes made by the suspicious process.
+- Restore any altered or compromised system files from a known good backup to ensure system integrity.
+- Update and patch the affected system and any related software to close vulnerabilities that may have been exploited.
+- Implement stricter access controls and monitoring on the dbus-daemon to prevent unauthorized process execution in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

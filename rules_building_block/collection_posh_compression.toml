@@ -3,11 +3,13 @@ bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/01/10"
+
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies the use of Cmdlets and methods related to archive compression activities. Adversaries will often compress and
 encrypt data in preparation for exfiltration.
@@ -38,16 +40,10 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Collection",
-    "Data Source: PowerShell Logs",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: PowerShell Logs", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "query"
+building_block_type = "default"
 
 query = '''
 event.category:process and host.os.type:windows and
@@ -79,42 +75,41 @@ not file.directory : (
 )
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Expand-Archive.ps1"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Expand-Archive.ps1"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Compress-Archive.ps1"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Compress-Archive.ps1"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Program Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1"
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -122,26 +117,26 @@ id = "T1560"
 name = "Archive Collected Data"
 reference = "https://attack.mitre.org/techniques/T1560/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

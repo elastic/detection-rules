@@ -23,9 +23,6 @@ from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
                           dict_filter)
 from .schemas import definitions
 from .utils import clear_caches, rulename_to_filename
-from .config import parse_rules_config
-
-RULES_CONFIG = parse_rules_config()
 
 
 def single_collection(f):
@@ -69,15 +66,11 @@ def multi_collection(f):
     @click.option("--directory", "-d", multiple=True, type=click.Path(file_okay=False), required=False,
                   help="Recursively load rules from a directory")
     @click.option("--rule-id", "-id", multiple=True, required=False)
-    @click.option("--no-tactic-filename", "-nt", is_flag=True, required=False,
-                  help="Allow rule filenames without tactic prefix. "
-                  "Use this if rules have been exported with this flag.")
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
         rule_id: List[str] = kwargs.pop("rule_id", [])
         rule_files: List[str] = kwargs.pop("rule_file")
         directories: List[str] = kwargs.pop("directory")
-        no_tactic_filename: bool = kwargs.pop("no_tactic_filename", False)
 
         rules = RuleCollection()
 
@@ -106,10 +99,7 @@ def multi_collection(f):
         for rule in rules:
             threat = rule.contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""
-            # Check if flag or config is set to not include tactic in the filename
-            no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
-            tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=first_tactic)
             if rule.path.name != rule_name:
                 click.secho(
                     f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
@@ -220,11 +210,18 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
     suggested_path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents['name']
     path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
-    # Inherit maturity and optionally local dates from the rule if it already exists
+    # Inherit maturity from the rule already exists
+    maturity = "development"
+    if path.exists():
+        rules = RuleCollection()
+        rules.load_file(path)
+        if rules:
+            maturity = rules.rules[0].contents.metadata.maturity
+
     meta = {
-        "creation_date": kwargs.get("creation_date") or creation_date,
-        "updated_date": kwargs.get("updated_date") or creation_date,
-        "maturity": "development" or kwargs.get("maturity"),
+        "creation_date": creation_date,
+        "updated_date": creation_date,
+        "maturity": maturity,
     }
 
     try:

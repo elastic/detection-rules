@@ -2,7 +2,9 @@
 creation_date = "2020/08/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,40 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass via DiskCleanup Scheduled Task Hijack"
+risk_score = 47
+rule_id = "1dcc51f6-ba26-49e7-9ef4-2655abb2361e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.args : "/autoclean" and process.args : "/d" and process.executable != null and
+ not process.executable : (
+        "C:\\Windows\\System32\\cleanmgr.exe",
+        "C:\\Windows\\SysWOW64\\cleanmgr.exe",
+        "C:\\Windows\\System32\\taskhostw.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\System32\\cleanmgr.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\cleanmgr.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\System32\\taskhostw.exe"
+)
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -61,40 +97,6 @@ User Account Control (UAC) is a security feature in Windows that helps prevent u
 - Update and patch the affected system to the latest security updates to mitigate any known vulnerabilities that could be exploited for UAC bypass.
 - Monitor the affected system and network for any signs of recurring unauthorized activity or similar UAC bypass attempts.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
-risk_score = 47
-rule_id = "1dcc51f6-ba26-49e7-9ef4-2655abb2361e"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
- process.args : "/autoclean" and process.args : "/d" and process.executable != null and
- not process.executable : (
-        "C:\\Windows\\System32\\cleanmgr.exe",
-        "C:\\Windows\\SysWOW64\\cleanmgr.exe",
-        "C:\\Windows\\System32\\taskhostw.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\cleanmgr.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\cleanmgr.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\taskhostw.exe"
-)
-'''
 
 
 [[rule.threat]]

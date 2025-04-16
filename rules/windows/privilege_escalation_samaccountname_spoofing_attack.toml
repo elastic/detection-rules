@@ -2,7 +2,9 @@
 creation_date = "2021/12/12"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +18,36 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privileged Escalation via SamAccountName Spoofing"
+references = [
+    "https://support.microsoft.com/en-us/topic/kb5008102-active-directory-security-accounts-manager-hardening-changes-cve-2021-42278-5975b463-4c95-45e1-831a-d120004e258e",
+    "https://cloudbrothers.info/en/exploit-kerberos-samaccountname-spoofing/",
+    "https://github.com/cube0x0/noPac",
+    "https://twitter.com/exploitph/status/1469157138928914432",
+    "https://exploit.ph/cve-2021-42287-cve-2021-42278-weaponisation.html",
+]
+risk_score = 73
+rule_id = "bdcf646b-08d4-492c-870a-6c04e3700034"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Use Case: Vulnerability",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "renamed-user-account" and
+  /* machine account name renamed to user like account name */
+  winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -50,36 +82,6 @@ In Active Directory environments, the samAccountName attribute is crucial for id
 - Apply the latest security patches and updates to all domain controllers and critical systems to mitigate vulnerabilities like CVE-2021-42278.
 - Enhance monitoring and logging for Active Directory events, specifically focusing on account renaming activities, to detect similar threats in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
-references = [
-    "https://support.microsoft.com/en-us/topic/kb5008102-active-directory-security-accounts-manager-hardening-changes-cve-2021-42278-5975b463-4c95-45e1-831a-d120004e258e",
-    "https://cloudbrothers.info/en/exploit-kerberos-samaccountname-spoofing/",
-    "https://github.com/cube0x0/noPac",
-    "https://twitter.com/exploitph/status/1469157138928914432",
-    "https://exploit.ph/cve-2021-42287-cve-2021-42278-weaponisation.html",
-]
-risk_score = 73
-rule_id = "bdcf646b-08d4-492c-870a-6c04e3700034"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Privilege Escalation",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Active Directory",
-    "Use Case: Vulnerability",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-iam where event.action == "renamed-user-account" and
-  /* machine account name renamed to user like account name */
-  winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
-'''
 
 
 [[rule.threat]]

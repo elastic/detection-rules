@@ -2,7 +2,9 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/25"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,32 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Copy to a Hidden Share"
+references = ["https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language"]
+risk_score = 47
+rule_id = "fa01341d-6662-426b-9d0c-6d81e33c8a9d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("cmd.exe", "powershell.exe", "xcopy.exe", "pwsh.exe", "powershell_ise.exe") and
+  process.command_line : "*\\\\*\\*$*" and process.command_line : ("*copy*", "*move*", "* cp *", "* mv *")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,32 +88,6 @@ In Windows environments, hidden network shares are often used for legitimate adm
 - Review and restrict permissions on network shares, especially hidden shares, to ensure only authorized users have access.
 - Monitor network traffic for any further suspicious activity related to hidden shares and lateral movement attempts.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
-references = ["https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language"]
-risk_score = 47
-rule_id = "fa01341d-6662-426b-9d0c-6d81e33c8a9d"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : ("cmd.exe", "powershell.exe", "xcopy.exe", "pwsh.exe", "powershell_ise.exe") and 
-  process.command_line : "*\\\\*\\*$*" and process.command_line : ("*copy*", "*move*", "* cp *", "* mv *")
-'''
 
 
 [[rule.threat]]

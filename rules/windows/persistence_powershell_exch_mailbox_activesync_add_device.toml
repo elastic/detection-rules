@@ -2,7 +2,9 @@
 creation_date = "2020/12/15"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +28,35 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "New ActiveSyncAllowedDeviceID Added via PowerShell"
+references = [
+    "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/set-casmailbox?view=exchange-ps",
+]
+risk_score = 47
+rule_id = "ce64d965-6cb0-466d-b74f-8d2c76f47f05"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "Set-CASMailbox*ActiveSyncAllowedDeviceIDs*"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -61,35 +92,6 @@ ActiveSync is a protocol enabling mobile devices to synchronize with Exchange ma
 - Notify the security team and relevant stakeholders about the incident for further investigation and potential escalation.
 - Implement additional monitoring on the affected account and similar accounts for any unusual activity or further attempts to add unauthorized devices.
 - Review and update the organization's security policies and procedures related to mobile device access and PowerShell usage to prevent recurrence."""
-references = [
-    "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
-    "https://docs.microsoft.com/en-us/powershell/module/exchange/set-casmailbox?view=exchange-ps",
-]
-risk_score = 47
-rule_id = "ce64d965-6cb0-466d-b74f-8d2c76f47f05"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "Set-CASMailbox*ActiveSyncAllowedDeviceIDs*"
-'''
 
 
 [[rule.threat]]

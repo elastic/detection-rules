@@ -2,16 +2,18 @@
 creation_date = "2024/09/11"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/17"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the
-InvokeModel or InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or
-corresponding value. These errors also occur when you use an inference parameter for one model with a model that doesn't
-have the same API parameter. This could indicate attempts to bypass limitations of other approved models, or to force an
-impact on the environment by incurring exhorbitant costs.
+Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the InvokeModel or
+InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or corresponding value.
+These errors also occur when you use an inference parameter for one model with a model that doesn't have the same API parameter.
+This could indicate attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
+exhorbitant costs.
 """
 false_positives = ["Legitimate misunderstanding by users on accessing the bedrock models."]
 from = "now-60m"
@@ -19,6 +21,14 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Bedrock Detected Multiple Validation Exception Errors by a Single User"
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0015",
+    "https://atlas.mitre.org/techniques/AML.T0034",
+    "https://atlas.mitre.org/techniques/AML.T0046",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 73
+rule_id = "725a048a-88c5-4fc7-8677-a44fc0031822"
 note = """## Triage and analysis
 
 ### Investigating AWS Bedrock Detected Multiple Validation Exception Errors by a Single User
@@ -52,14 +62,6 @@ Bedrock offers a variety of pretrained models from Amazon (such as the Titan ser
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://atlas.mitre.org/techniques/AML.T0015",
-    "https://atlas.mitre.org/techniques/AML.T0034",
-    "https://atlas.mitre.org/techniques/AML.T0046",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-]
-risk_score = 73
-rule_id = "725a048a-88c5-4fc7-8677-a44fc0031822"
 setup = """## Setup
 
 This rule requires that AWS Bedrock Integration be configured. For more information, see the AWS Bedrock integration documentation:
@@ -92,8 +94,11 @@ from logs-aws_bedrock.invocation-*
 | where total_denials > 3
 '''
 
-
-
 [rule.investigation_fields]
-field_names = ["target_time_window", "user.id", "cloud.account.id", "total_denials"]
+field_names = [
+    "target_time_window",
+    "user.id",
+    "cloud.account.id",
+    "total_denials"
 
+]

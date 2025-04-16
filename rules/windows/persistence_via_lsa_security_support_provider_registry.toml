@@ -2,7 +2,9 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,17 +13,41 @@ Identifies registry modifications related to the Windows Security Support Provid
 abuse this to establish persistence in an environment.
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.registry-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Installation of Security Support Provider"
+risk_score = 47
+rule_id = "e86da94d-e54b-4fb5-b96c-cecff87e8787"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+   registry.path : (
+      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
+      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*",
+      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
+      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*",
+      "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
+      "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*"
+   ) and
+   not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,37 +83,6 @@ Security Support Providers (SSPs) in Windows environments facilitate authenticat
 - Review and update access controls and permissions to ensure that only authorized personnel can modify critical registry paths related to Security Support Providers.
 - Monitor the affected system and network for any signs of re-infection or further suspicious activity, focusing on registry changes and process executions.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
-risk_score = 47
-rule_id = "e86da94d-e54b-4fb5-b96c-cecff87e8787"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-   registry.path : (
-      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
-      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*",
-      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
-      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*",
-      "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
-      "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*"
-   ) and
-   not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
-'''
 
 
 [[rule.threat]]

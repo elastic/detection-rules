@@ -2,7 +2,9 @@
 creation_date = "2020/11/11"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,33 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Execution via TSClient Mountpoint"
+references = [
+    "https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
+]
+risk_score = 73
+rule_id = "4fe9d835-40e1-452d-8230-17c147cafad8"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,33 +89,6 @@ The TSClient mountpoint is a feature of the Remote Desktop Protocol (RDP) that a
 - Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
 - Implement network segmentation to limit RDP access to only necessary systems and users, reducing the attack surface for similar threats.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts."""
-references = [
-    "https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3",
-    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
-]
-risk_score = 73
-rule_id = "4fe9d835-40e1-452d-8230-17c147cafad8"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
-'''
 
 
 [[rule.threat]]

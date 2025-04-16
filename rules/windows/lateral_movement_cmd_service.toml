@@ -2,7 +2,9 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +22,28 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Service Command Lateral Movement"
+risk_score = 21
+rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan = 1m
+  [process where host.os.type == "windows" and event.type == "start" and
+     (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
+      process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
+      process.args : ("create", "config", "failure", "start")]
+  [network where host.os.type == "windows" and process.name : "sc.exe" and destination.ip != "127.0.0.1"]
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -54,28 +78,6 @@ The Service Control Manager in Windows allows for the management of services, wh
 - Restore the affected system from a known good backup if any malicious modifications or persistent threats are detected.
 - Implement network segmentation to limit the ability of adversaries to move laterally across the network in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
-risk_score = 21
-rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by process.entity_id with maxspan = 1m
-  [process where host.os.type == "windows" and event.type == "start" and
-     (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
-      process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
-      process.args : ("create", "config", "failure", "start")]
-  [network where host.os.type == "windows" and process.name : "sc.exe" and destination.ip != "127.0.0.1"]
-'''
 
 
 [[rule.threat]]

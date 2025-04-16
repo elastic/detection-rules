@@ -2,7 +2,9 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +23,40 @@ index = ["logs-endpoint.events.process-*", "logs-system.security*", "logs-window
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Print Spooler Child Process"
+references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
+risk_score = 47
+rule_id = "ee5300a7-7e31-4a72-a258-250abb8b3aa1"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name : "spoolsv.exe" and process.command_line != null and
+ (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
+
+ /* exclusions for FP control below */
+ not process.name : ("splwow64.exe", "PDFCreator.exe", "acrodist.exe", "spoolsv.exe", "msiexec.exe", "route.exe", "WerFault.exe") and
+ not process.command_line : "*\\WINDOWS\\system32\\spool\\DRIVERS*" and
+ not (process.name : "net.exe" and process.command_line : ("*stop*", "*start*")) and
+ not (process.name : ("cmd.exe", "powershell.exe") and process.command_line : ("*.spl*", "*\\program files*", "*route add*")) and
+ not (process.name : "netsh.exe" and process.command_line : ("*add portopening*", "*rule name*")) and
+ not (process.name : "regsvr32.exe" and process.command_line : "*PrintConfig.dll*") and
+ not process.executable : (
+    "?:\\Program Files (x86)\\CutePDF Writer\\CPWriter2.exe",
+    "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe"
+ )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -58,40 +94,6 @@ The Print Spooler service, integral to Windows environments, manages print jobs 
 - Restore the system from a clean backup if any unauthorized changes or malicious activities are confirmed.
 - Monitor the system closely for any recurrence of similar suspicious activities, ensuring enhanced logging and alerting are in place for spoolsv.exe and its child processes.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
-references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
-risk_score = 47
-rule_id = "ee5300a7-7e31-4a72-a258-250abb8b3aa1"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : "spoolsv.exe" and process.command_line != null and
- (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
-
- /* exclusions for FP control below */
- not process.name : ("splwow64.exe", "PDFCreator.exe", "acrodist.exe", "spoolsv.exe", "msiexec.exe", "route.exe", "WerFault.exe") and
- not process.command_line : "*\\WINDOWS\\system32\\spool\\DRIVERS*" and
- not (process.name : "net.exe" and process.command_line : ("*stop*", "*start*")) and
- not (process.name : ("cmd.exe", "powershell.exe") and process.command_line : ("*.spl*", "*\\program files*", "*route add*")) and
- not (process.name : "netsh.exe" and process.command_line : ("*add portopening*", "*rule name*")) and
- not (process.name : "regsvr32.exe" and process.command_line : "*PrintConfig.dll*") and
- not process.executable : (
-    "?:\\Program Files (x86)\\CutePDF Writer\\CPWriter2.exe",
-    "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe"
- )
-'''
 
 
 [[rule.threat]]

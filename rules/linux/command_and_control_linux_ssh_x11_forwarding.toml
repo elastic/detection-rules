@@ -2,7 +2,9 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [transform]
 [[transform.osquery]]
@@ -39,12 +41,7 @@ can abuse X11 forwarding for tunneling their GUI-based tools, pivot through comp
 communication channels, enabling lateral movement and facilitating remote control of systems within a network.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux SSH X11 Forwarding"
@@ -124,24 +121,21 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

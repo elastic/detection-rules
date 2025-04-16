@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/05/01"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2024/11/07"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +69,7 @@ Attackers may attempt to enumerate names until a valid bucket is discovered and 
 """
 references = [
     "https://medium.com/@maciej.pocwierz/how-an-empty-s3-bucket-can-make-your-aws-bill-explode-934a383cb8b1",
-    "https://docs.aws.amazon.com/cli/latest/reference/s3api/",
+    "https://docs.aws.amazon.com/cli/latest/reference/s3api/"
 ]
 risk_score = 21
 rule_id = "5f0234fd-7f21-42af-8391-511d5fd11d5c"
@@ -79,7 +81,7 @@ tags = [
     "Data Source: AWS S3",
     "Resources: Investigation Guide",
     "Use Case: Log Auditing",
-    "Tactic: Impact",
+    "Tactic: Impact"
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -95,44 +97,51 @@ from logs-aws.cloudtrail*
 | where failed_requests > 40
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1657"
-name = "Financial Theft"
-reference = "https://attack.mitre.org/techniques/T1657/"
-
-
-[rule.threat.tactic]
-id = "TA0040"
-name = "Impact"
-reference = "https://attack.mitre.org/tactics/TA0040/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1580"
-name = "Cloud Infrastructure Discovery"
-reference = "https://attack.mitre.org/techniques/T1580/"
-
-
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1530"
-name = "Data from Cloud Storage"
-reference = "https://attack.mitre.org/techniques/T1530/"
-
-
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [rule.investigation_fields]
-field_names = ["source.address", "tls.client.server_name", "cloud.account.id", "failed_requests"]
+field_names = [
+    "source.address",
+    "tls.client.server_name",
+    "cloud.account.id",
+    "failed_requests"
+]
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+    [rule.threat.tactic]
+    id = "TA0040"
+    name = "Impact"
+    reference = "https://attack.mitre.org/tactics/TA0040/"
+
+        [[rule.threat.technique]]
+        id = "T1657"
+        name = "Financial Theft"
+        reference = "https://attack.mitre.org/techniques/T1657/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+    [rule.threat.tactic]
+    id = "TA0007"
+    name = "Discovery"
+    reference = "https://attack.mitre.org/tactics/TA0007/"
+
+        [[rule.threat.technique]]
+        id = "T1580"
+        name = "Cloud Infrastructure Discovery"
+        reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+    [rule.threat.tactic]
+    id = "TA0009"
+    name = "Collection"
+    reference = "https://attack.mitre.org/tactics/TA0009/"
+
+        [[rule.threat.technique]]
+        id = "T1530"
+        name = "Data from Cloud Storage"
+        reference = "https://attack.mitre.org/techniques/T1530/"

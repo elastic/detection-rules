@@ -2,7 +2,9 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +27,35 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Cmd Execution via WMI"
+references = [
+    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
+    "https://www.elastic.co/security-labs/operation-bleeding-bear",
+]
+risk_score = 47
+rule_id = "12f07955-1674-44f7-86b5-c35da0a6f41a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
+ process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -60,35 +91,6 @@ Windows Management Instrumentation (WMI) is a powerful framework for managing da
 - Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
 - Enhance monitoring and logging for WMI activities across the network to detect similar threats in the future, ensuring that logs are retained for an adequate period for forensic purposes.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised."""
-references = [
-    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
-    "https://www.elastic.co/security-labs/operation-bleeding-bear",
-]
-risk_score = 47
-rule_id = "12f07955-1674-44f7-86b5-c35da0a6f41a"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
- process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
-'''
 
 
 [[rule.threat]]

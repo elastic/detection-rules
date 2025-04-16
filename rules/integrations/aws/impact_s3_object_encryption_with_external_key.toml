@@ -2,20 +2,18 @@
 creation_date = "2024/07/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
+updated_date = "2025/02/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies `CopyObject` events within an S3 bucket using an AWS KMS key from an external account for encryption.
-Adversaries with access to a misconfigured S3 bucket and the proper permissions may encrypt objects with an external KMS
-key to deny their victims access to their own data.
+Identifies `CopyObject` events within an S3 bucket using an AWS KMS key from an external account for encryption. Adversaries with access to a misconfigured S3 bucket and the proper permissions may encrypt objects with an external KMS key to deny their victims access to their own data.
 """
 false_positives = [
     """
-    Administrators within an AWS Organization structure may legitimately encrypt bucket objects with a key from an
-    account different from the target bucket. Ensure that this behavior is not part of a legitimate operation before
-    taking action.
+    Administrators within an AWS Organization structure may legitimately encrypt bucket objects with a key from an account different from the target bucket. Ensure that this behavior is not part of a legitimate operation before taking action.
     """,
 ]
 from = "now-9m"
@@ -23,6 +21,7 @@ language = "esql"
 license = "Elastic License v2"
 name = "AWS S3 Object Encryption Using External KMS Key"
 note = """
+
 ## Triage and analysis
 
 ### Investigating AWS S3 Object Encryption Using External KMS Key
@@ -101,7 +100,6 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 // keep relevant fields
 | keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, target.bucketName, key.account.id, keyId, target.objectName
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

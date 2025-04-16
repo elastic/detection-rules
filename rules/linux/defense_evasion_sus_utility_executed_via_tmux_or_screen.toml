@@ -2,7 +2,9 @@
 creation_date = "2023/09/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -12,15 +14,34 @@ directly, the commands will be executed in the background via its parent process
 to execute commands while attempting to evade detection.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potentially Suspicious Process Started via tmux or screen"
+risk_score = 21
+rule_id = "e0cc3807-e108-483c-bf66-5a4fbe0d7e89"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.parent.name in ("screen", "tmux") and process.name like (
+    "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "php*", "perl", "ruby", "lua*",
+    "openssl", "telnet", "wget", "curl", "id"
+  )
+'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -55,43 +76,16 @@ Tmux and screen are terminal multiplexers that allow users to manage multiple te
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are compromised.
 - Implement network monitoring to detect any unusual outbound connections or data exfiltration attempts from the affected host.
 - Update and enhance detection rules to include additional suspicious command patterns or behaviors observed during the investigation."""
-risk_score = 21
-rule_id = "e0cc3807-e108-483c-bf66-5a4fbe0d7e89"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.parent.name in ("screen", "tmux") and process.name like (
-    "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "php*", "perl", "ruby", "lua*",
-    "openssl", "telnet", "wget", "curl", "id"
-  )
-'''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
