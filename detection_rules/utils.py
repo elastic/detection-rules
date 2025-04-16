@@ -74,7 +74,7 @@ def dict_hash(obj: dict) -> str:
     return hashlib.sha256(raw_bytes).hexdigest()
 
 
-def ensure_list_of_strings(value: Union[str, list]) -> list[str]:
+def ensure_list_of_strings(value: str | list) -> list[str]:
     """Ensure or convert a value is a list of strings."""
     if isinstance(value, str):
         # Check if the string looks like a JSON list
