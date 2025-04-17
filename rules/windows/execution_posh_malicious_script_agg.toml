@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2025/04/16"
+maturity = "production"
+updated_date = "2025/04/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell script blocks associated with multiple distinct detections, indicating likely malicious behavior.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Malicious PowerShell Based on Alert Correlation"
+risk_score = 73
+rule_id = "f770ce79-05fd-4d74-9866-1c5d66c9b34b"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: Higher-Order Rule"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.* metadata _id
+
+// Filter for PowerShell related alerts
+| WHERE kibana.alert.rule.name LIKE "*PowerShell*"
+
+// As alerts don't have non-ECS fields, parse the script block ID using GROK
+| GROK message "ScriptBlock ID: (?<powershell.file.script_block_id>.+)"
+| WHERE powershell.file.script_block_id IS NOT NULL
+
+| KEEP kibana.alert.rule.name, powershell.file.script_block_id, _id
+
+// Count distinct alerts and filter for matches above the threshold
+| STATS distinct_alerts = COUNT_DISTINCT(kibana.alert.rule.name), rules_triggered = VALUES(kibana.alert.rule.name), alert_ids = VALUES(_id) BY powershell.file.script_block_id
+| WHERE distinct_alerts >= 5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
