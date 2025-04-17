@@ -1144,7 +1144,6 @@ class BaseRuleContents(ABC):
 
     @cached
     def get_hash(self, include_version : bool = False, include_integrations: bool = False) -> str:
-        raise Exception("test")
         hashable_contents = self.get_hashable_content(
             include_version=include_version,
             include_integrations=include_integrations,
