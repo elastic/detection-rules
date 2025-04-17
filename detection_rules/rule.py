@@ -1031,6 +1031,7 @@ class BaseRuleContents(ABC):
 
         if is_dirty:
             print("DIRTY >>>", existing_sha256, rule_hash, rule_hash_with_integrations, existing_sha256 in (rule_hash, rule_hash_with_integrations))
+            import ipdb; ipdb.set_trace()
 
         return is_dirty
 
