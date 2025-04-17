@@ -1023,8 +1023,6 @@ class BaseRuleContents(ABC):
         if not existing_sha256:
             return False
 
-        return existing_sha256 != self.get_hash()
-
         rule_hash = self.get_hash()
         rule_hash_with_integrations = self.get_hash(include_integrations=True)
 
