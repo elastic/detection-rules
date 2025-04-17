@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2025/04/14"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "The ES|QL MATCH operator was introduced in 8.17"
+min_stack_version = "8.17.0"
+updated_date = "2025/04/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that use reversed strings as a form of obfuscation. These methods are designed to evade
+static analysis and bypass security protections such as the Antimalware Scan Interface (AMSI).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Reverse Keywords"
+risk_score = 21
+rule_id = "f38633f4-3b31-4c80-b13d-e77c70ce8254"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-windows.powershell_operational* metadata _id, _version, _index
+| WHERE event.code == "4104"
+
+// Filter for scripts that contains these keywords using MATCH, boosts the query performance, match will ignore the | and look for the individual words
+| WHERE powershell.file.script_block_text : "rahc|metsys|stekcos|tcejboimw|ecalper|ecnerferpe|noitcennoc|nioj|eman|vne|gnirts|tcejbo-wen|_23niw|noisserpxe|ekovni|daolnwod"
+
+// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """(?i)(rahc|metsys|stekcos|tcejboimw|ecalper|ecnerferpe|noitcennoc|nioj|eman\.|:vne|gnirts|tcejbo-wen|_23niw|noisserpxe|ekovni|daolnwod)""", "🔥")
+
+// Count how many patterns were detected by calculating the number of 🔥 characters inserted
+| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+
+// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, agent.id
+| WHERE count >= 2
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
