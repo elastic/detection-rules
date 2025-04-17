@@ -1023,8 +1023,8 @@ class BaseRuleContents(ABC):
         if not existing_sha256:
             return False
 
-        rule_hash = self.get_hash()
-        rule_hash_with_integrations = self.get_hash(include_integrations=True)
+        rule_hash = self.get_hash(include_integrations=False)
+        rule_hash_with_integrations = self.get_hash()
 
         # Checking against current and previous version of the hash to avoid mass version bump
         is_dirty = existing_sha256 not in (rule_hash, rule_hash_with_integrations)
@@ -1142,7 +1142,7 @@ class BaseRuleContents(ABC):
         return hashable_dict
 
     @cached
-    def get_hash(self, include_version : bool = False, include_integrations: bool = False) -> str:
+    def get_hash(self, include_version : bool = False, include_integrations: bool = True) -> str:
         hashable_contents = self.get_hashable_content(
             include_version=include_version,
             include_integrations=include_integrations,
