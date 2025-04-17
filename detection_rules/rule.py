@@ -1026,10 +1026,13 @@ class BaseRuleContents(ABC):
         rule_hash = self.get_hash()
         rule_hash_with_integrations = self.get_hash(include_integrations=True)
 
-        print(">>>", existing_sha256, rule_hash, rule_hash_with_integrations, existing_sha256 in (rule_hash, rule_hash_with_integrations))
-
         # Checking against current and previous version of the hash to avoid mass version bump
-        return existing_sha256 not in (rule_hash, rule_hash_with_integrations)
+        is_dirty = existing_sha256 not in (rule_hash, rule_hash_with_integrations)
+
+        if is_dirty:
+            print("DIRTY >>>", existing_sha256, rule_hash, rule_hash_with_integrations, existing_sha256 in (rule_hash, rule_hash_with_integrations))
+
+        return is_dirty
 
     @property
     def lock_entry(self) -> Optional[dict]:
