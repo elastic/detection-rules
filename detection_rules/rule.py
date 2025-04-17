@@ -1028,11 +1028,6 @@ class BaseRuleContents(ABC):
 
         # Checking against current and previous version of the hash to avoid mass version bump
         is_dirty = existing_sha256 not in (rule_hash, rule_hash_with_integrations)
-
-        if is_dirty:
-            print("DIRTY >>>", existing_sha256, rule_hash, rule_hash_with_integrations, existing_sha256 in (rule_hash, rule_hash_with_integrations))
-            import ipdb; ipdb.set_trace()
-
         return is_dirty
 
     @property
