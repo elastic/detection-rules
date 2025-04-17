@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2025/02/25"
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Monitors for suspicious activities that may indicate theft or unauthorized duplication of machine learning (ML) models,
+such as unauthorized API calls, atypical access patterns, or large data transfers that are unusual during model
+interactions.
+"""
+false_positives = ["Authorized model training", "Legitimate high volume data exchanges during scheduled updates"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Azure OpenAI Model Theft"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Azure OpenAI Model Theft
+
+Azure OpenAI models are integral to many applications, providing advanced machine learning capabilities. Adversaries may exploit these models by making unauthorized API calls or transferring large volumes of data, potentially indicating model theft. The detection rule identifies such threats by monitoring audit logs for unusual access patterns or excessive data transfers, flagging activities that deviate from normal usage.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific resource group and resource name flagged in the alert to understand the context of the access patterns.
+- Analyze the timestamps associated with the suspicious activities to determine if they align with known operational periods or if they occur during unusual times.
+- Investigate the source of the API calls by identifying the IP addresses or user accounts involved in the "ListKey" operations to determine if they are authorized or known entities.
+- Examine the response length data to assess whether the volume of data transferred is consistent with legitimate use cases or if it suggests potential data exfiltration.
+- Cross-reference the flagged activities with other security logs or alerts to identify any correlated suspicious behavior or potential indicators of compromise.
+
+### False positive analysis
+
+- High-frequency legitimate API calls from automated scripts or applications may trigger the rule. Users can create exceptions for known scripts by identifying their specific access patterns and excluding them from the rule.
+- Large data transfers during scheduled model updates or backups can be mistaken for suspicious activity. Users should whitelist these operations by correlating them with scheduled maintenance windows or known update events.
+- Regular access by trusted internal teams for model evaluation or testing might appear as atypical patterns. Users can mitigate this by maintaining a list of authorized personnel and their expected access behaviors, then excluding these from the alert criteria.
+- Integration with other Azure services that require frequent access to OpenAI models could generate false positives. Users should document these integrations and adjust the rule to recognize and exclude these legitimate interactions.
+
+### Response and remediation
+
+- Immediately isolate the affected Azure resources by restricting network access to prevent further unauthorized API calls or data transfers.
+- Revoke and regenerate API keys associated with the compromised Azure OpenAI resources to prevent further unauthorized access.
+- Conduct a thorough review of audit logs to identify any additional unauthorized access attempts or data transfers, and document all findings for further analysis.
+- Notify the security operations team and relevant stakeholders about the potential model theft incident to ensure coordinated response efforts.
+- Implement additional monitoring on the affected resources to detect any further suspicious activities, focusing on access patterns and data transfer volumes.
+- Escalate the incident to the organization's incident response team for a comprehensive investigation and to determine if any data exfiltration occurred.
+- Review and update access controls and permissions for Azure OpenAI resources to ensure they adhere to the principle of least privilege, reducing the risk of future unauthorized access.
+"""
+references = ["https://genai.owasp.org/llmrisk/llm10-model-theft", "https://atlas.mitre.org/techniques/AML.T0044"]
+risk_score = 47
+rule_id = "4021e78d-5293-48d3-adee-a70fa4c18fab"
+setup = """## Setup
+
+For more information on
+streaming events, see the Azure OpenAI documentation:
+
+https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
+"""
+severity = "medium"
+tags = [
+    "Domain: LLM",
+    "Data Source: Azure OpenAI",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Model Theft",
+    "Mitre Atlas: T0044",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_openai.logs-*
+| where azure.open_ai.operation_name == "ListKey" and azure.open_ai.category == "Audit"
+| KEEP @timestamp, azure.open_ai.operation_name , azure.open_ai.category, azure.resource.group, azure.resource.name, azure.open_ai.properties.response_length
+| stats count = count(), max_data_transferred = max(azure.open_ai.properties.response_length) by azure.resource.group , azure.resource.name
+| where count >= 100 or max_data_transferred >= 1000000
+| sort count desc
+'''
+

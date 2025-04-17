@@ -33,6 +33,10 @@ Here are the queries currently available:
 ## azure
 - [Azure Entra Authentication Attempts from Abused Hosting Service Providers](./azure/docs/entra_authentication_attempts_from_abused_hosting_service_providers.md) (ES|QL)
 - [Azure Entra Device Code Authentication from Unusual Principal](./azure/docs/entra_device_code_authentication_from_unusual_principal.md) (ES|QL)
+- [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
+- [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
+- [Azure Entra Unusual Failed Authentication Attempts Behind Rare User Agents](./azure/docs/entra_authentication_attempts_behind_rare_user_agents.md) (ES|QL)
+- [Microsoft Entra ID Credentials Added to Rare Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
 
 
 ## linux

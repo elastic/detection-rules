@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2025/03/04"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential port scanning activity from a compromised host. Port scanning is a common reconnaissance
+technique used by attackers to identify open ports and services on a target system. A compromised host may exhibit port
+scanning behavior when an attacker is attempting to map out the network topology, identify vulnerable services, or
+prepare for further exploitation. This rule identifies potential port scanning activity by monitoring network connection
+attempts from a single host to a large number of ports within a short time frame. ES|QL rules have limited fields
+available in its alert documents. Make sure to review the original documents to aid in the investigation of this alert.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Port Scanning Activity from Compromised Host"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Port Scanning Activity from Compromised Host
+
+Port scanning is a reconnaissance method used by attackers to identify open ports and services on a network, often as a precursor to exploitation. In Linux environments, compromised hosts may perform rapid connection attempts to numerous ports, signaling potential scanning activity. The detection rule identifies such behavior by analyzing network logs for a high number of distinct port connections from a single host within a short timeframe, indicating possible malicious intent.
+
+### Possible investigation steps
+
+- Review the network logs to identify the specific host exhibiting the port scanning behavior by examining the destination.ip and process.executable fields.
+- Analyze the @timestamp field to determine the exact time frame of the scanning activity and correlate it with any other suspicious activities or alerts from the same host.
+- Investigate the process.executable field to understand which application or service initiated the connection attempts, and verify if it is a legitimate process or potentially malicious.
+- Check the destination.port field to identify the range and types of ports targeted by the scanning activity, which may provide insights into the attacker's objectives or the services they are interested in.
+- Assess the host's security posture by reviewing recent changes, installed software, and user activity to determine if the host has been compromised or if the scanning is part of legitimate network operations.
+- Consult the original documents and logs for additional context and details that may not be captured in the alert to aid in a comprehensive investigation.
+
+### False positive analysis
+
+- Legitimate network scanning tools used by system administrators for network maintenance or security assessments can trigger this rule. To handle this, identify and whitelist the IP addresses or processes associated with these tools.
+- Automated vulnerability scanners or monitoring systems that perform regular checks on network services may cause false positives. Exclude these systems by creating exceptions for their known IP addresses or process names.
+- High-volume legitimate services that open multiple connections to different ports, such as load balancers or proxy servers, might be flagged. Review and exclude these services by specifying their IP addresses or process executables.
+- Development or testing environments where frequent port scanning is part of routine operations can be mistakenly identified. Implement exceptions for these environments by excluding their specific network segments or host identifiers.
+- Scheduled network discovery tasks that are part of IT operations can mimic port scanning behavior. Document and exclude these tasks by setting up time-based exceptions or identifying their unique process signatures.
+
+### Response and remediation
+
+- Isolate the compromised host from the network immediately to prevent further scanning and potential lateral movement.
+- Terminate any suspicious processes identified by the process.executable field to halt ongoing malicious activities.
+- Conduct a thorough review of the compromised host's system logs and network traffic to identify any unauthorized access or data exfiltration attempts.
+- Patch and update all software and services on the compromised host to close any vulnerabilities that may have been exploited.
+- Change all credentials associated with the compromised host and any potentially affected systems to prevent unauthorized access.
+- Monitor the network for any further signs of scanning activity or other suspicious behavior from other hosts, indicating potential additional compromises.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "6b341d03-1d63-41ac-841a-2009c86959ca"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.events.network-*
+| keep @timestamp, host.os.type, event.type, event.action, destination.port, process.executable, destination.ip, agent.id, host.name
+| where @timestamp > now() - 1 hours
+| where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted"
+| stats cc = count(), port_count = count_distinct(destination.port), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable, destination.ip
+| where agent_count == 1 and port_count > 100
+| sort cc asc
+| limit 100
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

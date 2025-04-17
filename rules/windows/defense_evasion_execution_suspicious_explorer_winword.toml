@@ -2,9 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/01/15"
-min_stack_version = "8.14.0"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,48 +12,16 @@ starting after being renamed or from a non-standard path. This is uncommon behav
 defenses via side loading a malicious DLL within the memory space of one of those processes.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL Side-Loading via Trusted Microsoft Programs"
-risk_score = 73
-rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and
-  not (process.name : ("winword.exe", "explorer.exe", "w3wp.exe", "Dism.exe") or
-         process.executable : ("?:\\Windows\\explorer.exe",
-                               "?:\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE",
-                               "?:\\Program Files?(x86)\\Microsoft Office\\root\\Office*\\WINWORD.EXE",
-                               "?:\\Windows\\System32\\Dism.exe",
-                               "?:\\Windows\\SysWOW64\\Dism.exe",
-                               "?:\\Windows\\System32\\inetsrv\\w3wp.exe")
-         )
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -91,6 +57,45 @@ DLL side-loading exploits the DLL search order to load malicious code into trust
 - Update and patch all software on the affected system, focusing on the trusted Microsoft programs identified in the alert, to mitigate vulnerabilities exploited by DLL side-loading.
 - Monitor the network for any signs of lateral movement or additional compromised systems, using the indicators of compromise identified during the investigation.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems or data have been affected."""
+risk_score = 73
+rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and 
+  not process.executable : ("?:\\Windows\\explorer.exe", 
+                            "?:\\Windows\\SyWOW64\\explorer.exe",
+                            "?:\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
+                            "?:\\Program Files?(x86)\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
+                            "?:\\Windows\\System32\\Dism.exe", 
+                            "?:\\Windows\\SysWOW64\\Dism.exe",  
+                            "?:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
+                            "?:\\Windows\\System32\\inetsrv\\w3wp.exe", 
+                            "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe")
+'''
 
 
 [[rule.threat]]

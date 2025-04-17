@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2025/02/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation and modification of sitecustomize.py and usercustomize.py, which
+Python automatically executes on startup. Attackers can exploit these files for persistence by
+injecting malicious code. The rule monitors system-wide, user-specific, and virtual environment
+locations to catch unauthorized changes that could indicate persistence or backdooring attempts.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Python Site or User Customize File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Python Site or User Customize File Creation
+
+Python's `sitecustomize.py` and `usercustomize.py` are scripts that execute automatically when Python starts, allowing for environment-specific customizations. Adversaries can exploit these files to maintain persistence by injecting malicious code. The detection rule monitors file creation and modification in key directories, excluding benign processes, to identify unauthorized changes indicative of potential backdooring or persistence attempts.
+
+### Possible investigation steps
+
+- Review the file path where the creation or modification was detected to determine if it is a system-wide, user-specific, or virtual environment location, as specified in the query.
+- Identify the process executable responsible for the file creation or modification and verify if it is listed in the exclusion list of benign processes. If not, investigate the process for potential malicious activity.
+- Check the timestamp of the file creation or modification event to correlate with any other suspicious activities or alerts on the system around the same time.
+- Examine the contents of the sitecustomize.py or usercustomize.py file for any unauthorized or suspicious code that could indicate persistence mechanisms or backdooring attempts.
+- Investigate the user account associated with the file creation or modification event to determine if the activity aligns with expected behavior or if it suggests potential compromise.
+- Review system logs and other security alerts for additional context or indicators of compromise related to the detected event.
+
+### False positive analysis
+
+- Package managers like pip and poetry can trigger false positives when they create or modify sitecustomize.py or usercustomize.py during package installations or updates. To handle this, ensure these processes are included in the exclusion list within the detection rule.
+- System updates or software installations that involve Python libraries might also lead to false positives. Regularly review and update the exclusion list to include known benign processes such as pacman or restic that are part of routine system maintenance.
+- Custom scripts or automation tools that use Python to manage environments could inadvertently modify these files. Identify and exclude these specific scripts or tools if they are verified as non-malicious.
+- Virtual environments often involve the creation of sitecustomize.py for environment-specific configurations. Consider excluding the virtual environment's Python executables if they are part of a controlled and secure development process.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or spread of malicious code.
+- Review the contents of the `sitecustomize.py` and `usercustomize.py` files for any unauthorized or suspicious code. Remove any malicious code identified.
+- Restore the affected files from a known good backup if available, ensuring that the restored files are free from unauthorized modifications.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware or persistence mechanisms.
+- Monitor the system and network for any signs of continued unauthorized access or attempts to modify the `sitecustomize.py` and `usercustomize.py` files.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement additional monitoring and alerting for changes to critical Python directories and files to enhance detection of similar threats in the future.
+"""
+risk_score = 21
+rule_id = "d788313c-9e0b-4c5a-8c4b-c3f05a47d5a8"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type in ("creation", "rename") and process.executable != null and
+file.path like~ (
+  "/usr/lib/python*/sitecustomize.py",
+  "/usr/local/lib/python*/sitecustomize.py",
+  "/usr/lib/python*/dist-packages/sitecustomize.py",
+  "/usr/local/lib/python*/dist-packages/sitecustomize.py",
+  "/opt/*/lib/python*/sitecustomize.py",
+  "/home/*/.local/lib/python*/site-packages/usercustomize.py",
+  "/home/*/.config/python/usercustomize.py"
+) and not (
+  process.executable in (
+    "/usr/local/bin/pip2", "/usr/bin/restic", "/usr/bin/pacman", "/usr/bin/dockerd", "/usr/local/bin/pip3",
+    "/usr/bin/pip3", "/usr/local/bin/pip", "/usr/bin/pip", "/usr/bin/podman", "/usr/local/bin/poetry",
+    "/usr/bin/poetry", "/usr/bin/pamac-daemon", "./venv/bin/pip"
+  ) or
+  process.executable like~ (
+    "/usr/bin/python*", "/usr/local/bin/python*", "/opt/venv/bin/python*",
+    "/nix/store/*libexec/docker/dockerd", "/snap/docker/*dockerd"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

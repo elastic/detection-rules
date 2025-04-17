@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2025/03/10"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/03/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen
+credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate
+an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The
+authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Rare Authentication Requirement for Principal User"
+note = """## Triage and analysis
+
+### Investigating Microsoft Entra ID Rare Authentication Requirement for Principal User
+
+Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
+
+**This is a New Terms rule that focuses on first occurrence of an Entra ID principal user `azure.signinlogs.properties.user_principal_name` and their authentication requirement `azure.signinlogs.properties.authentication_requirement` in the last 14-days.**
+
+### Possible investigation steps
+
+- Identify the source IP address from which the failed login attempts originated by reviewing `source.ip`. Determine if the IP is associated with known malicious activity using threat intelligence sources or if it belongs to a corporate VPN, proxy, or automation process.
+- Analyze affected user accounts by reviewing `azure.signinlogs.properties.user_principal_name` to determine if they belong to privileged roles or high-value users. Look for patterns indicating multiple failed attempts across different users, which could suggest a password spraying attempt.
+- Examine the authentication method used in `azure.signinlogs.properties.authentication_details` to identify which authentication protocols were attempted and why they failed. Legacy authentication methods may be more susceptible to brute-force attacks.
+- Review the authentication error codes found in `azure.signinlogs.properties.status.error_code` to understand why the login attempts failed. Common errors include `50126` for invalid credentials, `50053` for account lockouts, `50055` for expired passwords, and `50056` for users without a password.
+- Correlate failed logins with other sign-in activity by looking at `event.outcome`. Identify if there were any successful logins from the same user shortly after multiple failures or if there are different geolocations or device fingerprints associated with the same account.
+- Review `azure.signinlogs.properties.app_id` to identify which applications were initiating the authentication attempts. Determine if these applications are Microsoft-owned, third-party, or custom applications and if they are authorized to access the resources.
+- Check for any conditional access policies that may have been triggered by the failed login attempts by reviewing `azure.signinlogs.properties.authentication_requirement`. This can help identify if the failed attempts were due to policy enforcement or misconfiguration.
+
+## False positive analysis
+
+### Common benign scenarios
+- Automated scripts or applications using non-interactive authentication may trigger this detection, particularly if they rely on legacy authentication protocols recorded in `azure.signinlogs.properties.authentication_protocol`.
+- Corporate proxies or VPNs may cause multiple users to authenticate from the same IP, appearing as repeated failed attempts under `source.ip`.
+- User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
+
+### How to reduce false positives
+- Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
+- Exlcude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
+- Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
+- Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
+
+## Response and remediation
+
+### Immediate actions
+- Block the source IP address in `source.ip` if determined to be malicious.
+- Reset passwords for all affected user accounts listed in `azure.signinlogs.properties.user_principal_name` and enforce stronger password policies.
+- Ensure basic authentication is disabled for all applications using legacy authentication protocols listed in `azure.signinlogs.properties.authentication_protocol`.
+- Enable multi-factor authentication (MFA) for impacted accounts to mitigate credential-based attacks.
+- Review conditional access policies to ensure they are correctly configured to block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
+- Review Conditional Access policies to enforce risk-based authentication and block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
+
+### Long-term mitigation
+- Implement a zero-trust security model by enforcing least privilege access and continuous authentication.
+- Regularly review and update conditional access policies to ensure they are effective against evolving threats.
+- Restrict the use of legacy authentication protocols by disabling authentication methods listed in `azure.signinlogs.properties.client_app_used`.
+- Regularly audit authentication logs in `azure.signinlogs` to detect abnormal login behavior and ensure early detection of potential attacks.
+- Regularly rotate client credentials and secrets for applications using non-interactive authentication to reduce the risk of credential theft.
+"""
+references = ["https://securityscorecard.com/wp-content/uploads/2025/02/MassiveBotnet-Report_022125_03.pdf"]
+risk_score = 47
+rule_id = "9e11faee-fddb-11ef-8257-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.signinlogs" and event.category: "authentication"
+    and azure.signinlogs.properties.user_type: "Member"
+    and azure.signinlogs.properties.authentication_details.authentication_method: "Password"
+    and not azure.signinlogs.properties.device_detail.browser: *
+    and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
+    and not azure.signinlogs.properties.authentication_requirement: "multiFactorAuthentication"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+[[rule.threat.technique.subtechnique]]
+id = "T1110.003"
+name = "Password Spraying"
+reference = "https://attack.mitre.org/techniques/T1110/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.authentication_requirement",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

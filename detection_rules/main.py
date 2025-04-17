@@ -27,13 +27,12 @@ from .config import load_current_package_version, parse_rules_config
 from .generic_loader import GenericCollection
 from .exception import (TOMLExceptionContents,
                         build_exception_objects, parse_exceptions_results_from_api)
-from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
 )
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
-from .rule_loader import RuleCollection
+from .rule_loader import RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
@@ -41,7 +40,13 @@ RULES_CONFIG = parse_rules_config()
 RULES_DIRS = RULES_CONFIG.rule_dirs
 
 
-@click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
+@click.group(
+    'detection-rules',
+    context_settings={
+        'help_option_names': ['-h', '--help'],
+        'max_content_width': int(os.getenv('DR_CLI_MAX_WIDTH', 240)),
+    },
+)
 @click.option('--debug/--no-debug', '-D/-N', is_flag=True, default=None,
               help='Print full exception stacktrace on errors')
 @click.pass_context
@@ -123,10 +128,13 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
+@click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
+@click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 def import_rules_into_repo(input_file: click.Path, required_only: bool, action_connector_import: bool,
                            exceptions_import: bool, directory: click.Path, save_directory: click.Path,
                            action_connectors_directory: click.Path, exceptions_directory: click.Path,
-                           skip_errors: bool, default_author: str, strip_none_values: bool):
+                           skip_errors: bool, default_author: str, strip_none_values: bool, local_creation_date: bool,
+                           local_updated_date: bool):
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
@@ -173,6 +181,12 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         contents["author"] = contents.get("author") or default_author or [contents.get("created_by")]
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
+
+        contents.update(
+            update_metadata_from_file(
+                Path(rule_path), {"creation_date": local_creation_date, "updated_date": local_updated_date}
+            )
+        )
 
         output = rule_prompt(
             rule_path,
@@ -696,29 +710,3 @@ def prep_rule(author: str):
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
-
-
-@root.group('rta')
-def rta_group():
-    """Commands related to Red Team Automation (RTA) scripts."""
-
-
-# create command to show rule-rta coverage
-@rta_group.command('coverage')
-@click.option("-o", "--os-filter", default="all",
-              help="Filter rule coverage summary by OS. (E.g. windows) Default: all")
-def rta_coverage(os_filter: str):
-    """Show coverage of RTA / rules by os type."""
-
-    # get all rules
-    all_rules = RuleCollection.default()
-
-    # get rules triggered by RTA
-    triggered_rules = get_triggered_rules()
-
-    # build coverage map
-    coverage_map = build_coverage_map(triggered_rules, all_rules)
-
-    # # print summary
-    all_rule_count = len(all_rules.rules)
-    print_converage_summary(coverage_map, all_rule_count, os_filter)

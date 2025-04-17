@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2025/02/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of .pth files in system-wide and user-specific Python package
+directories, which can be abused for persistent code execution. .pth files automatically
+execute Python code when the interpreter starts, making them a stealthy persistence mechanism.
+Monitoring these paths helps identify unauthorized modifications that could indicate
+persistence by an attacker or malicious package injection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Python Path File (pth) Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Python Path File (pth) Creation
+
+Python Path Files (.pth) are used to automatically execute code when the Python interpreter starts, making them a potential target for adversaries seeking persistence. Attackers can exploit .pth files by placing malicious code in directories where Python packages reside, ensuring execution each time Python runs. The detection rule monitors the creation and renaming of .pth files in key directories, excluding legitimate processes, to identify unauthorized modifications indicative of malicious activity.
+
+### Possible investigation steps
+
+- Review the file path where the .pth file was created or renamed to determine if it is within a legitimate Python package directory, as specified in the query paths.
+- Identify the process executable responsible for the creation or renaming of the .pth file and verify if it is listed as an excluded legitimate process in the query.
+- Investigate the parent process of the identified executable to understand the context of the .pth file creation and assess if it aligns with expected behavior.
+- Check the timestamp of the .pth file creation or renaming event to correlate with any known scheduled tasks or user activities.
+- Examine the contents of the .pth file to identify any suspicious or unauthorized code that could indicate malicious intent.
+- Review recent system logs and user activity around the time of the event to identify any anomalies or unauthorized access attempts.
+
+### False positive analysis
+
+- Legitimate package installations or updates using package managers like pip or poetry can trigger false positives. To handle this, ensure that the process executables for these package managers are included in the exclusion list.
+- Automated scripts or CI/CD pipelines that manage Python environments might create or rename .pth files. Identify these scripts and add their executables to the exclusion list to prevent unnecessary alerts.
+- System updates or maintenance tasks that involve Python package directories can also result in false positives. Monitor these activities and temporarily adjust the rule or add specific system maintenance processes to the exclusion list.
+- Custom Python applications that manage dependencies or configurations through .pth files may cause alerts. Review these applications and consider adding their specific paths or executables to the exclusion criteria.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution of potentially malicious code.
+- Identify and terminate any suspicious processes associated with the creation or modification of .pth files, especially those not matching the legitimate process list.
+- Remove any unauthorized .pth files from the identified directories to eliminate the persistence mechanism.
+- Conduct a thorough review of recent changes to the Python environment and installed packages to identify any malicious or unauthorized modifications.
+- Restore affected systems from a known good backup if malicious activity is confirmed and cannot be fully remediated.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for future unauthorized .pth file modifications to quickly detect similar threats.
+"""
+references = [
+    "https://dfir.ch/posts/publish_python_pth_extension/",
+    "https://www.volexity.com/blog/2024/04/12/zero-day-exploitation-of-unauthenticated-remote-code-execution-vulnerability-in-globalprotect-cve-2024-3400/",
+]
+risk_score = 21
+rule_id = "7f65f984-5642-4291-a0a0-2bbefce4c617"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("creation", "rename") and file.extension == "pth" and
+file.path like~ (
+  "/usr/local/lib/python*/dist-packages/*", 
+  "/usr/lib/python*/dist-packages/*",
+  "/usr/local/lib/python*/site-packages/*",
+  "/usr/lib/python*/site-packages/*",
+  "/home/*/.local/lib/python*/site-packages/*",
+  "/opt/*/lib/python*/site-packages/*"
+) and process.executable != null and not (
+  process.executable in (
+    "/usr/local/bin/pip2", "/usr/bin/restic", "/usr/bin/pacman", "/usr/bin/dockerd", "/usr/local/bin/pip3",
+    "/usr/bin/pip3", "/usr/local/bin/pip", "/usr/bin/pip", "/usr/bin/podman", "/usr/local/bin/poetry",
+    "/usr/bin/poetry", "/usr/bin/pamac-daemon", "/opt/venv/bin/pip", "/usr/bin/dnf", "./venv/bin/pip",
+    "/usr/bin/dnf5", "/bin/dnf5", "/bin/pip", "/bin/podman"
+  ) or
+  process.executable like~ (
+    "/usr/bin/python*", "/usr/local/bin/python*", "/opt/venv/bin/python*",
+    "/nix/store/*libexec/docker/dockerd", "/snap/docker/*dockerd"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

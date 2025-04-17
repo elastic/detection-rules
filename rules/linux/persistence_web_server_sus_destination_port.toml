@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2025/03/05"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies unusual destination port network activity originating from a web server process. The
+rule is designed to detect potential web shell activity or unauthorized communication from a web server
+process to external systems.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Uncommon Destination Port Connection by Web Server"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Uncommon Destination Port Connection by Web Server
+
+Web servers, crucial for hosting applications, typically communicate over standard ports like 80 and 443. Adversaries may exploit web server processes to establish unauthorized connections to unusual ports, potentially indicating web shell activity or data exfiltration. This detection rule identifies such anomalies by monitoring egress connections from web server processes to non-standard ports, excluding common local IP ranges, thus highlighting potential threats.
+
+### Possible investigation steps
+
+- Review the process name and user associated with the alert to determine if the connection attempt was made by a legitimate web server process or user, as specified in the query fields (e.g., process.name or user.name).
+- Examine the destination IP address to assess whether it is known or suspicious, and check if it falls outside the excluded local IP ranges.
+- Investigate the destination port to understand why the connection was attempted on a non-standard port, and determine if this port is associated with any known services or threats.
+- Check historical logs for any previous connection attempts from the same process or user to the same or similar destination IPs and ports to identify patterns or repeated behavior.
+- Analyze any related network traffic or logs to identify additional context or anomalies that may indicate unauthorized activity or data exfiltration.
+- Correlate the alert with other security events or alerts to determine if it is part of a larger attack pattern or campaign.
+
+### False positive analysis
+
+- Routine administrative tasks or maintenance scripts may trigger alerts if they involve web server processes connecting to non-standard ports. To manage this, identify and document these tasks, then create exceptions for the specific processes and ports involved.
+- Internal monitoring or management tools that use non-standard ports for legitimate purposes can cause false positives. Review the tools in use and exclude their known IP addresses and ports from the rule.
+- Development or testing environments often use non-standard ports for web server processes. Ensure these environments are well-documented and consider excluding their IP ranges or specific ports from the rule.
+- Load balancers or reverse proxies might redirect traffic to non-standard ports as part of their normal operation. Verify the configuration of these devices and exclude their IP addresses and ports if necessary.
+- Custom applications running on web servers may require communication over non-standard ports. Work with application owners to understand these requirements and adjust the rule to exclude these specific cases.
+
+### Response and remediation
+
+- Immediately isolate the affected web server from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough review of the web server's logs and processes to identify any unauthorized changes or suspicious activities, focusing on the processes and user accounts mentioned in the detection rule.
+- Terminate any suspicious processes identified during the investigation that are not part of the standard operation of the web server.
+- Change passwords and review permissions for the user accounts associated with the web server processes to ensure they have not been compromised.
+- Restore the web server from a known good backup if any unauthorized changes or malware are detected, ensuring that the backup is free from compromise.
+- Implement network segmentation to limit the web server's access to critical systems and data, reducing the potential impact of future incidents.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems may be affected, ensuring comprehensive threat containment and remediation.
+"""
+risk_score = 21
+rule_id = "00546494-5bb0-49d6-9220-5f3b4c12f26a"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
+     user.name in (
+      "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
+     ) or
+     user.id in ("99", "33", "498", "48")
+   ) and (
+   process.name in (
+    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
+    "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
+    "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
+  ) or
+    process.name like ("php-*", "python*", "ruby*", "perl*")
+) and
+network.direction == "egress" and destination.ip != null and
+not destination.port in (80, 443, 8080, 8443, 8000, 8888, 3128, 3306) and
+not cidrmatch(destination.ip, "127.0.0.0/8", "::1","FE80::/10", "FF00::/8")
+
+/* 
+This rule does not exclude local IP ranges by default. To exclude these, use the following exclusion statement:
+cidrmatch(destination.ip, "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
+"192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+"224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4")
+*/
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Persistence"
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
