@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2025/04/11"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/04/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the usage of the AWS CLI with a user agent string containing `distrib#kali`, which suggests the request
+was made from a Kali Linux distribution. This may indicate offensive security tooling or unauthorized use of the AWS CLI
+from a potentially adversarial environment.
+"""
+false_positives = [
+    """
+    While rare, legitimate users or red teamers may use Kali Linux for security assessments. Confirm the identity of the
+    user, their purpose, and whether the activity was authorized.
+    """,
+]
+from = "now-9m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CLI with Kali Linux Fingerprint Identified"
+note = """## Triage and Analysis
+
+### Investigating AWS CLI with Kali Linux Fingerprint Identified
+
+The `user_agent.original` field in AWS CloudTrail logs reveals the operating system and toolchain used to make API calls. The substring `distrib#kali` strongly implies the use of Kali Linux, a common OS used by offensive security professionals and adversaries.
+
+#### Possible Investigation Steps
+
+- Identify the User: Check `user.name`, `user.arn`, and `aws.cloudtrail.user_identity.*` to determine which IAM identity was used.
+- Review Access Pattern: Correlate API calls from this user agent with sensitive actions such as `PutObject`, `CreateUser`, `AttachUserPolicy`, etc.
+- Investigate Source IP: Examine whether the request originated from an expected network or a suspicious VPN or cloud provider address.
+- Check for Initial Access: Look for session tokens being issued (e.g., `GetSessionToken`) or reused (`AssumeRole`) prior to this event.
+
+### False Positive Analysis
+
+- Rare but possible in security assessments or internal red teaming. Validate the action context (user, IP, time of day, etc).
+
+### Response and Remediation
+
+- Revoke Credentials: If unauthorized, revoke keys or sessions immediately.
+- Harden IAM Policies: Restrict sensitive IAM privileges, especially if used by CI/CD or automation roles.
+- Alert on Repeat Usage: Add recurring monitoring for suspicious user agents including `kali`, `curl`, or known toolkits.
+"""
+references = [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+    "https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/",
+]
+risk_score = 47
+rule_id = "f80ea920-f6f5-4c8a-9761-84ac97ec0cb2"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Tactic: Initial Access",
+    "Use Case: Cloud Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and user_agent.original: (aws-cli*distrib#kali* or Boto3*distrib#kali*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
