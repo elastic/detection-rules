@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2025/04/11"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/04/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a single IAM user's temporary session token is used from multiple IP addresses within a short
+time frame. This behavior may indicate that an adversary has stolen temporary credentials and is using them from a
+different location.
+"""
+false_positives = [
+    """
+    Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to
+    appear from multiple IPs. Review the geolocation and automation context to rule out benign use.
+    """,
+]
+from = "now-30m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS STS Temporary IAM Session Token Used from Multiple Addresses"
+note = """## Triage and Analysis
+
+### Investigating AWS STS Temporary IAM Session Token Used from Multiple Addresses
+
+Temporary session tokens (typically starting with 'ASIA') are expected to be short-lived and bound to a single user session. Usage from multiple IP addresses may indicate the token was stolen and used elsewhere.
+
+#### Possible Investigation Steps
+
+- **Identify the IAM User**: Examine `aws.cloudtrail.user_identity.arn` and correlate with `source.ip` to determine how widely the token was used.
+- **Check Recent MFA Events**: Determine whether the user recently enabled MFA, registered devices, or assumed a role using this token.
+- **Review Workload Context**: Confirm whether the user was expected to be active in multiple regions or environments.
+- **Trace Adversary Movement**: Pivot to related actions (e.g., `s3:ListBuckets`, `iam:ListUsers`, `sts:GetCallerIdentity`) to track further enumeration.
+
+### False Positive Analysis
+
+- Automation frameworks that rotate through multiple IPs or cloud functions with dynamic egress IPs may cause this alert to fire.
+- Confirm geolocation and workload context before escalating.
+
+### Response and Remediation
+
+- **Revoke the Token**: Disable or rotate the IAM credentials and invalidate the temporary session token.
+- **Audit the Environment**: Look for signs of lateral movement or data access during the token's validity.
+- **Strengthen Controls**: Require MFA for high-privilege actions, restrict access via policy conditions (e.g., IP range or device).
+
+### References
+
+- [STS Temporary Credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html)
+- [Using MFA with Temporary Credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html)
+- [AWS Threat Detection Use Cases](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-fsbp-controls.html)
+"""
+references = ["https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/"]
+risk_score = 47
+rule_id = "0d92d30a-5f3e-4b71-bc3d-4a0c4914b7e0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Data Source: AWS CloudTrail",
+    "Tactic: Initial Access",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail* metadata _id, _version, _index
+| where
+
+    // filter on CloudTrail logs for STS temporary session tokens used by IAM users
+    event.dataset == "aws.cloudtrail"
+    and aws.cloudtrail.user_identity.arn is not null
+    and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
+    and source.ip is not null
+
+    // exclude known benign IaC tools and automation frameworks
+    and not (
+        user_agent.original LIKE "%Terraform%"
+        or user_agent.original LIKE "%Ansible%"
+        or user_agent.original LIKE "%Pulumni%"
+    )
+
+    // filter for ASIA in tokens, indicating temporary session tokens
+    and starts_with(aws.cloudtrail.user_identity.access_key_id, "ASIA")
+
+  // create a time window for aggregation
+| eval time_window = DATE_TRUNC(30 minutes, @timestamp)
+| keep source.ip, aws.cloudtrail.user_identity.arn
+
+// aggregate unique source IPs per user within the time window
+| stats source.ip.list = VALUES(source.ip), address_api_request_count = count_distinct(source.ip) by aws.cloudtrail.user_identity.arn
+
+// filter for users with multiple unique source IPs in the time window
+| where address_api_request_count >= 2
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
