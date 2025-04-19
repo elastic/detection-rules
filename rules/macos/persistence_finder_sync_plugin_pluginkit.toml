@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -59,25 +59,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "pluginkit" and
-  process.args : "-e" and process.args : "use" and process.args : "-i" and
-  not process.args :
-  (
-    "com.google.GoogleDrive.FinderSyncAPIExtension",
-    "com.google.drivefs.findersync",
-    "com.boxcryptor.osx.Rednif",
-    "com.adobe.accmac.ACCFinderSync",
-    "com.microsoft.OneDrive.FinderSync",
-    "com.insynchq.Insync.Insync-Finder-Integration",
-    "com.box.desktop.findersyncext"
-  ) and
-  not process.parent.executable : ("/Library/Application Support/IDriveforMac/IDriveHelperTools/FinderPluginApp.app/Contents/MacOS/FinderPluginApp",
-                                   "/Applications/Google Drive.app/Contents/MacOS/Google Drive") and
-  not process.Ext.effective_parent.executable : ("/Applications/Google Drive.app/Contents/MacOS/Google Drive",
-                                                 "/usr/local/jamf/bin/jamf",
-                                                 "/Applications/Nextcloud.app/Contents/MacOS/Nextcloud",
-                                                 "/Library/Application Support/Checkpoint/Endpoint Security/AMFinderExtensions.app/Contents/MacOS/AMFinderExtensions",
-                                                 "/Applications/pCloud Drive.app/Contents/MacOS/pCloud Drive")
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "pluginkit" and
+  process.args == "-e" and process.args like~ "use" and process.args == "-i" and
+  ((process.name like~ ("python*", "node", "osascript", "bash", "sh", "zsh") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 

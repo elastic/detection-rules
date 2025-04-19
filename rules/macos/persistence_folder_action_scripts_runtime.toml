@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -58,8 +58,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type : "start" and process.name in ("osascript", "python", "tcl", "node", "perl", "ruby", "php", "bash", "csh", "zsh", "sh") and
-  process.parent.name == "com.apple.foundation.UserScriptService" and not process.args : ("/Users/*/Library/Application Support/iTerm2/Scripts/AutoLaunch/*.scpt", "/Users/*/Library/Application Scripts/com.microsoft.*/FoxitUtils.applescript")
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.parent.name == "com.apple.foundation.UserScriptService" and 
+ ((process.name like~ ("osascript", "python*", "tcl*", "node", "perl", "ruby", "php")) or 
+  (process.name in ("bash", "csh", "zsh", "sh") and process.args == "-c")) and 
+ not process.args like ("/Users/*/Library/Scripts/*", "/Users/*/Library/Application Scripts/*", "/Library/Scripts/*")
 '''
 note = """## Triage and analysis
 
