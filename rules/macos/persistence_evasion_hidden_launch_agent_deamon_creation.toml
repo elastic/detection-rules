@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -59,15 +59,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "macos" and event.type != "deletion" and
-  file.path :
-  (
-    "/System/Library/LaunchAgents/.*.plist",
-    "/Library/LaunchAgents/.*.plist",
-    "/Users/*/Library/LaunchAgents/.*.plist",
-    "/System/Library/LaunchDaemons/.*.plist",
-    "/Library/LaunchDaemons/.*.plist"
-  )
+file where host.os.type == "macos" and event.action == "launch_daemon" and
+  Persistence.name : ".*"
 '''
 note = """## Triage and analysis
 
