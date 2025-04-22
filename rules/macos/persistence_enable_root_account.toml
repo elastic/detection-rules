@@ -2,7 +2,7 @@
 creation_date = "2020/01/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ for persistence, as the root account is disabled by default.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Enable the Root Account"
 references = ["https://ss64.com/osx/dsenableroot.html"]
@@ -53,11 +53,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:dsenableroot and not process.args:"-d"
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "dsenableroot" and 
+ not process.args == "-d"
 '''
 note = """## Triage and analysis
 
