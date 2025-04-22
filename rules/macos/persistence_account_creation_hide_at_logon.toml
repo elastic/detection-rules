@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ attempt to evade user attention while maintaining persistence using a separate l
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Potential Hidden Local User Account Creation"
 references = ["https://support.apple.com/en-us/HT203998"]
@@ -53,11 +53,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:dscl and process.args:(IsHidden and create and (true or 1 or yes))
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "dscl" and process.args like~ "IsHidden" and process.args like~ "create" and 
+ process.args like~ ("true", "1", "yes")
 '''
 note = """## Triage and analysis
 

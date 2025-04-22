@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,9 +61,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "sqlite*" and
- process.args : "/*/Application Support/com.apple.TCC/TCC.db" and
- not process.parent.executable : "/Library/Bitdefender/AVP/product/bin/*"
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "sqlite*" and
+ process.args like "/*/Application Support/com.apple.TCC/TCC.db" and
+ (process.parent.name like~ ("osascript", "bash", "sh", "zsh", "Terminal", "Python*") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 
