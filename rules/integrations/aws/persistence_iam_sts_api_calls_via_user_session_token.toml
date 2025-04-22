@@ -19,32 +19,47 @@ from = "now-9m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS IAM or STS API Calls via Temporary Session Tokens"
+name = "AWS IAM API Calls via Temporary Session Tokens"
 note = """
-## Triage and Analysis
+## Triage and analysis
 
-### Investigating AWS IAM or STS API Calls via Temporary Session Tokens
+### Investigating AWS IAM API Calls via Temporary Session Tokens
 
-This rule identifies use of temporary AWS credentials (session tokens with prefix `ASIA`) used to perform sensitive IAM API operations.
-These actions may indicate unauthorized privilege escalation or persistence attempts.
+This rule detects sensitive IAM API operations performed using temporary AWS credentials (session tokens starting with 'ASIA'). These are short-lived credentials commonly obtained via sts:GetSessionToken, sts:AssumeRole, or AWS SSO login. While temporary credentials are often used for development and automation, they are rarely associated with direct IAM manipulation and may indicate credential theft, privilege escalation, or abuse of developer access.
 
-#### Possible Investigation Steps
+#### Possible investigation steps:
 
-- Identify the IAM user or assumed role and determine if session-based API calls are expected for this user.
-- Review the source IP and user agent for signs of attacker infrastructure (e.g., Kali, VPN).
-- Investigate whether this was preceded by GetSessionToken or credential harvesting activity.
-- Check if the same key or session token was used in other suspicious calls (e.g., CreateAccessKey, PutUserPolicy).
+- Review aws.cloudtrail.user_identity.arn to determine which IAM user or assumed role initiated the request.
+- Check aws.cloudtrail.user_identity.access_key_id to confirm if the credential starts with 'ASIA', indicating a temporary session token.
+- Examine aws.cloudtrail.user_identity.session_context.mfa_authenticated to verify whether MFA was present during session creation.
+- Investigate source.ip to assess whether the request originated from a known network, office IP, or corporate VPN.
+- Look at user_agent.original to determine if the API call came from a known CLI version or unexpected tool (e.g., unknown SDK, custom script).
+- Confirm whether a recent sts:GetSessionToken, sts:AssumeRole, or AWS SSO login event issued the temporary credential.
+- Correlate other events using the same access key ID to identify additional privileged actions, such as iam:CreateAccessKey, iam:PutUserPolicy, or iam:EnableMFADevice.
+- Analyze timing via @timestamp to determine if the action occurred during off-hours or deviates from normal user behavior.
+- Review the event.outcome to check if the API call was successful or failed, which may indicate unauthorized access attempts.
+- Check for related events in the same session, such as iam:CreateUser, iam:AttachUserPolicy, or sts:GetCallerIdentity, to identify potential lateral movement or privilege escalation.
 
-### Response and Remediation
+### False positive analysis:
 
-- Invalidate the credentials used and disable the associated IAM user or role if malicious.
-- Rotate secrets and audit permission boundaries.
-- Review activity around the same time and on other AWS services.
+- Determine if the IAM user or automation pipeline routinely performs privileged actions using temporary session tokens.
+- Validate whether the MFA context and source IP match expected developer or CI/CD behavior.
+- Review recent IAM policy changes or deployments that may explain the behavior.
+- Confirm if the user has a legitimate reason to perform sensitive IAM operations with temporary credentials, such as during a deployment or maintenance window.
+
+### Response and remediation:
+
+- Revoke the temporary session token and rotate long-term access keys for the associated user if the behavior is unauthorized.
+- Audit related CloudTrail events within the same session to identify policy changes, resource creation, or lateral movement.
+- Add explicit deny statements in IAM policies to prevent sensitive IAM actions when aws:authType is not "console".
+- Implement IP restrictions for IAM and STS API actions using aws:SourceIp conditions.
+- Strengthen monitoring for IAM activity initiated by session tokens with MFA to improve detection coverage.
 """
+
 references = ["https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/"]
-risk_score = 47
+risk_score = 21
 rule_id = "c70d9f0d-8cb6-4cfc-85df-a95c1ccf4eab"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
@@ -61,7 +76,7 @@ type = "new_terms"
 
 query = '''
 event.dataset: aws.cloudtrail
-    and event.provider: ("iam.amazonaws.com" or "sts.amazonaws.com")
+    and event.provider: ("iam.amazonaws.com")
     and aws.cloudtrail.user_identity.type: "IAMUser"
     and aws.cloudtrail.user_identity.access_key_id: ASIA*
 '''
