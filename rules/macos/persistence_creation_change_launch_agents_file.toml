@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/04/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.file*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Launch Agent Creation or Modification and Immediate Loading"
+name = "Launch Service Creation and Immediate Loading"
 references = [
     "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html",
 ]
@@ -58,18 +58,16 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=1m
- [file where host.os.type == "macos" and event.type != "deletion" and
-  file.path : ("/System/Library/LaunchAgents/*", "/Library/LaunchAgents/*", "/Users/*/Library/LaunchAgents/*")
- ]
- [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
+sequence by host.id with maxspan=30s
+ [file where host.os.type == "macos" and event.action == "launch_daemon"] by process.entity_id
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"] by process.parent.entity_id
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Launch Agent Creation or Modification and Immediate Loading
+### Investigating Launch Service Creation and Immediate Loading
 
 Launch Agents in macOS are used to execute scripts or applications automatically at user login, providing a mechanism for persistence. Adversaries exploit this by creating or modifying Launch Agents to execute malicious payloads. The detection rule identifies such activities by monitoring file changes in Launch Agent directories and subsequent immediate loading via `launchctl`, indicating potential unauthorized persistence attempts.
 
