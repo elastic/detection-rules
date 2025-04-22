@@ -27,7 +27,6 @@ def _decompress_and_save_schema(url, release_name):
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
 
     fs = {}
-    parsed = {}
 
     with unzip(response.content) as archive:
         base_directory = archive.namelist()[0]
@@ -48,7 +47,6 @@ def _decompress_and_save_schema(url, release_name):
                     print(f"Error loading {name}")
 
                 # create a hierarchical structure
-                parsed[key] = decoded
                 branch = fs
                 directory, base_name = os.path.split(key)
                 for limb in directory.split(os.path.sep):

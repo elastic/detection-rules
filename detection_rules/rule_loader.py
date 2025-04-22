@@ -10,6 +10,8 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
+import structlog
+import time
 import click
 import pytoml
 import json
@@ -22,12 +24,14 @@ from .rule import (
     TOMLRuleContents
 )
 from .schemas import definitions
-from .utils import cached, get_path
+from .utils import cached, get_path, timed
 
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
+
+log = structlog.get_logger(__name__)
 
 
 def path_getter(value: str) -> Callable[[dict], bool]:
@@ -414,7 +418,9 @@ class RuleCollection(BaseCollection):
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
+    @timed("Loading a rule from a dict")
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
+
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
             contents = DeprecatedRuleContents.from_dict(obj)
@@ -423,35 +429,33 @@ class RuleCollection(BaseCollection):
             deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
-        else:
-            contents = TOMLRuleContents.from_dict(obj)
-            if not RULES_CONFIG.bypass_version_lock:
-                contents.set_version_lock(self._version_lock)
-            rule = TOMLRule(path=path, contents=contents)
-            self.add_rule(rule)
-            return rule
 
+        contents = TOMLRuleContents.from_dict(obj)
+        if not RULES_CONFIG.bypass_version_lock:
+            contents.set_version_lock(self._version_lock)
+
+        rule = TOMLRule(path=path, contents=contents)
+        self.add_rule(rule)
+        return rule
+
+    @timed("Loading a rule from a path", func_kwargs_to_log=["path"])
     def load_file(self, path: Path) -> Union[TOMLRule, DeprecatedRule]:
-        try:
-            path = path.resolve()
+        path = path.resolve()
 
-            # use the default rule loader as a cache.
-            # if it already loaded the rule, then we can just use it from that
-            if self.__default is not None and self is not self.__default:
-                if path in self.__default.file_map:
-                    rule = self.__default.file_map[path]
-                    self.add_rule(rule)
-                    return rule
-                elif path in self.__default.deprecated.file_map:
-                    deprecated_rule = self.__default.deprecated.file_map[path]
-                    self.add_deprecated_rule(deprecated_rule)
-                    return deprecated_rule
+        # use the default rule loader as a cache.
+        # if it already loaded the rule, then we can just use it from that
+        if self.__default is not None and self is not self.__default:
+            if path in self.__default.file_map:
+                rule = self.__default.file_map[path]
+                self.add_rule(rule)
+                return rule
+            elif path in self.__default.deprecated.file_map:
+                deprecated_rule = self.__default.deprecated.file_map[path]
+                self.add_deprecated_rule(deprecated_rule)
+                return deprecated_rule
 
-            obj = self._load_toml_file(path)
-            return self.load_dict(obj, path=path)
-        except Exception:
-            print(f"Error loading rule in {path}")
-            raise
+        obj = self._load_toml_file(path)
+        return self.load_dict(obj, path=path)
 
     def load_git_tag(self, branch: str, remote: Optional[str] = None, skip_query_validation=False):
         """Load rules from a Git branch."""
@@ -499,11 +503,14 @@ class RuleCollection(BaseCollection):
                 self.errors[path] = e
                 continue
 
+    @timed("Loading rules from paths", extra_kwargs_to_log={"paths_count": lambda args: len(args["paths"])})
     def load_files(self, paths: Iterable[Path]):
         """Load multiple files into the collection."""
         for path in paths:
             self.load_file(path)
+            # break
 
+    @timed("Loading rules from a directory", func_kwargs_to_log=["directory"])
     def load_directory(self, directory: Path, recursive=True, obj_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
@@ -521,10 +528,12 @@ class RuleCollection(BaseCollection):
         self.frozen = True
 
     @classmethod
+    @timed("Executing `default()` on `RuleCollection`")
     def default(cls) -> 'RuleCollection':
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
+            start = time.time()
             collection.load_directories(DEFAULT_PREBUILT_RULES_DIRS)
             collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()

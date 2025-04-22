@@ -20,9 +20,7 @@ from semver import Version
 import kql
 from detection_rules import attack
 from detection_rules.config import load_current_package_version
-from detection_rules.integrations import (find_latest_compatible_version,
-                                          load_integrations_manifests,
-                                          load_integrations_schemas)
+from detection_rules.integrations import find_latest_compatible_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, EQLRuleData, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
@@ -59,7 +57,10 @@ class TestValidRules(BaseRuleTest):
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
+        print("HERE")
         for rule in self.all_rules:
+            print("TESTING A RULE", rule)
+            break
             if (
                 rule.contents.data.get("language") == "kuery" and not any(
                     item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
@@ -715,7 +716,6 @@ class TestRuleMetadata(BaseRuleTest):
         failures = []
         non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
 
-        packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.all_rules:
@@ -728,7 +728,7 @@ class TestRuleMetadata(BaseRuleTest):
                 rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
-                package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+                package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, INTEGRATION_MANIFESTS)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index') or []
                 for rule_integration in rule_integrations:

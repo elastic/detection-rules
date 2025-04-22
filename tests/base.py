@@ -5,6 +5,7 @@
 
 """Shared resources for tests."""
 import os
+import time
 import unittest
 from pathlib import Path
 from functools import lru_cache
@@ -32,7 +33,11 @@ def load_rules() -> RuleCollection:
         rc.load_directories(directories=RULES_CONFIG.rule_dirs)
         rc.freeze()
         return rc
-    return RuleCollection.default()
+    start = time.time()
+    print("STARTING LOAD", start)
+    col = RuleCollection.default()
+    print("COLL LOADED", time.time() - start)
+    return col
 
 
 def default_bbr(rc: RuleCollection) -> RuleCollection:
@@ -53,6 +58,7 @@ class BaseRuleTest(unittest.TestCase):
 
         # too noisy; refactor
         # os.environ["DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE"] = "1"
+        print("STARTING SETUP", RULE_LOADER_FAIL, time.time())
 
         if not RULE_LOADER_FAIL:
             try:
@@ -65,9 +71,11 @@ class BaseRuleTest(unittest.TestCase):
             except Exception as e:
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
+                raise
 
         cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
         cls.rules_config = RULES_CONFIG
+        print("SETUP CLASS", time.time())
 
     @staticmethod
     def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=' ->') -> str:

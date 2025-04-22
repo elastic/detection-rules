@@ -7,10 +7,11 @@
 import glob
 import gzip
 import json
+import structlog
 import re
 from collections import defaultdict, OrderedDict
 from pathlib import Path
-from typing import Generator, List, Tuple, Union, Optional
+from typing import Generator, List, Tuple, Union, Optional, Any
 
 import requests
 from semver import Version
@@ -22,7 +23,7 @@ import kql
 from . import ecs
 from .config import load_current_package_version
 from .beats import flatten_ecs_schema
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .utils import cached, get_etc_path, read_gzip, unzip, timed
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
@@ -31,16 +32,29 @@ SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
 
-@cached
-def load_integrations_manifests() -> dict:
+log = structlog.get_logger(__name__)
+
+
+def load_integration_manifests(path: Path = MANIFEST_FILE_PATH) -> dict[str, Any]:
     """Load the consolidated integrations manifest."""
-    return json.loads(read_gzip(get_etc_path('integration-manifests.json.gz')))
+    log.info("Loading integration manifests", path=str(path))
+
+    if path.exists():
+        return json.loads(read_gzip(path))
+    return {}
 
 
-@cached
-def load_integrations_schemas() -> dict:
+def load_integration_schemas(path: Path = SCHEMA_FILE_PATH) -> dict[str, Any]:
     """Load the consolidated integrations schemas."""
-    return json.loads(read_gzip(get_etc_path('integration-schemas.json.gz')))
+    log.info("Loading integration schemas", path=str(path))
+
+    if path.exists():
+        return json.loads(read_gzip(path))
+    return {}
+
+
+INTEGRATION_MANIFESTS = load_integration_manifests()
+INTEGRATION_SCHEMAS = load_integration_schemas()
 
 
 class IntegrationManifestSchema(Schema):
@@ -112,18 +126,15 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
     else:
         final_integration_schemas = {}
 
-    # Load the integration manifests
-    integration_manifests = load_integrations_manifests()
-
     # if a single integration is specified, only process that integration
     if integration:
-        if integration in integration_manifests:
-            integration_manifests = {integration: integration_manifests[integration]}
+        if integration in INTEGRATION_MANIFESTS:
+            integration_manifests = {integration: INTEGRATION_MANIFESTS[integration]}
         else:
             raise ValueError(f"Integration {integration} not found in manifest.")
 
     # Loop through the packages and versions
-    for package, versions in integration_manifests.items():
+    for package, versions in INTEGRATION_MANIFESTS.items():
         print(f"processing {package}")
         final_integration_schemas.setdefault(package, {})
         for version, manifest in versions.items():
@@ -171,24 +182,33 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
-def find_least_compatible_version(package: str, integration: str,
-                                  current_stack_version: str, packages_manifest: dict) -> str:
+def find_least_compatible_version(
+        package: str,
+        integration: str,
+        current_stack_version: str,
+        packages_manifest: dict,
+    ) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
-                             key=lambda x: Version.parse(x[0]))}
+    integration_manifests = {
+        k: v for k, v in sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0]))
+    }
     current_stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(list(set([Version.parse(manifest_version).major
                             for manifest_version in integration_manifests])), reverse=True)
     for max_major in major_versions:
-        major_integration_manifests = \
-            {k: v for k, v in integration_manifests.items() if Version.parse(k).major == max_major}
+        major_integration_manifests = {
+            k: v for k, v in integration_manifests.items()
+            if Version.parse(k).major == max_major
+        }
 
         # iterates through ascending integration manifests
         # returns latest major version that is least compatible
-        for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
-                                                    key=lambda x: Version.parse(x[0]))).items():
+
+        sorted_integrations = sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0]))
+
+        for version, manifest in OrderedDict(sorted_integrations).items():
             compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
             for kibana_ver in compatible_versions:
                 kibana_ver = Version.parse(kibana_ver)
@@ -290,6 +310,9 @@ def find_latest_integration_version(integration: str, maturity: str, stack_versi
     return max([Version.parse(pkg["version"]) for pkg in existing_pkgs])
 
 
+@timed("Getting integration schema data", extra_kwargs_to_log={
+    "rule_id": lambda args: args["data"].rule_id,
+})
 def get_integration_schema_data(data, meta, package_integrations: dict) -> Generator[dict, None, None]:
     """Iterates over specified integrations from package-storage and combines schemas per version."""
 
@@ -300,12 +323,12 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
     data: QueryRuleData = data
     meta: RuleMeta = meta
 
-    packages_manifest = load_integrations_manifests()
-    integrations_schemas = load_integrations_schemas()
-
     # validate the query against related integration fields
-    if (isinstance(data, QueryRuleData) or isinstance(data, ESQLRuleData)) \
-       and data.language != 'lucene' and meta.maturity == "production":
+    if (
+           (isinstance(data, QueryRuleData) or isinstance(data, ESQLRuleData))
+           and data.language != 'lucene'
+           and meta.maturity == "production"
+       ):
 
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']
@@ -322,15 +345,24 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 min_stack = Version.parse(min_stack, optional_minor_and_patch=True)
 
                 # Extract the integration schema fields
-                integration_schema, package_version = get_integration_schema_fields(integrations_schemas, package,
-                                                                                    integration, min_stack,
-                                                                                    packages_manifest, ecs_schema,
-                                                                                    data)
+                integration_schema, package_version = get_integration_schema_fields(
+                    INTEGRATION_SCHEMAS,
+                    package,
+                    integration,
+                    min_stack,
+                    INTEGRATION_MANIFESTS,
+                    ecs_schema,
+                    data)
 
-                data = {"schema": integration_schema, "package": package, "integration": integration,
-                        "stack_version": stack_version, "ecs_version": ecs_version,
-                        "package_version": package_version, "endgame_version": endgame_version}
-                yield data
+                yield {
+                    "schema": integration_schema,
+                    "package": package,
+                    "integration": integration,
+                    "stack_version": stack_version,
+                    "ecs_version": ecs_version,
+                    "package_version": package_version,
+                    "endgame_version": endgame_version,
+                }
 
 
 def get_integration_schema_fields(integrations_schemas: dict, package: str, integration: str,

@@ -21,7 +21,7 @@ from .config import load_current_package_version
 from .schemas import definitions
 from .schemas.stack_compat import get_incompatible_fields
 from semver import Version
-from .utils import cached, dict_hash
+from .utils import cached, dict_hash, timed
 
 T = TypeVar('T')
 ClassT = TypeVar('ClassT')  # bound=dataclass?
@@ -121,7 +121,8 @@ class MarshmallowDataclassMixin:
         if unknown:
             return recursive_class_schema(cls, unknown=unknown)()
         else:
-            return marshmallow_dataclass.class_schema(cls)()
+            x = marshmallow_dataclass.class_schema(cls)()
+            return x
 
     def get(self, key: str, default: Optional[Any] = None):
         """Get a key from the query data without raising attribute errors."""
@@ -136,6 +137,7 @@ class MarshmallowDataclassMixin:
         return jsonschema
 
     @classmethod
+    @timed("Unpacking dataclass from a dict")
     def from_dict(cls: Type[ClassT], obj: dict, unknown: Optional[UNKNOWN_VALUES] = None) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
         schema = cls.__schema(unknown=unknown)

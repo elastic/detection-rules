@@ -16,6 +16,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from urllib.parse import urlparse
+import structlog
 from uuid import uuid4
 
 import eql
@@ -29,16 +30,18 @@ import kql
 
 from . import beats, ecs, endgame, utils
 from .config import load_current_package_version, parse_rules_config
-from .integrations import (find_least_compatible_version, get_integration_schema_fields,
-                           load_integrations_manifests, load_integrations_schemas,
-                           parse_datasets)
+from .integrations import (
+    find_least_compatible_version, get_integration_schema_fields, parse_datasets
+)
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
-from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas,
-                      strip_non_public_fields)
+from .schemas import (
+    SCHEMA_DIR, definitions, downgrade, get_min_supported_stack_version, get_stack_schemas, strip_non_public_fields,
+)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value
+from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value, timed
+
+log = structlog.get_logger(__name__)
 
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -474,6 +477,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         return obj
 
     @validates_schema
+    @timed("Validating rule data")
     def validates_data(self, data, **kwargs):
         """Validate fields and data for marshmallow schemas."""
 
@@ -486,8 +490,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         # If version and revision fields are supplied, and using locked versions raise an error.
         if BYPASS_VERSION_LOCK is not True:
-            msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
-                   f"should not contain rules with `{error_message}` set.")
+            msg = (
+                f"Configuration error: Rule {data['name']} - {data['rule_id']} "
+                f"should not contain rules with `{error_message}` set."
+            )
             raise ValidationError(msg)
 
 
@@ -648,18 +654,23 @@ class QueryValidator:
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
         # construct integration schemas
-        packages_manifest = load_integrations_manifests()
-        integrations_schemas = load_integrations_schemas()
         datasets, _ = beats.get_datasets_and_modules(self.ast)
-        package_integrations = parse_datasets(datasets, packages_manifest)
+        package_integrations = parse_datasets(datasets, INTEGRATION_MANIFESTS)
         int_schema = {}
         data = {"notify": False}
 
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
-            schema, _ = get_integration_schema_fields(integrations_schemas, package, integration,
-                                                      current_version, packages_manifest, {}, data)
+            schema, _ = get_integration_schema_fields(
+                INTEGRATION_SCHEMAS,
+                package,
+                integration,
+                current_version,
+                INTEGRATION_MANIFESTS,
+                {},
+                data,
+            )
             int_schema.update(schema)
 
         required = []
@@ -682,6 +693,7 @@ class QueryValidator:
         return sorted(required, key=lambda f: f['name'])
 
     @cached
+    @timed("Loading beats schemas", func_kwargs_to_log=["index", "beats_version", "ecs_version"])
     def get_beats_schema(self, index: list, beats_version: str, ecs_version: str) -> (list, dict, dict):
         """Get an assembled beats schema."""
         beat_types = beats.parse_beats_from_index(index)
@@ -730,6 +742,7 @@ class QueryRuleData(BaseRuleData):
         elif self.language == "esql":
             return ESQLValidator(self.query)
 
+    @timed("Validating query")
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
         if validator is not None:
@@ -1232,15 +1245,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         package_integrations = obj.get(field_name, [])
 
         if not package_integrations and self.metadata.integration:
-            packages_manifest = load_integrations_manifests()
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
                 if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
+
                     if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
                             self.data.get('type') == 'machine_learning':
-                        package_integrations = self.get_packaged_integrations(self.data, self.metadata,
-                                                                              packages_manifest)
+
+                        package_integrations = self.get_packaged_integrations(
+                            self.data, self.metadata, INTEGRATION_MANIFESTS)
 
                         if not package_integrations:
                             return
@@ -1250,20 +1264,25 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                                 package=package["package"],
                                 integration=package["integration"],
                                 current_stack_version=current_stack_version,
-                                packages_manifest=packages_manifest)
+                                packages_manifest=INTEGRATION_MANIFESTS,
+                            )
 
                             # if integration is not a policy template remove
                             if package["version"]:
-                                version_data = packages_manifest.get(package["package"],
-                                                                     {}).get(package["version"].strip("^"), {})
+                                version_data = (
+                                    INTEGRATION_MANIFESTS
+                                    .get(package["package"], {})
+                                    .get(package["version"].strip("^"), {})
+                                )
                                 policy_templates = version_data.get("policy_templates", [])
 
                                 if package["integration"] not in policy_templates:
                                     del package["integration"]
 
                     # remove duplicate entries
-                    package_integrations = list({json.dumps(d, sort_keys=True):
-                                                d for d in package_integrations}.values())
+                    package_integrations = list(
+                        {json.dumps(d, sort_keys=True): d for d in package_integrations}.values()
+                    )
                     obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
@@ -1369,16 +1388,28 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return packaged_integrations
 
     @validates_schema
+    @timed("Running post-conversion validation")
     def post_conversion_validation(self, value: dict, **kwargs):
         """Additional validations beyond base marshmallow schemas."""
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
 
+        rule_id = value['data'].rule_id
+
+        _log = log.bind(rule_id=rule_id)
+
         test_config = RULES_CONFIG.test_config
-        if not test_config.check_skip_by_rule_id(value['data'].rule_id):
+        if not test_config.check_skip_by_rule_id(rule_id):
+            _log.debug("Validating query")
             data.validate_query(metadata)
+
+            _log.debug("Validating a note")
             data.data_validator.validate_note()
+
+            _log.debug("Validating BBR")
             data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
+
+            _log.debug("Validating data")
             data.validate(metadata) if hasattr(data, 'validate') else False
 
     @staticmethod

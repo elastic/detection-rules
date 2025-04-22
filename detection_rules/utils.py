@@ -4,6 +4,8 @@
 # 2.0.
 
 """Util functions."""
+import inspect
+import time
 import base64
 import contextlib
 import functools
@@ -16,11 +18,12 @@ import os
 import re
 import shutil
 import subprocess
+import structlog
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, Union, Optional, Callable
+from typing import Dict, Union, Optional, Callable, Any
 from string import Template
 
 import click
@@ -29,6 +32,8 @@ import eql.utils
 from eql.utils import load_dump, stream_json_lines
 
 import kql
+
+log = structlog.get_logger(__name__)
 
 
 CURR_DIR = Path(__file__).resolve().parent
@@ -502,3 +507,56 @@ class PatchedTemplate(Template):
                 raise ValueError('Unrecognized named group in pattern',
                                  self.pattern)
         return ids
+
+
+def timed(
+    message: str | None = None,
+    func_kwargs_to_log: list[str] | None = None,
+    extra_kwargs_to_log: dict[str, Callable] | None = None,
+    **log_kwargs,
+) -> Callable:
+
+    def wrapper(f) -> Callable:
+
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs) -> Any:
+            start = time.time()
+
+            if func_kwargs_to_log or extra_kwargs_to_log:
+                bound_args = inspect.signature(f).bind(*args, **kwargs)
+                bound_args.apply_defaults()
+
+                if func_kwargs_to_log:
+                    log_kwargs.update({k: v for k, v in bound_args.arguments.items() if k in func_kwargs_to_log})
+
+                if extra_kwargs_to_log:
+                    log_kwargs.update({
+                        k: v(bound_args.arguments) for k, v in extra_kwargs_to_log.items()
+                    })
+
+            _log = log.bind(
+                func_name=f.__name__,
+                **log_kwargs,
+            )
+            log_message = message or f"Function {f.__name__}"
+            _log.debug(f"Start: {log_message}")
+
+            exc = None
+            try:
+                r = f(*args, **kwargs)
+            except Exception as e:
+                exc = e
+                raise
+            finally:
+                delta_ms = (time.time() - start) * 1000
+                delta_ms = int(delta_ms * 100) / 100  # round to 2 digits
+                if exc:
+                    _log.error(f"Failed: {log_message}", tool_ms=delta_ms, error=exc)
+                else:
+                    _log.debug(f"Finish: {log_message}", took_ms=delta_ms)
+
+            return r
+
+        return wrapped
+
+    return wrapper

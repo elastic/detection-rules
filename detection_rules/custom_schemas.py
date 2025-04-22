@@ -12,13 +12,14 @@ import eql.types
 from eql import load_dump, save_dump
 
 from .config import parse_rules_config
-from .utils import cached, clear_caches
+from .utils import cached, clear_caches, timed
 
 RULES_CONFIG = parse_rules_config()
 RESERVED_SCHEMA_NAMES = ["beats", "ecs", "endgame"]
 
 
 @cached
+@timed("Loading custom schemas for a stack version", func_kwargs_to_log=["stack_version"])
 def get_custom_schemas(stack_version: str = None) -> dict:
     """Load custom schemas if present."""
     custom_schema_dump = {}

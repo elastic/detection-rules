@@ -9,6 +9,7 @@ import glob
 import json
 import os
 import shutil
+import structlog
 
 import eql
 import eql.types
@@ -18,9 +19,12 @@ import yaml
 
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
-from .integrations import load_integrations_schemas
-from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
-                    load_etc_dump, read_gzip, unzip)
+from .integrations import INTEGRATION_SCHEMAS
+from .utils import (
+    DateTimeEncoder, cached, get_etc_path, gzip_compress, load_etc_dump, read_gzip, unzip, timed,
+)
+
+log = structlog.get_logger(__name__)
 
 ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
@@ -74,7 +78,7 @@ def get_schema_map():
     return schema_map
 
 
-@cached
+@timed("Loading schemas")
 def get_schemas():
     """Get local schemas."""
     schema_map = get_schema_map()
@@ -102,7 +106,7 @@ def get_schema(version=None, name='ecs_flat'):
     if version == 'master':
         version = get_max_version(include_master=True)
 
-    return get_schemas()[version or str(get_max_version())][name]
+    return SCHEMAS[version or str(get_max_version())][name]
 
 
 @cached
@@ -135,7 +139,7 @@ def get_eql_schema(version=None, index_patterns=None):
                 add_field(converted, k, convert_type(v))
 
     # add endpoint custom schema
-    for k, v in flatten(get_endpoint_schemas()).items():
+    for k, v in flatten(ENDPOINT_SCHEMAS).items():
         add_field(converted, k, convert_type(v))
 
     return converted
@@ -163,7 +167,7 @@ def get_all_flattened_schema() -> dict:
         for index, info in ecs_schemas[version]["ecs_flat"].items():
             all_flattened_schema.update({index: info["type"]})
 
-    for _, integration_schema in load_integrations_schemas().items():
+    for _, integration_schema in INTEGRATION_SCHEMAS.items():
         for index, index_schema in integration_schema.items():
             # Detect if ML integration
             if "jobs" in index_schema:
@@ -177,6 +181,7 @@ def get_all_flattened_schema() -> dict:
 
 
 @cached
+@timed("Loading non-ecs-schema")
 def get_non_ecs_schema():
     """Load non-ecs schema."""
     return load_etc_dump('non-ecs-schema.json')
@@ -246,22 +251,27 @@ class KqlSchema2Eql(eql.Schema):
 
 
 @cached
+@timed("Loading KQL schema")
 def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
     """Get schema for KQL."""
     indexes = indexes or ()
-    converted = flatten_multi_fields(get_schema(version, name='ecs_flat'))
+    schema = get_schema(version, name='ecs_flat')
+
+    converted = flatten_multi_fields(schema)
 
     # non-ecs schema
     for index_name in indexes:
-        converted.update(**flatten(get_index_schema(index_name)))
+        index_schema = get_index_schema(index_name)
+        converted.update(**flatten(index_schema))
 
     # custom schema
     if CUSTOM_RULES_DIR:
         for index_name in indexes:
-            converted.update(**flatten(get_custom_index_schema(index_name)))
+            custom_index_schema = get_custom_index_schema(index_name)
+            converted.update(**flatten(custom_index_schema))
 
     # add endpoint custom schema
-    converted.update(**flatten(get_endpoint_schemas()))
+    converted.update(**flatten(ENDPOINT_SCHEMAS))
 
     if isinstance(beat_schema, dict):
         converted = dict(flatten_multi_fields(beat_schema), **converted)
@@ -368,7 +378,7 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
     print(f"Saved endpoint schema to {new_path}")
 
 
-@cached
+@timed("Loading endpoint schemas")
 def get_endpoint_schemas() -> dict:
     """Load endpoint schemas."""
     schema = {}
@@ -376,3 +386,6 @@ def get_endpoint_schemas() -> dict:
     for f in existing:
         schema.update(json.loads(read_gzip(f)))
     return schema
+
+SCHEMAS = get_schemas()
+ENDPOINT_SCHEMAS = get_endpoint_schemas()

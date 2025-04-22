@@ -5,10 +5,12 @@
 
 """Validation logic for rules containing queries."""
 import re
+import structlog
 from enum import Enum
 from functools import cached_property, wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import time
 import eql
 from eql import ast
 from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint
@@ -20,22 +22,28 @@ import kql
 import click
 
 from . import ecs, endgame
+from .utils import timed
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .integrations import (get_integration_schema_data,
-                           load_integrations_manifests)
-from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
-                   TOMLRuleContents, set_eql_config)
+from .integrations import get_integration_schema_data, INTEGRATION_MANIFESTS
+from .rule import (
+    EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config,
+)
 from .schemas import get_stack_schemas
 
-EQL_ERROR_TYPES = Union[eql.EqlCompileError,
-                        eql.EqlError,
-                        eql.EqlParseError,
-                        eql.EqlSchemaError,
-                        eql.EqlSemanticError,
-                        eql.EqlSyntaxError,
-                        eql.EqlTypeMismatchError]
-KQL_ERROR_TYPES = Union[kql.KqlCompileError, kql.KqlParseError]
+log = structlog.get_logger(__name__)
+
+EQL_ERROR_TYPES = (
+    eql.EqlCompileError
+    | eql.EqlError
+    | eql.EqlParseError
+    | eql.EqlSchemaError
+    | eql.EqlSemanticError
+    | eql.EqlSyntaxError
+    | eql.EqlTypeMismatchError
+)
+
+KQL_ERROR_TYPES = kql.KqlCompileError | kql.KqlParseError
 RULES_CONFIG = parse_rules_config()
 
 
@@ -133,8 +141,7 @@ class KQLValidator(QueryValidator):
             return
 
         if isinstance(data, QueryRuleData) and data.language != 'lucene':
-            packages_manifest = load_integrations_manifests()
-            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, INTEGRATION_MANIFESTS)
             for _ in range(max_attempts):
                 validation_checks = {"stack": None, "integrations": None}
                 # validate the query against fields within beats
@@ -192,8 +199,7 @@ class KQLValidator(QueryValidator):
                 print(err_trailer)
                 return exc
 
-    def validate_integration(
-        self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: list[dict],
     ) -> Union[KQL_ERROR_TYPES, None, TypeError]:
         """Validate the query, called from the parent which contains [metadata] information."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
@@ -232,7 +238,7 @@ class KQLValidator(QueryValidator):
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # Add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+            integration_schema.update(**ecs.flatten(ecs.ENDPOINT_SCHEMAS))
             if integration:
                 package_schemas[package][integration] = integration_schema
             else:
@@ -335,23 +341,31 @@ class EQLValidator(QueryValidator):
         field_type = ecs.get_all_flattened_schema().get(field_name)
         update_auto_generated_schema(index_or_dataview, field_name, field_type)
 
+    @timed("Validating EQL query", extra_kwargs_to_log={
+        "rule_id": lambda args: args["data"].rule_id,
+    })
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:
         """Validate an EQL query while checking TOMLRule."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
 
-        if isinstance(data, QueryRuleData) and data.language != "lucene":
-            packages_manifest = load_integrations_manifests()
-            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+        _log = log.bind(rule_name=data.name, rule_id=data.rule_id)
 
-            for _ in range(max_attempts):
+        if isinstance(data, QueryRuleData) and data.language != "lucene":
+            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, INTEGRATION_MANIFESTS)
+
+            for i in range(max_attempts):
+                _log.debug("Validating a query attempt", attempt=(i + 1))
+
                 validation_checks = {"stack": None, "integrations": None}
                 # validate the query against fields within beats
+                _log.debug("Validating stack combos")
                 validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
                 if package_integrations:
                     # validate the query against related integration fields
+                    _log.debug("Validating integrations", integrations_count=len(package_integrations))
                     validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
                 if validation_checks["stack"] and not package_integrations:
@@ -382,8 +396,10 @@ class EQLValidator(QueryValidator):
                     break
 
             else:
+                _log.error("Maximum validation attempts exceeded", max_retries=max_attempts)
                 raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
+            _log.debug("Validating rule type configs")
             rule_type_config_fields, rule_type_config_validation_failed = self.validate_rule_type_configurations(
                 data, meta
             )
@@ -393,35 +409,70 @@ class EQLValidator(QueryValidator):
                                 {rule_type_config_fields}"""
                 )
 
+    @timed("Validating stack combos", extra_kwargs_to_log={
+        "rule_id": lambda args: args["data"].rule_id,
+    })
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
+
+        _log = log.bind(rule_name=data.name, rule_id=data.rule_id)
+
         for stack_version, mapping in meta.get_validation_stack_versions().items():
+
+            __log = _log.bind(version=stack_version)
+            __log.debug("Validating for a stack version")
+
             beats_version = mapping['beats']
             ecs_version = mapping['ecs']
             endgame_version = mapping['endgame']
-            err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
-                          f'ecs: {ecs_version}, endgame: {endgame_version}'
+            err_trailer = (
+                f'stack: {stack_version}, beats: {beats_version},'
+                f'ecs: {ecs_version}, endgame: {endgame_version}'
+            )
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview,
-                                                                    beats_version, ecs_version)
+            beat_types, beat_schema, schema = self.get_beats_schema(
+                data.index_or_dataview, beats_version, ecs_version,
+            )
+
             endgame_schema = self.get_endgame_schema(data.index_or_dataview, endgame_version)
+
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
-            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                                  beat_types=beat_types, min_stack_version=meta.min_stack_version)
-            if exc:
+            __log.debug("Validating query with schema")
+            try:
+                self.validate_query_with_schema(
+                    data=data,
+                    schema=eql_schema,
+                    err_trailer=err_trailer,
+                    beat_types=beat_types,
+                    min_stack_version=meta.min_stack_version,
+                )
+            except Exception as exc:
                 return exc
 
             if endgame_schema:
                 # validate query against the endgame schema
-                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer,
-                                                      min_stack_version=meta.min_stack_version)
-                if exc:
-                    raise exc
+                __log.debug("Validating query with endgame schema")
+                try:
+                    self.validate_query_with_schema(
+                        data=data,
+                        schema=endgame_schema,
+                        err_trailer=err_trailer,
+                        min_stack_version=meta.min_stack_version,
+                    )
+                except Exception as exc:
+                    return exc
 
-    def validate_integration(self, data: QueryRuleData, meta: RuleMeta,
-                             package_integrations: List[dict]) -> Union[EQL_ERROR_TYPES, None, ValueError]:
+    @timed("Validating integrations", extra_kwargs_to_log={
+        "rule_id": lambda args: args["data"].rule_id,
+    })
+    def validate_integration(
+        self,
+        data: QueryRuleData,
+        meta: RuleMeta,
+        package_integrations: list[dict],
+    ) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate an EQL query while checking TOMLRule against integration schemas."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
@@ -429,6 +480,8 @@ class EQLValidator(QueryValidator):
 
         error_fields = {}
         package_schemas = {}
+
+        _log = log.bind(rule_id=data.rule_id, rule_name=data.name)
 
         # Initialize package_schemas with a nested structure
         for integration_data in package_integrations:
@@ -439,40 +492,55 @@ class EQLValidator(QueryValidator):
             else:
                 package_schemas.setdefault(package, {})
 
+        integration_schema_data = list(get_integration_schema_data(data, meta, package_integrations))
+
         # Process each integration schema
-        for integration_schema_data in get_integration_schema_data(
-            data, meta, package_integrations
-        ):
+        for integration_schema_data in integration_schema_data:
+
             ecs_version = integration_schema_data["ecs_version"]
             package, integration = (
                 integration_schema_data["package"],
                 integration_schema_data["integration"],
             )
+
             package_version = integration_schema_data["package_version"]
             integration_schema = integration_schema_data["schema"]
             stack_version = integration_schema_data["stack_version"]
 
+            __log = _log.bind(
+                package=package,
+                integration=integration,
+                ecs_version=ecs_version,
+                stack_version=stack_version,
+                package_version=package_version,
+            )
+            __log.debug("Validating with integration schema")
+
             # add non-ecs-schema fields for edge cases not added to the integration
             if data.index_or_dataview:
                 for index_name in data.index_or_dataview:
-                    integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+                    index_schema = ecs.get_index_schema(index_name)
+                    integration_schema.update(**ecs.flatten(index_schema))
 
             # Add custom schema fields for appropriate stack version
             if data.index_or_dataview and CUSTOM_RULES_DIR:
                 for index_name in data.index_or_dataview:
-                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
+                    custom_index_schema = ecs.get_custom_index_schema(index_name, stack_version)
+                    integration_schema.update(**ecs.flatten(custom_index_schema))
 
             # add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+            integration_schema.update(**ecs.flatten(ecs.ENDPOINT_SCHEMAS))
             package_schemas[package].update(**integration_schema)
 
             eql_schema = ecs.KqlSchema2Eql(integration_schema)
+
             err_trailer = (
-                f"stack: {stack_version}, integration: {integration},"
+                f"stack: {stack_version}, integration: {integration}, "
                 f"ecs: {ecs_version}, package: {package}, package_version: {package_version}"
             )
 
             # Validate the query against the schema
+            __log.debug("Validating query with schema")
             exc = self.validate_query_with_schema(
                 data=data,
                 schema=eql_schema,
@@ -530,9 +598,18 @@ class EQLValidator(QueryValidator):
             exc = data["error"]
             return exc
 
-    def validate_query_with_schema(self, data: 'QueryRuleData', schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
-                                   err_trailer: str, min_stack_version: str, beat_types: list = None) -> Union[
-            EQL_ERROR_TYPES, ValueError, None]:
+    @timed("Validating a query with a schema", extra_kwargs_to_log={
+        "rule_id": lambda args: args["data"].rule_id,
+        "schema_type": lambda args: type(args["schema"]).__name__,
+    })
+    def validate_query_with_schema(
+        self,
+        data: 'QueryRuleData',
+        schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
+        err_trailer: str,
+        min_stack_version: str,
+        beat_types: list | None = None,
+    ):
         """Validate the query against the schema."""
         try:
             config = set_eql_config(min_stack_version)
@@ -549,12 +626,18 @@ class EQLValidator(QueryValidator):
                     fields_str = ', '.join(text_fields)
                     trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
-            return exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                 len(exc.caret.lstrip()), trailer=trailer)
-
+            raise exc.__class__(
+                exc.error_msg,
+                exc.line,
+                exc.column,
+                exc.source,
+                len(exc.caret.lstrip()),
+                trailer=trailer,
+            )
         except Exception as exc:
+            log.exception("Error while validating query with schema", trailer=err_trailer)
             print(err_trailer)
-            return exc
+            raise exc
 
     def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> \
             Tuple[List[Optional[str]], bool]:

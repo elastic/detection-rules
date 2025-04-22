@@ -30,8 +30,9 @@ from semver import Version
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
-from .beats import (download_beats_schema, download_latest_beats_schema,
-                    refresh_main_schema)
+from .beats import (
+    download_beats_schema, download_latest_beats_schema, refresh_main_schema,
+)
 from .cli_utils import single_collection
 from .config import parse_rules_config
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX, REPO_DOCS_DIR
@@ -39,18 +40,23 @@ from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import (SecurityDetectionEngine,
-                           build_integrations_manifest,
-                           build_integrations_schemas,
-                           find_latest_compatible_version,
-                           find_latest_integration_version,
-                           load_integrations_manifests)
+from .integrations import (
+    SecurityDetectionEngine,
+    build_integrations_manifest,
+    build_integrations_schemas,
+    find_latest_compatible_version,
+    find_latest_integration_version,
+    INTEGRATION_MANIFESTS,
+)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
-                        Package)
-from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
+from .packaging import (
+    CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package,
+)
+from .rule import (
+    AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
+    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents,
+)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import dict_hash, get_etc_path, get_path, load_dump
@@ -1257,17 +1263,13 @@ def build_integration_schemas(overwrite: bool, integration: str):
 def show_latest_compatible_version(package: str, stack_version: str) -> None:
     """Prints the latest integration compatible version for specified package based on stack version supplied."""
 
-    packages_manifest = None
     try:
-        packages_manifest = load_integrations_manifests()
-    except Exception as e:
-        click.echo(f"Error loading integrations manifests: {str(e)}")
-        return
-
-    try:
-        version = find_latest_compatible_version(package, "",
-                                                 Version.parse(stack_version, optional_minor_and_patch=True),
-                                                 packages_manifest)
+        version = find_latest_compatible_version(
+            package,
+            "",
+            Version.parse(stack_version, optional_minor_and_patch=True),
+            INTEGRATION_MANIFESTS,
+        )
         click.echo(f"Compatible integration {version=}")
     except Exception as e:
         click.echo(f"Error finding compatible version: {str(e)}")

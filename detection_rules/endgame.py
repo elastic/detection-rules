@@ -96,6 +96,7 @@ def read_endgame_schema(endgame_version: str, warn=False) -> dict:
         else:
             raise FileNotFoundError(str(endgame_schema_path))
 
+    print("LOADING ENDGAME SCHEMA", endgame_schema_path)
     schema = json.loads(read_gzip(endgame_schema_path))
 
     return schema
