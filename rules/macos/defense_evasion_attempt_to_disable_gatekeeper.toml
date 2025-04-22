@@ -2,7 +2,7 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ trusted software is run. Adversaries may attempt to disable Gatekeeper before ex
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable Gatekeeper"
 references = [
@@ -56,11 +56,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
-  process.args:(spctl and "--master-disable")
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "spctl" and
+ process.args like~ "--master-disable"
 '''
 note = """## Triage and analysis
 

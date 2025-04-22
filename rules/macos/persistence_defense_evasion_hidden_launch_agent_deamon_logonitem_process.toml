@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ installing a new logon item, launch agent, or daemon that executes upon login.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Hidden Child Process of Launchd"
 references = [
@@ -58,11 +58,11 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:.* and process.parent.executable:/sbin/launchd
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name like~ ".*" and process.parent.name == "launchd"
 '''
 note = """## Triage and analysis
 
