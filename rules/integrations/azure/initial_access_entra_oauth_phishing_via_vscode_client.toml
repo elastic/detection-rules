@@ -7,16 +7,22 @@ updated_date = "2025/04/23"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies login activity where the Visual Studio Code `client_id` is used in combination with a resourceDisplayName containing `Microsoft Graph`. This may indicate an attempt to authenticate via Visual Studio Code phishing.
+Detects potentially suspicious OAuth authorization activity in Microsoft Entra ID where the Visual Studio Code
+first-party application (`client_id` = aebc6443-996d-45c2-90f0-388ff96faa56) is used to request access to Microsoft
+Graph resources. While this client ID is legitimately used by Visual Studio Code, threat actors have been observed
+abusing it in phishing campaigns to make OAuth requests appear trustworthy. These attacks rely on redirect URIs such as
+`https://insiders.vscode.dev/redirect`, prompting victims to return an OAuth authorization code that can be exchanged
+for access tokens. This rule may help identify unauthorized use of the VS Code OAuth flow as part of social engineering
+or credential phishing activity.
 """
 from = "now-25m"
-index = ["filebeat-*", "logs-azure.activitylogs-*", "logs-azure.signinlogs-*"]
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Suspicious Azure Sign-in via Visual Studio Code"
+name = "Microsoft Entra ID OAuth Phishing via Visual Studio Code Client"
 note = """## Triage and analysis
 
-### Investigating Suspicious Azure Sign-in via Visual Studio Code
+### Investigating Microsoft Entra ID OAuth Phishing via Visual Studio Code Client
 
 ### Possible investigation steps
 
@@ -60,7 +66,7 @@ note = """## Triage and analysis
 """
 references = [
     "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
-    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/"
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
 ]
 risk_score = 47
 rule_id = "14fa0285-fe78-4843-ac8e-f4b481f49da9"
@@ -68,6 +74,8 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Initial Access",
@@ -76,23 +84,51 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:("azure.signinlogs" or "azure.activitylogs") and 
-event.action : "Sign-in activity" and event.outcome:(success or Success) and 
-(azure.activitylogs.properties.resourceDisplayName : "Microsoft Graph" or azure.signinlogs.properties.resource_display_name : "Microsoft Graph") and 
-(azure.signinlogs.properties.app_id : "aebc6443-996d-45c2-90f0-388ff96faa56" or azure.signinlogs.properties.app_display_name : "Visual Studio Code" or 
- azure.activitylogs.properties.appDisplayName : "Visual Studio Code" or azure.activitylogs.properties.appId : "aebc6443-996d-45c2-90f0-388ff96faa56")
+event.dataset: "azure.signinlogs" and
+event.action: "Sign-in activity" and
+event.outcome: "success" and
+(
+  azure.signinlogs.properties.resource_display_name: "Microsoft Graph" or
+  azure.signinlogs.properties.resource_id: "00000003-0000-0000-c000-000000000000"
+) and (
+  azure.signinlogs.properties.app_id: "aebc6443-996d-45c2-90f0-388ff96faa56" or
+  azure.signinlogs.properties.app_display_name: "Visual Studio Code"
+)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
 
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
