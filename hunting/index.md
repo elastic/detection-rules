@@ -99,6 +99,8 @@ Here are the queries currently available:
 - [Python Script Drop and Execute](./macos/docs/execution_python_script_drop_and_execute.md) (ES|QL)
 - [Self-Deleted Python Script Accessing Sensitive Files](./macos/docs/defense_evasion_self_deleted_python_script_accessing_sensitive_files.md) (ES|QL)
 - [Self-Deleting Python Script](./macos/docs/defense_evasion_self_deleting_python_script.md) (ES|QL)
+- [Sensitive File Access via Docker](./macos/docs/execution_suspicious_file_access_via_docker.md) (ES|QL)
+- [Suspicious Executable File Modification via Docker](./macos/docs/execution_suspicious_executable_file_modification_via_docker.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
 - [Suspicious Python App Execution via Streamlit](./macos/docs/execution_suspicious_python_app_execution_via_streamlit.md) (ES|QL)
 - [Unsigned or Untrusted Binary Execution via Python](./macos/docs/execution_unsigned_or_untrusted_binary_execution_via_python.md) (ES|QL)
