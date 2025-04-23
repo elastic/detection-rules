@@ -94,7 +94,16 @@ Here are the queries currently available:
 
 ## macos
 - [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./macos/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
+- [Potential Python Stealer Activity](./macos/docs/credential_access_potential_python_stealer.md) (ES|QL)
+- [Python Library Load and Delete](./macos/docs/defense_evasion_python_library_load_and_delete.md) (ES|QL)
+- [Python Script Drop and Execute](./macos/docs/execution_python_script_drop_and_execute.md) (ES|QL)
+- [Self-Deleted Python Script Accessing Sensitive Files](./macos/docs/defense_evasion_self_deleted_python_script_accessing_sensitive_files.md) (ES|QL)
+- [Self-Deleting Python Script](./macos/docs/defense_evasion_self_deleting_python_script.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
+- [Suspicious Python App Execution via Streamlit](./macos/docs/execution_suspicious_python_app_execution_via_streamlit.md) (ES|QL)
+- [Unsigned or Untrusted Binary Execution via Python](./macos/docs/execution_unsigned_or_untrusted_binary_execution_via_python.md) (ES|QL)
+- [Unsigned or Untrusted Binary Forked by Python](./macos/docs/execution_unsigned_or_untrusted_binary_fork_via_python.md) (ES|QL)
+- [Unusual Library Load via Python](./macos/docs/execution_unusual_library_load_via_python.md) (ES|QL)
 
 
 ## okta
