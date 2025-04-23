@@ -14,6 +14,12 @@ DIRECTORY_PATH = "/Users/mark/dev/detection-rules/hunting"
 MAPPING = {
   "mappings": {
     "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "category": {
+        "type": "keyword"
+      },
       "author": {
         "type": "keyword"
       },
@@ -63,7 +69,6 @@ MAPPING = {
         "type": "keyword"
       },
       "queries": {
-        "type": "nested",
         "properties": {
           "query": {
             "type": "text",
@@ -76,7 +81,16 @@ MAPPING = {
           },
           "indices": {
             "type": "keyword"
-          }
+          },
+          "cleaned_query": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 8192
+              }
+            }
+          },
         }
       }
     }
@@ -104,6 +118,22 @@ def read_json_file(file_path):
         return None
 
 
+def validate_language(item):
+    if not isinstance(item, dict):
+      return False
+    if "language" not in item:
+      return True  # No language field to validate
+    languages = item["language"]
+    if not isinstance(languages, list):
+      return False
+
+    for lang in languages:
+        if lang.lower() != "es|ql":
+            return False
+    return True
+
+  
+
 def generate_actions(json_files, index_name):
     """Generate actions for the bulk API."""
     for file_path in json_files:
@@ -112,17 +142,24 @@ def generate_actions(json_files, index_name):
             # Handle both single documents and arrays of documents
             if isinstance(data, list):
                 for item in data:
-                    if isinstance(item, dict):
-                        yield {
-                            "_index": index_name,
-                            "_source": item
-                        }
+                    # Validate the language field
+                    if not validate_language(item):
+                        print(f"Invalid language field in file: {file_path}")
+                        continue
+                    else:
+                      yield {
+                        "_index": index_name,
+                        "_source": item
+                      }
             elif isinstance(data, dict):
+              if not validate_language(data):
+                  print(f"Invalid language field in file: {file_path}")
+                  continue
+              else:
                 yield {
-                    "_index": index_name,
-                    "_source": data
+                  "_index": index_name,
+                  "_source": data
                 }
-
 
 def create_index_with_mapping(es_client):
     """
@@ -187,12 +224,6 @@ def upload_data():
         # Check if Elasticsearch is available
         if not es.ping():
             raise ConnectionError("Could not connect to Elasticsearch")
-
-        # Check if index exists, create if it doesn't
-        if not es.indices.exists(index=ELASTICSEARCH_INDEX):
-            print(
-                f"Index '{ELASTICSEARCH_INDEX}' does not exist. Creating it...")
-            es.indices.create(index=ELASTICSEARCH_INDEX)
 
     except Exception as e:
         print(f"Error connecting to Elasticsearch: {e}")

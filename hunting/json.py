@@ -4,12 +4,16 @@
 # 2.0.
 
 from dataclasses import asdict
+import datetime
 import json
-from pathlib import Path
+from pathlib import Path, PosixPath
 import click
 from .definitions import Hunt
 from .utils import load_index_file, load_toml
+import re
 
+now = datetime.datetime.now()
+timestamp = now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 class JSONGenerator:
     """Class to generate or update JSON documentation from TOML or YAML files."""
     def __init__(self, base_path: Path):
@@ -24,7 +28,7 @@ class JSONGenerator:
 
         click.echo(f"Processing specific TOML file: {file_path}")
         hunt_config = load_toml(file_path)
-        json_content = self.convert_toml_to_json(hunt_config)
+        json_content = self.convert_toml_to_json(hunt_config, file_path)
 
         json_folder = self.create_json_folder(file_path)
         json_path = json_folder / f"{file_path.stem}.json"
@@ -52,12 +56,41 @@ class JSONGenerator:
         for toml_file in toml_files:
             self.process_file(toml_file)
 
-    def convert_toml_to_json(self, hunt_config: Hunt) -> str:
+    def convert_toml_to_json(self, hunt_config: Hunt, path: str) -> str:
         """Convert a Hunt configuration to JSON format."""
         hunt_config_dict = asdict(hunt_config)
         hunt_config_dict["queries"] = self.format_queries(hunt_config_dict["query"])
         hunt_config_dict.pop("query")
+        hunt_config_dict["category"] = self.path_to_category(path)
+        hunt_config_dict["@timestamp"] = timestamp
         return json.dumps(hunt_config_dict, indent=4)
+    
+    def path_to_category(self, path: PosixPath) -> str:
+        """
+        Convert a file path to a category string.
+        
+        Args:
+            path (str): The file path.
+            
+        Returns:
+            str: The category string derived from the file path.
+        """
+        # category is the direcory the queries are in
+        # e.g. "hunting/winodws/queries" -> "windows"
+        
+        # Get the path parts
+        parts = path.parts
+        # Check if the last part is "queries"
+        if "queries" in parts:
+            # Get the index of "queries" in the path
+            queries_index = parts.index("queries")
+            # If "queries" exists and there's a part before it, return that as the category
+            if queries_index > 0:
+                return parts[queries_index - 1]
+        
+        # Default fallback: return the parent directory name
+        return path.parent.name
+        
     
     @staticmethod
     def extract_indices_from_esql(esql_query):
@@ -70,6 +103,14 @@ class JSONGenerator:
         Returns:
             list: A list of indices found in the query.
         """
+        # Handle SELECT statements that start with SELECT instead of FROM
+        if esql_query.strip().upper().startswith('SELECT'):
+            # Find the FROM keyword after SELECT
+            match = re.search(r'FROM\s+([^\s|,;\n]+)', esql_query, re.IGNORECASE)
+            if match:
+                return [match.group(1).strip()]
+        
+        # For queries that start with FROM directly
         # Normalize whitespace by removing extra spaces and newlines
         normalized_query = ' '.join(esql_query.split())
         
@@ -78,12 +119,48 @@ class JSONGenerator:
             return []
         
         # Extract the part after "from" and before the first pipe (|)
-        from_part = normalized_query[5:].split('|', 1)[0].strip()
+        # First remove any inline comments with //
+        cleaned_query = re.sub(r'//.*$', '', normalized_query, flags=re.MULTILINE)
+        # Extract text after "from" keyword, then split by pipe, newline, or WHERE
+        from_part = cleaned_query[5:]  # Skip the "from" prefix
+        # Find the first occurrence of pipe, newline, or "WHERE" (case insensitive)
+        pipe_pos = from_part.find('|')
+        newline_pos = from_part.find('\n')
+        where_pos = re.search(r'WHERE', from_part, re.IGNORECASE)
+        where_pos = where_pos.start() if where_pos else -1
+        
+        # Find the earliest delimiter (pipe, newline, or WHERE)
+        positions = [pos for pos in [pipe_pos, newline_pos, where_pos] if pos >= 0]
+        end_pos = min(positions) if positions else len(from_part)
+        
+        from_part = from_part[:end_pos].strip()
         
         # Split by commas if multiple indices are provided
         indices = [index.strip() for index in from_part.split(',')]
         
         return indices
+    
+    def remove_comments_and_blank_lines(self, esql_query):
+        """
+        Remove comments and blank lines from an ESQL query.
+        
+        Args:
+            esql_query (str): The ESQL query.
+            
+        Returns:
+            str: The cleaned ESQL query.
+        """
+        # Remove block comments (/* ... */)
+        cleaned_query = re.sub(r'/\*.*?\*/', '', esql_query, flags=re.DOTALL)
+        
+        # Remove line comments and blank lines
+        result = []
+        for line in cleaned_query.splitlines():
+            # Skip comment lines and blank lines
+            if not line.strip().startswith("//") and line.strip():
+                result.append(line)
+        
+        return "\n".join(result)
     
     def format_queries(self, queries: list[str]) -> list[dict]:
         """
@@ -100,6 +177,7 @@ class JSONGenerator:
             formatted_queries.append({
                 "query": query,
                 "indices": self.extract_indices_from_esql(query),
+                "cleaned_query": self.remove_comments_and_blank_lines(query)
             })
 
         return formatted_queries
