@@ -1130,7 +1130,6 @@ class BaseRuleContents(ABC):
     def to_api_format(self, include_version: bool = True) -> dict:
         """Convert the rule to the API format."""
 
-
     def get_hashable_content(self, include_version: bool = False, include_integrations: bool = False) -> dict:
         """Returns the rule content to be used for calculating the hash value for the rule"""
 
@@ -1144,7 +1143,7 @@ class BaseRuleContents(ABC):
         return hashable_dict
 
     @cached
-    def get_hash(self, include_version : bool = False, include_integrations: bool = False) -> str:
+    def get_hash(self, include_version: bool = False, include_integrations: bool = False) -> str:
         """Returns a sha256 hash of the rule contents"""
         hashable_contents = self.get_hashable_content(
             include_version=include_version,
