@@ -1,0 +1,44 @@
+# Unsigned or Untrusted Binary Forked by Python
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies unsigned or untrusted binaries executed via a fork from Python, where the binary resides in the user's home directory. This behavior may be associated with malware execution or script-based delivery mechanisms, especially those attempting to blend in with legitimate user activity.
+
+- **UUID:** `02e50f28-d5a1-4289-ab49-48ae0e2ca196`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[EQL]`
+- **Source File:** [Unsigned or Untrusted Binary Forked by Python](../queries/execution_unsigned_or_untrusted_binary_fork_via_python.toml)
+
+## Query
+
+```sql
+process where event.type == "start" and event.action == "fork" and process.executable like "/Users/*" and
+ (process.code_signature.trusted == false or process.code_signature.exists == false) and
+ process.args_count == 2 and process.args like "/Users/*" and process.args like "/Users/*" and
+ process.parent.name like~ "python*"
+```
+
+## Notes
+
+- This hunt helps identify suspicious Python-driven execution of unsigned binaries located within the /Users directory.
+- Pivoting on `process.entity_id` can help identify the broader context around the execution — including parent commands and child activity.
+- Can be tuned further based on specific binary paths seen in your environment.
+
+## MITRE ATT&CK Techniques
+
+- [T1059.006](https://attack.mitre.org/techniques/T1059/006)
+
+## References
+
+- https://www.elastic.co/security-labs/dprk-code-of-conduct
+- https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/
+- https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34
+- https://x.com/safe/status/1897663514975649938
+- https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/
+
+## License
+
+- `Elastic License v2`
