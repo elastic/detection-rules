@@ -1,37 +1,34 @@
-# Unsigned or Untrusted Binary Execution via Python
+# Suspcious Executable File Creation via Python
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** Detects the execution of unsigned or untrusted binaries where the parent process is a Python interpreter. Adversaries often use Python as a launcher to run untrusted payloads, typically dropped to locations like `/tmp`, `/Users/Shared`, or public directories. This behavior is indicative of custom loaders, malware staging, or post-exploitation actions.
+- **Description:** Detects suspicious creation of executable files by Python processes in commonly abused directories 
+on macOS systems. These locations, such as /Users/Shared, /tmp, or /private/tmp, are frequently used by adversaries 
+and post-exploitation frameworks to stage or drop payloads. The detection leverages the ELF or Mach-O magic bytes 
+to confirm executables are written to disk.
 
 - **UUID:** `9aaf1113-cf7a-4fd7-b796-f6456fdaffb5`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[EQL]`
-- **Source File:** [Unsigned or Untrusted Binary Execution via Python](../queries/command_and_control_suspicious_executable_file_creation_via_python.toml)
+- **Source File:** [Suspcious Executable File Creation via Python](../queries/command_and_control_suspicious_executable_file_creation_via_python.toml)
 
 ## Query
 
 ```sql
-process where event.type == "start" and event.action == "exec" and
-  (process.code_signature.trusted == false or process.code_signature.exists == false) and
-  process.parent.name like~ "python*" and
-  (
-    process.executable like "/Users/Shared/*" or
-    process.executable like "/tmp/*" or
-    process.executable like "/private/tmp/*" or
-    process.executable like "/Users/*/Public/*" or
-    process.name like ".*"
-  )
+file where event.action == "modification" and
+  process.name like~ "python*" and
+  file.Ext.header_bytes like~ ("cffaedfe*", "cafebabe*") and
+  file.path like ("/Users/Shared/*", "/tmp/*", "/private/tmp/*", "/Users/*/Public/*") and
+  not file.extension in ("dylib", "so")
 ```
 
 ## Notes
 
-- Execution of untrusted binaries from Python in shared or temporary directories is rare in normal operations.
+- Creation or modification of executable binaries in these directories is odd and rare in normal operations.
 - This hunt is useful for detecting dropper-style behavior during post-exploitation or initial access.
-- You may wish to enrich with file.hash or process.args to gain more triage context.
 
 ## MITRE ATT&CK Techniques
 
