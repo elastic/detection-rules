@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/04/01"
+updated_date = "2025/04/23"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -63,8 +63,8 @@ type = "query"
 
 query = '''
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and
-o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success and
-not user.id : "NT AUTHORITY\SYSTEM (Microsoft.Exchange.ServiceHost)"
+o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success 
+and not user.id:("NT AUTHORITY\SYSTEM (Microsoft.Exchange.ServiceHost)" or "NT AUTHORITY\SYSTEM (Microsoft.Exchange.AdminApi.NetCore)" or "NT AUTHORITY\SYSTEM (w3wp)")
 '''
 
 
@@ -85,4 +85,16 @@ reference = "https://attack.mitre.org/techniques/T1098/002/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "o365.audit.ObjectId",
+    "user.id",
+    "o365.audit.Parameters.User",
+    "o365.audit.Parameters.AccessRights",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+]
 
