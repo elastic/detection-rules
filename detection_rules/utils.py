@@ -27,6 +27,7 @@ import click
 import pytoml
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
+from github.Repository import Repository
 
 import kql
 
@@ -394,6 +395,54 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
         return rule
     else:
         raise ValueError(f"Expected a list or dictionary in {rule_file}")
+
+
+def load_json_from_branch(repo: Repository, file_path: str, branch: Optional[str]):
+    """Load JSON file from a specific branch."""
+    content_file = repo.get_contents(file_path, ref=branch)
+    return json.loads(content_file.decoded_content.decode("utf-8"))
+
+
+def compare_versions(base_json: dict, branch_json: dict) -> list[tuple[str, str, int, int]]:
+    """Compare versions of two JSON objects."""
+    changes = []
+    for key in base_json:
+        if key in branch_json:
+            base_version = base_json[key].get("version")
+            branch_name = branch_json[key].get("rule_name")
+            branch_version = branch_json[key].get("version")
+            if base_version != branch_version:
+                changes.append((key, branch_name, base_version, branch_version))
+    return changes
+
+
+def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[str, str, int, int]]:
+    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+    double_bumps = []
+    for key, name, removed, added in changes:
+        # Determine the modulo dynamically based on the highest number of digits
+        max_digits = max(len(str(removed)), len(str(added)))
+        modulo = 10 ** (max_digits + 1)
+        if (added % modulo) - (removed % modulo) > 1:
+            double_bumps.append((key, name, removed, added))
+    return double_bumps
+
+
+def github_version_check(
+    repo: Repository, file_path: str, branch: str, base_branch: str, local_file: Path = None
+) -> list[tuple[str, str, int, int]]:
+    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+    base_json = load_json_from_branch(repo, file_path, base_branch)
+    if local_file:
+        with local_file.open("r") as f:
+            branch_json = json.load(f)
+    else:
+        branch_json = load_json_from_branch(repo, file_path, branch)
+
+    changes = compare_versions(base_json, branch_json)
+    double_bumps = check_double_bumps(changes)
+
+    return double_bumps
 
 
 def format_command_options(ctx):

@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import csv
 import dataclasses
 import io
 import json
@@ -53,7 +54,8 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import dict_hash, get_etc_path, get_path, load_dump
+from .utils import (dict_hash, get_etc_path, get_path, github_version_check,
+                    load_dump)
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -271,6 +273,76 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
     RULES_CONFIG.packages_file.write_text(yaml.safe_dump({"package": pkg_data}))
+
+
+@dev_group.command("check-version-lock")
+@click.option("--pr-number", type=int, help="Pull request number to fetch the version lock file from")
+@click.option(
+    "--local-file",
+    type=str,
+    default="detection_rules/etc/version.lock.json",
+    help="Path to the local version lock file (default: detection_rules/etc/version.lock.json)",
+)
+@click.option(
+    "--token",
+    required=True,
+    prompt=get_github_token() is None,
+    default=get_github_token(),
+    help="GitHub token to use for the PR",
+    hide_input=True,
+)
+@click.option("--comment", is_flag=True, help="If set, enables commenting on the PR (requires --pr-number)")
+@click.option("--save-double-bumps", type=Path, help="Optional path to save the double bumps to a file")
+def check_version_lock(pr_number: int, local_file: str, token: str, comment: bool, save_double_bumps: Path):
+    """
+    Check the version lock file and optionally comment on the PR if the --comment flag is set.
+
+    Note: Both --comment and --pr-number must be supplied for commenting to work.
+    """
+    if comment and not pr_number:
+        raise click.UsageError("--comment requires --pr-number to be supplied.")
+
+    github = GithubClient(token)
+    github.assert_github()
+    client = github.authenticated_client
+    repo = client.get_repo("elastic/detection-rules")
+
+    if pr_number:
+        click.echo(f"Fetching version lock file from PR #{pr_number}")
+        pr = repo.get_pull(pr_number)
+        double_bumps = github_version_check(
+            repo=repo, file_path="detection_rules/etc/version.lock.json", branch=pr.head.ref, base_branch="main"
+        )
+    else:
+        click.echo(f"Using local version lock file: {local_file}")
+        # Add logic to process the local file
+        double_bumps = []
+
+    if comment and pr_number:
+        if double_bumps:
+            comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
+            comment_body += "<details>\n"
+            comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
+            for rule_id, rule_name, removed, added in double_bumps:
+                comment_body += f"- **Rule ID**: {rule_id}\n"
+                comment_body += f"  - **Rule Name**: {rule_name}\n"
+                comment_body += f"  - **Removed**: {removed}\n"
+                comment_body += f"  - **Added**: {added}\n"
+            comment_body += "\n</details>\n"
+            pr.create_issue_comment(comment_body)
+
+    if double_bumps:
+        click.echo(f"{len(double_bumps)} Double bumps detected")
+        if save_double_bumps:
+            save_double_bumps.parent.mkdir(parents=True, exist_ok=True)
+            if save_double_bumps.is_file():
+                click.echo(f"File {save_double_bumps} already exists. Skipping save.")
+                return
+            with save_double_bumps.open("w", newline="") as csvfile:
+                csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
+            click.echo(f"Double bumps saved to {save_double_bumps}")
+    else:
+        click.echo("No double bumps detected.")
 
 
 @dataclasses.dataclass
