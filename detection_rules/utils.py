@@ -422,7 +422,7 @@ def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[s
     for key, name, removed, added in changes:
         # Determine the modulo dynamically based on the highest number of digits
         max_digits = max(len(str(removed)), len(str(added)))
-        modulo = 10 ** (max_digits + 1)
+        modulo = max(10 ** (max_digits - 1), 100)
         if (added % modulo) - (removed % modulo) > 1:
             double_bumps.append((key, name, removed, added))
     return double_bumps
