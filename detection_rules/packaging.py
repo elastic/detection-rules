@@ -465,7 +465,7 @@ class Package(object):
         for rule in self.rules:
             summary_doc['rule_ids'].append(rule.id)
             summary_doc['rule_names'].append(rule.name)
-            summary_doc['rule_hashes'].append(rule.contents.get_hash())
+            summary_doc['rule_hashes'].append(rule.contents.sha256())
 
             if rule.id in self.new_ids:
                 status = 'new'
@@ -481,7 +481,7 @@ class Package(object):
             if relative_path is None:
                 raise ValueError(f"Could not find a valid relative path for the rule: {rule.id}")
 
-            rule_doc = dict(hash=rule.contents.get_hash(),
+            rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
                             datetime_uploaded=now,
                             status=status,
