@@ -339,7 +339,7 @@ def check_version_lock(ctx: click.Context, pr_number: int, local_file: str,
             save_double_bumps.parent.mkdir(parents=True, exist_ok=True)
             if save_double_bumps.is_file():
                 click.echo(f"File {save_double_bumps} already exists. Skipping save.")
-                return
+                ctx.exit(1)
             with save_double_bumps.open("w", newline="") as csvfile:
                 csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
             click.echo(f"Double bumps saved to {save_double_bumps}")
