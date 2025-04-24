@@ -293,7 +293,9 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
 )
 @click.option("--comment", is_flag=True, help="If set, enables commenting on the PR (requires --pr-number)")
 @click.option("--save-double-bumps", type=Path, help="Optional path to save the double bumps to a file")
-def check_version_lock(pr_number: int, local_file: str, token: str, comment: bool, save_double_bumps: Path):
+@click.pass_context
+def check_version_lock(ctx: click.Context, pr_number: int, local_file: str,
+                       token: str, comment: bool, save_double_bumps: Path):
     """
     Check the version lock file and optionally comment on the PR if the --comment flag is set.
 
@@ -341,6 +343,7 @@ def check_version_lock(pr_number: int, local_file: str, token: str, comment: boo
             with save_double_bumps.open("w", newline="") as csvfile:
                 csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
             click.echo(f"Double bumps saved to {save_double_bumps}")
+        ctx.exit(1)
     else:
         click.echo("No double bumps detected.")
 

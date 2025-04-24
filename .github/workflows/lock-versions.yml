@@ -54,6 +54,7 @@ jobs:
           git add detection_rules/etc/version.lock.json
 
       - name: Create Pull Request
+        id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
           assignees: '${{github.actor}}'
@@ -74,3 +75,12 @@ jobs:
           name: release-files
           path: |
             releases
+      
+      - name: Check Double Bumps
+        id: check_double_bumps
+        run: |
+          python -m detection_rules dev check-version-lock --pr-number ${{ steps.cpr.outputs.pull-request-number }} --comment
+          if [[ $? -ne 0 ]]; then
+            echo "Double bumps detected, failing the job"
+            exit 1
+          fi
