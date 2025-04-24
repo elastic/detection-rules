@@ -54,7 +54,7 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import (dict_hash, get_etc_path, get_path, github_version_check,
+from .utils import (dict_hash, get_etc_path, get_path, check_version_lock_double_bumps,
                     load_dump)
 from .version_lock import VersionLockFile, loaded_version_lock
 
@@ -314,12 +314,12 @@ def check_version_lock(
     if pr_number:
         click.echo(f"Fetching version lock file from PR #{pr_number}")
         pr = repo.get_pull(pr_number)
-        double_bumps = github_version_check(
+        double_bumps = check_version_lock_double_bumps(
             repo=repo, file_path="detection_rules/etc/version.lock.json", base_branch="main", branch=pr.head.ref
         )
     else:
         click.echo(f"Using local version lock file: {local_file}")
-        double_bumps = github_version_check(repo=repo, file_path=local_file, base_branch="main")
+        double_bumps = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
 
     if double_bumps:
         click.echo(f"{len(double_bumps)} Double bumps detected")

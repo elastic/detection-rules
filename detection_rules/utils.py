@@ -404,7 +404,7 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: Optional[str
 
 
 def compare_versions(base_json: dict, branch_json: dict) -> list[tuple[str, str, int, int]]:
-    """Compare versions of two JSON objects."""
+    """Compare versions of two lock version file JSON objects."""
     changes = []
     for key in base_json:
         if key in branch_json:
@@ -428,7 +428,7 @@ def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[s
     return double_bumps
 
 
-def github_version_check(
+def check_version_lock_double_bumps(
     repo: Repository, file_path: str, base_branch: str, branch: str = "", local_file: Path = None
 ) -> list[tuple[str, str, int, int]]:
     """Check for double bumps in version changes of the result of compare versions of a version lock file."""
