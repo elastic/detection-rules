@@ -17,9 +17,8 @@ jobs:
         uses: actions/github-script@v3
         with:
           script: |
-            const allowedBranches = ['refs/heads/main', 'refs/heads/double_bump_check_automation'];
-            if (!allowedBranches.includes('${{github.event.ref}}')) {
-              core.setFailed('Forbidden branch, expected "main" or "double_bump_check_automation"');
+            if ('refs/heads/main' !== '${{github.event.ref}}') {
+              core.setFailed('Forbidden branch, expected "main"')
             }
 
       - name: Checkout detection-rules
