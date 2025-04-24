@@ -429,7 +429,7 @@ def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[s
 
 
 def github_version_check(
-    repo: Repository, file_path: str, branch: str, base_branch: str, local_file: Path = None
+    repo: Repository, file_path: str, base_branch: str, branch: str = "", local_file: Path = None
 ) -> list[tuple[str, str, int, int]]:
     """Check for double bumps in version changes of the result of compare versions of a version lock file."""
     base_json = load_json_from_branch(repo, file_path, base_branch)

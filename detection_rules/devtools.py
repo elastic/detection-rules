@@ -309,17 +309,17 @@ def check_version_lock(
     github.assert_github()
     client = github.authenticated_client
     repo = client.get_repo("elastic/detection-rules")
+    double_bumps = []
 
     if pr_number:
         click.echo(f"Fetching version lock file from PR #{pr_number}")
         pr = repo.get_pull(pr_number)
         double_bumps = github_version_check(
-            repo=repo, file_path="detection_rules/etc/version.lock.json", branch=pr.head.ref, base_branch="main"
+            repo=repo, file_path="detection_rules/etc/version.lock.json", base_branch="main", branch=pr.head.ref
         )
     else:
         click.echo(f"Using local version lock file: {local_file}")
-        # Add logic to process the local file
-        double_bumps = []
+        double_bumps = github_version_check(repo=repo, file_path=local_file, base_branch="main")
 
     if double_bumps:
         click.echo(f"{len(double_bumps)} Double bumps detected")
