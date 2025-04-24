@@ -2,7 +2,7 @@
 creation_date = "2021/01/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/04/23"
+updated_date = "2025/04/24"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "User Added to Privileged Group"
+name = "User Added to Privileged Group in Active Directory"
 note = """## Triage and analysis
 
 ### Investigating User Added to Privileged Group in Active Directory
@@ -67,10 +67,10 @@ type = "eql"
 query = '''
 iam where host.os.type == "windows" and event.action == "added-member-to-group" and
 (
+    group.id : "S-1-5-21*" and
     (
         group.name : (
             "Admin*",
-            "Local Administrators",
             "Domain Admins",
             "Enterprise Admins",
             "Backup Admins",
@@ -84,7 +84,6 @@ iam where host.os.type == "windows" and event.action == "added-member-to-group" 
     ) or
     (
         group.id : (
-            "S-1-5-32-544",
             "S-1-5-21-*-544",
             "S-1-5-21-*-512",
             "S-1-5-21-*-519",
