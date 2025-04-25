@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/01/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/04/25"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,12 @@ detailing the memory segments, permissions, and what files are mapped to these s
 memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious /proc/maps Discovery"
@@ -20,7 +25,6 @@ references = ["https://github.com/arget13/DDexec"]
 risk_score = 21
 rule_id = "2f95540c-923e-4f57-9dae-de30169c68b9"
 setup = """## Setup
-
 
 This rule requires data coming in from Elastic Defend.
 
@@ -52,16 +56,16 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("cat", "grep") and process.args : "/proc/*/maps" and process.entry_leader.name in (
-  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-)
+process.name in ("cat", "grep", "tail", "less", "egrep", "fgrep") and process.args : "/proc/*/maps"
 '''
 note = """## Triage and analysis
 
@@ -98,17 +102,15 @@ In Linux environments, the `/proc/*/maps` files provide detailed memory mapping 
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
 - Update and enhance endpoint detection and response (EDR) solutions to improve monitoring and alerting for similar suspicious activities in the future."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
