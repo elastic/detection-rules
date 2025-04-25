@@ -7,7 +7,7 @@ updated_date = "2025/04/25"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects manual mount discovery via the /etc/exports file on Linux systems. The /etc/exports file is used
+This rule detects manual mount discovery via the /etc/exports or /etc/fstab file on Linux systems. These files are used
 by NFS (Network File System) to define which directories are shared with remote hosts. Attackers may access this
 file to gather information about shared directories and potential targets for further exploitation.
 """
@@ -20,7 +20,7 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Manual Mount Discovery via /etc/exports"
+name = "Manual Mount Discovery via /etc/exports or /etc/fstab"
 risk_score = 21
 rule_id = "bd18f4a3-c4c6-43b9-a1e4-b05e09998110"
 setup = """## Setup
@@ -63,7 +63,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.command_line like "/etc/exports"
+process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.command_line like ("/etc/exports", "/etc/fstab")
 '''
 
 [[rule.threat]]
