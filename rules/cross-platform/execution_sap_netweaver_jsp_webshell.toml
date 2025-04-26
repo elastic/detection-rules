@@ -15,7 +15,8 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential SAP NetWeaver WebShell Creation"
 references = [
-    "https://reliaquest.com/blog/threat-spotlight-reliaquest-uncovers-vulnerability-behind-sap-netweaver-compromise/"
+    "https://reliaquest.com/blog/threat-spotlight-reliaquest-uncovers-vulnerability-behind-sap-netweaver-compromise/",
+    "https://onapsis.com/blog/active-exploitation-of-sap-vulnerability-cve-2025-31324/"
 ]
 risk_score = 73
 rule_id = "f7d588ba-e4b0-442e-879d-7ec39fbd69c5"
@@ -34,7 +35,11 @@ type = "eql"
 
 query = '''
 file where host.os.type in ("linux", "windows") and event.action == "creation" and
- file.extension : "jsp" and file.path : ("/*/sap.com/*/servlet_jsp/irj/root/*.jsp", "?:\\*\\sap.com\\*\\servlet_jsp\\irj\\root\\*.jsp")
+ file.extension : ("jsp", "java", "class") and
+ file.path : ("/*/sap.com/*/servlet_jsp/irj/root/*",
+              "/*/sap.com/*/servlet_jsp/irj/work/*",
+              "?:\\*\\sap.com\\*\\servlet_jsp\\irj\\root\\*",
+              "?:\\*\\sap.com\\*\\servlet_jsp\\irj\\work\\*")
 '''
 note = """## Triage and analysis
 
