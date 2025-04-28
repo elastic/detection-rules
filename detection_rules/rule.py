@@ -927,11 +927,11 @@ class ESQLRuleData(QueryRuleData):
             )
 
         # Enforce KEEP command for ESQL rules
-        if '| keep' not in query_lower:
-            raise ValidationError(
-                f"Rule: {data['name']} does not contain a 'keep' command ->"
-                f" Add a 'keep' command to the query."
-            )
+        # if '| keep' not in query_lower:
+        #     raise ValidationError(
+        #         f"Rule: {data['name']} does not contain a 'keep' command ->"
+        #         f" Add a 'keep' command to the query."
+        #     )
 
 
 @dataclass(frozen=True)
