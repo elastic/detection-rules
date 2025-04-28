@@ -310,6 +310,30 @@ def check_version_lock(
     client = github.authenticated_client
     repo = client.get_repo("elastic/detection-rules")
     double_bumps = []
+    comment_body = "No double bumps detected."
+
+    def format_comment_body(double_bumps: list) -> str:
+        """Format the comment body for double bumps."""
+        comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
+        comment_body += "<details>\n"
+        comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
+        for rule_id, rule_name, removed, added in double_bumps:
+            comment_body += f"- **Rule ID**: {rule_id}\n"
+            comment_body += f"  - **Rule Name**: {rule_name}\n"
+            comment_body += f"  - **Removed**: {removed}\n"
+            comment_body += f"  - **Added**: {added}\n"
+        comment_body += "\n</details>\n"
+        return comment_body
+
+    def save_double_bumps_to_file(double_bumps: list, save_path: Path):
+        """Save double bumps to a CSV file."""
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        if save_path.is_file():
+            click.echo(f"File {save_path} already exists. Skipping save.")
+        else:
+            with save_path.open("w", newline="") as csvfile:
+                csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
+            click.echo(f"Double bumps saved to {save_path}")
 
     if pr_number:
         click.echo(f"Fetching version lock file from PR #{pr_number}")
@@ -324,26 +348,15 @@ def check_version_lock(
     if double_bumps:
         click.echo(f"{len(double_bumps)} Double bumps detected")
         if comment and pr_number:
-            comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
-            comment_body += "<details>\n"
-            comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
-            for rule_id, rule_name, removed, added in double_bumps:
-                comment_body += f"- **Rule ID**: {rule_id}\n"
-                comment_body += f"  - **Rule Name**: {rule_name}\n"
-                comment_body += f"  - **Removed**: {removed}\n"
-                comment_body += f"  - **Added**: {added}\n"
-            comment_body += "\n</details>\n"
+            comment_body = format_comment_body(double_bumps)
             pr.create_issue_comment(comment_body)
         if save_double_bumps:
-            save_double_bumps.parent.mkdir(parents=True, exist_ok=True)
-            if save_double_bumps.is_file():
-                click.echo(f"File {save_double_bumps} already exists. Skipping save.")
-            else:
-                with save_double_bumps.open("w", newline="") as csvfile:
-                    csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
-                click.echo(f"Double bumps saved to {save_double_bumps}")
+            save_double_bumps_to_file(double_bumps, save_double_bumps)
         ctx.exit(1)
-    click.echo("No double bumps detected.")
+    else:
+        click.echo("No double bumps detected.")
+        if comment and pr_number:
+            pr.create_issue_comment(comment_body)
 
 
 @dataclasses.dataclass
