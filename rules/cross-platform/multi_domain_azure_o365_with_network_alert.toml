@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2025/09/06"
+integration = ["azure", "o365"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule correlate Azure or Office 356 mail access successful sign-in events with network security alerts by source.ip.
+Adversaries may trigger some network security alerts such as reputation of other anomalies before accessing cloud resources.
+"""
+false_positives = [
+    """
+    Custom network security rules that triggers on a proxy or gateway used by users to access Azure or O365.
+    """,
+]
+from = "now-60m"
+language = "esql"
+license = "Elastic License v2"
+name = "Microsoft Azure or Mail Sign-in from a Suspicious Source"
+risk_score = 73
+rule_id = "f0cc239b-67fa-46fc-89d4-f861753a40f5"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-in",
+    "Data Source: Microsoft 365",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Rule Type: Higher-Order Rule"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-*, .alerts-security.*
+// query runs every 1 hour looking for activities occured during last 8 hours to match on disparate events
+| where @timestamp > NOW() - 8 hours
+// filter for Azure or O365 sign-in and External Alerts with source.ip not null
+| where source.ip is not null and (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts") and
+// exclude private IP ranges
+  not CIDR_MATCH(TO_IP(source.ip), "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+// split alerts to 3 buckets -  o365 mailaccess, azure sign-in and network related external alerts like NGFW and IDS
+| eval mail_access_src_ip = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", source.ip, null),
+  azure_src_ip = case(event.dataset == "azure.signinlogs" and event.outcome == "success", source.ip, null),
+  network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), source.ip, null)
+// aggregated alerts count by bucket and by source.ip
+| stats total = count(*), is_mail_access = COUNT_DISTINCT(mail_access_src_ip), is_azure = COUNT_DISTINCT(azure_src_ip), unique_dataset = COUNT_DISTINCT(event.dataset),is_network_alert = COUNT_DISTINCT(network_alert_src_ip), datasets = VALUES(event.dataset), rules = VALUES(kibana.alert.rule.name), cat = VALUES(event.category) by source.ip
+// filter for cases where there is a succefful sign-in to azure or o3665 mail and the source.ip is reported by a network external alert.
+| where is_network_alert  > 0 and (is_mail_access > 0 or is_azure > 0 and unique_dataset >= 2)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
