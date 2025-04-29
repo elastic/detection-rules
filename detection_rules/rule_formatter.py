@@ -132,7 +132,7 @@ class RuleTomlEncoder(toml.TomlEncoder):
 
         if multiline:
             if raw:
-                return "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ])
+                return "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ]).replace('\\', '\\\\')
             else:
                 return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         elif raw:
