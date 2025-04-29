@@ -39,16 +39,15 @@ tags = [
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=3s
-  [process where event.type == "change" and event.action == "session_id_change" and process.name in ("ssh", "sshd")]
-  [process where event.type == "start" and event.action == "exec" and process.parent.name in ("ssh", "sshd") and
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "session_id_change" and process.name in ("ssh", "sshd")]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name in ("ssh", "sshd") and
    process.args_count == 2 and (
      process.name like ("perl*", "python*", "php*", "ruby*", "lua*") or
      process.executable like (
        "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/boot/*", "/sys/*", "/lost+found/*", "/media/*", "/proc/*",
        "/var/backups/*", "/var/log/*", "/var/mail/*", "/var/spool/*") or
      process.name like ".*"
-   ) and
-   not process.executable like ("/tmp/newroot/*", "/var/tmp/foreman-ssh-cmd*")]
+   )]
 '''
 
 [[rule.threat]]
