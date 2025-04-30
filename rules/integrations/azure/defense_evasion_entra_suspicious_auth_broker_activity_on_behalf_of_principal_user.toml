@@ -25,13 +25,11 @@ license = "Elastic License v2"
 name = "Suspicious Activity via Auth Broker On-Behalf-of Principal User"
 note = """## Triage and analysis
 
-### Investigating Suspicious Auth Broker Activity via On-Behalf-Of OAuth Tokens
+### Investigating Suspicious Activity via Auth Broker On-Behalf-of Principal User
 
 This rule identifies suspicious activity from the Microsoft Authentication Broker where the same identity accesses Microsoft Graph at least twice and either Device Registration Service (DRS) or Azure Active Directory (AAD) once — all from multiple unique source IPs within a short window. This behavior may indicate the use of a previously phished refresh token to impersonate a user and register a device, followed by an attempt to acquire a Primary Refresh Token (PRT) for persistent access.
 
 ### Possible Investigation Steps:
-
-Review the following fields to understand scope, context, and risk:
 
 - `target`: The user principal name targeted by the authentication broker. Investigate whether this user has recently registered a device, signed in from new IPs, or has had recent password resets or MFA changes.
 - `azure.signinlogs.identity`: The identity value the broker is acting on behalf of. This may be useful when correlating to device registration records or audit events tied to object IDs.
@@ -40,9 +38,6 @@ Review the following fields to understand scope, context, and risk:
 - `user_agents`: Check for mixed user agent strings. Automation tools (e.g., `python-requests`) alongside browser-based agents (e.g., Chrome on macOS) may indicate scripted misuse of tokens.
 - `OS`: Review for inconsistencies. For example, if both `Windows` and `MacOs` appear during a short time span for the same user, this may point to token abuse across multiple environments.
 - `target_time_window`: Use the truncated time window to pivot into raw `azure.signinlogs` to reconstruct the full sequence of resource access events, including exact timestamps and service targets.
-
-Consider pivoting into:
-
 - `azure.auditlogs` to check for device join or registration events around the same timeframe.
 - `azure.identityprotection` to identify correlated risk detections, such as anonymized IP access or token replay.
 - Any additional sign-ins from the `ips` involved, even outside the broker, to determine if tokens have been reused elsewhere.
