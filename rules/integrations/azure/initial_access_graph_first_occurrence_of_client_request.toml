@@ -2,15 +2,15 @@
 creation_date = "2025/04/23"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/04/23"
+updated_date = "2025/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
 This New Terms rule focuses on the first occurrence of a client application ID
-(`azure.graphactivitylogs.properties.app_id`) making a request to Microsoft Graph API for a specific tenant ID
-(`azure.tenant_id`) and user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`). This
-rule may help identify unauthorized access or actions performed by compromised accounts. Advesaries may succesfully
+(azure.graphactivitylogs.properties.app_id) making a request to Microsoft Graph API for a specific tenant ID
+(azure.tenant_id) and user principal object ID (azure.graphactivitylogs.properties.user_principal_object_id). This rule
+may helps identify unauthorized access or actions performed by compromised accounts. Advesaries may succesfully
 compromise a user's credentials and use the Microsoft Graph API to access resources or perform actions on behalf of the
 user.
 """
@@ -51,32 +51,22 @@ Adversaries frequently exploit legitimate Microsoft or third-party application I
 - Examine any follow-up Graph API activity from the same `app_id` or `user_principal_object_id` for signs of data access or exfiltration.
 - Correlate with device or session ID fields (`azure.graphactivitylogs.properties.c_sid`, if present) to detect persistent or repeat activity.
 
-## False positive analysis
-
-### Common benign scenarios
+### False positive analysis
 
 - First-time use of a legitimate Microsoft or enterprise-approved application.
 - Developer or automation workflows initiating new Graph API requests.
 - Valid end-user activity following device reconfiguration or new client installation.
-
-### How to reduce false positives
-
 - Maintain an allowlist of expected `app_id` values and known developer tools.
 - Suppress detections from known good `user_agent.original` strings or approved source IP ranges.
 - Use device and identity telemetry to distinguish trusted vs. unknown activity sources.
 - Combine with session risk or sign-in anomaly signals where available.
 
-## Response and remediation
-
-### Immediate actions
+### Response and remediation
 
 - Reach out to the user and verify whether they authorized the application access.
 - Revoke active OAuth tokens and reset credentials if unauthorized use is confirmed.
 - Search for additional Graph API calls made by the same `app_id` or `user_principal_object_id`.
 - Investigate whether sensitive resources (mail, files, Teams, contacts) were accessed.
-
-### Long-term mitigation
-
 - Apply Conditional Access policies to limit Graph API access by app type, IP, or device state.
 - Restrict user consent for third-party apps and enforce admin approval workflows.
 - Monitor usage of new or uncommon `app_id` values across your tenant.
@@ -102,8 +92,8 @@ type = "new_terms"
 
 query = '''
 event.dataset: "azure.graphactivitylogs"
-and event.type: "access"
-and azure.graphactivitylogs.properties.c_idtyp: "user"
+    and event.type: "access"
+    and azure.graphactivitylogs.properties.c_idtyp: "user"
 '''
 
 
