@@ -33,18 +33,17 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type:linux and event.category:process and event.type:start and event.action:exec and
-process.parent.executable:* and (
-  (process.name:ln) or
-  (process.name:busybox and process.args:ln) or
-  (process.name:cp and process.args:"--symbolic-link")
-) and
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.parent.executable:* and
+(process.name:ln or process.name:busybox and process.args:ln or process.name:cp and process.args:--symbolic-link) and
 process.args:(
-  /bin/* or /sbin/* or /usr/bin/* or /usr/sbin/* or /usr/local/bin/* or /usr/local/sbin/* or
-  /lib/* or /lib64/* or /usr/lib/* or /usr/lib64/* or /usr/local/lib/* or /usr/local/lib64/*
-) and
-process.args:(/tmp/* or /var/tmp/* or /dev/shm/* or /root/* or /home/* or /*/.*) and
-not process.args:(/tmp/mkinitcpio* or /var/tmp/mkinitramfs* or /var/tmp/dracut* or /usr/bin/coreutils)
+  (
+    /bin/* or /lib/* or /lib64/* or /sbin/* or /usr/bin/* or /usr/lib/* or /usr/lib64/* or /usr/local/bin/* or
+    /usr/local/lib/* or /usr/local/lib64/* or /usr/local/sbin/* or /usr/sbin/*
+  ) and (
+    /*/.* or /dev/shm/* or /home/* or /root/* or /tmp/* or /var/tmp/*
+  ) and
+  not (/usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs*)
+)
 '''
 
 [[rule.threat]]
