@@ -8,6 +8,7 @@ import copy
 import dataclasses
 import io
 import json
+import re
 import textwrap
 import typing
 from collections import OrderedDict
@@ -132,7 +133,7 @@ class RuleTomlEncoder(toml.TomlEncoder):
 
         if multiline:
             if raw:
-                return "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ]).replace('\\', '\\\\')
+                return re.sub(r'(?<!\\)\\(?!\\)', r'\\\\', "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ]))
             else:
                 return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         elif raw:
