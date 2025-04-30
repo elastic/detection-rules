@@ -571,7 +571,7 @@ class RuleCollection(BaseCollection):
                 new_rules[rule.id] = rule
             else:
                 pre_rule = self.id_map[rule.id]
-                if rule.contents.sha256() != pre_rule.contents.sha256():
+                if rule.contents.get_hash() != pre_rule.contents.get_hash():
                     changed_rules[rule.id] = rule
 
         for rule in other.deprecated:
