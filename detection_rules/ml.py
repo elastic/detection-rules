@@ -16,12 +16,10 @@ import click
 import elasticsearch
 import json
 import requests
-from eql.table import Table
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IngestClient, LicenseClient, MlClient
 
 from .ghwrap import ManifestManager, ReleaseManifest
-from .misc import client_error
 from .schemas import definitions
 from .utils import get_path, unzip_to_dict
 
