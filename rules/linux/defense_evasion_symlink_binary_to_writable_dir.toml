@@ -33,18 +33,6 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.parent.executable != null and (
-  (process.name == "ln") or
-  (process.name == "busybox" and process.args == "ln") or
-  (process.name == "cp" and process.args == "--symbolic-link")
-) and
-process.args like (
-  "/bin/*", "/sbin/*", "/usr/bin/*", "/usr/sbin/*", "/usr/local/bin/*", "/usr/local/sbin/*",
-  "/lib/*", "/lib64/*", "/usr/lib/*", "/usr/lib64/*", "/usr/local/lib/*", "/usr/local/lib64/*"
-) and
-process.args like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*", "/*/.*")
-
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
 process.parent.executable:* and (
   (process.name:ln) or
