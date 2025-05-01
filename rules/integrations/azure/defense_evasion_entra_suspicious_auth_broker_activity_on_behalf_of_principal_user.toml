@@ -107,7 +107,7 @@ FROM logs-azure.signinlogs* metadata _id, _version, _index
 // case statements to track which are MS Graph, DRS, and AAD access
 | eval ms_graph = case(azure.signinlogs.properties.resource_display_name == "Microsoft Graph", source.ip, null), drs = case(azure.signinlogs.properties.resource_display_name == "Device Registration Service", source.ip, null), aad = case(azure.signinlogs.properties.resource_display_name == "Windows Azure Active Directory", source.ip, null)
 
-// aggregate by resource and time window
+// aggregate by principal and time window
 // store token types, target user, unique source IPs, and user agents in arrays for investigation
 | stats is_ms_graph = COUNT_DISTINCT(ms_graph), is_drs = COUNT_DISTINCT(drs), is_aad = COUNT_DISTINCT(aad), unique_src_ip = COUNT_DISTINCT(source.ip), ips = VALUES(source.ip), incoming_token_type = VALUES(azure.signinlogs.properties.incoming_token_type), target = VALUES(azure.signinlogs.properties.user_principal_name), user_agents = VALUES(user_agent.original), OS = VALUES(azure.signinlogs.properties.device_detail.operating_system) by azure.signinlogs.identity, target_time_window
 
