@@ -56,14 +56,13 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
-process.parent.name:* and process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish) and
-process.args:"-c" and process.command_line:(*LD_PRELOAD=* or *LD_LIBRARY_PATH=*) and not (
-  process.parent.name:(
-    su or zabbix_agentd or titanagent or vls_agent or cylancesvc or awk or make or perl or sudo or java or
-    matlab_helper or steam or dbus-run-session or bwrap or noproc_sandbox or rear or ninja or sshd or julia or
-    sapcontrol or spoold or nxserver or nxrunner or setsid
-  )
-)
+process.parent.name:(* and not (
+  awk or bwrap or cylancesvc or dbus-run-session or java or julia or make or matlab_helper or ninja or noproc_sandbox or
+  nxrunner or nxserver or perl or rear or sapcontrol or setsid or spoold or sshd or steam or su or sudo or titanagent or
+  vls_agent or zabbix_agentd
+)) and
+process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
+process.args:-c and process.command_line:(*LD_LIBRARY_PATH=* or *LD_PRELOAD=*)
 '''
 [[rule.threat]]
 framework = "MITRE ATT&CK"
