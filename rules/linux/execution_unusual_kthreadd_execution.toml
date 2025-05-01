@@ -56,18 +56,23 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.parent.name:kthreadd and (
-  process.executable:("/tmp/*" or "/var/tmp/*" or "/dev/shm/*" or "/var/www/*") or
-  process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish or whoami or curl or wget or id or nohup or setsid) 
-  ) and
+  process.executable:(/dev/shm/* or /tmp/* or /var/tmp/* or /var/www/*) or
+  process.name:(bash or csh or curl or dash or fish or id or ksh or nohup or setsid or sh or tcsh or wget or whoami or zsh)
+) and
+process.command_line:(
+  */dev/shm/* or */dev/tcp/* or */etc/init.d* or */etc/ld.so* or */etc/profile* or */etc/rc.local* or */etc/shadow* or */etc/ssh* or
+  */etc/sudoers* or */home/*/.ssh/* or */root/.ssh* or */tmp/* or */var/log/* or */var/run/* or */var/tmp/* or */var/www/* or
+  *base64* or *cron* or *xxd* or *~/.ssh/*
+) and not (
+  process.name:(true or cifs.upcall or dpkg or flock or gdbus or getopt or grep or mount or touch or umount or uname) or
   process.command_line:(
-    *cron* or */etc/rc.local* or */dev/tcp/* or */etc/init.d* or */etc/ld.so* or */etc/sudoers* or *base64* or */etc/profile* or
-    */dev/shm/* or */etc/ssh* or */home/*/.ssh/* or */root/.ssh* or *~/.ssh/* or *xxd* or */etc/shadow* or */tmp/* or
-    */var/tmp/* or */var/www/* or */var/log/* or */var/run/*
-  ) and not (
-    process.name:(dpkg or true or flock or uname or mount or umount or cifs.upcall or touch or gdbus or grep or getopt) or
-    process.command_line:"sh -c /bin/true" or
-    process.executable:(/tmp/newroot/* or /var/lib/docker/overlay2/* or /vz/root/* or /lib/systemd/systemd-cgroups-agent or /usr/local/axs-haproxy-monitoring/haproxy_stats.sh or /proc/self/exe) or
-    process.command_line:(*/bin/ps* or *pgrep* or *omsagent* or */usr/bin/find* or */usr/bin/grep* or *ds_agent* or *nagios* or *gitlabrunner*)
+    "sh -c /bin/true" or */bin/ps* or */usr/bin/find* or */usr/bin/grep* or *ds_agent* or *gitlabrunner* or *nagios* or
+    *omsagent* or *pgrep*
+  ) or
+  process.executable:(
+    /lib/systemd/systemd-cgroups-agent or /proc/self/exe or /usr/local/axs-haproxy-monitoring/haproxy_stats.sh or /tmp/newroot/* or
+    /var/lib/docker/overlay2/* or /vz/root/*
+  )
 )
 '''
 
