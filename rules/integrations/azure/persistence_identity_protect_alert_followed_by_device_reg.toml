@@ -7,16 +7,16 @@ updated_date = "2025/04/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies sequence of events where an azure identity protection alert followed by an attempt to register a new device by the same account.
+Identifies sequence of events where a Microsoft Entra ID protection alert is followed by an attempt to register a new device by the same user principal. This behavior may indicate an adversary using a compromised account to register a device, potentially leading to unauthorized access to resources or persistence in the environment.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Microsoft Entra ID Identity Protection Leading to Device Registration"
+name = "Microsoft Entra ID Protection Alert and Device Registration"
 note = """## Triage and analysis
 
-### Investigating Microsoft Entra ID Identity Protection Leading to Device Registration
+### Investigating Microsoft Entra ID Identity Protection Alert and Device Registration
 
 #### Possible investigation steps
 
@@ -28,6 +28,11 @@ note = """## Triage and analysis
 - Contact the account owner and confirm whether they are aware of this activity.
 - Check if this operation was approved and performed according to the organization's change management policy.
 - If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+
+### False positive analysis
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and device conditions.
+- Consider the context of the user account and whether the activity is expected. For example, if the user is a developer or administrator, they may have legitimate reasons for accessing resources from various locations or devices.
+- A Microsoft Entra ID Protection alert may be triggered by legitimate activities such as password resets, MFA changes, or device registrations. If the user is known to perform these actions regularly, it may not indicate a compromise.
 
 ### Response and remediation
 
@@ -44,11 +49,7 @@ note = """## Triage and analysis
 - Consider enabling multi-factor authentication for users.
 - Follow security best practices [outlined](https://docs.microsoft.com/en-us/azure/security/fundamentals/identity-management-best-practices) by Microsoft.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR)."""
 references = [
     "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
     "https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/overview-identity-protection",
@@ -61,6 +62,9 @@ severity = "high"
 tags = [
     "Domain: Cloud",
     "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Protection Logs",
+    "Data Source: Microsoft Entra ID Audit Logs",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Persistence",
