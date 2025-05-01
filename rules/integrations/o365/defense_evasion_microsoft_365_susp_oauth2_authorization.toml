@@ -80,13 +80,13 @@ from logs-o365.audit-default*
 // case statements to track which are OAuth2 authorization request via redirect and which are related to OAuth2 code to token conversion
 | eval oauth_authorize = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect", o365.audit.UserId, null), oauth_token = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Token", o365.audit.UserId, null)
 
-// split time to 30mins intervals
+// split time to 30 minutes intervals
 | eval target_time_window = DATE_TRUNC(30 minutes, @timestamp)
 
-// aggregate by principal, applicationId and objectId and time window
+// aggregate by principal, applicationId, objectId and time window
 | stats unique_ips = COUNT_DISTINCT(source.ip), source_ips = VALUES(source.ip), appIds = VALUES(o365.audit.ApplicationId), asn = values(`source.as.organization.name`), is_oauth_token = COUNT_DISTINCT(oauth_token), is_oauth_authorize = COUNT_DISTINCT(oauth_authorize) by o365.audit.UserId, target_time_window, o365.audit.ApplicationId, o365.audit.ObjectId
 
-// filter for case where same appId is used from same user to access same object and from multiple address via OAuth2 token
+// filter for cases where the same appId is used by the same principal user to access the same object and from multiple addresses via OAuth2 token
 | where unique_ips >= 2 and is_oauth_authorize > 0 and is_oauth_token > 0
 '''
 
