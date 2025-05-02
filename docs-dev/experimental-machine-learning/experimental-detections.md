@@ -1,3 +1,5 @@
+**The CLI command referenced in this document have been deprecated and removed.**
+
 # Experimental ML Jobs and Rules
 
 The ingest pipeline enriches process events by adding additional fields, which are used to power several rules. 

@@ -1,3 +1,5 @@
+**The CLI command referenced in this document have been deprecated and removed.**
+
 # Experimental machine learning
 
 This repo contains some additional information and files to use experimental[*](#what-does-experimental-mean-in-this-context) machine learning features and detections
