@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2025/04/23"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potentially suspicious OAuth authorization activity in Microsoft 365 where the Visual Studio Code first-party
+application (client_id = aebc6443-996d-45c2-90f0-388ff96faa56) is used to request access to Microsoft Graph resources.
+While this client ID is legitimately used by Visual Studio Code, threat actors have been observed abusing it in phishing
+campaigns to make OAuth requests appear trustworthy. These attacks rely on redirect URIs such as VSCode Insiders
+redirect location, prompting victims to return an OAuth authorization code that can be exchanged for access tokens. This
+rule may help identify unauthorized use of the VS Code OAuth flow as part of social engineering or credential phishing
+activity.
+"""
+from = "now-25m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 OAuth Phishing via Visual Studio Code Client"
+note = """## Triage and analysis
+
+### Investigating Microsoft 365 OAuth Phishing via Visual Studio Code Client
+
+This rule identifies successful Microsoft 365 sign-ins where the Visual Studio Code first-party application (`ApplicationId = aebc6443-996d-45c2-90f0-388ff96faa56`) was used to initiate an OAuth 2.0 authorization code flow targeting Microsoft Graph. While this is common for legitimate development workflows, it has been abused in real-world phishing campaigns to trick users into returning authorization codes that attackers can exchange for access tokens.
+
+The behavior is typically seen in targeted attacks where users are lured into clicking a Microsoft login URL that redirects to a legitimate Microsoft URI (such as `insiders.vscode.dev`) and displays an OAuth code. If the user returns this code (e.g., via Signal, WhatsApp, or email), the attacker can use it to gain access to the user’s data via Microsoft Graph APIs — all without prompting for explicit consent or MFA, especially when default or pre-consented apps are abused.
+
+### Possible investigation steps
+
+- Review `user.name` or `o365.audit.UserId` to identify the impacted account.
+- Validate whether the user expected to authorize the Visual Studio Code app at the time of the event.
+- Check if `o365.audit.ActorIpAddress` is an unexpected or geolocated IP — especially outside of corporate ranges or from proxy networks.
+- Look at `user_agent.original` and `o365.audit.DeviceProperties` to determine the device and browser involved — known attacker flows often show Chrome + MacOS or headless browser variants.
+- Confirm the `Target.ID` (Microsoft Graph: `00000003-0000-0000-c000-000000000000`) matches the scope of access the attacker might attempt.
+- Check for follow-up access events or mailbox enumeration using the Graph API from unfamiliar service principals or devices.
+- Review the `ExtendedProperties.RequestType` = `OAuth2:Authorize` and `ResultStatusDetail` = `Redirect` — this indicates that the user was redirected after authorization, which typically exposes the OAuth `code`.
+
+### False positive analysis
+
+- Developers or IT users intentionally using Visual Studio Code to connect to Microsoft 365 may trigger this rule.
+- Legitimate Visual Studio Code extensions that sync or query Graph API data (e.g., calendars, tasks, cloud-hosted notebooks).
+- Enterprise use cases where VS Code is used for integrated identity workflows.
+- Exclude known user agents and hosts that regularly use Visual Studio Code against Graph.
+- Whitelist specific source IPs or devices tied to developer machines.
+- Correlate with user context and behavior — if the user has no reason to be developing or testing code, the event may be more suspicious.
+- Add exception rules for managed devices or corporate laptops using this flow regularly.
+
+### Response and remediation
+
+- Reach out to the user to confirm if they expected this login or may have shared an OAuth code.
+- Suspend or reset credentials if the login appears suspicious or if the code was likely returned to a third party.
+- Review recent Microsoft Graph activity (email, file access, Teams) for this user and service principal.
+- Block or restrict future use of OAuth tokens from unknown apps or IPs via Conditional Access.
+- Add alerts for `ApplicationId = aebc6443-...` combined with low-reputation IPs or unexpected device fingerprints.
+- Require MFA and Conditional Access for all OAuth flows — even for Microsoft first-party apps.
+- Disable or restrict app consent for users, and require admin approval for Graph API scopes.
+- Educate users about OAuth-based phishing techniques — especially those that ask users to share "codes" after clicking a Microsoft login link.
+- Regularly audit `ApplicationId`, `RequestType`, and `ResultStatusDetail` values in `o365.audit` to spot anomalous usage patterns.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+]
+risk_score = 47
+rule_id = "929d0766-204b-11f0-9c1f-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "o365.audit"
+    and event.action: "UserLoggedIn"
+    and o365.audit.ApplicationId: "aebc6443-996d-45c2-90f0-388ff96faa56"
+    and o365.audit.Target.ID: "00000003-0000-0000-c000-000000000000"
+    and o365.audit.ExtendedProperties.RequestType: "OAuth2:Authorize"
+    and o365.audit.ExtendedProperties.ResultStatusDetail: "Redirect"
+    and o365.audit.UserType: ("0" or "2" or "3" or "5" or "6" or "10")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
