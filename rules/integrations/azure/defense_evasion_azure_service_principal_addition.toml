@@ -2,15 +2,15 @@
 creation_date = "2020/12/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a new service principal is added in Azure. An application, hosted service, or automated tool that
-accesses or modifies resources needs an identity created. This identity is known as a service principal. For security
-reasons, it's always recommended to use service principals with automated tools rather than allowing them to log in with
-a user identity.
+Identifies when a new service principal is added in Microsoft Entra ID. An application, hosted service, or automated
+tool that accesses or modifies resources needs an identity created. This identity is known as a service principal. For
+security reasons, it's always recommended to use service principals with automated tools rather than allowing them to
+log in with a user identity.
 """
 false_positives = [
     """
@@ -19,14 +19,14 @@ false_positives = [
     or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-25m"
-index = ["filebeat-*", "logs-azure*"]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.auditlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure Service Principal Addition"
+name = "Microsoft Entra ID Service Principal Addition"
 note = """## Triage and analysis
 
-### Investigating Azure Service Principal Addition
+### Investigating Azure Microsoft Entra ID Service Principal Addition
 
 Service Principals are identities used by applications, services, and automation tools to access specific resources. They grant specific access based on the assigned API permissions. Most organizations that work a lot with Azure AD make use of service principals. Whenever an application is registered, it automatically creates an application object and a service principal in an Azure AD tenant.
 
@@ -63,47 +63,52 @@ If this rule is noisy in your environment due to expected activity, consider add
 - Follow security best practices [outlined](https://docs.microsoft.com/en-us/azure/security/fundamentals/identity-management-best-practices) by Microsoft.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+"""
 references = [
     "https://msrc-blog.microsoft.com/2020/12/13/customer-guidance-on-recent-nation-state-cyber-attacks/",
     "https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal",
 ]
 risk_score = 21
 rule_id = "60b6b72f-0fbc-47e7-9895-9ba7627a8b50"
+setup = """### Microsft Entra ID Audit Logs
+This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
-    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service principal" and event.outcome:(success or Success)
+event.dataset:azure.auditlogs
+    and azure.auditlogs.operation_name:"Add service principal"
+    and event.outcome:(success or Success)
+    and not azure.auditlogs.identity: "Managed Service Identity"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1550"
-name = "Use Alternate Authentication Material"
-reference = "https://attack.mitre.org/techniques/T1550/"
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
 [[rule.threat.technique.subtechnique]]
-id = "T1550.001"
-name = "Application Access Token"
-reference = "https://attack.mitre.org/techniques/T1550/001/"
+id = "T1550.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
 
 
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
