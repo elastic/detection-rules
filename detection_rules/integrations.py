@@ -189,7 +189,7 @@ def find_least_compatible_version(package: str, integration: str,
         # returns latest major version that is least compatible
         for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
                                                     key=lambda x: Version.parse(x[0]))).items():
-            compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
+            compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
             for kibana_ver in compatible_versions:
                 kibana_ver = Version.parse(kibana_ver)
                 # check versions have the same major
@@ -222,7 +222,7 @@ def find_latest_compatible_version(package: str, integration: str,
         if not version_requirement:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
 
-        compatible_versions = re.sub(r"\>|\<|\=|\^", "", version_requirement).split(" || ")
+        compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", version_requirement).split(" || ")
 
         if not compatible_versions:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
