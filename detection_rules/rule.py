@@ -1010,18 +1010,25 @@ class BaseRuleContents(ABC):
 
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.saved_version or 1)
-        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
+        contents = {"rule_name": self.name, "sha256": self.get_hash(), "version": version, "type": self.type}
 
         return contents
 
     @property
-    def is_dirty(self) -> Optional[bool]:
+    def is_dirty(self) -> bool:
         """Determine if the rule has changed since its version was locked."""
         min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
         existing_sha256 = self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
-        if existing_sha256 is not None:
-            return existing_sha256 != self.sha256()
+        if not existing_sha256:
+            return False
+
+        rule_hash = self.get_hash()
+        rule_hash_with_integrations = self.get_hash(include_integrations=True)
+
+        # Checking against current and previous version of the hash to avoid mass version bump
+        is_dirty = existing_sha256 not in (rule_hash, rule_hash_with_integrations)
+        return is_dirty
 
     @property
     def lock_entry(self) -> Optional[dict]:
@@ -1123,10 +1130,25 @@ class BaseRuleContents(ABC):
     def to_api_format(self, include_version: bool = True) -> dict:
         """Convert the rule to the API format."""
 
+    def get_hashable_content(self, include_version: bool = False, include_integrations: bool = False) -> dict:
+        """Returns the rule content to be used for calculating the hash value for the rule"""
+
+        # get the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_dict = self.to_api_format(include_version=include_version)
+
+        # drop related integrations if present
+        if not include_integrations:
+            hashable_dict.pop("related_integrations", None)
+
+        return hashable_dict
+
     @cached
-    def sha256(self, include_version=False) -> str:
-        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=include_version)
+    def get_hash(self, include_version: bool = False, include_integrations: bool = False) -> str:
+        """Returns a sha256 hash of the rule contents"""
+        hashable_contents = self.get_hashable_content(
+            include_version=include_version,
+            include_integrations=include_integrations,
+        )
         return utils.dict_hash(hashable_contents)
 
 

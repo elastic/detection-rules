@@ -1,0 +1,48 @@
+# Self-Deleting Python Script
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** Detects when a Python script is executed and then deletes itself within a short time window. This behavior is often observed in malware used by DPRK threat actors to remove traces post-execution and avoid detection.
+
+- **UUID:** `6461f45e-b03f-4756-94d2-34a210caeb78`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[EQL]`
+- **Source File:** [Self-Deleting Python Script](../queries/defense_evasion_self_deleting_python_script.toml)
+
+## Query
+
+```sql
+sequence by process.entity_id with maxspan=10s
+  [process where event.type == "start" and event.action == "exec" and
+    process.name like~ "python*" and process.args_count == 2 and
+    process.args like ("/Users/Shared/*.py", "/tmp/*.py", "/private/tmp/*.py", "/Users/*/Public/*.py")]
+  [file where event.action == "deletion" and
+    file.extension in ("py", "pyc") and
+    file.path like ("/Users/Shared/*", "/tmp/*", "/private/tmp/*", "/Users/*/Public/*")]
+```
+
+## Notes
+
+- Self-deletion of Python scripts is commonly used to evade detection and forensic recovery.
+- This hunt is effective at uncovering ephemeral post-exploitation scripts or loaders.
+- You may pivot on `file.path`, `process.args`, and `process.executable` to understand intent and targets.
+
+## MITRE ATT&CK Techniques
+
+- [T1059.006](https://attack.mitre.org/techniques/T1059/006)
+- [T1070.004](https://attack.mitre.org/techniques/T1070/004)
+
+## References
+
+- https://www.elastic.co/security-labs/dprk-code-of-conduct
+- https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/
+- https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34
+- https://x.com/safe/status/1897663514975649938
+- https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/
+
+## License
+
+- `Elastic License v2`
