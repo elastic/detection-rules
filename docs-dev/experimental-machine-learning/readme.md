@@ -1,3 +1,4 @@
+
 # Experimental machine learning
 
 This repo contains some additional information and files to use experimental[*](#what-does-experimental-mean-in-this-context) machine learning features and detections
@@ -21,82 +22,6 @@ There are separate [releases](https://github.com/elastic/detection-rules/release
 
 Releases will use the tag `ML-TYPE-YYYMMDD-N`, which will be needed for uploading the model using the CLI.
 
-
-## CLI
-
-Support commands can be found under `python -m detection_rules es <es args> experimental ml -h`
-
-```console
-Elasticsearch client:
-Options:
-  -et, --timeout INTEGER    Timeout for elasticsearch client
-  -ep, --es-password TEXT
-  -eu, --es-user TEXT
-  --elasticsearch-url TEXT
-  --cloud-id TEXT
-
-
-* experimental commands are use at your own risk and may change without warning *
-
-Usage: detection_rules es experimental ml [OPTIONS] COMMAND [ARGS]...
-
-  Experimental machine learning commands.
-
-Options:
-  -h, --help  Show this message and exit.
-
-Commands:
-  check-files               Check ML model files on an elasticsearch...
-  delete-job                Remove experimental ML jobs.
-  remove-model              Remove ML model files.
-  remove-scripts-pipelines  Remove ML scripts and pipeline files.
-  setup                     Upload ML model and dependencies to enrich data.
-  upload-job                Upload experimental ML jobs.
-```
-
-## Managing a model and dependencies using the CLI
-
-### Installing
-
-```console
-python -m detection_rules es experimental ml setup -h
-
-Elasticsearch client:
-Options:
-  -et, --timeout INTEGER    Timeout for elasticsearch client
-  -ep, --es-password TEXT
-  -eu, --es-user TEXT
-  --cloud-id TEXT
-  --elasticsearch-url TEXT
-
-
-* experimental commands are use at your own risk and may change without warning *
-
-Usage: detection_rules es experimental ml setup [OPTIONS]
-
-  Upload ML model and dependencies to enrich data.
-
-Options:
-  -t, --model-tag TEXT       Release tag for model files staged in detection-
-                             rules (required to download files)
-  -r, --repo TEXT            GitHub repository hosting the model file releases
-                             (owner/repo)
-  -d, --model-dir DIRECTORY  Directory containing local model files
-  --overwrite                Overwrite all files if already in the stack
-  -h, --help                 Show this message and exit.
-
-```
-
-### Removing
-
-To remove the ML bundle, you will need to remove the pipelines and scripts first and then the model.
-
-You can do this by running:
-* `python -m detection_rules es experimental ml remove-pipeline-scripts --dga --problemchild`
-* `python -m detection_rules es experimental ml remove-model <model-id>`
-
-
-----
 
 ##### What does experimental mean in this context?
 
