@@ -1,0 +1,78 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a symbolic link from a system binary to a suspicious and writable location. This
+activity may indicate an attacker's attempt to evade detection by behavioral rules that depend on predefined process
+parent/child relationships. By executing the symlinked variant of a binary instead of the original, the attacker aims to
+bypass these rules. Through the new_terms rule type, this rule can identify uncommon parent processes that may indicate the
+presence of a malicious symlink.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "System Binary Symlink to Suspicious Location"
+risk_score = 21
+rule_id = "d19a2399-f8e2-4b10-80d8-a561ce9d24d1"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.parent.executable:* and
+(process.name:ln or process.name:busybox and process.args:ln or process.name:cp and process.args:--symbolic-link) and
+process.args:(
+  (
+    /bin/* or /lib/* or /lib64/* or /sbin/* or /usr/bin/* or /usr/lib/* or /usr/lib64/* or /usr/local/bin/* or
+    /usr/local/lib/* or /usr/local/lib64/* or /usr/local/sbin/* or /usr/sbin/*
+  ) and (
+    /*/.* or /dev/shm/* or /home/* or /root/* or /tmp/* or /var/tmp/*
+  ) and
+  not (/usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs*)
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Hijack Execution Flow"
+    id = "T1574"
+    reference = "https://attack.mitre.org/techniques/T1574/"
+
+    [[rule.threat.technique]]
+    name = "Indirect Command Execution"
+    id = "T1202"
+    reference = "https://attack.mitre.org/techniques/T1202/"
+
+    [[rule.threat.technique]]
+    name = "Hide Artifacts"
+    id = "T1564"
+    reference = "https://attack.mitre.org/techniques/T1564/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
