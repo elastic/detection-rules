@@ -2,7 +2,7 @@
 creation_date = "2021/01/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ trust that have been signed by the root certificate.
 false_positives = ["Certain applications may install root certificates for the purpose of inspecting SSL traffic."]
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Install Root Certificate"
 references = ["https://ss64.com/osx/security-cert.html"]
@@ -56,13 +56,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
-  process.name:security and process.args:"add-trusted-cert" and
-  not process.parent.executable:("/Library/Bitdefender/AVP/product/bin/BDCoreIssues" or "/Applications/Bitdefender/SecurityNetworkInstallerApp.app/Contents/MacOS/SecurityNetworkInstallerApp"
-)
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+  process.name == "security" and process.args like "add-trusted-cert" and
+  (process.parent.name like~ ("osascript", "bash", "sh", "zsh", "Terminal", "Python*") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 
