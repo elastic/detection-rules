@@ -1,3 +1,4 @@
+
 # Experimental ML Jobs and Rules
 
 The ingest pipeline enriches process events by adding additional fields, which are used to power several rules. 
@@ -16,13 +17,3 @@ Earlier releases stored the rules in toml format. These can be uploaded using th
 [7.12 branch](https://github.com/elastic/detection-rules/tree/7.12) CLI using the 
 [kibana import-rules](../../CLI.md#uploading-rules-to-kibana) command
 
-### Uploading ML Jobs and Datafeeds
-
-Unzip the release bundle and then run `python -m detection_rules es <args> experimental ml upload-job <ml_job.json>`
-
-To delete a job/datafeed, run `python -m detection_rules es <args> experimental ml delete-job <job-name> <job-type>`
-
-The CLI automatically identifies whether the provided input file is an ML job or datafeed.
-
-Take note of any errors as the jobs and datafeeds may have dependencies on each other which may require stopping and/or removing
-referenced jobs/datafeeds first.
