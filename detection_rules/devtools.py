@@ -502,7 +502,7 @@ def kibana_diff(rule_id, repo, branch, threads):
     else:
         rules = rules.filter(production_filter).id_map
 
-    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
+    repo_hashes = {r.id: r.contents.get_hash(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
