@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2025/04/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This New Terms rule focuses on the first occurrence of a client application ID
+(azure.graphactivitylogs.properties.app_id) making a request to Microsoft Graph API for a specific tenant ID
+(azure.tenant_id) and user principal object ID (azure.graphactivitylogs.properties.user_principal_object_id). This rule
+may helps identify unauthorized access or actions performed by compromised accounts. Advesaries may succesfully
+compromise a user's credentials and use the Microsoft Graph API to access resources or perform actions on behalf of the
+user.
+"""
+false_positives = [
+    """
+    Users legitimately accessing Microsoft Graph API using the specified client application ID and tenant ID. This may
+    include authorized applications or services that interact with Microsoft Graph on behalf of users.
+    """,
+    """
+    Authorized third-party applications or services that use the specified client application ID to access Microsoft
+    Graph API resources for legitimate purposes.
+    """,
+    """
+    Administrative or automated tasks that involve accessing Microsoft Graph API using the specified client application
+    ID and tenant ID, such as provisioning or managing resources.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.graphactivitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Graph First Occurrence of Client Request"
+note = """## Triage and analysis
+
+### Investigating Microsoft Graph First Occurrence of Client Request
+
+This rule detects the first observed occurrence of a Microsoft Graph API request by a specific client application ID (`azure.graphactivitylogs.properties.app_id`) in combination with a user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`) and tenant ID (`azure.tenant_id`) within the last 14 days. This may indicate unauthorized access following a successful phishing attempt, token theft, or abuse of OAuth workflows.
+
+Adversaries frequently exploit legitimate Microsoft or third-party application IDs to avoid raising suspicion during initial access. By using pre-consented or trusted apps to interact with Microsoft Graph, attackers can perform actions on behalf of users without triggering conventional authentication alerts or requiring additional user interaction.
+
+### Possible investigation steps
+
+- Review `azure.graphactivitylogs.properties.user_principal_object_id` and correlate with recent sign-in logs for the associated user.
+- Determine whether `azure.graphactivitylogs.properties.app_id` is a known and approved application in your environment.
+- Investigate the `user_agent.original` field for signs of scripted access (e.g., automation tools or libraries).
+- Check the source IP address (`source.ip`) and geolocation data (`source.geo.*`) for unfamiliar origins.
+- Inspect `azure.graphactivitylogs.properties.scopes` to understand the level of access being requested by the app.
+- Examine any follow-up Graph API activity from the same `app_id` or `user_principal_object_id` for signs of data access or exfiltration.
+- Correlate with device or session ID fields (`azure.graphactivitylogs.properties.c_sid`, if present) to detect persistent or repeat activity.
+
+### False positive analysis
+
+- First-time use of a legitimate Microsoft or enterprise-approved application.
+- Developer or automation workflows initiating new Graph API requests.
+- Valid end-user activity following device reconfiguration or new client installation.
+- Maintain an allowlist of expected `app_id` values and known developer tools.
+- Suppress detections from known good `user_agent.original` strings or approved source IP ranges.
+- Use device and identity telemetry to distinguish trusted vs. unknown activity sources.
+- Combine with session risk or sign-in anomaly signals where available.
+
+### Response and remediation
+
+- Reach out to the user and verify whether they authorized the application access.
+- Revoke active OAuth tokens and reset credentials if unauthorized use is confirmed.
+- Search for additional Graph API calls made by the same `app_id` or `user_principal_object_id`.
+- Investigate whether sensitive resources (mail, files, Teams, contacts) were accessed.
+- Apply Conditional Access policies to limit Graph API access by app type, IP, or device state.
+- Restrict user consent for third-party apps and enforce admin approval workflows.
+- Monitor usage of new or uncommon `app_id` values across your tenant.
+- Provide user education on OAuth phishing tactics and reporting suspicious prompts.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+]
+risk_score = 21
+rule_id = "2a3f38a8-204e-11f0-9c1f-f661ea17fbcd"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Graph",
+    "Data Source: Microsoft Graph Activity Logs",
+    "Resources: Investigation Guide",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.graphactivitylogs"
+    and event.type: "access"
+    and azure.graphactivitylogs.properties.c_idtyp: "user"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.graphactivitylogs.properties.app_id",
+    "azure.graphactivitylogs.properties.user_principal_object_id",
+    "azure.tenant_id",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
