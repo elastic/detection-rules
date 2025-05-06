@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/04/30"
 
 [transform]
 [[transform.investigate]]
@@ -231,7 +231,8 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         "www.googleapis.com", 
         "googleapis.com",
         "global.rel.tunnels.api.visualstudio.com",
-        "*.devtunnels.ms") and
+        "*.devtunnels.ms", 
+        "api.github.com") and
         
     /* Insert noisy false positives here */
     not (
@@ -239,6 +240,7 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         process.executable : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
+          "?:\\Windows\\system32\\svchost.exe",
           "?:\\Windows\\System32\\WWAHost.exe",
           "?:\\Windows\\System32\\smartscreen.exe",
           "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
@@ -250,8 +252,11 @@ network where host.os.type == "windows" and network.protocol == "dns" and
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
           "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+          "?:\\Users\\*\\AppData\\Local\\PowerToys\\PowerToys.exe",
           "?:\\Windows\\system32\\mobsync.exe",
-          "?:\\Windows\\SysWOW64\\mobsync.exe"
+          "?:\\Windows\\SysWOW64\\mobsync.exe", 
+          "?:\\Windows\\System32\\wsl.exe", 
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe"
         )
       ) or
     
@@ -295,7 +300,10 @@ network where host.os.type == "windows" and network.protocol == "dns" and
                               "Slack Technologies, LLC",
                               "Cisco Systems, Inc.",
                               "Dropbox, Inc",
-                              "Amazon.com Services LLC"))
+                              "Amazon.com Services LLC", 
+                              "Island Technology Inc.", 
+                              "GitHub, Inc.", 
+                              "Red Hat, Inc"))
     )
 '''
 
