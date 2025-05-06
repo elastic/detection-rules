@@ -87,7 +87,7 @@ FROM logs-*, .alerts-security.*
 // exclude private IP ranges
   not CIDR_MATCH(TO_IP(source.ip), "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
 | keep source.ip, event.action, event.outcome, event.dataset, kibana.alert.rule.name, event.category
-// split alerts to 3 buckets -  o365 mailaccess, azure sign-in and network related external alerts like NGFW and IDS
+// split alerts to 3 buckets -  M365 mail access, azure sign-in and network related external alerts like NGFW and IDS
 | eval mail_access_src_ip = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", TO_IP(source.ip), null),
   azure_src_ip = case(event.dataset == "azure.signinlogs" and event.outcome == "success", TO_IP(source.ip), null),
   network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
