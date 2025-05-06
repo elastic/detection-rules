@@ -93,7 +93,7 @@ FROM logs-*, .alerts-security.*
   network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
 // aggregated alerts count by bucket and by source.ip
 | stats total_alerts = count(*), is_mail_access = COUNT_DISTINCT(mail_access_src_ip), is_azure = COUNT_DISTINCT(azure_src_ip), unique_dataset = COUNT_DISTINCT(event.dataset),is_network_alert = COUNT_DISTINCT(network_alert_src_ip), datasets = VALUES(event.dataset), rules = VALUES(kibana.alert.rule.name), cat = VALUES(event.category) by source_ip = TO_IP(source.ip)
-// filter for cases where there is a succefful sign-in to azure or o3665 mail and the source.ip is reported by a network external alert.
+// filter for cases where there is a successful sign-in to azure or m365 mail and the source.ip is reported by a network external alert.
 | where is_network_alert  > 0 and (is_mail_access > 0 or is_azure > 0 and unique_dataset >= 2)
 '''
 
