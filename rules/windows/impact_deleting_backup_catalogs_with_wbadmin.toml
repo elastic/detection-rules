@@ -2,13 +2,13 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/05/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of the wbadmin.exe to delete the backup catalog. Ransomware and other malware may do this to prevent
-system recovery.
+Detects use of wbadmin.exe to delete backup catalogs, system state backups, or other backup data. Ransomware and other
+malware may do this to prevent system recovery.
 """
 from = "now-9m"
 index = [
@@ -24,7 +24,7 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Deleting Backup Catalogs with Wbadmin"
+name = "Backup Deletion with Wbadmin"
 note = """## Triage and analysis
 
 ### Investigating Deleting Backup Catalogs with Wbadmin
@@ -87,7 +87,7 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (process.name : "wbadmin.exe" or ?process.pe.original_file_name == "WBADMIN.EXE") and
-  process.args : "catalog" and process.args : "delete"
+  process.args : ("catalog", "backup", "systemstatebackup") and process.args : "delete"
 '''
 
 
