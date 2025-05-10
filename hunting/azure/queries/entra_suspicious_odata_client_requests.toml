@@ -1,0 +1,66 @@
+[hunt]
+author = "Elastic"
+description = """
+Identifies infrequent OData client requests in Microsoft Entra ID. This behavior may indicate an adversary using a custom or Azure-managed app ID to authenticate on behalf of a user. This is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The app ID specified may not be commonly used by the user based on their historical sign-in activity. The OData client is used in ROADTools, a toolset leveraged by threat actors to automate OAuth and OIDC workflows in Microsoft Entra ID following phishing or token theft.
+"""
+integration = ["azure"]
+uuid = "0d3d2254-2b4a-11f0-a019-f661ea17fbcc"
+name = "Microsoft Entra Infrequent Suspicious OData Client Requests"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "Review `azure.auditlogs.properties.additional_details.value` for `Microsoft.OData.Client/*` User-Agent strings. This is uncommon for legitimate first-party Microsoft applications and may indicate use of ROADTools or custom automation to register a device and obtain a PRT.",
+    "Check `azure.auditlogs.properties.initiated_by` for both `user` and `app` fields. The presence of both may suggest an OAuth on-behalf-of (OBO) flow, where the app is acting with delegated permissions from a phished user token.",
+    "Review `azure.auditlogs.properties.activity_display_name` and `operation_name` for device registration operations like `Add device` or `Add registered owner to device`. When combined with suspicious user-agents, this may indicate unauthorized device registration.",
+    "Review `azure.auditlogs.identity` for operations performed by `Device Registration Service`. This service name is commonly associated with device join flows that, if abused, may enable persistence via PRT acquisition.",
+    "Correlate with `azure.signinlogs` for sign-ins using the same `correlation_id` or `userPrincipalName`. Look for signs of previous OAuth token issuance or multi-geo IP behavior surrounding the device registration.",
+    "Investigate whether the device registered (under `azure.auditlogs.properties.target_resources`) corresponds to known or authorized endpoints. Devices with names like `DESKTOP-ATTACKER1` or unexpected OS versions may indicate rogue joins.",
+    "The source IP is likely to be Microsoft-managed infrastructure as requests are proxied through Azure services. Pivoting into which user principal the request is targeting and events leading up to the request may provide additional context."
+]
+mitre = [
+    "T1078.004",
+    "T1550.001",
+    "T1098.005",
+    "T1071.001",
+    "T1556.006",
+]
+references = ["https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/"]
+query = [
+'''
+FROM logs-azure.auditlogs* METADATA _id, _index
+
+// Only Microsoft Entra ID audit logs
+| WHERE event.dataset == "azure.auditlogs"
+
+// Identify logs with the known suspicious OData user agent
+    AND azure.auditlogs.properties.additional_details.value LIKE "Microsoft.OData.Client/*"
+    AND azure.auditlogs.identity != "Device Registration Service"
+
+// Extract time window for pattern analysis
+| EVAL time_window = DATE_TRUNC(1d, @timestamp)
+
+// Normalize actor: prefer user UPN if available, else fallback to app name
+| EVAL actor = COALESCE(
+    azure.auditlogs.properties.initiated_by.user.userPrincipalName,
+    azure.auditlogs.properties.initiated_by.app.displayName,
+    "unknown"
+)
+
+// Keep core fields
+| KEEP @timestamp, actor, source.ip, azure.auditlogs.operation_name, azure.auditlogs.properties.activity_display_name, azure.auditlogs.identity, azure.auditlogs.properties.tenantId, azure.auditlogs.properties.initiated_by.app.servicePrincipalId, azure.auditlogs.properties.category, azure.auditlogs.properties.additional_details.value, time_window
+
+// Group by actor per day
+| STATS
+    count = COUNT(),
+    unique_ips = COUNT_DISTINCT(source.ip),
+    operations = VALUES(azure.auditlogs.operation_name),
+    identities = VALUES(azure.auditlogs.identity),
+    ips = VALUES(source.ip),
+    categories = VALUES(azure.auditlogs.properties.category),
+    clients = VALUES(azure.auditlogs.properties.additional_details.value)
+  BY actor, time_window
+
+// Optional: prioritize less frequent actors
+| SORT count ASC
+'''
+]
