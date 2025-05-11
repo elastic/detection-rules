@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from dataclasses import is_dataclass, astuple
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pathlib import Path
 from typing import Dict, Union, Optional, Callable
 from string import Template
@@ -303,7 +303,7 @@ def unix_time_to_formatted(timestamp):  # type: (int|str) -> str
         if timestamp > 2 ** 32:
             timestamp = round(timestamp / 1000, 3)
 
-        return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 
 def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
