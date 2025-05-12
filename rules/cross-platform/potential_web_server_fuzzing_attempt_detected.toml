@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2025/05/12"
+integration = ["network_traffic", "azure", "apm", "apache", "cisco_ftd", "iis", "microsoft_exchange_server"]
+maturity = "development"
+updated_date = "2025/05/12"
+
+[rule]
+author = ["MakoWish"]
+description = "Identifies potentially-malicious fuzzing attempts against web servers based on anomalous patterns in HTTP requests. This may include high error rates or strange input patterns."
+false_positives = [
+    """
+    Vulnerability management solutions such as Tenable.IO or Rapid7's InsightVM may cause detections. If the source IP address is a trusted device, consider whitelisting the IP address in this rule's exceptions.
+    """,
+]
+from = "now-9m"
+index = ["logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Web Server Fuzzing Attempts Detected"
+references = ["https://owasp.org/www-community/Fuzzing"]
+risk_score = 73
+rule_id = "8121a3ce-e2c3-4c5d-a62c-16adb8cf0fd2"
+severity = "high"
+tags = [
+    "Domain: Network",
+    "OS: Windows",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: Network",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by source.ip, destination.ip with maxspan=30s
+  [ network where http.response.status_code in (400, 403, 404) ] with runs=10
+'''
+note = """## Investigation:
+
+Fuzzing in the context of HTTP enumerations is a security testing technique used to identify vulnerabilities, misconfigurations, or unexpected behavior in web applications or APIs. It involves sending a large volume of intentionally malformed, unexpected, or semi-random HTTP requests to a server to observe its responses. The goal is to uncover issues such as information leaks, unhandled exceptions, insecure endpoints, or injection vulnerabilities. This process helps testers understand how the application behaves under unusual or invalid inputs, improving security and robustness.
+
+### Step 1: Gather Initial Information
+
+1. Identify the Trigger Event:
+  * Obtain details of the alert from the security monitoring system (e.g., timestamp, source IP, target URL, alert type).
+  * Note the detection rule name or ID and its description.
+
+2. Review the Alert Context:
+  * Analyze the metadata provided by the alert, such as HTTP request headers, request body, and response status codes.
+  * Check for patterns indicative of fuzzing, such as unusual or repeated requests.
+
+3. Validate the Source:
+  * Confirm the originating IP address or user agent.
+  * Check if the IP is internal, external, or belongs to known testing tools.
+
+### Step 2: Analyze Web Server Logs
+
+1. Collect Logs:
+  * Extract web server logs corresponding to the alert’s timeframe.
+  * Include access logs, error logs, and application-specific logs.
+
+2. Look for Fuzzing Indicators:
+  * High frequency of requests within a short timeframe.
+  * Requests with unusual payloads (e.g., long strings, special characters, SQL-like patterns).
+  * Sequential or dictionary-based attempts (e.g., “admin”, “test”, “index.php”).
+
+3. Check HTTP Methods and Status Codes:
+  * Multiple unusual methods (e.g., PUT, DELETE) or a mix of common ones (e.g., GET, POST) in rapid succession.
+  * A high rate of 4xx or 5xx responses.
+
+### Step 3: Evaluate the Detection Rule
+
+1. Understand Rule Logic:
+  * Examine the rule’s conditions and thresholds (e.g., number of requests, payload content).
+  * Determine if it’s configured to detect specific tools or payloads (e.g., OWASP ZAP, Burp Suite).
+
+2. Cross-Reference Alerts:
+  * Check if similar alerts occurred around the same time.
+  * Identify patterns across multiple detection systems (e.g., WAF, IDS/IPS).
+
+### Step 4: Correlate with Other Data Sources
+
+1. Inspect Application Logs:
+  * Look for corresponding errors or exceptions in the application’s logs.
+  * Verify if payloads caused crashes, slowdowns, or abnormal behavior.
+
+2. Review Network Traffic:
+  * Analyze network logs or packet captures to confirm the scope of the activity.
+  * Check for anomalies in source IPs, request size, or frequency.
+
+3. Examine User Behavior:
+  * Determine if the source IP matches legitimate users or automated systems.
+  * Look for session identifiers or user agents tied to known fuzzing tools.
+
+### Step 5: Validate and Mitigate
+
+1. Validate the Alert:
+  * Confirm if the activity aligns with known fuzzing signatures or legitimate testing.
+  * If false positives are suspected, refine detection rule thresholds.
+
+2. Mitigation Steps:
+  * Block or rate-limit suspicious IPs.
+  * Enhance security configurations (e.g., WAF rules, API rate limiting).
+  * Inform stakeholders if malicious intent is confirmed.
+
+3. Document Findings:
+  * Record the investigation steps, findings, and actions taken.
+  * Update detection rules to reduce false positives or improve accuracy.
+
+### Step 6: Continuous Improvement
+
+1. Update Threat Models:
+  * Adjust threat models to incorporate new patterns or tools identified during the investigation.
+
+2. Enhance Logging and Detection:
+  * Ensure comprehensive logging for future investigations.
+  * Create or refine detection rules based on identified gaps.
+
+3. Educate Teams:
+  * Share insights with the security team to enhance awareness and preparedness.
+
+By following this guide, you can systematically investigate whether a security detection rule triggered for fuzzing and take appropriate action to mitigate risks and improve defenses."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Security Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
