@@ -37,6 +37,7 @@ Here are the queries currently available:
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
 - [Azure Entra Unusual Failed Authentication Attempts Behind Rare User Agents](./azure/docs/entra_authentication_attempts_behind_rare_user_agents.md) (ES|QL)
 - [Microsoft Entra ID Credentials Added to Rare Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
+- [Microsoft Entra Infrequent Suspicious OData Client Requests](./azure/docs/entra_suspicious_odata_client_requests.md) (ES|QL)
 
 
 ## linux
