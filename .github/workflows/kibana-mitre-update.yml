@@ -30,17 +30,11 @@ jobs:
       
       - name: Add Issue Kibana Issue Comment
         run: |
-            comment_body=$(printf "%s\n" "${comment_template[@]}")
-            echo "Comment body: $comment_body"
             echo "Adding comment to Kibana issue #166152"
             curl -L \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
             https://api.github.com/repos/elastic/kibana/issues/166152/comments \
-            -d '{"body":"### Update MITRE ATT&CK to ${{ steps.extract_version.outputs.version }} \n\n \
-            The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }}.\n \
-            Please update the MITRE ATT&CK version in Kibana accordingly.\n \
-            FYI to help in scheduling the work : @banderror @approksiu. \n \
-            cc @elastic/threat-research-and-detection-engineering"}'
+            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }}. Please in scheduling the MITRE ATT&CK version in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
