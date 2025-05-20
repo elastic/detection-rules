@@ -2,7 +2,8 @@ name: Check MITRE ATT&CK Version Updates Are Synced
 
 on:
   pull_request:
-    branches: [ "*" ]
+    types:
+      - opened
     paths:
       - 'detection_rules/etc/attack-v*.json.gz'
 
@@ -36,5 +37,5 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
             https://api.github.com/repos/elastic/kibana/issues/166152/comments \
-            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }}. Please in scheduling the MITRE ATT&CK version in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
+            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
