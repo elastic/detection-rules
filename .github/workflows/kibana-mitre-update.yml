@@ -29,7 +29,7 @@ jobs:
           VERSION=$(echo $ADDED_FILE[0] | grep -o 'v[^json]*')
           echo "::set-output name=version::$VERSION"
       
-      - name: Add Issue Kibana Issue Comment
+      - name: Add Kibana Issue Comment
         run: |
             echo "Adding comment to Kibana issue #166152"
             curl -L \
@@ -37,5 +37,5 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
             https://api.github.com/repos/elastic/kibana/issues/166152/comments \
-            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
+            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
