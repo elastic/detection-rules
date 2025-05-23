@@ -7,7 +7,11 @@ updated_date = "2025/05/22"
 [rule]
 author = ["Elastic", "Jamie Lee"]
 description = """
-Identifies when a user creates a new inbox rule in Microsoft 365 that deletes or moves emails containing suspicious keywords. Adversaries who have compromised accounts often create inbox rules to hide alerts, security notifications, or other sensitive messages by automatically deleting them or moving them to obscure folders. Common destinations include Deleted Items, Junk Email, RSS Feeds, and RSS Subscriptions. This is a New Terms rule that triggers only when the user principal name and associated source IP address have not been observed performing this activity in the past 14 days.
+Identifies when a user creates a new inbox rule in Microsoft 365 that deletes or moves emails containing suspicious
+keywords. Adversaries who have compromised accounts often create inbox rules to hide alerts, security notifications, or
+other sensitive messages by automatically deleting them or moving them to obscure folders. Common destinations include
+Deleted Items, Junk Email, RSS Feeds, and RSS Subscriptions. This is a New Terms rule that triggers only when the user
+principal name and associated source IP address have not been observed performing this activity in the past 14 days.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-o365.audit-*"]
@@ -60,7 +64,7 @@ This is a new terms rule that alerts only when the combination of `user.id` and 
 references = [
     "https://learn.microsoft.com/en-us/defender-office-365/detect-and-remediate-outlook-rules-forms-attack",
     "https://learn.microsoft.com/en-us/defender-xdr/alert-grading-playbook-inbox-manipulation-rules",
-    "https://blog.barracuda.com/2023/09/20/threat-spotlight-attackers-inbox-rules-evade-detection"
+    "https://blog.barracuda.com/2023/09/20/threat-spotlight-attackers-inbox-rules-evade-detection",
 ]
 risk_score = 47
 rule_id = "40fe11c2-376e-11f0-9a82-f661ea17fbcd"
@@ -100,10 +104,9 @@ event.dataset: "o365.audit" and
     ) and (
     o365.audit.Parameters.DeleteMessage: True or
     o365.audit.Parameters.MoveToFolder: (
-        *Deleted Items* or
-        *Junk Email* or
-        *RSS Feeds* or
-        *RSS Subscriptions*
+        *Deleted* or
+        *Junk* or
+        *RSS*
     )
 )
 '''
@@ -129,7 +132,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.id","source.ip"]
+value = ["user.id", "source.ip"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
