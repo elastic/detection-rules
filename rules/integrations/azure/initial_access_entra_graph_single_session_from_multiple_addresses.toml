@@ -1,0 +1,173 @@
+[metadata]
+creation_date = "2025/05/08"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
+min_stack_version = "8.17.0"
+updated_date = "2025/05/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential session hijacking or token replay in Microsoft Entra ID. This rule detects cases where a user signs
+in and subsequently accesses Microsoft Graph from a different IP address using the same session ID within a short time
+window. This may indicate the use of a stolen refresh/access token or session cookie to impersonate the user and
+interact with Microsoft services.
+"""
+false_positives = [
+    """
+    This pattern may occur during legitimate device switching or roaming between networks (e.g., corporate to mobile).
+    Developers or power users leveraging multiple environments may also trigger this detection if session persistence
+    spans IP ranges. Still, this behavior is rare and warrants investigation when rapid IP switching and Graph access
+    are involved.
+    """,
+]
+from = "now-1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Session Reuse with Suspicious Graph Access"
+note = """## Triage and analysis
+
+### Investigating Microsoft Entra ID Session Reuse with Suspicious Graph Access
+
+This rule identifies when Microsoft Graph is accessed from a different IP than the one used for the original sign-in,
+but using the same session ID within 5 minutes. This may suggest an adversary has stolen a session cookie or refresh/access
+token and is impersonating the user from an alternate host or location.
+
+This rule uses ES|QL aggregations and thus has dynamically generated fields. Correlation of the values in the alert document may need to be
+performed to the original sign-in and Graph events for further context.
+
+### Investigation Steps
+
+- Review the `user_id`, `session_id`, and `source_ip_list`. Confirm whether both IPs belong to the same user and geography.
+- Check for inconsistencies in `client_id_list` (e.g., unknown apps) or user agents across correlated events.
+- Investigate recent phishing reports or device infections for the `user_id`.
+- Pivot to Entra ID `auditlogs` to see if a device was registered or privileges were modified.
+- Review `graph_time` to determine what action was taken after the sign-in.
+- Use the `session_id` to correlate with other logs in the same time window to identify any additional suspicious activity.
+
+### False Positive Analysis
+- This pattern may occur if the user is switching between networks (e.g., corporate to mobile) or using a VPN.
+- Developers or power users leveraging multiple environments may also trigger this detection if session persistence spans IP ranges.
+- However, this behavior is rare and warrants investigation when rapid IP switching and Graph access are involved.
+- If the user is a developer or automation engineer, validate if this behavior was for testing purposes.
+- If the user is a system administrator, validate if this behavior was for administrative purposes.
+
+### Response Recommendations
+
+- If confirmed malicious, revoke all refresh/access tokens for the `user_id`.
+- Block the source IP(s) involved in the Graph access.
+- Notify the user and reset credentials.
+- Review session control policies and conditional access enforcement.
+- Monitor for follow-on activity, such as lateral movement or privilege escalation.
+- Review conditional access policies to ensure they are enforced correctly.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://attack.mitre.org/techniques/T1078/004/",
+]
+risk_score = 73
+rule_id = "0d3d2254-2b4a-11f0-a019-f661ea17fbcc"
+setup = """#### Required Microsoft Entra ID Sign-In and Graph Activity Logs
+This rule requires the Microsoft Entra ID Sign-In Logs and Microsoft Graph Activity Logs integration to be enabled and configured to collect audit and activity logs via Azure Event Hub.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Data Source: Microsoft Graph",
+    "Data Source: Microsoft Graph Activity Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.*
+| WHERE
+    (event.dataset == "azure.signinlogs" AND source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK" AND azure.signinlogs.properties.session_id IS NOT NULL)
+    OR
+    (event.dataset == "azure.graphactivitylogs" AND source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK" AND azure.graphactivitylogs.properties.c_sid IS NOT NULL)
+| EVAL
+    session_id = COALESCE(azure.signinlogs.properties.session_id, azure.graphactivitylogs.properties.c_sid),
+    user_id = COALESCE(azure.signinlogs.properties.user_id, azure.graphactivitylogs.properties.user_principal_object_id),
+    client_id = COALESCE(azure.signinlogs.properties.app_id, azure.graphactivitylogs.properties.app_id),
+    source_ip = source.ip,
+    event_time = @timestamp,
+    event_type = CASE(
+        event.dataset == "azure.signinlogs", "signin",
+        event.dataset == "azure.graphactivitylogs", "graph",
+        "other"
+    ),
+    time_window = DATE_TRUNC(5 minutes, @timestamp)
+| KEEP session_id, source_ip, event_time, event_type, time_window, user_id, client_id
+| STATS
+    user_id = VALUES(user_id),
+    session_id = VALUES(session_id),
+    source_ip_list = VALUES(source_ip),
+    source_ip_count = COUNT_DISTINCT(source_ip),
+    client_id_list = VALUES(client_id),
+    application_count = COUNT_DISTINCT(client_id),
+    event_type_list = VALUES(event_type),
+    event_type_count = COUNT_DISTINCT(event_type),
+    event_start = MIN(event_time),
+    event_end = MAX(event_time),
+    signin_time = MIN(CASE(event_type == "signin", event_time, NULL)),
+    graph_time = MIN(CASE(event_type == "graph", event_time, NULL)),
+    document_count = COUNT()
+  BY session_id, time_window
+| EVAL
+    duration_minutes = DATE_DIFF("minutes", event_start, event_end),
+    signin_to_graph_delay_minutes = DATE_DIFF("minutes", signin_time, graph_time)
+| WHERE
+    event_type_count > 1 AND
+    source_ip_count > 1 AND
+    duration_minutes <= 5 AND
+    signin_time IS NOT NULL AND
+    graph_time IS NOT NULL AND
+    signin_to_graph_delay_minutes >= 0
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

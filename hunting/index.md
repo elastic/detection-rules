@@ -36,6 +36,8 @@ Here are the queries currently available:
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
 - [Azure Entra Unusual Failed Authentication Attempts Behind Rare User Agents](./azure/docs/entra_authentication_attempts_behind_rare_user_agents.md) (ES|QL)
+- [Microsoft Entra ID Credentials Added to Rare Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
+- [Microsoft Entra Infrequent Suspicious OData Client Requests](./azure/docs/entra_suspicious_odata_client_requests.md) (ES|QL)
 
 
 ## linux
@@ -93,7 +95,18 @@ Here are the queries currently available:
 
 ## macos
 - [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./macos/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
+- [Potential Python Stealer Activity](./macos/docs/credential_access_potential_python_stealer.md) (ES|QL)
+- [Python Library Load and Delete](./macos/docs/defense_evasion_python_library_load_and_delete.md) (ES|QL)
+- [Python Script Drop and Execute](./macos/docs/execution_python_script_drop_and_execute.md) (ES|QL)
+- [Self-Deleted Python Script Accessing Sensitive Files](./macos/docs/defense_evasion_self_deleted_python_script_accessing_sensitive_files.md) (ES|QL)
+- [Self-Deleting Python Script](./macos/docs/defense_evasion_self_deleting_python_script.md) (ES|QL)
+- [Sensitive File Access via Docker](./macos/docs/execution_suspicious_file_access_via_docker.md) (ES|QL)
+- [Suspicious Executable File Modification via Docker](./macos/docs/execution_suspicious_executable_file_modification_via_docker.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
+- [Suspicious Python App Execution via Streamlit](./macos/docs/execution_suspicious_python_app_execution_via_streamlit.md) (ES|QL)
+- [Unsigned or Untrusted Binary Execution via Python](./macos/docs/execution_unsigned_or_untrusted_binary_execution_via_python.md) (ES|QL)
+- [Unsigned or Untrusted Binary Forked by Python](./macos/docs/execution_unsigned_or_untrusted_binary_fork_via_python.md) (ES|QL)
+- [Unusual Library Load via Python](./macos/docs/execution_unusual_library_load_via_python.md) (ES|QL)
 
 
 ## okta

@@ -421,9 +421,3 @@ def index_repo(ctx: click.Context, query, from_file, save_files):
         bulk_upload_docs, importable_rules_docs = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
 
     es_client.bulk(bulk_upload_docs)
-
-
-@es_group.group('experimental')
-def es_experimental():
-    """[Experimental] helper commands for integrating with Elasticsearch."""
-    click.secho('\n* experimental commands are use at your own risk and may change without warning *\n')

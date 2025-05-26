@@ -2,7 +2,7 @@
 creation_date = "2020/01/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -62,9 +62,9 @@ type = "eql"
 query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and
   (
-    (process.name : "networksetup" and process.args : "-connectpppoeservice") or
-    (process.name : "scutil" and process.args : "--nc" and process.args : "start") or
-    (process.name : "osascript" and process.command_line : "osascript*set VPN to service*")
+    (process.name == "networksetup" and process.args like~ "-connectpppoeservice") or
+    (process.name == "scutil" and process.args like~ "--nc" and process.args like~ "start") or
+    (process.name == "osascript" and process.command_line : "osascript*set VPN to service*")
   )
 '''
 note = """## Triage and analysis

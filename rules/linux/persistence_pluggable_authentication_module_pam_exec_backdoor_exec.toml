@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2025/04/29"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects SSH session ID change followed by a suspicious SSHD child process, this may
+indicate the successful execution of a potentially malicious process through the Pluggable
+Authentication Module (PAM) utility. PAM is a framework used by Linux systems to authenticate
+users. Adversaries may create malicious PAM modules that grant them persistence onto the
+target every time a user logs in by executing a backdoor script or command.
+"""
+false_positives = [
+    "Trusted system module updates or allowed Pluggable Authentication Module (PAM) daemon configuration changes.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Backdoor Execution Through PAM_EXEC"
+references = [
+    "https://www.elastic.co/security-labs/approaching-the-summit-on-persistence",
+    "https://www.group-ib.com/blog/pluggable-authentication-module/",
+]
+risk_score = 47
+rule_id = "96f29282-ffcc-4ce7-834b-b17aee905568"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=3s
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "session_id_change" and process.name in ("ssh", "sshd")]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name in ("ssh", "sshd") and
+   process.args_count == 2 and (
+     process.name like ("perl*", "python*", "php*", "ruby*", "lua*") or
+     process.executable like (
+       "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/boot/*", "/sys/*", "/lost+found/*", "/media/*", "/proc/*",
+       "/var/backups/*", "/var/log/*", "/var/mail/*", "/var/spool/*") or
+     process.name like ".*"
+   )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

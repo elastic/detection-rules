@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of unusual commands via a descendant process of exim4. Attackers may use descendant
+processes of exim4 to evade detection and establish persistence or execute post-exploitation commands on a target system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Exim4 Child Process"
+references = [
+  "https://www.qualys.com/2021/05/04/21nails/21nails.txt",
+  "https://blog.qualys.com/vulnerabilities-threat-research/2021/05/04/21nails-multiple-vulnerabilities-in-exim-mail-server"
+]
+risk_score = 21
+rule_id = "6eb862bb-013d-4d4f-a14b-341433ca1a1f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.type:start and event.action:exec and process.parent.name:exim4 and
+not process.name:(
+  exim4 or start-stop-daemon or run-parts or systemctl or update-exim4.conf or install or plymouth or
+  readlink or grep or stat or cmake or gcc or cppcheck or sort or sshd
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2021/05/17"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/05/07"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies the assignment of rights to access content from another mailbox. An adversary may use the compromised account
+to send messages to other accounts in the network of the target organization while creating inbox rules, so messages can
+evade spam/phishing detection mechanisms.
+"""
+false_positives = [
+    "Assignment of rights to a service account.",
+    "Delegation by first-party applications that require mailbox access."
+]
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious Mailbox Permission Delegation in Exchange Online"
+note = """## Triage and Analysis
+
+### Investigating Suspicious Mailbox Permission Delegation in Exchange Online
+
+This rule detects the delegation of mailbox permissions in Microsoft 365 Exchange. This behavior may indicate that an adversary is attempting to gain access to another user's mailbox or send messages on behalf of that user.
+
+### Possible Investigation Steps
+- `user.id` and `o365.audit.Parameters.Identity`: Determine which account was delegated access and which account performed the delegation. Review both for unusual activity.
+- `event.action`: Indicates the type of permission granted. Review which delegation action was taken.
+- `o365.audit.Parameters.AccessRights` or `GrantSendOnBehalfTo`: Confirm the exact permission granted.
+- `@timestamp` and `event.ingested`: Review the timing of the delegation and whether it aligns with user activity or known business events.
+- `source.ip` and `source.geo`: Validate that the source IP and location are expected for the admin or account performing the action.
+- `user_agent.original`: If present, review to identify any automation, script, or unexpected interface used to assign the permissions.
+
+#### FullAccess (`Add-MailboxPermission`)
+- `o365.audit.Parameters.Identity`: The mailbox being accessed.
+- `o365.audit.Parameters.User`: The user granted FullAccess.
+- Review for subsequent mailbox logins or message rules created by the grantee.
+
+#### SendAs (`Add-RecipientPermission`)
+- `o365.audit.Parameters.Identity`: The account the grantee is allowed to impersonate.
+- `o365.audit.Parameters.Trustee`: The user who was granted the ability to send as the identity.
+- Search for recent messages sent "as" the identity and validate whether the activity was legitimate.
+
+#### SendOnBehalf (`Set-Mailbox`)
+- `o365.audit.Parameters.GrantSendOnBehalfTo`: The user allowed to send on behalf of the mailbox owner.
+- Check for outbound emails or meeting requests with "on behalf of" headers.
+
+### False Positive Analysis
+
+- Delegation to Assistants: Executive or admin assistants often receive FullAccess or SendOnBehalf permissions.
+- Shared Mailboxes: Teams or departments may share access to mailboxes for operational efficiency.
+- Automated Admin Actions: System or service accounts may perform these actions as part of onboarding or automation.
+- Project-Based Access: Temporary access granted for short-term collaboration.
+- Maintain an allowlist of known delegation relationships.
+
+### Response and Remediation
+
+If the delegation is determined to be unauthorized or suspicious:
+
+- Revoke the delegated permissions immediately to prevent further access.
+- Reset credentials for the impacted accounts if compromise is suspected.
+- Review mailbox rules and sent items to detect abuse.
+- Alert impacted users and advise on suspicious activity to watch for.
+- Audit audit logs around the delegation for additional attacker actions (e.g., MFA disablement, mailbox rule creation, login from foreign IPs).
+- Review conditional access, role-based access control, and app permissions to reduce the attack surface.
+- Harden delegation policies by requiring approvals, limiting delegation to specific groups, or implementing Just-in-Time (JIT) access for mailboxes.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/microsoft-365/admin/add-users/give-mailbox-permissions-to-another-user?view=o365-worldwide"
+]
+risk_score = 21
+rule_id = "0ce6487d-8069-4888-9ddd-61b52490cebc"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft Exchange",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Configuration Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "o365.audit" and
+event.provider: "Exchange" and
+event.outcome: "success" and
+not o365.audit.UserType : (3 or 4) and
+(
+    (event.action: "Add-MailboxPermission" and o365.audit.Parameters.AccessRights: "FullAccess") or
+    (event.action: "Add-RecipientPermission" and o365.audit.Parameters.AccessRights: "SendAs") or
+    (event.action: "Set-Mailbox" and o365.audit.Parameters.GrantSendOnBehalfTo: *)
+) and
+not user.id:(
+    "NT AUTHORITY\SYSTEM (Microsoft.Exchange.ServiceHost)" or
+    "NT AUTHORITY\SYSTEM (Microsoft.Exchange.AdminApi.NetCore)" or
+    "NT AUTHORITY\SYSTEM (w3wp)"
+    )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "o365.audit.ObjectId",
+    "o365.audit.Parameters.Identity",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.002"
+name = "Additional Email Delegate Permissions"
+reference = "https://attack.mitre.org/techniques/T1098/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

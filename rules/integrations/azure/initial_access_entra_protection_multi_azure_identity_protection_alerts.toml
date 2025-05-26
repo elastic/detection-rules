@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies more than two Microsoft Entra ID Protection alerts associated to the user principal in a short time period.
+Microsoft Entra ID Protection alerts are triggered by suspicious sign-in activity, such as anomalous IP addresses, risky
+sign-ins, or other risk detections. Multiple alerts in a short time frame may indicate an ongoing attack or compromised
+account.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.identity_protection-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Multiple Microsoft Entra ID Protection Alerts by User Principal"
+note = """## Triage and analysis
+
+### Investigating Multiple Microsoft Entra ID Protection Alerts by User Principal
+
+#### Possible investigation steps
+- Identify the Risk Detection that triggered the event. A list with descriptions can be found [here](https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/concept-identity-protection-risks#risk-types-and-detection).
+- Identify the user account involved and validate whether the suspicious activity is normal for that user.
+  - Consider the source IP address and geolocation for the involved user account. Do they look normal?
+  - Consider the device used to sign in. Is it registered and compliant?
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Check if this operation was approved and performed according to the organization's change management policy.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+
+### False positive analysis
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and device conditions.
+- Consider the context of the user account and whether the activity is expected. For example, if the user is a developer or administrator, they may have legitimate reasons for accessing resources from various locations or devices.
+
+### Response and remediation
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
+- Follow security best practices [outlined](https://docs.microsoft.com/en-us/azure/security/fundamentals/identity-management-best-practices) by Microsoft.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
+    "https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/overview-identity-protection",
+    "https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-investigate-risk",
+    "https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-investigate-risk#investigation-framework",
+]
+risk_score = 73
+rule_id = "bcf0e362-0a2f-4f5e-9dd8-0d34f901781f"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Protection Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by azure.identityprotection.properties.user_principal_name with maxspan=10m
+[any where event.module == "azure" and event.dataset == "azure.identity_protection"] with runs=2
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

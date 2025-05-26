@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -62,26 +62,10 @@ type = "eql"
 
 query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and
-  process.parent.name : ("Google Chrome", "Google Chrome Helper*", "firefox", "Opera", "Safari", "com.apple.WebKit.WebContent", "Microsoft Edge") and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget", "python*", "perl*", "php*", "osascript", "pwsh") and
-  process.command_line != null and
-  not process.command_line : "*/Library/Application Support/Microsoft/MAU*/Microsoft AutoUpdate.app/Contents/MacOS/msupdate*" and
-  not process.args :
-    (
-      "hw.model",
-      "IOPlatformExpertDevice",
-      "/Volumes/Google Chrome/Google Chrome.app/Contents/Frameworks/*/Resources/install.sh",
-      "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/*/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)",
-      "/Applications/Firefox.app/Contents/MacOS/plugin-container.app/Contents/MacOS/plugin-container",
-      "--defaults-torrc",
-      "*Chrome.app",
-      "Framework.framework/Versions/*/Resources/keystone_promote_preflight.sh",
-      "/Users/*/Library/Application Support/Google/Chrome/recovery/*/ChromeRecovery",
-      "$DISPLAY",
-      "*GIO_LAUNCHED_DESKTOP_FILE_PID=$$*",
-      "/opt/homebrew/*",
-      "/usr/local/*brew*"
-    )
+  process.parent.name like~ ("Google Chrome", "Google Chrome Helper*", "firefox", "Opera", "Safari", "com.apple.WebKit.WebContent", "Microsoft Edge") and
+  ((process.name like~ ("sh", "bash", "dash", "ksh", "tcsh", "zsh") and process.command_line : ("*curl*", "*nscurl*", "*wget*", "*whoami*", "*pwd*")) or
+  process.name like~ ("curl", "wget", "python*", "perl*", "php*", "osascript", "pwsh")) and
+  process.command_line != null
 '''
 note = """## Triage and analysis
 

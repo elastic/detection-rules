@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,13 +61,13 @@ type = "eql"
 
 query = '''
 file where event.action == "extended_attributes_delete" and host.os.type == "macos" and process.executable != null and
-(process.code_signature.trusted == false or process.code_signature.exists == false) and not
-process.executable : ("/usr/bin/xattr",
-                      "/System/*",
-                      "/private/tmp/KSInstallAction.*/*/Install Google Software Update.app/Contents/Helpers/ksinstall",
-                      "/Applications/CEWE Fotoschau.app/Contents/MacOS/FotoPlus",
-                      "/Applications/.com.bomgar.scc.*/Remote Support Customer Client.app/Contents/MacOS/sdcust") and not
-file.path : "/private/var/folders/*"
+ (process.code_signature.trusted == false or process.code_signature.exists == false) and 
+ not process.executable like ("/usr/bin/xattr",
+                              "/System/*",
+                              "/private/tmp/KSInstallAction.*/*/Install Google Software Update.app/Contents/Helpers/ksinstall",
+                              "/Applications/CEWE Fotoschau.app/Contents/MacOS/FotoPlus",
+                              "/Applications/.com.bomgar.scc.*/Remote Support Customer Client.app/Contents/MacOS/sdcust") and 
+ not file.path like "/private/var/folders/*"
 '''
 note = """## Triage and analysis
 

@@ -1,0 +1,45 @@
+# Suspicious Executable File Modification via Docker
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** Detects when Docker or Docker Desktop processes modify executable files within user-accessible or temporary directories. These locations are commonly used by attackers to stage payloads or drop binaries during post-exploitation activity.
+
+- **UUID:** `f5b1afc4-207c-11f0-aa05-f661ea17fbcd`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[EQL]`
+- **Source File:** [Suspicious Executable File Modification via Docker](../queries/execution_suspicious_executable_file_modification_via_docker.toml)
+
+## Query
+
+```sql
+file where event.action == "modification" and
+  (process.name in ("docker", "Docker Desktop") or process.name like "com.docker*") and
+  file.Ext.header_bytes like~ ("cffaedfe*", "cafebabe*") and
+  file.path like ("/tmp/*", "/private/tmp/*", "/Users/Shared/*", "/Users/*/Public/*", "/Users/*/Downloads/*", "/Users/*/Desktop/*", "/Users/*/Documents/*")
+```
+
+## Notes
+
+- Executable file writes from Docker processes in user or temp directories are suspicious in most environments.
+- This behavior may indicate container escape attempts, tool staging, or post-exploitation binary drops.
+- The header byte patterns 'cffaedfe' (Mach-O) and 'cafebabe' (Java class files) help identify actual executables being written.
+
+## MITRE ATT&CK Techniques
+
+- [T1105](https://attack.mitre.org/techniques/T1105)
+- [T1204.002](https://attack.mitre.org/techniques/T1204/002)
+
+## References
+
+- https://www.elastic.co/security-labs/dprk-code-of-conduct
+- https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/
+- https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34
+- https://x.com/safe/status/1897663514975649938
+- https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/
+
+## License
+
+- `Elastic License v2`

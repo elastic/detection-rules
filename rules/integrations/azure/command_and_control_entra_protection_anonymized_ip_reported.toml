@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2025/04/29"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/04/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Microsoft Entra ID Protection risk detections triggered due to sign-in activity from anonymized IP addresses,
+which is often associated with Tor exit nodes, proxies, or anonymizing VPNs. This behavior may indicate evasion tactics
+or account compromise activity.
+"""
+false_positives = [
+    """
+    Users connecting from privacy-focused browsers or corporate VPNs with anonymization may trigger this event.
+    Validate geographic and user-agent patterns for legitimacy.
+    """
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.identity_protection-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Protection Anonymized IP Risk Detection"
+note = """## Triage and analysis
+
+### Investigating Microsoft Entra ID Protection Anonymized IP Risk Detection
+
+This rule identifies cases where Microsoft Entra ID (formerly Azure AD) detects sign-in activity from anonymized IP addresses,
+often triggered when a user connects via a Tor exit node, privacy VPN, or proxy service.
+
+### Possible Investigation Steps:
+
+Review the following fields for context and threat validation:
+
+- `source.ip`: Investigate if the IP is tied to anonymizers (VPNs, proxies, Tor). Check threat intel feeds or proxy/firewall logs to assess reputation. Pivot on this IP to see if it appears in other Azure logs across users.
+- `source.geo.*`: Evaluate the geolocation (city, country, coordinates) of the sign-in. Compare this with known user locations or expected travel patterns.
+- `azure.identityprotection.properties.user_principal_name`: The affected user. Correlate with recent changes in login behavior, app access, or device registration. Review audit logs or recent sign-ins for anomalies.
+- `azure.identityprotection.properties.risk_event_type`: Confirms the type of detection (`anonymizedIPAddress`). Use this to correlate across similar risk types for the same or other users.
+- `azure.identityprotection.properties.additional_info`: This often includes the user agent used in the sign-in (`userAgent`). Investigate automation indicators such as `python-requests`, curl, or scripts.
+- `user_agent.original`: Identify if the user agent string is consistent with the user’s typical environment or tools. Look for anomalies suggesting programmatic access.
+- `azure.identityprotection.properties.risk_level`, `risk_detail`, and `risk_state`: Help gauge severity and whether automated remediation (like MFA enforcement) succeeded.
+- `@timestamp` and `event.ingested`: Validate when the detection occurred versus when it was ingested, which helps determine freshness and accuracy of the event.
+- `azure.signinlogs` for the same user or IP to confirm whether sign-ins occurred with that IP around the same time.
+- `azure.auditlogs` for recent changes to MFA settings, Conditional Access policies, or service principal activity.
+- Identity Protection logs for the same risk type across users to check if this is isolated or part of a larger campaign.
+
+### False Positive Analysis
+
+- Anonymized access may occur in environments where privacy tools are permitted (e.g., journalists, remote contractors).
+- Developers or testers using automation from cloud IPs or headless clients may trigger this.
+- Risk state `remediated` might indicate policy-enforced MFA was effective—verify if it aligns with normal activity.
+
+### Response and Remediation
+
+- If the sign-in is unauthorized, immediately reset the user’s password and revoke refresh tokens.
+- Notify the user and confirm whether the login was expected.
+- If legitimate, consider excluding specific known anonymized infrastructure from risk detection.
+- Review Conditional Access policies to enforce stricter controls on anonymized IP usage.
+- Monitor for additional risky sign-ins or device registration events tied to the user.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 73
+rule_id = "064a2e08-25da-11f0-b1f1-f661ea17fbcd"
+setup = """#### Required Microsoft Entra ID Protection Logs
+To use this rule, ensure that Microsoft Entra ID Protection logs are being collected and streamed into the Elastic Stack via the Azure integration.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "azure.identity_protection"
+    and event.action: "User Risk Detection"
+    and azure.identityprotection.properties.risk_event_type: "anonymizedIPAddress"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

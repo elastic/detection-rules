@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2025/05/01"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/05/01"
+min_stack_version = "8.17.0"
+min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies sign-ins on behalf of a principal user to the Microsoft Graph API from multiple IPs using the Microsoft
+Authentication Broker or Visual Studio Code application. This behavior may indicate an adversary using a phished OAuth
+refresh token.
+"""
+from = "now-1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious Microsoft 365 UserLoggedIn via OAuth Code"
+note = """## Triage and analysis
+
+### Investigating Suspicious Microsoft 365 UserLoggedIn via OAuth Code
+
+### Possible Investigation Steps:
+
+- `o365.audit.UserId`: The identity value the application is acting on behalf of principal user.
+- `unique_ips`: Analyze the list of unique IP addresses used within the 30-minute window. Determine whether these originate from different geographic regions, cloud providers, or anonymizing infrastructure (e.g., Tor or VPNs).
+- `target_time_window`: Use the truncated time window to pivot into raw events to reconstruct the full sequence of resource access events, including exact timestamps and service targets.
+- `azure.auditlogs` to check for device join or registration events around the same timeframe.
+- `azure.identityprotection` to identify correlated risk detections, such as anonymized IP access or token replay.
+- Any additional sign-ins from the `ips` involved, even outside the broker, to determine if tokens have been reused elsewhere.
+
+### False Positive Analysis
+
+- Developers or IT administrators working across environments may also produce similar behavior.
+
+### Response and Remediation
+
+- If confirmed unauthorized, revoke all refresh tokens for the affected user and remove any devices registered during this session.
+- Notify the user and determine whether the device join or authentication activity was expected.
+- Audit Conditional Access and broker permissions (`29d9ed98-a469-4536-ade2-f981bc1d605e`) to ensure policies enforce strict access controls.
+- Consider blocking token-based reauthentication to Microsoft Graph and DRS from suspicious locations or user agents.
+- Continue monitoring for follow-on activity like lateral movement or privilege escalation.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 73
+rule_id = "36188365-f88f-4f70-8c1d-0b9554186b9c"
+setup = """## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-o365.audit-default*
+| WHERE event.dataset == "o365.audit" and event.action == "UserLoggedIn" and
+  source.ip is not null and o365.audit.UserId is not null and o365.audit.ApplicationId is not null and o365.audit.UserType in ("0", "2", "3", "10") and 
+
+  // filter for successful logon to Microsoft Graph and from the Microsoft Authentication Broker or Visual Studio Code
+  o365.audit.ApplicationId in ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") and
+  o365.audit.ObjectId in ("00000003-0000-0000-c000-000000000000")
+
+// keep relevant fields only
+| keep @timestamp, o365.audit.UserId, source.ip, o365.audit.ApplicationId, o365.audit.ObjectId, o365.audit.ExtendedProperties.RequestType, source.as.organization.name, o365.audit.ExtendedProperties.ResultStatusDetail
+
+// case statements to track which are OAuth2 authorization request via redirect and which are related to OAuth2 code to token conversion
+| eval oauth_authorize = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect", o365.audit.UserId, null), oauth_token = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Token", o365.audit.UserId, null)
+
+// split time to 30 minutes intervals
+| eval target_time_window = DATE_TRUNC(30 minutes, @timestamp)
+
+// aggregate by principal, applicationId, objectId and time window
+| stats unique_ips = COUNT_DISTINCT(source.ip), source_ips = VALUES(source.ip), appIds = VALUES(o365.audit.ApplicationId), asn = values(`source.as.organization.name`), is_oauth_token = COUNT_DISTINCT(oauth_token), is_oauth_authorize = COUNT_DISTINCT(oauth_authorize) by o365.audit.UserId, target_time_window, o365.audit.ApplicationId, o365.audit.ObjectId
+
+// filter for cases where the same appId is used by the same principal user to access the same object and from multiple addresses via OAuth2 token
+| where unique_ips >= 2 and is_oauth_authorize > 0 and is_oauth_token > 0
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

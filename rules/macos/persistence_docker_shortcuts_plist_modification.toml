@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ application instead of the intended one when invoked.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Docker Shortcut Modification"
 references = [
@@ -55,13 +55,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and host.os.type:macos and event.action:modification and
- file.path:/Users/*/Library/Preferences/com.apple.dock.plist and
- not process.name:(xpcproxy or cfprefsd or plutil or jamf or PlistBuddy or InstallerRemotePluginService) and
- not process.executable:(/Library/Addigy/download-cache/* or "/Library/Kandji/Kandji Agent.app/Contents/MacOS/kandji-library-manager")
+file where host.os.type == "macos" and event.action == "modification" and
+ file.path like "/Users/*/Library/Preferences/com.apple.dock.plist" and
+ ((process.name like~ ("osascript", "python*", "sh", "bash", "zsh", "node") or Effective_process.name like~ ("osascript", "python*", "sh", "bash", "zsh", "node")) or
+  (process.code_signature.exists == false or process.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 

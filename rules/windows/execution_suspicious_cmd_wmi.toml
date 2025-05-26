@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/05/20"
 
 [rule]
 author = ["Elastic"]
@@ -64,9 +64,9 @@ references = [
     "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
     "https://www.elastic.co/security-labs/operation-bleeding-bear",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "12f07955-1674-44f7-86b5-c35da0a6f41a"
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -86,8 +86,9 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
- process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
+ process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and process.args : "/c" and process.args:"/Q" and 
+ process.args : "2>&1" and process.args: "1>"  and 
+ process.args : ("C:\\windows\\temp\\*.txt", "\\Windows\\Temp\\*", "-encodehex", "\\\\127.0.0.1\\C$\\Windows\\Temp\\*", "\\\\127.0.0.1\\ADMIN$\\__*.*")
 '''
 
 

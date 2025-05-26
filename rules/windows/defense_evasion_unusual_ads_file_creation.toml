@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/05/08"
 
 [transform]
 [[transform.osquery]]
@@ -104,9 +104,9 @@ Attackers can abuse these alternate data streams to hide malicious files, string
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 47
+risk_score = 21
 rule_id = "71bccb61-e19b-452f-b104-79a60e546a95"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -146,6 +146,7 @@ file where host.os.type == "windows" and event.type == "creation" and
           "?:\\Program Files\\Microsoft Office\\root\\*\\POWERPNT.EXE",
           "?:\\Program Files\\Microsoft Office\\root\\*\\WINWORD.EXE",
           "?:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "?:\\Program Files\\Windows Defender Advanced Threat Protection\\MsSense.exe",
           "?:\\Program Files\\Rivet Networks\\SmartByte\\SmartByteNetworkService.exe",
           "?:\\Windows\\explorer.exe",
           "?:\\Windows\\System32\\DataExchangeHost.exe",
@@ -156,7 +157,8 @@ file where host.os.type == "windows" and event.type == "creation" and
           "?:\\Windows\\System32\\RuntimeBroker.exe",
           "?:\\Windows\\System32\\SearchProtocolHost.exe",
           "?:\\Windows\\System32\\sihost.exe",
-          "?:\\windows\\System32\\svchost.exe"
+          "?:\\windows\\System32\\svchost.exe",
+          "?:\\Windows\\System32\\WFS.exe"
   ) and
 
   file.extension :

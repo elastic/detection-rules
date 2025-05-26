@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2025/03/12"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/03/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects an SSH or SSHD process executed from inside a container. This includes both the client ssh binary and
+server ssh daemon process. SSH usage inside a container should be avoided and monitored closely when necessary. With
+valid credentials an attacker may move laterally to other containers or to the underlying host through container
+breakout. They may also use valid SSH credentials as a persistence mechanism.
+"""
+false_positives = [
+    """
+    SSH usage may be legitimate depending on the environment. Access patterns and follow-on activity should be analyzed
+    to distinguish between authorized and potentially malicious behavior.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SSH Process Launched From Inside A Container"
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/techniques/SSH%20server%20running%20inside%20container/",
+    "https://www.blackhillsinfosec.com/sshazam-hide-your-c2-inside-of-ssh/",
+]
+risk_score = 47
+rule_id = "5c50ffa6-07f4-4cce-a1b7-c16928a2ed52"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.entry_leader.entry_meta.type == "container" and process.name in ("sshd", "ssh", "autossh")
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSH Process Launched From Inside A Container
+
+SSH (Secure Shell) is a protocol used for secure remote access and management of systems. Within container environments, SSH usage is atypical and can signal potential security risks. Adversaries may exploit SSH to move laterally between containers or escape to the host system. The detection rule identifies SSH processes initiated within containers, flagging potential unauthorized access or persistence attempts by monitoring process events and container identifiers.
+
+### Possible investigation steps
+
+- Examine the process start event details, including the process name (sshd, ssh, autossh) and event actions (fork, exec), to understand the context and nature of the SSH activity.
+- Check for any recent changes or deployments related to the container to identify if the SSH process aligns with expected behavior or recent updates.
+- Investigate the source and destination of the SSH connection to determine if it involves unauthorized or suspicious endpoints, potentially indicating lateral movement or an attempt to access the host system.
+- Analyze user accounts and credentials used in the SSH session to verify if they are legitimate and authorized for container access, looking for signs of compromised credentials.
+- Correlate the SSH activity with other security events or alerts to identify patterns or additional indicators of compromise within the container environment.
+
+### False positive analysis
+
+- Development and testing environments may intentionally use SSH for debugging or administrative tasks. Users can create exceptions for specific container IDs or hostnames associated with these environments to reduce noise.
+- Automated scripts or orchestration tools might use SSH to manage containers. Identify these tools and exclude their process IDs or user accounts from triggering the rule.
+- Some legacy applications might rely on SSH for internal communication. Review these applications and whitelist their specific process names or container images to prevent false alerts.
+- Containers running SSH for legitimate remote access purposes, such as maintenance, should be documented. Exclude these containers by their unique identifiers or labels to avoid unnecessary alerts.
+- Regularly review and update the exclusion list to ensure it aligns with current operational practices and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent potential lateral movement or further unauthorized access. This can be done by stopping the container or disconnecting it from the network.
+- Conduct a thorough review of the container's logs and environment to identify any unauthorized access or changes. Pay special attention to SSH-related logs and any anomalies in user activity.
+- Revoke any SSH keys or credentials that may have been compromised. Ensure that all SSH keys used within the container environment are rotated and that access is restricted to only necessary personnel.
+- Assess the container image and configuration for vulnerabilities or misconfigurations that may have allowed the SSH process to be initiated. Patch any identified vulnerabilities and update the container image accordingly.
+- Implement network segmentation to limit the ability of containers to communicate with each other and the host system, reducing the risk of lateral movement.
+- Enhance monitoring and alerting for SSH activity within container environments to ensure rapid detection of similar threats in the future. This includes setting up alerts for any SSH process initiation within containers.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or containers have been affected."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

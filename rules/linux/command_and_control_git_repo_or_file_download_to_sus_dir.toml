@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2025/04/25"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of git to clone a repository or download files from GitHub using wget or curl, followed by
+the creation of files in suspicious directories such as /tmp, /var/tmp, or /dev/shm. This behavior may indicate an
+attempt to download a payload, exploit or tool.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Git Repository or File Download to Suspicious Directory"
+risk_score = 21
+rule_id = "70089609-c41a-438e-b132-5b3b43c5fc07"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+query = '''
+sequence by process.entity_id, host.id with maxspan=10s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+     (process.name == "git" and process.args == "clone") or
+     (process.name in ("wget", "curl") and process.command_line like~ "*github*")
+  )]
+  [file where host.os.type == "linux" and event.type == "creation" and file.path like ("/tmp/*", "/var/tmp/*", "/dev/shm/*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

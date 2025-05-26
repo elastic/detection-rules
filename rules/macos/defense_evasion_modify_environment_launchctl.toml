@@ -2,7 +2,7 @@
 creation_date = "2021/01/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ restrictions.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Modification of Environment Variable via Unsigned or Untrusted Parent"
 references = [
@@ -56,24 +56,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:start and
-  process.name:launchctl and
-  (process.parent.code_signature.exists : false or process.parent.code_signature.trusted : false) and
-  process.args:(setenv and not (ANT_HOME or
-                                DBUS_LAUNCHD_SESSION_BUS_SOCKET or
-                                EDEN_ENV or
-                                LG_WEBOS_TV_SDK_HOME or
-                                RUNTIME_JAVA_HOME or
-                                WEBOS_CLI_TV or
-                                JAVA*_HOME) and
-                not *.vmoptions) and
-  not process.parent.executable:("/Applications/IntelliJ IDEA CE.app/Contents/jbr/Contents/Home/lib/jspawnhelper" or
-                                  /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin or
-                                  /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin or
-                                  /usr/local/bin/kr)
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+  process.name == "launchctl" and
+  (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false) and
+  process.args == "setenv"
 '''
 note = """## Triage and analysis
 

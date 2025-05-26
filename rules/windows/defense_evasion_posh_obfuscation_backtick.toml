@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2025/04/15"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/04/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that use invalid escape sequences as a form of obfuscation. This technique introduces
+backticks (`) between characters in a way that does not correspond to valid PowerShell escape sequences, breaking up
+strings and bypassing pattern-based detections while preserving execution logic. This is designed to evade static
+analysis and bypass security protections such as the Antimalware Scan Interface (AMSI).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Invalid Escape Sequences"
+risk_score = 21
+rule_id = "64f17c52-6c6e-479e-ba72-236f3df18f3d"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-windows.powershell_operational* metadata _id, _version, _index
+| WHERE event.code == "4104" and powershell.file.script_block_text LIKE "*`*"
+
+// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
+
+// Count how many patterns were detected by calculating the number of 🔥 characters inserted
+| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+
+// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.name, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+| WHERE count >= 10
+
+// Filter FPs, and due to the behavior of the LIKE operator, allow null values
+| WHERE (file.name NOT LIKE "TSS_*.psm1" or file.name IS NULL)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

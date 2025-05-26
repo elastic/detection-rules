@@ -1,0 +1,54 @@
+# Suspicious Python App Execution via Streamlit
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** Detects execution of a Python application using Streamlit followed shortly by an outbound network connection. This pattern was seen in the Safe/ByBit breach and may indicate abuse of Streamlit to stage or serve a malicious interface during initial access operations.
+
+- **UUID:** `04d4b300-bf2f-4e86-8fab-c51502a1db32`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[EQL]`
+- **Source File:** [Suspicious Python App Execution via Streamlit](../queries/execution_suspicious_python_app_execution_via_streamlit.toml)
+
+## Query
+
+```sql
+sequence by process.entity_id with maxspan=2m
+  [process where event.type == "start" and event.action == "exec" and
+    process.name like~ "python*" and
+    process.args like ("/Users/*/Downloads/*streamlit", "/Users/*/Desktop/*streamlit", "/Users/*/Documents/*streamlit") and
+    process.args == "run" and process.args : "*.py" and
+    process.args_count == 4]
+  [network where event.type == "start" and destination.domain != null and
+    not cidrmatch(destination.ip,
+      "240.0.0.0/4", "233.252.0.0/24", "224.0.0.0/4", "198.19.0.0/16", "192.18.0.0/15",
+      "192.0.0.0/24", "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+      "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+      "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24",
+      "::1", "FE80::/10", "FF00::/8")]
+```
+
+## Notes
+
+- This hunt identifies Python apps run via Streamlit from user directories, immediately followed by external network activity.
+- Streamlit-based payloads may abuse the framework to present fake interfaces or interactive apps during initial access.
+- Outbound connection filtering avoids internal IPs and infrastructure — can be tuned to your network space.
+
+## MITRE ATT&CK Techniques
+
+- [T1059.006](https://attack.mitre.org/techniques/T1059/006)
+- [T1105](https://attack.mitre.org/techniques/T1105)
+
+## References
+
+- https://www.elastic.co/security-labs/dprk-code-of-conduct
+- https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/
+- https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34
+- https://x.com/safe/status/1897663514975649938
+- https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/
+
+## License
+
+- `Elastic License v2`

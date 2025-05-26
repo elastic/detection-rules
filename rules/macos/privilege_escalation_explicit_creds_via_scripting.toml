@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ not be run by itself, as this is a sign of execution with explicit logon credent
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Execution with Explicit Credentials via Scripting"
 references = [
@@ -58,12 +58,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:"security_authtrampoline" and
- process.parent.name:(osascript or com.apple.automator.runner or sh or bash or dash or zsh or python* or Python or perl* or php* or ruby or pwsh)
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "security_authtrampoline" and
+ process.parent.name like~ ("osascript", "com.apple.automator.runner", "sh", "bash", "dash", "zsh", "python*", "perl*", "php*", "ruby", "pwsh")
 '''
 note = """## Triage and analysis
 

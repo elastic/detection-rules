@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/04/30"
+min_stack_version = "8.17.0"
+min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious activity from the Microsoft Authentication Broker in Microsoft Entra ID sign-in logs. This
+behavior may indicate an adversary using a phished OAuth refresh token or a Primary Refresh Token (PRT) to register a
+device and access Microsoft services as a user. The pattern includes sign-ins from multiple IPs across services
+(Microsoft Graph, DRS, AAD) using the Authentication Broker client on behalf of a principal user.
+"""
+false_positives = [
+    """
+    Legitimate device registrations using Microsoft Authentication Broker may occur during corporate enrollment
+    scenarios or bulk provisioning, but it is uncommon for multiple source IPs to register the same identity across
+    Microsoft Graph, Device Registration Service (DRS), and Azure Active Directory (AAD) in a short time span.
+    """,
+]
+from = "now-1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious Activity via Auth Broker On-Behalf-of Principal User"
+note = """## Triage and analysis
+
+### Investigating Suspicious Activity via Auth Broker On-Behalf-of Principal User
+
+This rule identifies suspicious activity from the Microsoft Authentication Broker where the same identity accesses Microsoft Graph at least twice and either Device Registration Service (DRS) or Azure Active Directory (AAD) once — all from multiple unique source IPs within a short window. This behavior may indicate the use of a previously phished refresh token to impersonate a user and register a device, followed by an attempt to acquire a Primary Refresh Token (PRT) for persistent access.
+
+### Possible Investigation Steps:
+
+- `target`: The user principal name targeted by the authentication broker. Investigate whether this user has recently registered a device, signed in from new IPs, or has had recent password resets or MFA changes.
+- `azure.signinlogs.identity`: The identity value the broker is acting on behalf of. This may be useful when correlating to device registration records or audit events tied to object IDs.
+- `ips`: Analyze the list of unique IP addresses used within the 30-minute window. Determine whether these originate from different geographic regions, cloud providers, or anonymizing infrastructure (e.g., Tor or VPNs).
+- `incoming_token_type`: Look for values like `"refreshToken"` or `"none"`, which may indicate token replay. `"refreshToken"` suggests broker-based reauthentication using stolen credentials.
+- `user_agents`: Check for mixed user agent strings. Automation tools (e.g., `python-requests`) alongside browser-based agents (e.g., Chrome on macOS) may indicate scripted misuse of tokens.
+- `OS`: Review for inconsistencies. For example, if both `Windows` and `MacOs` appear during a short time span for the same user, this may point to token abuse across multiple environments.
+- `target_time_window`: Use the truncated time window to pivot into raw `azure.signinlogs` to reconstruct the full sequence of resource access events, including exact timestamps and service targets.
+- `azure.auditlogs` to check for device join or registration events around the same timeframe.
+- `azure.identityprotection` to identify correlated risk detections, such as anonymized IP access or token replay.
+- Any additional sign-ins from the `ips` involved, even outside the broker, to determine if tokens have been reused elsewhere.
+
+### False Positive Analysis
+
+- This pattern may occur if the user is registering a new device legitimately from two networks (e.g., mobile hotspot and home).
+- Security software (e.g., endpoint detection tools) or identity clients may produce rapid Graph and DRS access in rare edge cases.
+- Developers or IT administrators working across environments may also produce similar behavior.
+
+### Response and Remediation
+
+- If confirmed unauthorized, revoke all refresh tokens for the affected user and remove any devices registered during this session.
+- Notify the user and determine whether the device join or authentication activity was expected.
+- Audit Conditional Access and broker permissions (`29d9ed98-a469-4536-ade2-f981bc1d605e`) to ensure policies enforce strict access controls.
+- Consider blocking token-based reauthentication to Microsoft Graph and DRS from suspicious locations or user agents.
+- Continue monitoring for follow-on activity like lateral movement or privilege escalation.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 73
+rule_id = "375132c6-25d5-11f0-8745-f661ea17fbcd"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Microsoft Entra ID Sign-In Logs integration be enabled and configured to collect sign-in logs. In Entra ID, sign-in logs must be enabled and streaming to the Event Hub used for the Azure integration.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs* metadata _id, _version, _index
+
+// filter for Microsoft Entra ID Sign-in Logs
+| where event.dataset == "azure.signinlogs"
+
+    // filters on member principals, excluding service principals
+    and azure.signinlogs.properties.user_type == "Member"
+    and source.ip is not null
+    and azure.signinlogs.identity is not null
+    and azure.signinlogs.properties.user_principal_name is not null
+    and event.outcome == "success"
+
+    // filter for successful sign-ins to Microsoft Graph and DRS/AAD from the Microsoft Authentication Broker
+    and (azure.signinlogs.properties.app_display_name == "Microsoft Authentication Broker" or azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e")
+    and azure.signinlogs.properties.resource_display_name in ("Device Registration Service", "Microsoft Graph", "Windows Azure Active Directory")
+
+// keep relevant fields
+| keep @timestamp, azure.signinlogs.identity, source.ip, azure.signinlogs.properties.app_display_name, azure.signinlogs.properties.resource_display_name, azure.signinlogs.properties.user_principal_name, azure.signinlogs.properties.incoming_token_type, user_agent.original, azure.signinlogs.properties.device_detail.operating_system
+
+// aggregate by 30-minute time window
+| eval target_time_window = DATE_TRUNC(30 minutes, @timestamp)
+
+// case statements to track which are MS Graph, DRS, and AAD access
+| eval ms_graph = case(azure.signinlogs.properties.resource_display_name == "Microsoft Graph", source.ip, null), drs = case(azure.signinlogs.properties.resource_display_name == "Device Registration Service", source.ip, null), aad = case(azure.signinlogs.properties.resource_display_name == "Windows Azure Active Directory", source.ip, null)
+
+// aggregate by principal and time window
+// store token types, target user, unique source IPs, and user agents in arrays for investigation
+| stats is_ms_graph = COUNT_DISTINCT(ms_graph), is_drs = COUNT_DISTINCT(drs), is_aad = COUNT_DISTINCT(aad), unique_src_ip = COUNT_DISTINCT(source.ip), ips = VALUES(source.ip), incoming_token_type = VALUES(azure.signinlogs.properties.incoming_token_type), target = VALUES(azure.signinlogs.properties.user_principal_name), user_agents = VALUES(user_agent.original), OS = VALUES(azure.signinlogs.properties.device_detail.operating_system) by azure.signinlogs.identity, target_time_window
+
+// filter for cases with multiple unique source IPs, and at least one DRS or AAD access, and multiple MS Graph accesses
+| where unique_src_ip >= 2 and (is_drs >= 1 or is_aad >= 1) and is_ms_graph >= 2
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
