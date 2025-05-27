@@ -4,8 +4,7 @@
 # 2.0.
 import json
 from collections import OrderedDict
-from typing import List, Optional
-from typing import OrderedDict as OrderedDictType
+from typing import Callable, Any, OrderedDict as OrderedDictType
 
 import jsonschema
 from semver import Version
@@ -28,22 +27,25 @@ __all__ = (
 )
 
 RULES_CONFIG = parse_rules_config()
-SCHEMA_DIR = get_etc_path("api_schemas")
-migrations = {}
+SCHEMA_DIR = get_etc_path(["api_schemas"])
+
+MigratedFuncT = Callable[..., Any]
+
+migrations: dict[str, MigratedFuncT] = {}
 
 
-def all_versions() -> List[str]:
+def all_versions() -> list[str]:
     """Get all known stack versions."""
     return [str(v) for v in sorted(migrations, key=lambda x: Version.parse(x, optional_minor_and_patch=True))]
 
 
-def migrate(version: str):
+def migrate(version: str) -> Callable[[MigratedFuncT], MigratedFuncT]:
     """Decorator to set a migration."""
     # checks that the migrate decorator name is semi-semantic versioned
     # raises validation error from semver if not
-    Version.parse(version, optional_minor_and_patch=True)
+    _ = Version.parse(version, optional_minor_and_patch=True)
 
-    def wrapper(f):
+    def wrapper(f: MigratedFuncT) -> MigratedFuncT:
         assert version not in migrations
         migrations[version] = f
         return f
@@ -133,21 +135,21 @@ def downgrade_threat_to_7_10(version: Version, api_contents: dict) -> dict:
 def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
     """Remove 7.12 threshold changes that don't impact the rule."""
     if "threshold" in api_contents:
-        threshold = api_contents['threshold']
-        threshold_field = threshold['field']
+        threshold = api_contents["threshold"]
+        threshold_field = threshold["field"]
 
         # attempt to convert threshold field to a string
         if len(threshold_field) > 1:
-            raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
+            raise ValueError("Cannot downgrade a threshold rule that has multiple threshold fields defined")
 
-        if threshold.get('cardinality'):
-            raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
+        if threshold.get("cardinality"):
+            raise ValueError("Cannot downgrade a threshold rule that has a defined cardinality")
 
         api_contents = api_contents.copy()
         api_contents["threshold"] = api_contents["threshold"].copy()
 
         # if cardinality was defined with no field or value
-        api_contents['threshold'].pop('cardinality', None)
+        api_contents["threshold"].pop("cardinality", None)
         api_contents["threshold"]["field"] = api_contents["threshold"]["field"][0]
 
     # finally, downgrade any additional properties that were added
@@ -168,7 +170,7 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
 
         if isinstance(job_id, list):
             if len(job_id) > 1:
-                raise ValueError('Cannot downgrade an ML rule with multiple jobs defined')
+                raise ValueError("Cannot downgrade an ML rule with multiple jobs defined")
 
             api_contents = api_contents.copy()
             api_contents["machine_learning_job_id"] = job_id[0]
@@ -345,33 +347,35 @@ def load_stack_schema_map() -> dict:
 
 
 @cached
-def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
+def get_stack_schemas(stack_version: Optional[str] = "0.0.0") -> OrderedDictType[str, dict]:
     """
     Return all ECS, beats, and custom stack versions for every stack version.
     Only versions >= specified stack version and <= package are returned.
     """
-    stack_version = Version.parse(stack_version or '0.0.0', optional_minor_and_patch=True)
+    stack_version = Version.parse(stack_version or "0.0.0", optional_minor_and_patch=True)
     current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
     stack_map = load_stack_schema_map()
-    versions = {k: v for k, v in stack_map.items() if
-                (((mapped_version := Version.parse(k)) >= stack_version)
-                and (mapped_version <= current_package) and v)}  # noqa: W503
+    versions = {
+        k: v
+        for k, v in stack_map.items()
+        if (((mapped_version := Version.parse(k)) >= stack_version) and (mapped_version <= current_package) and v)
+    }  # noqa: W503
 
     if stack_version > current_package:
-        versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
+        versions[stack_version] = {"beats": "main", "ecs": "master"}
 
     versions_reversed = OrderedDict(sorted(versions.items(), reverse=True))
     return versions_reversed
 
 
-def get_stack_versions(drop_patch=False) -> List[str]:
+def get_stack_versions(drop_patch=False) -> list[str]:
     """Get a list of stack versions supported (for the matrix)."""
     versions = list(load_stack_schema_map())
     if drop_patch:
         abridged_versions = []
         for version in versions:
-            abridged, _ = version.rsplit('.', 1)
+            abridged, _ = version.rsplit(".", 1)
             abridged_versions.append(abridged)
         return abridged_versions
     else:
