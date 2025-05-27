@@ -4,11 +4,12 @@
 # 2.0.
 
 """Load rule metadata transform between rule and api formats."""
+
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Iterable
 
 import click
 import pytoml
@@ -17,17 +18,14 @@ from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .config import parse_rules_config
-from .rule import (
-    DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule,
-    TOMLRuleContents
-)
+from .rule import DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
 from .schemas import definitions
 from .utils import cached, get_path
 
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
-FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
+FILE_PATTERN = r"^([a-z0-9_])+\.(json|toml)$"
 
 
 def path_getter(value: str) -> Callable[[dict], bool]:
@@ -46,7 +44,7 @@ def path_getter(value: str) -> Callable[[dict], bool]:
     return callback
 
 
-def dict_filter(_obj: Optional[dict] = None, **critieria) -> Callable[[dict], bool]:
+def dict_filter(_obj: dict | None = None, **critieria) -> Callable[[dict], bool]:
     """Get a callable that will return true if a dictionary matches a set of criteria.
 
     * each key is a dotted (or __ delimited) path into a dictionary to check
@@ -81,39 +79,44 @@ def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
 production_filter = metadata_filter(maturity="production")
 
 
-def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_rules/etc/version.lock.json',
-                        deprecated_file: str = 'detection_rules/etc/deprecated_rules.json') -> (str, dict, dict):
+def load_locks_from_tag(
+    remote: str,
+    tag: str,
+    version_lock: str = "detection_rules/etc/version.lock.json",
+    deprecated_file: str = "detection_rules/etc/deprecated_rules.json",
+) -> (str, dict, dict):
     """Loads version and deprecated lock files from git tag."""
     import json
+
     git = utils.make_git()
 
-    exists_args = ['ls-remote']
+    exists_args = ["ls-remote"]
     if remote:
         exists_args.append(remote)
-    exists_args.append(f'refs/tags/{tag}')
+    exists_args.append(f"refs/tags/{tag}")
 
-    assert git(*exists_args), f'tag: {tag} does not exist in {remote or "local"}'
+    assert git(*exists_args), f"tag: {tag} does not exist in {remote or 'local'}"
 
-    fetch_tags = ['fetch']
+    fetch_tags = ["fetch"]
     if remote:
-        fetch_tags += [remote, '--tags', '-f', tag]
+        fetch_tags += [remote, "--tags", "-f", tag]
     else:
-        fetch_tags += ['--tags', '-f', tag]
+        fetch_tags += ["--tags", "-f", tag]
 
     git(*fetch_tags)
 
-    commit_hash = git('rev-list', '-1', tag)
+    commit_hash = git("rev-list", "-1", tag)
     try:
-        version = json.loads(git('show', f'{tag}:{version_lock}'))
+        version = json.loads(git("show", f"{tag}:{version_lock}"))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
-        version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
+        version = json.loads(git("show", f"{tag}:etc/version.lock.json"))
 
     try:
-        deprecated = json.loads(git('show', f'{tag}:{deprecated_file}'))
+        deprecated = json.loads(git("show", f"{tag}:{deprecated_file}"))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
-        deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
+        deprecated = json.loads(git("show", f"{tag}:etc/deprecated_rules.json"))
     return commit_hash, version, deprecated
 
 
@@ -150,16 +153,16 @@ class BaseCollection:
 class DeprecatedCollection(BaseCollection):
     """Collection of loaded deprecated rule dicts."""
 
-    id_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
-    file_map: Dict[Path, DeprecatedRule] = field(default_factory=dict)
-    name_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
-    rules: List[DeprecatedRule] = field(default_factory=list)
+    id_map: dict[str, DeprecatedRule] = field(default_factory=dict)
+    file_map: dict[Path, DeprecatedRule] = field(default_factory=dict)
+    name_map: dict[str, DeprecatedRule] = field(default_factory=dict)
+    rules: list[DeprecatedRule] = field(default_factory=list)
 
     def __contains__(self, rule: DeprecatedRule):
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
-    def filter(self, cb: Callable[[DeprecatedRule], bool]) -> 'RuleCollection':
+    def filter(self, cb: Callable[[DeprecatedRule], bool]) -> "RuleCollection":
         """Retrieve a filtered collection of rules."""
         filtered_collection = RuleCollection()
 
@@ -175,27 +178,27 @@ class RawRuleCollection(BaseCollection):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: Optional[List[dict]] = None, ext_patterns: Optional[List[str]] = None):
+    def __init__(self, rules: list[dict | None] = None, ext_patterns: list[str | None] = None):
         """Create a new raw rule collection, with optional file ext pattern override."""
         # ndjson is unsupported since it breaks the contract of 1 rule per file, so rules should be manually broken out
         # first
-        self.ext_patterns = ext_patterns or ['*.toml', '*.json']
-        self.id_map: Dict[definitions.UUIDString, DictRule] = {}
-        self.file_map: Dict[Path, DictRule] = {}
-        self.name_map: Dict[definitions.RuleName, DictRule] = {}
-        self.rules: List[DictRule] = []
-        self.errors: Dict[Path, Exception] = {}
+        self.ext_patterns = ext_patterns or ["*.toml", "*.json"]
+        self.id_map: dict[definitions.UUIDString, DictRule] = {}
+        self.file_map: dict[Path, DictRule] = {}
+        self.name_map: dict[definitions.RuleName, DictRule] = {}
+        self.rules: list[DictRule] = []
+        self.errors: dict[Path, Exception] = {}
         self.frozen = False
 
-        self._raw_load_cache: Dict[Path, dict] = {}
-        for rule in (rules or []):
+        self._raw_load_cache: dict[Path, dict] = {}
+        for rule in rules or []:
             self.add_rule(rule)
 
     def __contains__(self, rule: DictRule):
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
-    def filter(self, cb: Callable[[DictRule], bool]) -> 'RawRuleCollection':
+    def filter(self, cb: Callable[[DictRule], bool]) -> "RawRuleCollection":
         """Retrieve a filtered collection of rules."""
         filtered_collection = RawRuleCollection()
 
@@ -217,14 +220,14 @@ class RawRuleCollection(BaseCollection):
         elif path.suffix == ".json":
             raw_dict = json.loads(path.read_text())
         elif path.suffix == ".ndjson":
-            raise ValueError('ndjson is not supported in RawRuleCollection. Break out the rules individually.')
+            raise ValueError("ndjson is not supported in RawRuleCollection. Break out the rules individually.")
         else:
             raise ValueError(f"Unsupported file type {path.suffix} for rule {path}")
 
         self._raw_load_cache[path] = raw_dict
         return raw_dict
 
-    def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
+    def _get_paths(self, directory: Path, recursive=True) -> list[Path]:
         """Get all paths in a directory that match the ext patterns."""
         paths = []
         for pattern in self.ext_patterns:
@@ -238,10 +241,10 @@ class RawRuleCollection(BaseCollection):
         name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, \
-            f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
-        assert rule.name not in name_map, \
+        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.name not in name_map, (
             f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
+        )
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
@@ -255,7 +258,7 @@ class RawRuleCollection(BaseCollection):
         self.name_map[rule.name] = rule
         self.rules.append(rule)
 
-    def load_dict(self, obj: dict, path: Optional[Path] = None) -> DictRule:
+    def load_dict(self, obj: dict, path: Path | None = None) -> DictRule:
         """Load a rule from a dictionary."""
         rule = DictRule(contents=obj, path=path)
         self.add_rule(rule)
@@ -284,7 +287,7 @@ class RawRuleCollection(BaseCollection):
         for path in paths:
             self.load_file(path)
 
-    def load_directory(self, directory: Path, recursive=True, obj_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directory(self, directory: Path, recursive=True, obj_filter: Callable[[dict | None, bool]] = None):
         """Load all rules in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
@@ -292,8 +295,9 @@ class RawRuleCollection(BaseCollection):
 
         self.load_files(paths)
 
-    def load_directories(self, directories: Iterable[Path], recursive=True,
-                         obj_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directories(
+        self, directories: Iterable[Path], recursive=True, obj_filter: Callable[[dict | None, bool]] = None
+    ):
         """Load all rules in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
@@ -303,7 +307,7 @@ class RawRuleCollection(BaseCollection):
         self.frozen = True
 
     @classmethod
-    def default(cls) -> 'RawRuleCollection':
+    def default(cls) -> "RawRuleCollection":
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RawRuleCollection()
@@ -315,7 +319,7 @@ class RawRuleCollection(BaseCollection):
         return cls.__default
 
     @classmethod
-    def default_bbr(cls) -> 'RawRuleCollection':
+    def default_bbr(cls) -> "RawRuleCollection":
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RawRuleCollection()
@@ -332,28 +336,28 @@ class RuleCollection(BaseCollection):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: Optional[List[TOMLRule]] = None):
+    def __init__(self, rules: list[TOMLRule | None] = None):
         from .version_lock import VersionLock
 
-        self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
-        self.file_map: Dict[Path, TOMLRule] = {}
-        self.name_map: Dict[definitions.RuleName, TOMLRule] = {}
-        self.rules: List[TOMLRule] = []
+        self.id_map: dict[definitions.UUIDString, TOMLRule] = {}
+        self.file_map: dict[Path, TOMLRule] = {}
+        self.name_map: dict[definitions.RuleName, TOMLRule] = {}
+        self.rules: list[TOMLRule] = []
         self.deprecated: DeprecatedCollection = DeprecatedCollection()
-        self.errors: Dict[Path, Exception] = {}
+        self.errors: dict[Path, Exception] = {}
         self.frozen = False
 
-        self._toml_load_cache: Dict[Path, dict] = {}
-        self._version_lock: Optional[VersionLock] = None
+        self._toml_load_cache: dict[Path, dict] = {}
+        self._version_lock: VersionLock | None = None
 
-        for rule in (rules or []):
+        for rule in rules or []:
             self.add_rule(rule)
 
     def __contains__(self, rule: TOMLRule):
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
-    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
+    def filter(self, cb: Callable[[TOMLRule], bool]) -> "RuleCollection":
         """Retrieve a filtered collection of rules."""
         filtered_collection = RuleCollection()
 
@@ -378,8 +382,8 @@ class RuleCollection(BaseCollection):
             self._toml_load_cache[path] = toml_dict
             return toml_dict
 
-    def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
-        return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
+    def _get_paths(self, directory: Path, recursive=True) -> list[Path]:
+        return sorted(directory.rglob("*.toml") if recursive else directory.glob("*.toml"))
 
     def _assert_new(self, rule: Union[TOMLRule, DeprecatedRule], is_deprecated=False):
         if is_deprecated:
@@ -392,10 +396,10 @@ class RuleCollection(BaseCollection):
             name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, \
-            f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
-        assert rule.name not in name_map, \
+        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.name not in name_map, (
             f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
+        )
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
@@ -414,9 +418,9 @@ class RuleCollection(BaseCollection):
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
-    def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
+    def load_dict(self, obj: dict, path: Path | None = None) -> Union[TOMLRule, DeprecatedRule]:
         # bypass rule object load (load_dict) and load as a dict only
-        if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
+        if obj.get("metadata", {}).get("maturity", "") == "deprecated":
             contents = DeprecatedRuleContents.from_dict(obj)
             if not RULES_CONFIG.bypass_version_lock:
                 contents.set_version_lock(self._version_lock)
@@ -453,7 +457,7 @@ class RuleCollection(BaseCollection):
             print(f"Error loading rule in {path}")
             raise
 
-    def load_git_tag(self, branch: str, remote: Optional[str] = None, skip_query_validation=False):
+    def load_git_tag(self, branch: str, remote: str | None = None, skip_query_validation=False):
         """Load rules from a Git branch."""
         from .version_lock import VersionLock, add_rule_types_to_lock
 
@@ -474,15 +478,15 @@ class RuleCollection(BaseCollection):
             toml_dict = self.deserialize_toml_string(contents)
 
             if skip_query_validation:
-                toml_dict['metadata']['query_schema_validation'] = False
+                toml_dict["metadata"]["query_schema_validation"] = False
 
             rule_contents.append((toml_dict, path))
-            rule_map[toml_dict['rule']['rule_id']] = toml_dict
+            rule_map[toml_dict["rule"]["rule_id"]] = toml_dict
 
         commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
 
-        v_lock_name_prefix = f'{remote}/' if remote else ''
-        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
+        v_lock_name_prefix = f"{remote}/" if remote else ""
+        v_lock_name = f"{v_lock_name_prefix}{branch}-{commit_hash}"
 
         # For backwards compatibility with tagged branches that existed before the types were added and validation
         # enforced, we will need to manually add the rule types to the version lock allow them to pass validation.
@@ -504,15 +508,24 @@ class RuleCollection(BaseCollection):
         for path in paths:
             self.load_file(path)
 
-    def load_directory(self, directory: Path, recursive=True, obj_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directory(
+        self,
+        directory: Path,
+        recursive=True,
+        obj_filter: Callable[[dict | None, bool]] = None,
+    ):
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
             paths = [path for path in paths if obj_filter(self._load_toml_file(path))]
 
         self.load_files(paths)
 
-    def load_directories(self, directories: Iterable[Path], recursive=True,
-                         obj_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directories(
+        self,
+        directories: Iterable[Path],
+        recursive=True,
+        obj_filter: Callable[[dict | None, bool]] = None,
+    ):
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
 
@@ -521,7 +534,7 @@ class RuleCollection(BaseCollection):
         self.frozen = True
 
     @classmethod
-    def default(cls) -> 'RuleCollection':
+    def default(cls) -> "RuleCollection":
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
@@ -533,7 +546,7 @@ class RuleCollection(BaseCollection):
         return cls.__default
 
     @classmethod
-    def default_bbr(cls) -> 'RuleCollection':
+    def default_bbr(cls) -> "RuleCollection":
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RuleCollection()
@@ -543,11 +556,12 @@ class RuleCollection(BaseCollection):
 
         return cls.__default_bbr
 
-    def compare_collections(self, other: 'RuleCollection'
-                            ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
+    def compare_collections(
+        self, other: "RuleCollection"
+    ) -> (dict[str, TOMLRule], dict[str, TOMLRule], dict[str, DeprecatedRule]):
         """Get the changes between two sets of rules."""
-        assert self._version_lock, 'RuleCollection._version_lock must be set for self'
-        assert other._version_lock, 'RuleCollection._version_lock must be set for other'
+        assert self._version_lock, "RuleCollection._version_lock must be set for self"
+        assert other._version_lock, "RuleCollection._version_lock must be set for other"
 
         # we cannot trust the assumption that either of the versions or deprecated files were pre-locked, which means we
         # have to perform additional checks beyond what is done in manage_versions
@@ -564,7 +578,7 @@ class RuleCollection(BaseCollection):
             return changed_rules, new_rules, newly_deprecated
 
         for rule in other:
-            if rule.contents.metadata.maturity != 'production':
+            if rule.contents.metadata.maturity != "production":
                 continue
 
             if rule.id not in self.id_map:
@@ -582,8 +596,9 @@ class RuleCollection(BaseCollection):
 
 
 @cached
-def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
-                         verbose=True) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
+def load_github_pr_rules(
+    labels: list = None, repo: str = "elastic/detection-rules", token=None, threads=50, verbose=True
+) -> (dict[str, TOMLRule], dict[str, TOMLRule], dict[str, list]):
     """Load all rules active as a GitHub PR."""
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
@@ -598,15 +613,15 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     labels = set(labels or [])
     open_prs = [r for r in repo.get_pulls() if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
 
-    new_rules: List[TOMLRule] = []
-    modified_rules: List[TOMLRule] = []
-    errors: Dict[str, list] = {}
+    new_rules: list[TOMLRule] = []
+    modified_rules: list[TOMLRule] = []
+    errors: dict[str, list] = {}
 
     existing_rules = RuleCollection.default()
     pr_rules = []
 
     if verbose:
-        click.echo('Downloading rules from GitHub PRs')
+        click.echo("Downloading rules from GitHub PRs")
 
     def download_worker(pr_info):
         pull, rule_file = pr_info
@@ -626,8 +641,9 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
             errors.setdefault(Path(rule_file.filename).name, []).append(str(e))
 
     for pr in open_prs:
-        pr_rules.extend([(pr, f) for f in pr.get_files()
-                         if f.filename.startswith('rules/') and f.filename.endswith('.toml')])
+        pr_rules.extend(
+            [(pr, f) for f in pr.get_files() if f.filename.startswith("rules/") and f.filename.endswith(".toml")]
+        )
 
     pool = ThreadPool(processes=threads)
     pool.map(download_worker, pr_rules)

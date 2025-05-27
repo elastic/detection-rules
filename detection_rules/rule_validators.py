@@ -289,8 +289,8 @@ class KQLValidator(QueryValidator):
                     # Compare against integration schemas
                     for integration, schema in integrations_or_schema.items():
                         check_alt_schema = (
-                            error_package != package or  # noqa: W504
-                            (error_package == package and error_integration != integration)
+                            error_package != package
+                            or (error_package == package and error_integration != integration)
                         )
                         if check_alt_schema and field in schema:
                             del error_fields[field]
