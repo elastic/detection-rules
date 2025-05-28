@@ -15,6 +15,7 @@
 
 ```sql
 FROM logs-azure.*, logs-o365.audit-*
+| WHERE @timestamp > now() - 30 day
 | WHERE
   event.dataset in ("azure.auditlogs", "azure.signinlogs", "o365.audit", "azure.graphactivitylogs")
   AND (
@@ -47,7 +48,7 @@ FROM logs-azure.*, logs-o365.audit-*
   service_principal_ids = VALUES(service_principal_id),
   event_actions = VALUES(event.action),
   daily_action_count = COUNT()
-  BY event.action, service_principal_name
+  BY event.action, service_principal_name, timestamp_day_bucket
 | WHERE (daily_action_count <= 5 and distinct_ips >= 2)
 | SORT daily_action_count ASC
 ```
