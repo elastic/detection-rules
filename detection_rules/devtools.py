@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import csv
 import dataclasses
 import io
 import json
@@ -53,7 +54,8 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import dict_hash, get_etc_path, get_path, load_dump
+from .utils import (dict_hash, get_etc_path, get_path, check_version_lock_double_bumps,
+                    load_dump)
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -273,6 +275,90 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     RULES_CONFIG.packages_file.write_text(yaml.safe_dump({"package": pkg_data}))
 
 
+@dev_group.command("check-version-lock")
+@click.option("--pr-number", type=int, help="Pull request number to fetch the version lock file from")
+@click.option(
+    "--local-file",
+    type=str,
+    default="detection_rules/etc/version.lock.json",
+    help="Path to the local version lock file (default: detection_rules/etc/version.lock.json)",
+)
+@click.option(
+    "--token",
+    required=True,
+    prompt=get_github_token() is None,
+    default=get_github_token(),
+    help="GitHub token to use for the PR",
+    hide_input=True,
+)
+@click.option("--comment", is_flag=True, help="If set, enables commenting on the PR (requires --pr-number)")
+@click.option("--save-double-bumps", type=Path, help="Optional path to save the double bumps to a file")
+@click.pass_context
+def check_version_lock(
+    ctx: click.Context, pr_number: int, local_file: str, token: str, comment: bool, save_double_bumps: Path
+):
+    """
+    Check the version lock file and optionally comment on the PR if the --comment flag is set.
+
+    Note: Both --comment and --pr-number must be supplied for commenting to work.
+    """
+    if comment and not pr_number:
+        raise click.UsageError("--comment requires --pr-number to be supplied.")
+
+    github = GithubClient(token)
+    github.assert_github()
+    client = github.authenticated_client
+    repo = client.get_repo("elastic/detection-rules")
+    double_bumps = []
+    comment_body = "No double bumps detected."
+
+    def format_comment_body(double_bumps: list) -> str:
+        """Format the comment body for double bumps."""
+        comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
+        comment_body += "<details>\n"
+        comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
+        for rule_id, rule_name, removed, added in double_bumps:
+            comment_body += f"- **Rule ID**: {rule_id}\n"
+            comment_body += f"  - **Rule Name**: {rule_name}\n"
+            comment_body += f"  - **Removed**: {removed}\n"
+            comment_body += f"  - **Added**: {added}\n"
+        comment_body += "\n</details>\n"
+        return comment_body
+
+    def save_double_bumps_to_file(double_bumps: list, save_path: Path):
+        """Save double bumps to a CSV file."""
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        if save_path.is_file():
+            click.echo(f"File {save_path} already exists. Skipping save.")
+        else:
+            with save_path.open("w", newline="") as csvfile:
+                csv.writer(csvfile).writerows([["Rule ID", "Rule Name", "Removed", "Added"]] + double_bumps)
+            click.echo(f"Double bumps saved to {save_path}")
+
+    if pr_number:
+        click.echo(f"Fetching version lock file from PR #{pr_number}")
+        pr = repo.get_pull(pr_number)
+        double_bumps = check_version_lock_double_bumps(
+            repo=repo, file_path="detection_rules/etc/version.lock.json", base_branch="main", branch=pr.head.ref
+        )
+    else:
+        click.echo(f"Using local version lock file: {local_file}")
+        double_bumps = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
+
+    if double_bumps:
+        click.echo(f"{len(double_bumps)} Double bumps detected")
+        if comment and pr_number:
+            comment_body = format_comment_body(double_bumps)
+            pr.create_issue_comment(comment_body)
+        if save_double_bumps:
+            save_double_bumps_to_file(double_bumps, save_double_bumps)
+        ctx.exit(1)
+    else:
+        click.echo("No double bumps detected.")
+        if comment and pr_number:
+            pr.create_issue_comment(comment_body)
+
+
 @dataclasses.dataclass
 class GitChangeEntry:
     status: str
@@ -416,7 +502,7 @@ def kibana_diff(rule_id, repo, branch, threads):
     else:
         rules = rules.filter(production_filter).id_map
 
-    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
+    repo_hashes = {r.id: r.contents.get_hash(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from dataclasses import is_dataclass, astuple
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pathlib import Path
 from typing import Dict, Union, Optional, Callable
 from string import Template
@@ -27,6 +27,7 @@ import click
 import pytoml
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
+from github.Repository import Repository
 
 import kql
 
@@ -72,6 +73,27 @@ def dict_hash(obj: dict) -> str:
     """Hash a dictionary deterministically."""
     raw_bytes = base64.b64encode(json.dumps(obj, sort_keys=True).encode('utf-8'))
     return hashlib.sha256(raw_bytes).hexdigest()
+
+
+def ensure_list_of_strings(value: str | list) -> list[str]:
+    """Ensure or convert a value is a list of strings."""
+    if isinstance(value, str):
+        # Check if the string looks like a JSON list
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                # Attempt to parse the string as a JSON list
+                parsed_value = json.loads(value)
+                if isinstance(parsed_value, list):
+                    return [str(v) for v in parsed_value]
+            except json.JSONDecodeError:
+                pass
+        # If it's not a JSON list, split by commas if present
+        # Else return a list with the original string
+        return list(map(lambda x: x.strip().strip('"'), value.split(',')))
+    elif isinstance(value, list):
+        return [str(v) for v in value]
+    else:
+        return []
 
 
 def get_json_iter(f):
@@ -281,7 +303,7 @@ def unix_time_to_formatted(timestamp):  # type: (int|str) -> str
         if timestamp > 2 ** 32:
             timestamp = round(timestamp / 1000, 3)
 
-        return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 
 def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
@@ -373,6 +395,54 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
         return rule
     else:
         raise ValueError(f"Expected a list or dictionary in {rule_file}")
+
+
+def load_json_from_branch(repo: Repository, file_path: str, branch: Optional[str]):
+    """Load JSON file from a specific branch."""
+    content_file = repo.get_contents(file_path, ref=branch)
+    return json.loads(content_file.decoded_content.decode("utf-8"))
+
+
+def compare_versions(base_json: dict, branch_json: dict) -> list[tuple[str, str, int, int]]:
+    """Compare versions of two lock version file JSON objects."""
+    changes = []
+    for key in base_json:
+        if key in branch_json:
+            base_version = base_json[key].get("version")
+            branch_name = branch_json[key].get("rule_name")
+            branch_version = branch_json[key].get("version")
+            if base_version != branch_version:
+                changes.append((key, branch_name, base_version, branch_version))
+    return changes
+
+
+def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[str, str, int, int]]:
+    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+    double_bumps = []
+    for key, name, removed, added in changes:
+        # Determine the modulo dynamically based on the highest number of digits
+        max_digits = max(len(str(removed)), len(str(added)))
+        modulo = max(10 ** (max_digits - 1), 100)
+        if (added % modulo) - (removed % modulo) > 1:
+            double_bumps.append((key, name, removed, added))
+    return double_bumps
+
+
+def check_version_lock_double_bumps(
+    repo: Repository, file_path: str, base_branch: str, branch: str = "", local_file: Path = None
+) -> list[tuple[str, str, int, int]]:
+    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+    base_json = load_json_from_branch(repo, file_path, base_branch)
+    if local_file:
+        with local_file.open("r") as f:
+            branch_json = json.load(f)
+    else:
+        branch_json = load_json_from_branch(repo, file_path, branch)
+
+    changes = compare_versions(base_json, branch_json)
+    double_bumps = check_double_bumps(changes)
+
+    return double_bumps
 
 
 def format_command_options(ctx):

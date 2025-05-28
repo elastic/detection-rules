@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2020/09/01"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an illicit consent grant request on-behalf-of a registered Entra ID application. Adversaries may create and
+register an application in Microsoft Entra ID for the purpose of requesting user consent to access resources. This is
+accomplished by tricking a user into granting consent to the application, typically via a pre-made phishing URL. This
+establishes an OAuth grant that allows the malicious client applocation to access resources on-behalf-of the user.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Illicit Consent Grant via Registered Application"
+note = """## Triage and analysis
+
+### Investigating Microsoft Entra ID Illicit Consent Grant via Registered Application
+
+Adversaries may register a malicious application in Microsoft Entra ID and trick users into granting excessive permissions via OAuth consent. These applications can access sensitive data—such as mail, profiles, or files—on behalf of the user once consent is granted. This is commonly delivered via spearphishing links that prompt users to approve permissions for seemingly legitimate applications.
+
+This rule identifies a new consent grant event based on Azure audit logs where the application was granted access with potentially risky scopes, such as offline_access, Mail.Read, or User.Read, and may include admin consent or tenant-wide delegation.
+
+This is a New Terms rule that will only trigger if the user and client ID have not been seen doing this activity in the last 14 days.
+
+#### Possible investigation steps
+
+- Review `azure.auditlogs.properties.additional_details.value` to identify the AppId and User-Agent values to determine which application was granted access and how the request was initiated. Pivot on the AppId in the Azure portal under Enterprise Applications to investigate further.
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` to identify the user who approved the application. Investigate their recent activity for signs of phishing, account compromise, or anomalous behavior during the timeframe of the consent.
+- Review `azure.auditlogs.properties.initiated_by.user.ipAddress` to assess the geographic source of the consent action. Unexpected locations or IP ranges may indicate adversary-controlled infrastructure.
+- Review `azure.auditlogs.properties.target_resources.display_name` to evaluate whether the application name is familiar, expected, or potentially spoofing a known service.
+- Review `azure.auditlogs.properties.target_resources.modified_properties.display_name` to inspect key indicators of elevated privilege or risk, including:
+  - ConsentContext.IsAdminConsent to determine if the application was granted tenant-wide admin access.
+  - ConsentContext.OnBehalfOfAll to identify whether the app was granted permissions on behalf of all users in the tenant.
+  - ConsentAction.Permissions to evaluate the specific scopes and data access the application requested.
+  - ConsentAction.Reason to understand if Microsoft flagged the activity or if any reason was recorded by the platform.
+  - TargetId.ServicePrincipalNames to confirm the service principal associated with the granted permissions.
+- Review `azure.tenant_id` to confirm the activity originated from your tenant and is not related to a cross-tenant application.
+- Review `@timestamp` and `azure.auditlogs.properties.correlation_id` to pivot into related sign-in, token usage, or application activity for further context.
+
+### False positive analysis
+
+- Some applications may request high-privilege scopes for legitimate purposes. Validate whether the application is verified, developed by Microsoft, or approved internally by your organization.
+- Review publisher verification, app ownership, and scope alignment with the intended business use case.
+
+### Response and remediation
+
+- Revoke the application’s OAuth grant using Graph API or PowerShell. Use the Remove-AzureADOAuth2PermissionGrant cmdlet.
+- Remove the associated service principal from Azure AD.
+- Reset credentials or revoke tokens for affected users.
+- Block the application via Conditional Access or Defender for Cloud Apps policies.
+- Enable the Admin Consent Workflow in Azure AD to prevent unsanctioned user approvals in the future.
+- Report any malicious applications to Microsoft to protect other tenants.
+"""
+references = [
+    "https://www.wiz.io/blog/midnight-blizzard-microsoft-breach-analysis-and-best-practices",
+    "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/detect-and-remediate-illicit-consent-grants?view=o365-worldwide",
+    "https://www.cloud-architekt.net/detection-and-mitigation-consent-grant-attacks-azuread/",
+    "https://docs.microsoft.com/en-us/defender-cloud-apps/investigate-risky-oauth#how-to-detect-risky-oauth-apps",
+]
+risk_score = 47
+rule_id = "1c6a8c7a-5cb6-4a82-ba27-d5a5b8a40a38"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.auditlogs" and
+  (
+    azure.auditlogs.operation_name:"Consent to application"
+    or event.action:"Consent to application"
+  )
+  and event.outcome: "success"
+  and azure.auditlogs.properties.additional_details.key: "AppId"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.tenant_id",
+    "cloud.region",
+    "azure.auditlogs.properties.target_resources.0.display_name"
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.additional_details.value",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

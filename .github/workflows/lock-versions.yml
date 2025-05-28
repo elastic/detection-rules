@@ -6,7 +6,7 @@ on:
           description: 'List of branches to lock versions (ordered, comma separated)'
           required: true
           # 7.17 was intentionally skipped because it was added late and was bug fix only
-          default: '8.12,8.13,8.14,8.15,8.16,8.17'
+          default: '8.14,8.15,8.16,8.17,8.18,9.0'
 
 jobs:
   pr:
@@ -54,6 +54,7 @@ jobs:
           git add detection_rules/etc/version.lock.json
 
       - name: Create Pull Request
+        id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
           assignees: '${{github.actor}}'
@@ -74,3 +75,14 @@ jobs:
           name: release-files
           path: |
             releases
+      
+      - name: Check Double Bumps
+        id: check_double_bumps
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m detection_rules dev check-version-lock --pr-number ${{ steps.cpr.outputs.pull-request-number }} --comment
+          if [[ $? -ne 0 ]]; then
+            echo "Double bumps detected, failing the job"
+            exit 1
+          fi

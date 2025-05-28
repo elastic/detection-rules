@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/05/08"
 
 [transform]
 [[transform.osquery]]
@@ -170,8 +170,9 @@ registry where host.os.type == "windows" and event.type == "change" and
           "\"?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\" --no-startup-window /prefetch:5"
         ) or
 
-        process.name : "GoogleUpdate.exe" and registry.data.strings : (
-          "\"?:\\Users\\*\\AppData\\Local\\Google\\Update\\*\\GoogleUpdateCore.exe\""
+        process.name : ("GoogleUpdate.exe", "updater.exe") and registry.data.strings : (
+          "\"?:\\Users\\*\\AppData\\Local\\Google\\Update\\*\\GoogleUpdateCore.exe\"",
+          "\"?:\\Users\\*\\AppData\\Local\\Google\\GoogleUpdater\\*\\updater.exe\" --wake"
         )
       )
     ) or
@@ -186,41 +187,37 @@ registry where host.os.type == "windows" and event.type == "change" and
           "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start"
         ) or
 
-        process.name : ("Update.exe", "Teams.exe") and registry.data.strings : (
+        process.name : ("Update.exe", "Teams.exe", "ms-teamsupdate.exe") and registry.data.strings : (
           "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\"",
-          "?:\\ProgramData\\*\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\""
+          "?:\\ProgramData\\*\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\"",
+          "ms-teamsupdate.exe -UninstallT20"
         ) or
 
-        process.name : "OneDriveStandaloneUpdater.exe" and registry.data.strings : (
-          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\\Microsoft.SharePoint.exe"
-        ) or
-
-        process.name : "OneDriveSetup.exe" and
-          registry.data.strings : (
-            "?:\\Windows\\system32\\cmd.exe /q /c * \"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\"",
+        process.name : ("OneDrive*.exe", "Microsoft.SharePoint.exe") and registry.data.strings : (
+            "?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *",
             "?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe /background*",
             "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background*",
-            "?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *",
-            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\??.???.????.????\\Microsoft.SharePoint.exe"
-          ) or
-        
-        process.name : "OneDrive.exe" and registry.data.strings : (
-          "\"?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe\" /background",
-          "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background",
-          "\"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background"
+            "\"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
+            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\??.???.????.????\\Microsoft.SharePoint.exe",
+            "?:\\Windows\\system32\\cmd.exe /q /c * \"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\""
         ) or
-        
-        process.name : "Microsoft.SharePoint.exe" and registry.data.strings : (
-          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\??.???.????.????\\Microsoft.SharePoint.exe"
-        ) or
-        
+
         process.name : "MicrosoftEdgeUpdate.exe" and registry.data.strings : (
-          "\"?:\\Users\\Expedient\\AppData\\Local\\Microsoft\\EdgeUpdate\\*\\MicrosoftEdgeUpdateCore.exe\""
+          "\"?:\\Users\\*\\AppData\\Local\\Microsoft\\EdgeUpdate\\*\\MicrosoftEdgeUpdateCore.exe\""
         ) or
         
         process.executable : "?:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\Installer\\setup.exe" and
         registry.data.strings : (
           "\"?:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\Installer\\setup.exe\" --msedgewebview --delete-old-versions --system-level --verbose-logging --on-logon"
+        ) or
+
+        process.name : "BingWallpaper.exe" and registry.data.strings : (
+          "C:\\Users\\*\\AppData\\Local\\Temp\\*\\UnInstDaemon.exe"
+        ) or
+
+        /* Discord Update.exe via reg.exe */
+        process.name : "reg.exe" and registry.data.strings : (
+          "\"C:\\Users\\*\\AppData\\Local\\Discord\\Update.exe\" --processStart Discord.exe"
         )
       )
     ) or
@@ -271,7 +268,8 @@ registry where host.os.type == "windows" and event.type == "change" and
 
     /* CCleaner */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name == "PIRIFORM SOFTWARE LIMITED" and
+      process.code_signature.trusted == true and
+      process.code_signature.subject_name in ("PIRIFORM SOFTWARE LIMITED", "Gen Digital Inc.") and
       process.name : ("CCleanerBrowser.exe", "CCleaner64.exe") and registry.data.strings : (
         "\"C:\\Program Files (x86)\\CCleaner Browser\\Application\\CCleanerBrowser.exe\" --check-run=src=logon --auto-launch-at-startup --profile-directory=\"Default\"",
         "\"C:\\Program Files\\CCleaner\\CCleaner64.exe\" /MONITOR"
@@ -281,9 +279,12 @@ registry where host.os.type == "windows" and event.type == "change" and
     /* Opera */
     (
       process.code_signature.trusted == true and process.code_signature.subject_name == "Opera Norway AS" and
-      process.name : "opera.exe" and registry.data.strings : (
+      process.name : ("opera.exe", "assistant_installer.exe") and registry.data.strings : (
         "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\launcher.exe",
-        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera GX\\launcher.exe"
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera GX\\launcher.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera GX\\opera.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\assistant\\browser_assistant.exe"
       )
     ) or
 
@@ -301,7 +302,49 @@ registry where host.os.type == "windows" and event.type == "change" and
     (
       process.code_signature.trusted == true and process.code_signature.subject_name == "Grammarly, Inc." and
       process.name : "GrammarlyInstaller.exe" and registry.data.strings : (
-        "?:\\Users\\*\\AppData\\Local\\Grammarly\\DesktopIntegrations\\Grammarly.Desktop.exe"
+        "?:\\Users\\*\\AppData\\Local\\Grammarly\\DesktopIntegrations\\Grammarly.Desktop.exe",
+        "\"?:\\Users\\*\\AppData\\Local\\Grammarly\\DesktopIntegrations\\Grammarly.Desktop.exe\""
+      )
+    ) or
+
+    /* AVG */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "AVG Technologies USA, LLC" and
+      process.name : "AVGBrowser.exe" and registry.data.strings : (
+        "\"C:\\Program Files\\AVG\\Browser\\Application\\AVGBrowser.exe\"*",
+        "\"C:\\Users\\*\\AppData\\Local\\AVG\\Browser\\Application\\AVGBrowser.exe\"*"
+      )
+    ) or
+
+    /* HP */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "HP Inc." and
+      process.name : "ScanToPCActivationApp.exe" and registry.data.strings : (
+        "\"C:\\Program Files\\HP\\HP*"
+      )
+    ) or
+
+    /* 1Password */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Agilebits" and
+      process.name : "1PasswordSetup*.exe" and registry.data.strings : (
+        "\"C:\\Users\\*\\AppData\\Local\\1Password\\app\\?\\1Password.exe\" --silent"
+      )
+    ) or
+
+    /* OpenVPN */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "OpenVPN Inc." and
+      process.name : "OpenVPNConnect.exe" and registry.data.strings : (
+        "C:\\Program Files\\OpenVPN Connect\\OpenVPNConnect.exe --opened-at-login --minimize"
+      )
+    ) or
+
+    /* Docker */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Docker Inc" and
+      process.name: "com.docker.backend.exe" and registry.data.strings : (
+        "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe -Autostart"
       )
     )
   )
