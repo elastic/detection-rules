@@ -27,7 +27,7 @@ TRIPLE_DQ = DQ * 3
 @cached
 def get_preserved_fmt_fields():
     from .rule import BaseRuleData
-    preserved_keys = set()
+    preserved_keys = set(['message'])
 
     for field in dataclasses.fields(BaseRuleData):  # type: dataclasses.Field
         if field.type in (definitions.Markdown, typing.Optional[definitions.Markdown]):
