@@ -6,12 +6,7 @@ on:
       - opened
     paths:
       - 'detection_rules/etc/attack-v*.json.gz'
-  workflow_dispatch:
-    inputs:
-      target_issue:
-        description: 'Target Kibana Issue to add Comment'
-        required: true
-        default: '166152' # Kibana Issue ID for MITRE ATT&CK version update
+
 jobs:
   create_issue:
     runs-on: ubuntu-latest
@@ -36,11 +31,11 @@ jobs:
       
       - name: Add Kibana Issue Comment
         run: |
-            echo "Adding comment to Kibana issue
+            echo "Adding comment to Kibana issue #166152"
             curl -L \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
-            https://api.github.com/repos/elastic/kibana/issues/${{github.event.inputs.target_issue}}/comments \
+            https://api.github.com/repos/elastic/kibana/issues/166152/comments \
             -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
