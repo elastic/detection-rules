@@ -41,6 +41,10 @@ Here are the queries currently available:
 - [Microsoft Entra Infrequent Suspicious OData Client Requests](./azure/docs/entra_suspicious_odata_client_requests.md) (ES|QL)
 
 
+## cross-platform
+- [Potential Spoofed `microsoftonline.com` via Fuzzy Match](./cross-platform/docs/potentially_spoofed_microsoft_authentication_domain.md) (ES|QL)
+
+
 ## linux
 - [Defense Evasion via Capitalized Process Execution](./linux/docs/defense_evasion_via_capitalized_process_execution.md) (ES|QL)
 - [Drivers Load with Low Occurrence Frequency](./linux/docs/persistence_via_driver_load_with_low_occurrence_frequency.md) (ES|QL)
