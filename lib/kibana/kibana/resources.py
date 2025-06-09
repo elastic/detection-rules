@@ -4,7 +4,7 @@
 # 2.0.
 
 import datetime
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Type
 
 import json
 
@@ -138,7 +138,7 @@ class RuleResource(BaseResource):
         cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
         dry_run: Optional[bool] = False, edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
         include_exceptions: Optional[bool] = False, **kwargs
-    ) -> Union[dict, List['RuleResource']]:
+    ) -> dict | List['RuleResource']:
         """Perform a bulk action on rules using the _bulk_action API."""
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
