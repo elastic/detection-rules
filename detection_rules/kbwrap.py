@@ -206,6 +206,17 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
               "Use same flag for import-rules to prevent warnings and disable its unit test.")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
+@click.option("--custom-rules-only", "-cro", is_flag=True, help="Only export custom rules")
+@click.option(
+    "--export-query",
+    "-eq",
+    type=str,
+    required=False,
+    help=(
+        "Apply a query filter to exporting rules e.g. "
+        "\"alert.attributes.tags: \\\"test\\\"\" to filter for rules that have the tag \"test\""
+    )
+)
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
                         exceptions_directory: Optional[Path], default_author: str,
@@ -213,7 +224,8 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
                         export_action_connectors: bool = False,
                         export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False,
                         no_tactic_filename: bool = False, local_creation_date: bool = False,
-                        local_updated_date: bool = False) -> List[TOMLRule]:
+                        local_updated_date: bool = False, custom_rules_only: bool = False,
+                        export_query: Optional[str] = None) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors
@@ -227,8 +239,21 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         if rule_name:
             found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")
             rule_id = [r["rule_id"] for r in found]
-        results = RuleResource.export_rules(list(rule_id), exclude_export_details=not kibana_include_details)
+        query = (
+            export_query if not custom_rules_only
+            else (
+                f"alert.attributes.params.ruleSource.type: \"internal\""
+                f"{f' and ({export_query})' if export_query else ''}"
+            )
+        )
 
+        results = (
+            RuleResource.bulk_export(rule_ids=list(rule_id), query=query)
+            if query
+            else RuleResource.export_rules(
+                list(rule_id), exclude_export_details=not kibana_include_details
+            )
+        )
     # Handle Exceptions Directory Location
     if results and exceptions_directory:
         exceptions_directory.mkdir(parents=True, exist_ok=True)
