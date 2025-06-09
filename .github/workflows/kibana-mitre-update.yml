@@ -10,6 +10,8 @@ on:
 jobs:
   create_issue:
     runs-on: ubuntu-latest
+    env:
+      KIBANA_ISSUE_NUMBER: 166152  # Define the Kibana issue number as a variable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,11 +33,11 @@ jobs:
       
       - name: Add Kibana Issue Comment
         run: |
-            echo "Adding comment to Kibana issue #166152"
+            echo "Adding comment to Kibana issue #${KIBANA_ISSUE_NUMBER}"
             curl -L \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
-            https://api.github.com/repos/elastic/kibana/issues/166152/comments \
+            https://api.github.com/repos/elastic/kibana/issues/${KIBANA_ISSUE_NUMBER}/comments \
             -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
