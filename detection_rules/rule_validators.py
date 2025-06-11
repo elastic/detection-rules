@@ -193,7 +193,7 @@ class KQLValidator(QueryValidator):
                 return exc
 
     def validate_integration(
-        self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]
+        self, data: QueryRuleData, meta: RuleMeta, package_integrations: list[dict[str, Any]]
     ) -> Union[KQL_ERROR_TYPES, None, TypeError]:
         """Validate the query, called from the parent which contains [metadata] information."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
