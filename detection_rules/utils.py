@@ -450,7 +450,7 @@ def format_command_options(ctx: click.Context):
     return formatter.getvalue()
 
 
-def make_git(*prefix_args: Any) -> Callable[..., str] | None:
+def make_git(*prefix_args: Any) -> Callable[..., str]:
     git_exe = shutil.which("git")
     prefix_arg_strs = [str(arg) for arg in prefix_args]
 
@@ -464,7 +464,7 @@ def make_git(*prefix_args: Any) -> Callable[..., str] | None:
         if ctx is not None:
             ctx.exit(1)
 
-        return
+        raise ValueError("Git not found")
 
     def git(*args: Any) -> str:
         arg_strs = [str(arg) for arg in args]

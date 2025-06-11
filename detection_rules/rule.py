@@ -19,7 +19,7 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 from uuid import uuid4
 
-import eql
+import eql  # type: ignore[reportMissingTypeStubs]
 import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
@@ -27,7 +27,7 @@ from marko.ext.gfm import gfm
 from marshmallow import ValidationError, pre_load, validates_schema
 
 
-import kql
+import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import beats, ecs, endgame, utils
 from .version_lock import loaded_version_lock, VersionLock
@@ -1038,7 +1038,7 @@ class BaseRuleContents(ABC):
     def type(self) -> str:
         pass
 
-    def lock_info(self, bump: bool =True) -> dict[str, Any]:
+    def lock_info(self, bump: bool = True) -> dict[str, Any]:
         version = self.autobumped_version if bump else (self.saved_version or 1)
         contents = {"rule_name": self.name, "sha256": self.get_hash(), "version": version, "type": self.type}
         return contents
@@ -1087,7 +1087,6 @@ class BaseRuleContents(ABC):
     def get_version_space(self) -> int | None:
         """Retrieve the number of version spaces available (None for unbound)."""
         if self.is_in_forked_version:
-
             if not self.lock_entry:
                 raise ValueError("No lock entry found")
 
