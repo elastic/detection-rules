@@ -166,8 +166,8 @@ def gzip_compress(contents: str) -> bytes:
     return gz_file.getvalue()
 
 
-def read_gzip(path: str):
-    with gzip.GzipFile(path, mode="r") as gz:
+def read_gzip(path: str | Path):
+    with gzip.GzipFile(str(path), mode="r") as gz:
         return gz.read().decode("utf8")
 
 
@@ -450,7 +450,7 @@ def format_command_options(ctx: click.Context):
     return formatter.getvalue()
 
 
-def make_git(*prefix_args: Any) -> Callable[..., str | int] | None:
+def make_git(*prefix_args: Any) -> Callable[..., str] | None:
     git_exe = shutil.which("git")
     prefix_arg_strs = [str(arg) for arg in prefix_args]
 
@@ -466,11 +466,9 @@ def make_git(*prefix_args: Any) -> Callable[..., str | int] | None:
 
         return
 
-    def git(*args: Any, print_output: bool = False) -> str | int:
+    def git(*args: Any) -> str:
         arg_strs = [str(arg) for arg in args]
         full_args = [git_exe] + prefix_arg_strs + arg_strs
-        if print_output:
-            return subprocess.check_call(full_args)
         return subprocess.check_output(full_args, encoding="utf-8").rstrip()
 
     return git
