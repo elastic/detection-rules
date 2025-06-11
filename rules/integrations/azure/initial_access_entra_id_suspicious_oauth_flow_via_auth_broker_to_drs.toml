@@ -23,8 +23,8 @@ false_positives = [
     Microsoft Graph, Device Registration Service (DRS), and Azure Active Directory (AAD) in a short time span.
     """,
 ]
-from = "now-31m"
-interval = "30m"
+from = "now-61m"
+interval = "60m"
 language = "esql"
 license = "Elastic License v2"
 name = "Suspicious Microsoft OAuth Flow via Auth Broker to DRS"
@@ -105,8 +105,8 @@ FROM logs-azure.signinlogs* metadata _id, _version, _index
     AND azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e" // MAB
     AND azure.signinlogs.properties.resource_id  == "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" // DRS
 
-// Normalize timestamps into 15-minute detection windows
-| EVAL target_time_window = DATE_TRUNC(15 minutes, @timestamp)
+// Normalize timestamps into 30-minute detection windows
+| EVAL target_time_window = DATE_TRUNC(30 minutes, @timestamp)
 
 // Tag browser-based requests and extract session ID
 | EVAL
