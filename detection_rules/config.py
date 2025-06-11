@@ -9,10 +9,10 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from functools import cached_property
-from typing import Dict, List, Optional
+from typing import Any
 
 import yaml
-from eql.utils import load_dump
+from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 
 from .misc import discover_tests
 from .utils import cached, load_etc_dump, get_etc_path, set_all_validation_bypass
@@ -24,8 +24,8 @@ CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
 @dataclass
 class UnitTest:
     """Base object for unit tests configuration."""
-    bypass: Optional[List[str]] = None
-    test_only: Optional[List[str]] = None
+    bypass: list[str] | None = None
+    test_only: list[str] | None = None
 
     def __post_init__(self):
         assert (self.bypass is None or self.test_only is None), \
@@ -35,8 +35,8 @@ class UnitTest:
 @dataclass
 class RuleValidation:
     """Base object for rule validation configuration."""
-    bypass: Optional[List[str]] = None
-    test_only: Optional[List[str]] = None
+    bypass: list[str] | None = None
+    test_only: list[str] | None = None
 
     def __post_init__(self):
         assert not (self.bypass and self.test_only), 'Cannot use both test_only and bypass'
@@ -50,19 +50,19 @@ class ConfigFile:
     class FilePaths:
         packages_file: str
         stack_schema_map_file: str
-        deprecated_rules_file: Optional[str] = None
-        version_lock_file: Optional[str] = None
+        deprecated_rules_file: str | None = None
+        version_lock_file: str | None = None
 
     @dataclass
     class TestConfigPath:
         config: str
 
     files: FilePaths
-    rule_dir: List[str]
-    testing: Optional[TestConfigPath] = None
+    rule_dir: list[str]
+    testing: TestConfigPath | None = None
 
     @classmethod
-    def from_dict(cls, obj: dict) -> 'ConfigFile':
+    def from_dict(cls, obj: dict[str, Any]) -> 'ConfigFile':
         files_data = obj.get('files', {})
         files = cls.FilePaths(
             deprecated_rules_file=files_data.get('deprecated_rules'),
@@ -83,13 +83,13 @@ class ConfigFile:
 @dataclass
 class TestConfig:
     """Detection rules test config file"""
-    test_file: Optional[Path] = None
-    unit_tests: Optional[UnitTest] = None
-    rule_validation: Optional[RuleValidation] = None
+    test_file: Path | None = None
+    unit_tests: UnitTest | None = None
+    rule_validation: RuleValidation | None = None
 
     @classmethod
-    def from_dict(cls, test_file: Optional[Path] = None, unit_tests: Optional[dict] = None,
-                  rule_validation: Optional[dict] = None) -> 'TestConfig':
+    def from_dict(cls, test_file: Path | None = None, unit_tests: dict | None = None,
+                  rule_validation: dict | None = None) -> 'TestConfig':
         return cls(test_file=test_file or None, unit_tests=UnitTest(**unit_tests or {}),
                    rule_validation=RuleValidation(**rule_validation or {}))
 
@@ -98,7 +98,7 @@ class TestConfig:
         """Get the list of all test names."""
         return discover_tests()
 
-    def tests_by_patterns(self, *patterns: str) -> List[str]:
+    def tests_by_patterns(self, *patterns: str) -> list[str]:
         """Get the list of test names by patterns."""
         tests = set()
         for pattern in patterns:
@@ -106,7 +106,7 @@ class TestConfig:
         return sorted(tests)
 
     @staticmethod
-    def parse_out_patterns(names: List[str]) -> (List[str], List[str]):
+    def parse_out_patterns(names: list[str]) -> (list[str], list[str]):
         """Parse out test patterns from a list of test names."""
         patterns = []
         tests = []
@@ -118,7 +118,7 @@ class TestConfig:
         return patterns, tests
 
     @staticmethod
-    def format_tests(tests: List[str]) -> List[str]:
+    def format_tests(tests: list[str]) -> list[str]:
         """Format unit test names into expected format for direct calling."""
         raw = [t.rsplit('.', maxsplit=2) for t in tests]
         formatted = []
@@ -128,7 +128,7 @@ class TestConfig:
             formatted.append('::'.join([path, clazz, method]))
         return formatted
 
-    def get_test_names(self, formatted: bool = False) -> (List[str], List[str]):
+    def get_test_names(self, formatted: bool = False) -> (list[str], list[str]):
         """Get the list of test names to run."""
         patterns_t, tests_t = self.parse_out_patterns(self.unit_tests.test_only or [])
         patterns_b, tests_b = self.parse_out_patterns(self.unit_tests.bypass or [])
@@ -175,22 +175,22 @@ class TestConfig:
 class RulesConfig:
     """Detection rules config file."""
     deprecated_rules_file: Path
-    deprecated_rules: Dict[str, dict]
+    deprecated_rules: dict[str, dict]
     packages_file: Path
-    packages: Dict[str, dict]
-    rule_dirs: List[Path]
+    packages: dict[str, dict]
+    rule_dirs: list[Path]
     stack_schema_map_file: Path
-    stack_schema_map: Dict[str, dict]
+    stack_schema_map: dict[str, dict]
     test_config: TestConfig
     version_lock_file: Path
-    version_lock: Dict[str, dict]
+    version_lock: dict[str, dict]
 
-    action_dir: Optional[Path] = None
-    action_connector_dir: Optional[Path] = None
-    auto_gen_schema_file: Optional[Path] = None
-    bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
+    action_dir: Path | None = None
+    action_connector_dir: Path | None = None
+    auto_gen_schema_file: Path | None = None
+    bbr_rules_dirs: list[Path | None] = field(default_factory=list)
     bypass_version_lock: bool = False
-    exception_dir: Optional[Path] = None
+    exception_dir: Path | None = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
@@ -205,7 +205,7 @@ class RulesConfig:
 
 
 @cached
-def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
+def parse_rules_config(path: Path | None = None) -> RulesConfig:
     """Parse the _config.yaml file for default or custom rules."""
     if path:
         assert path.exists(), f'rules config file does not exist: {path}'
@@ -226,7 +226,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         loaded = load_etc_dump('_config.yaml')
 
     try:
-        ConfigFile.from_dict(loaded)
+        _ = ConfigFile.from_dict(loaded)
     except KeyError as e:
         raise SystemExit(f'Missing key `{str(e)}` in _config.yaml file.')
     except (AttributeError, TypeError):
