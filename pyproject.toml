@@ -3,7 +3,7 @@ name = "detection_rules"
 version = "1.2.26"
 description = "Detection Rules is the home for rules used by Elastic Security. This repository is used for the development, maintenance, testing, validation, and release of rules for Elastic Security’s Detection Engine."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = {file = "LICENSE.txt"}
 keywords = ["Detection Rules", "Continuous Monitoring", "Data Protection", "Elastic", "Elastic Endgame", "Endpoint Security"]
 classifiers = [
@@ -19,32 +19,43 @@ classifiers = [
   "Topic :: Utilities"
 ]
 dependencies = [
-  	"Click~=8.1.7",
-	"elasticsearch~=8.12.1",
-	"eql==0.9.19",
-	"jsl==0.2.4",
-	"jsonschema>=4.21.1",
-	"marko==2.0.3",
-	"marshmallow-dataclass[union]~=8.6.0",
-	"marshmallow-jsonschema~=0.13.0",
-	"marshmallow-union~=0.1.15",
-	"marshmallow~=3.21.1",
-	"pywin32 ; platform_system=='Windows'",
-	"pytoml==0.1.21",
-	"PyYAML~=6.0.1",
-	"requests~=2.31.0",
-	"toml==0.10.2",
-	"typing-inspect==0.9.0",
-	"typing-extensions==4.10.0",
-	"XlsxWriter~=3.2.0",
-	"semver==3.0.2",
-    "PyGithub==2.2.0",
-	"detection-rules-kql @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql",
-	"detection-rules-kibana @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana",
-	"setuptools==75.2.0"
+  "Click~=8.1.7",
+  "elasticsearch~=8.12.1",
+  "eql==0.9.19",
+  "jsl==0.2.4",
+  "jsonschema>=4.21.1",
+  "marko==2.0.3",
+  "marshmallow-dataclass[union]>=8.7",
+  "marshmallow-jsonschema~=0.13.0",
+  "marshmallow-union~=0.1.15",
+  "marshmallow>=3.21.1",
+  "pywin32 ; platform_system=='Windows'",
+  # FIXME: pytoml is outdated and should not be used
+  "pytoml==0.1.21",
+  "PyYAML~=6.0.1",
+  "requests~=2.31.0",
+  "toml==0.10.2",
+  "typing-inspect==0.9.0",
+  "typing-extensions>=4.12",
+  "XlsxWriter~=3.2.0",
+  "semver==3.0.2",
+  "PyGithub==2.2.0",
+  "detection-rules-kql @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql",
+  "detection-rules-kibana @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana",
+  "setuptools==75.2.0"
 ]
 [project.optional-dependencies]
-dev = ["pep8-naming==0.13.0", "flake8==7.0.0", "pyflakes==3.2.0", "pytest>=8.1.1", "nodeenv==1.8.0", "pre-commit==3.6.2"]
+dev = [
+  "pep8-naming==0.13.0",
+  "flake8==7.0.0",
+  "pyflakes==3.2.0",
+  "pytest>=8.1.1",
+  "nodeenv==1.8.0",
+  "pre-commit==3.6.2",
+  "ruff>=0.11",
+  "pyright>=1.1",
+]
+
 hunting = ["tabulate==0.9.0"]
 
 [project.urls]
@@ -53,15 +64,28 @@ hunting = ["tabulate==0.9.0"]
 "Research" = "https://www.elastic.co/security-labs"
 "Elastic" = "https://www.elastic.co"
 
+[build-system]
+requires = ["setuptools", "wheel", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
 package-data = {"kql" = ["*.g"]}
 packages = ["detection_rules", "hunting"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
-	"ignore::DeprecationWarning"
+   "ignore::DeprecationWarning"
 ]
 
-[build-system]
-requires = ["setuptools", "wheel", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
+[tool.ruff]
+line-length = 120
+indent-width = 4
+include = ["pyproject.toml", "detection_rules/**/*.py"]
+
+[tool.ruff.lint]
+ignore = ["W503"]
+
+[tool.pyright]
+reportMissingTypeStubs = true
+reportUnusedCallResult = "error"
+typeCheckingMode = "strict"
