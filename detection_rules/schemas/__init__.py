@@ -54,7 +54,7 @@ def migrate(version: str) -> Callable[[MigratedFuncT], MigratedFuncT]:
 
 
 @cached
-def get_schema_file(version: Version, rule_type: str) -> dict:
+def get_schema_file(version: Version, rule_type: str) -> dict[str, Any]:
     path = SCHEMA_DIR / str(version) / f"{version}.{rule_type}.json"
 
     if not path.exists():
@@ -63,13 +63,13 @@ def get_schema_file(version: Version, rule_type: str) -> dict:
     return json.loads(path.read_text(encoding="utf8"))
 
 
-def strip_additional_properties(version: Version, api_contents: dict) -> dict:
+def strip_additional_properties(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Remove all fields that the target schema doesn't recognize."""
 
-    stripped = {}
+    stripped: dict[str, Any] = {}
     target_schema = get_schema_file(version, api_contents["type"])
 
-    for field, field_schema in target_schema["properties"].items():
+    for field, _ in target_schema["properties"].items():
         if field in api_contents:
             stripped[field] = api_contents[field]
 
@@ -78,7 +78,7 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     return stripped
 
 
-def strip_non_public_fields(min_stack_version: Version, data_dict: dict) -> dict:
+def strip_non_public_fields(min_stack_version: Version, data_dict: dict[str, Any]) -> dict[str, Any]:
     """Remove all non public fields."""
     for field, version_range in definitions.NON_PUBLIC_FIELDS.items():
         if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
@@ -88,23 +88,23 @@ def strip_non_public_fields(min_stack_version: Version, data_dict: dict) -> dict
 
 
 @migrate("7.8")
-def migrate_to_7_8(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_8(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.8."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.9")
-def migrate_to_7_9(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_9(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.9."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.10")
-def downgrade_threat_to_7_10(version: Version, api_contents: dict) -> dict:
+def downgrade_threat_to_7_10(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Downgrade the threat mapping changes from 7.11 to 7.10."""
     if "threat" in api_contents:
         v711_threats = api_contents.get("threat", [])
-        v710_threats = []
+        v710_threats: list[Any] = []
 
         for threat in v711_threats:
             # drop tactic without threat
@@ -132,7 +132,7 @@ def downgrade_threat_to_7_10(version: Version, api_contents: dict) -> dict:
 
 
 @migrate("7.11")
-def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
+def downgrade_threshold_to_7_11(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Remove 7.12 threshold changes that don't impact the rule."""
     if "threshold" in api_contents:
         threshold = api_contents["threshold"]
@@ -157,13 +157,13 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
 
 
 @migrate("7.12")
-def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_12(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.12."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.13")
-def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
+def downgrade_ml_multijob_713(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Convert `machine_learning_job_id` as an array to a string for < 7.13."""
     if "machine_learning_job_id" in api_contents:
         job_id = api_contents["machine_learning_job_id"]
@@ -180,144 +180,144 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
 
 
 @migrate("7.14")
-def migrate_to_7_14(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_14(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.14."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.15")
-def migrate_to_7_15(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_15(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.15."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.16")
-def migrate_to_7_16(version: Version, api_contents: dict) -> dict:
+def migrate_to_7_16(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 7.16."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.0")
-def migrate_to_8_0(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_0(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.0."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.1")
-def migrate_to_8_1(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_1(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.1."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.2")
-def migrate_to_8_2(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_2(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.2."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.3")
-def migrate_to_8_3(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_3(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.3."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.4")
-def migrate_to_8_4(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_4(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.4."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.5")
-def migrate_to_8_5(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_5(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.5."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.6")
-def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_6(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.6."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.7")
-def migrate_to_8_7(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_7(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.7."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.8")
-def migrate_to_8_8(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_8(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.8."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.9")
-def migrate_to_8_9(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_9(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.9."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.10")
-def migrate_to_8_10(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_10(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.10."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.11")
-def migrate_to_8_11(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_11(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.11."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.12")
-def migrate_to_8_12(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_12(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.12."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.13")
-def migrate_to_8_13(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_13(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.13."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.14")
-def migrate_to_8_14(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_14(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.14."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.15")
-def migrate_to_8_15(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_15(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.15."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.16")
-def migrate_to_8_16(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_16(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.16."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.17")
-def migrate_to_8_17(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_17(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.17."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.18")
-def migrate_to_8_18(version: Version, api_contents: dict) -> dict:
+def migrate_to_8_18(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 8.18."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("9.0")
-def migrate_to_9_0(version: Version, api_contents: dict) -> dict:
+def migrate_to_9_0(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 9.0."""
     return strip_additional_properties(version, api_contents)
 
 
-def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
+def downgrade(api_contents: dict[str, Any], target_version: str, current_version: str | None = None) -> dict[str, Any]:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
 
@@ -342,7 +342,7 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 
 @cached
-def load_stack_schema_map() -> dict:
+def load_stack_schema_map() -> dict[str, Any]:
     return RULES_CONFIG.stack_schema_map
 
 

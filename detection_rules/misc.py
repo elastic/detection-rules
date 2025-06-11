@@ -328,25 +328,25 @@ def parse_user_config():
     return config
 
 
-def discover_tests(start_dir: str = "tests", pattern: str = "test*.py", top_level_dir: Optional[str] = None):
+def discover_tests(start_dir: str = "tests", pattern: str = "test*.py", top_level_dir: str | None = None) -> list[str]:
     """Discover all unit tests in a directory."""
 
-    def list_tests(s, tests=None):
-        if tests is None:
-            tests = []
+    tests: list[str] = []
+
+    def list_tests(s: unittest.TestSuite):
         for test in s:
             if isinstance(test, unittest.TestSuite):
-                list_tests(test, tests)
+                list_tests(test)
             else:
                 tests.append(test.id())
-        return tests
 
     loader = unittest.defaultTestLoader
     suite = loader.discover(start_dir, pattern=pattern, top_level_dir=top_level_dir or str(ROOT_DIR))
-    return list_tests(suite)
+    list_tests(suite)
+    return tests
 
 
-def getdefault(name):
+def getdefault(name: str):
     """Callback function for `default` to get an environment variable."""
     envvar = f"DR_{name.upper()}"
     config = parse_user_config()
@@ -354,13 +354,13 @@ def getdefault(name):
 
 
 def get_elasticsearch_client(
-    cloud_id: str = None,
-    elasticsearch_url: str = None,
-    es_user: str = None,
-    es_password: str = None,
-    ctx: click.Context = None,
-    api_key: str = None,
-    **kwargs,
+    cloud_id: str | None = None,
+    elasticsearch_url: str | None = None,
+    es_user: str | None = None,
+    es_password: str | None = None,
+    ctx: click.Context | None = None,
+    api_key: str | None = None,
+    **kwargs: Any,
 ):
     """Get an authenticated elasticsearch client."""
     from elasticsearch import AuthenticationException, Elasticsearch
@@ -369,10 +369,12 @@ def get_elasticsearch_client(
         raise_client_error("Missing required --cloud-id or --elasticsearch-url")
 
     # don't prompt for these until there's a cloud id or elasticsearch URL
-    basic_auth: (str, str) | None = None
+    basic_auth: tuple[str, str] | None = None
     if not api_key:
         es_user = es_user or click.prompt("es_user")
         es_password = es_password or click.prompt("es_password", hide_input=True)
+        if not es_user or not es_password:
+            raise ValueError("Both username and password must be provided")
         basic_auth = (es_user, es_password)
 
     hosts = [elasticsearch_url] if elasticsearch_url else None
@@ -384,7 +386,7 @@ def get_elasticsearch_client(
             hosts=hosts, cloud_id=cloud_id, http_auth=basic_auth, timeout=timeout, api_key=api_key, **kwargs
         )
         # force login to test auth
-        client.info()
+        _ = client.info()
         return client
     except AuthenticationException as e:
         error_msg = f"Failed authentication for {elasticsearch_url or cloud_id}"
@@ -398,7 +400,7 @@ def get_kibana_client(
     kibana_url: str | None = None,
     space: str | None = None,
     ignore_ssl_errors: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ):
     """Get an authenticated Kibana client."""
     if not (cloud_id or kibana_url):

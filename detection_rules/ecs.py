@@ -16,6 +16,8 @@ import requests
 from semver import Version
 import yaml
 
+from typing import Any
+
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
 from .integrations import load_integrations_schemas
@@ -97,7 +99,7 @@ def get_max_version(include_master=False):
 
 
 @cached
-def get_schema(version=None, name='ecs_flat'):
+def get_schema(version: str | None =None, name: str ='ecs_flat') -> dict[str, Any]:
     """Get schema by version."""
     if version == 'master':
         version = get_max_version(include_master=True)
@@ -202,8 +204,8 @@ def get_index_schema(index_name):
     return index_schema
 
 
-def flatten_multi_fields(schema):
-    converted = {}
+def flatten_multi_fields(schema: dict[str, Any]) -> dict[str, Any]:
+    converted: dict[str, Any] = {}
     for field, info in schema.items():
         converted[field] = info["type"]
         for subfield in info.get("multi_fields", []):

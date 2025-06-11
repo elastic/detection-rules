@@ -9,7 +9,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Any, Iterator
 
 import click
 import pytoml
@@ -28,13 +28,13 @@ DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 FILE_PATTERN = r"^([a-z0-9_])+\.(json|toml)$"
 
 
-def path_getter(value: str) -> Callable[[dict], bool]:
+def path_getter(value: str) -> Callable[[dict[str, Any]], Any]:
     """Get the path from a Python object."""
     path = value.replace("__", ".").split(".")
 
-    def callback(obj: dict):
+    def callback(obj: dict[str, Any]) -> Any:
         for p in path:
-            if isinstance(obj, dict) and p in path:
+            if p in path:
                 obj = obj[p]
             else:
                 return None
@@ -44,28 +44,36 @@ def path_getter(value: str) -> Callable[[dict], bool]:
     return callback
 
 
-def dict_filter(_obj: dict | None = None, **critieria) -> Callable[[dict], bool]:
+def dict_filter(_obj: dict[str, Any] | None = None, **criteria: Any) -> Callable[[dict[str, Any]], bool]:
     """Get a callable that will return true if a dictionary matches a set of criteria.
 
     * each key is a dotted (or __ delimited) path into a dictionary to check
     * each value is a value or list of values to match
     """
-    critieria.update(_obj or {})
-    checkers = [(path_getter(k), set(v) if isinstance(v, (list, set, tuple)) else {v}) for k, v in critieria.items()]
+    criteria.update(_obj or {})
+    checkers = [
+        # FIXME: v might not be hashable
+        (path_getter(k), set(v if isinstance(v, (list, set, tuple)) else (v,)))  # type: ignore[reportUnknownArgumentType]
+        for k, v in criteria.items()
+    ]
 
-    def callback(obj: dict) -> bool:
+    def callback(obj: dict[str, Any]) -> bool:
         for getter, expected in checkers:
             target_values = getter(obj)
-            target_values = set(target_values) if isinstance(target_values, (list, set, tuple)) else {target_values}
+            target_values = (  # type: ignore[reportUnknownVariableType]
+                set(target_values)  # type: ignore[reportUnknownVariableType]
+                if isinstance(target_values, (list, set, tuple))
+                else set((target_values,))
+            )
 
-            return bool(expected.intersection(target_values))
+            return bool(expected.intersection(target_values))  # type: ignore[reportUnknownArgumentType]
 
         return False
 
     return callback
 
 
-def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
+def metadata_filter(**metadata: Any) -> Callable[[TOMLRule], bool]:
     """Get a filter callback based off rule metadata"""
     flt = dict_filter(metadata)
 
@@ -84,11 +92,14 @@ def load_locks_from_tag(
     tag: str,
     version_lock: str = "detection_rules/etc/version.lock.json",
     deprecated_file: str = "detection_rules/etc/deprecated_rules.json",
-) -> (str, dict, dict):
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
     """Loads version and deprecated lock files from git tag."""
     import json
 
     git = utils.make_git()
+
+    if not git:
+        raise ValueError("Can't create git")
 
     exists_args = ["ls-remote"]
     if remote:
@@ -103,7 +114,7 @@ def load_locks_from_tag(
     else:
         fetch_tags += ["--tags", "-f", tag]
 
-    git(*fetch_tags)
+    _ = git(*fetch_tags)
 
     commit_hash = git("rev-list", "-1", tag)
     try:
@@ -120,11 +131,13 @@ def load_locks_from_tag(
     return commit_hash, version, deprecated
 
 
-def update_metadata_from_file(rule_path: Path, fields_to_update: dict) -> dict:
+def update_metadata_from_file(rule_path: Path, fields_to_update: dict[str, Any]) -> dict[str, Any]:
     """Update metadata fields for a rule with local contents."""
-    contents = {}
+
+    contents: dict[str, Any] = dict()
     if not rule_path.exists():
         return contents
+
     local_metadata = RuleCollection().load_file(rule_path).contents.metadata.to_dict()
     if local_metadata:
         contents["maturity"] = local_metadata.get("maturity", "development")
@@ -135,22 +148,22 @@ def update_metadata_from_file(rule_path: Path, fields_to_update: dict) -> dict:
 
 
 @dataclass
-class BaseCollection:
+class BaseCollection[T]:
     """Base class for collections."""
 
-    rules: list
+    rules: list[T]
 
     def __len__(self):
         """Get the total amount of rules in the collection."""
         return len(self.rules)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[T]:
         """Iterate over all rules in the collection."""
         return iter(self.rules)
 
 
 @dataclass
-class DeprecatedCollection(BaseCollection):
+class DeprecatedCollection(BaseCollection[DeprecatedRule]):
     """Collection of loaded deprecated rule dicts."""
 
     id_map: dict[str, DeprecatedRule] = field(default_factory=dict)
@@ -172,13 +185,13 @@ class DeprecatedCollection(BaseCollection):
         return filtered_collection
 
 
-class RawRuleCollection(BaseCollection):
+class RawRuleCollection(BaseCollection[DictRule]):
     """Collection of rules in raw dict form."""
 
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: list[dict | None] = None, ext_patterns: list[str | None] = None):
+    def __init__(self, rules: list[DictRule] | None = None, ext_patterns: list[str] | None = None):
         """Create a new raw rule collection, with optional file ext pattern override."""
         # ndjson is unsupported since it breaks the contract of 1 rule per file, so rules should be manually broken out
         # first
@@ -190,7 +203,7 @@ class RawRuleCollection(BaseCollection):
         self.errors: dict[Path, Exception] = {}
         self.frozen = False
 
-        self._raw_load_cache: dict[Path, dict] = {}
+        self._raw_load_cache: dict[Path, dict[str, Any]] = {}
         for rule in rules or []:
             self.add_rule(rule)
 
@@ -207,7 +220,7 @@ class RawRuleCollection(BaseCollection):
 
         return filtered_collection
 
-    def _load_rule_file(self, path: Path) -> dict:
+    def _load_rule_file(self, path: Path) -> dict[str, Any]:
         """Load a rule file into a dictionary."""
         if path in self._raw_load_cache:
             return self._raw_load_cache[path]
@@ -216,7 +229,7 @@ class RawRuleCollection(BaseCollection):
             # use pytoml instead of toml because of annoying bugs
             # https://github.com/uiri/toml/issues/152
             # might also be worth looking at https://github.com/sdispater/tomlkit
-            raw_dict = pytoml.loads(path.read_text())
+            raw_dict = pytoml.loads(path.read_text())  # type: ignore[reportUnknownMemberType]
         elif path.suffix == ".json":
             raw_dict = json.loads(path.read_text())
         elif path.suffix == ".ndjson":
@@ -225,11 +238,11 @@ class RawRuleCollection(BaseCollection):
             raise ValueError(f"Unsupported file type {path.suffix} for rule {path}")
 
         self._raw_load_cache[path] = raw_dict
-        return raw_dict
+        return raw_dict  # type: ignore[reportUnknownVariableType]
 
-    def _get_paths(self, directory: Path, recursive=True) -> list[Path]:
+    def _get_paths(self, directory: Path, recursive: bool = True) -> list[Path]:
         """Get all paths in a directory that match the ext patterns."""
-        paths = []
+        paths: list[Path] = []
         for pattern in self.ext_patterns:
             paths.extend(sorted(directory.rglob(pattern) if recursive else directory.glob(pattern)))
         return paths
@@ -241,9 +254,9 @@ class RawRuleCollection(BaseCollection):
         name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}"
         assert rule.name not in name_map, (
-            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
+            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}"
         )
 
         if rule.path is not None:
@@ -258,7 +271,7 @@ class RawRuleCollection(BaseCollection):
         self.name_map[rule.name] = rule
         self.rules.append(rule)
 
-    def load_dict(self, obj: dict, path: Path | None = None) -> DictRule:
+    def load_dict(self, obj: dict[str, Any], path: Path | None = None) -> DictRule:
         """Load a rule from a dictionary."""
         rule = DictRule(contents=obj, path=path)
         self.add_rule(rule)
@@ -285,9 +298,9 @@ class RawRuleCollection(BaseCollection):
     def load_files(self, paths: Iterable[Path]):
         """Load multiple files into the collection."""
         for path in paths:
-            self.load_file(path)
+            _ = self.load_file(path)
 
-    def load_directory(self, directory: Path, recursive=True, obj_filter: Callable[[dict | None, bool]] = None):
+    def load_directory(self, directory: Path, recursive: bool = True, obj_filter: Callable[..., bool] | None = None):
         """Load all rules in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
@@ -296,7 +309,10 @@ class RawRuleCollection(BaseCollection):
         self.load_files(paths)
 
     def load_directories(
-        self, directories: Iterable[Path], recursive=True, obj_filter: Callable[[dict | None, bool]] = None
+        self,
+        directories: Iterable[Path],
+        recursive: bool = True,
+        obj_filter: Callable[..., bool] | None = None,
     ):
         """Load all rules in multiple directories."""
         for path in directories:
@@ -330,13 +346,13 @@ class RawRuleCollection(BaseCollection):
         return cls.__default_bbr
 
 
-class RuleCollection(BaseCollection):
+class RuleCollection(BaseCollection[TOMLRule]):
     """Collection of rule objects."""
 
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: list[TOMLRule | None] = None):
+    def __init__(self, rules: list[TOMLRule] | None = None):
         from .version_lock import VersionLock
 
         self.id_map: dict[definitions.UUIDString, TOMLRule] = {}
@@ -347,7 +363,7 @@ class RuleCollection(BaseCollection):
         self.errors: dict[Path, Exception] = {}
         self.frozen = False
 
-        self._toml_load_cache: dict[Path, dict] = {}
+        self._toml_load_cache: dict[Path, dict[str, Any]] = {}
         self._version_lock: VersionLock | None = None
 
         for rule in rules or []:
@@ -367,10 +383,10 @@ class RuleCollection(BaseCollection):
         return filtered_collection
 
     @staticmethod
-    def deserialize_toml_string(contents: Union[bytes, str]) -> dict:
-        return pytoml.loads(contents)
+    def deserialize_toml_string(contents: bytes | str) -> dict[str, Any]:
+        return pytoml.loads(contents)  # type: ignore[reportUnknownMemberType]
 
-    def _load_toml_file(self, path: Path) -> dict:
+    def _load_toml_file(self, path: Path) -> dict[str, Any]:
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
 
@@ -382,10 +398,10 @@ class RuleCollection(BaseCollection):
             self._toml_load_cache[path] = toml_dict
             return toml_dict
 
-    def _get_paths(self, directory: Path, recursive=True) -> list[Path]:
+    def _get_paths(self, directory: Path, recursive: bool = True) -> list[Path]:
         return sorted(directory.rglob("*.toml") if recursive else directory.glob("*.toml"))
 
-    def _assert_new(self, rule: Union[TOMLRule, DeprecatedRule], is_deprecated=False):
+    def _assert_new(self, rule: TOMLRule | DeprecatedRule, is_deprecated: bool = False):
         if is_deprecated:
             id_map = self.deprecated.id_map
             file_map = self.deprecated.file_map
@@ -396,15 +412,15 @@ class RuleCollection(BaseCollection):
             name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}"
         assert rule.name not in name_map, (
-            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
+            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}"
         )
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
             assert rule_path not in file_map, f"Rule file {rule_path} already loaded"
-            file_map[rule_path] = rule
+            file_map[rule_path] = rule  # type: ignore[reportArgumentType]
 
     def add_rule(self, rule: TOMLRule):
         self._assert_new(rule)
@@ -418,11 +434,13 @@ class RuleCollection(BaseCollection):
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
-    def load_dict(self, obj: dict, path: Path | None = None) -> Union[TOMLRule, DeprecatedRule]:
+    def load_dict(self, obj: dict[str, Any], path: Path | None = None) -> TOMLRule | DeprecatedRule:
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get("metadata", {}).get("maturity", "") == "deprecated":
             contents = DeprecatedRuleContents.from_dict(obj)
             if not RULES_CONFIG.bypass_version_lock:
+                if not self._version_lock:
+                    raise ValueError("No version lock found")
                 contents.set_version_lock(self._version_lock)
             deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
@@ -435,7 +453,7 @@ class RuleCollection(BaseCollection):
             self.add_rule(rule)
             return rule
 
-    def load_file(self, path: Path) -> Union[TOMLRule, DeprecatedRule]:
+    def load_file(self, path: Path) -> TOMLRule | DeprecatedRule:
         try:
             path = path.resolve()
 
@@ -503,16 +521,16 @@ class RuleCollection(BaseCollection):
                 self.errors[path] = e
                 continue
 
-    def load_files(self, paths: Iterable[Path]):
+    def load_files(self, paths: Iterable[Path]) -> None:
         """Load multiple files into the collection."""
         for path in paths:
-            self.load_file(path)
+            _ = self.load_file(path)
 
     def load_directory(
         self,
         directory: Path,
-        recursive=True,
-        obj_filter: Callable[[dict | None, bool]] = None,
+        recursive: bool = True,
+        obj_filter: Callable[..., bool] | None = None,
     ):
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
@@ -523,8 +541,8 @@ class RuleCollection(BaseCollection):
     def load_directories(
         self,
         directories: Iterable[Path],
-        recursive=True,
-        obj_filter: Callable[[dict | None, bool]] = None,
+        recursive: bool = True,
+        obj_filter: Callable[..., bool] | None = None,
     ):
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
@@ -558,16 +576,16 @@ class RuleCollection(BaseCollection):
 
     def compare_collections(
         self, other: "RuleCollection"
-    ) -> (dict[str, TOMLRule], dict[str, TOMLRule], dict[str, DeprecatedRule]):
+    ) -> tuple[dict[str, TOMLRule], dict[str, TOMLRule], dict[str, DeprecatedRule]]:
         """Get the changes between two sets of rules."""
         assert self._version_lock, "RuleCollection._version_lock must be set for self"
         assert other._version_lock, "RuleCollection._version_lock must be set for other"
 
         # we cannot trust the assumption that either of the versions or deprecated files were pre-locked, which means we
         # have to perform additional checks beyond what is done in manage_versions
-        changed_rules = {}
-        new_rules = {}
-        newly_deprecated = {}
+        changed_rules: dict[str, TOMLRule] = dict()
+        new_rules: dict[str, TOMLRule] = dict()
+        newly_deprecated: dict[str, DeprecatedRule] = dict()
 
         pre_versions_hash = utils.dict_hash(self._version_lock.version_lock.to_dict())
         post_versions_hash = utils.dict_hash(other._version_lock.version_lock.to_dict())

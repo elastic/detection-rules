@@ -4,10 +4,11 @@
 # 2.0.
 
 """ECS Schemas management."""
+
 import json
 import os
 import re
-from typing import List, Optional, Union
+from typing import Any
 
 import eql
 import requests
@@ -16,8 +17,7 @@ import yaml
 
 import kql
 
-from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
-                    read_gzip, unzip)
+from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, unzip
 
 
 def _decompress_and_save_schema(url, release_name):
@@ -37,10 +37,10 @@ def _decompress_and_save_schema(url, release_name):
                 contents = archive.read(name)
 
                 # chop off the base directory name
-                key = name[len(base_directory):]
+                key = name[len(base_directory) :]
 
                 if key.startswith("x-pack"):
-                    key = key[len("x-pack") + 1:]
+                    key = key[len("x-pack") + 1 :]
 
                 try:
                     decoded = yaml.safe_load(contents)
@@ -62,35 +62,35 @@ def _decompress_and_save_schema(url, release_name):
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
     path = get_etc_path("beats_schemas", release_name + ".json.gz")
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(compressed)
 
 
 def download_beats_schema(version: str):
     """Download a beats schema by version."""
-    url = 'https://api.github.com/repos/elastic/beats/releases'
+    url = "https://api.github.com/repos/elastic/beats/releases"
     releases = requests.get(url)
 
-    version = f'v{version.lstrip("v")}'
+    version = f"v{version.lstrip('v')}"
     beats_release = None
     for release in releases.json():
-        if release['tag_name'] == version:
+        if release["tag_name"] == version:
             beats_release = release
             break
 
     if not beats_release:
-        print(f'beats release {version} not found!')
+        print(f"beats release {version} not found!")
         return
 
-    beats_url = beats_release['zipball_url']
-    name = beats_release['tag_name']
+    beats_url = beats_release["zipball_url"]
+    name = beats_release["tag_name"]
 
     _decompress_and_save_schema(beats_url, name)
 
 
 def download_latest_beats_schema():
     """Download additional schemas from beats releases."""
-    url = 'https://api.github.com/repos/elastic/beats/releases'
+    url = "https://api.github.com/repos/elastic/beats/releases"
     releases = requests.get(url)
 
     latest_release = max(releases.json(), key=lambda release: Version.parse(release["tag_name"].lstrip("v")))
@@ -99,10 +99,10 @@ def download_latest_beats_schema():
 
 def refresh_main_schema():
     """Download and refresh beats schema from main."""
-    _decompress_and_save_schema('https://github.com/elastic/beats/archive/main.zip', 'main')
+    _decompress_and_save_schema("https://github.com/elastic/beats/archive/main.zip", "main")
 
 
-def _flatten_schema(schema: list, prefix="") -> list:
+def _flatten_schema(schema: list[dict[str, Any]], prefix="") -> list[dict[str, Any]]:
     if schema is None:
         # sometimes we see `fields: null` in the yaml
         return []
@@ -141,7 +141,7 @@ def _flatten_schema(schema: list, prefix="") -> list:
     return flattened
 
 
-def flatten_ecs_schema(schema: dict) -> dict:
+def flatten_ecs_schema(schema: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _flatten_schema(schema)
 
 
@@ -149,7 +149,7 @@ def get_field_schema(base_directory, prefix="", include_common=False):
     base_directory = base_directory.get("folders", {}).get("_meta", {}).get("files", {})
     flattened = []
 
-    file_names = ("fields.yml", "fields.common.yml") if include_common else ("fields.yml", )
+    file_names = ("fields.yml", "fields.common.yml") if include_common else ("fields.yml",)
 
     for name in file_names:
         if name in base_directory:
@@ -183,7 +183,7 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     for dataset in datasets:
         # replace aws.s3 -> s3
         if dataset.startswith(module + "."):
-            dataset = dataset[len(module) + 1:]
+            dataset = dataset[len(module) + 1 :]
 
         dataset_dir = module_dir.get("folders", {}).get(dataset, {})
         flattened.extend(get_field_schema(dataset_dir, prefix=module + ".", include_common=True))
@@ -195,10 +195,10 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 
 @cached
-def get_versions() -> List[Version]:
+def get_versions() -> list[Version]:
     versions = []
     for filename in os.listdir(get_etc_path("beats_schemas")):
-        version_match = re.match(r'v(.+)\.json\.gz', filename)
+        version_match = re.match(r"v(.+)\.json\.gz", filename)
         if version_match:
             versions.append(Version.parse(version_match.groups()[0]))
 
@@ -212,18 +212,18 @@ def get_max_version() -> str:
 
 @cached
 def read_beats_schema(version: str = None):
-    if version and version.lower() == 'main':
-        return json.loads(read_gzip(get_etc_path('beats_schemas', 'main.json.gz')))
+    if version and version.lower() == "main":
+        return json.loads(read_gzip(get_etc_path("beats_schemas", "main.json.gz")))
 
     version = Version.parse(version) if version else None
     beats_schemas = get_versions()
 
     if version and version not in beats_schemas:
-        raise ValueError(f'Unknown beats schema: {version}')
+        raise ValueError(f"Unknown beats schema: {version}")
 
     version = version or get_max_version()
 
-    return json.loads(read_gzip(get_etc_path('beats_schemas', f'v{version}.json.gz')))
+    return json.loads(read_gzip(get_etc_path("beats_schemas", f"v{version}.json.gz")))
 
 
 def get_schema_from_datasets(beats, modules, datasets, version=None):
@@ -253,8 +253,11 @@ def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) ->
 
     # extract out event.module and event.dataset from the query's AST
     for node in tree:
-        if isinstance(node, eql.ast.Comparison) and node.comparator == node.EQ and \
-                isinstance(node.right, eql.ast.String):
+        if (
+            isinstance(node, eql.ast.Comparison)
+            and node.comparator == node.EQ
+            and isinstance(node.right, eql.ast.String)
+        ):
             if node.left == eql.ast.Field("event", ["module"]):
                 modules.add(node.right.render())
             elif node.left == eql.ast.Field("event", ["dataset"]):
@@ -284,7 +287,7 @@ def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
-def parse_beats_from_index(index: Optional[list]) -> List[str]:
+def parse_beats_from_index(index: list | None) -> list[str]:
     """Parse beats schema types from index."""
     indexes = index or []
     beat_types = []
@@ -292,7 +295,7 @@ def parse_beats_from_index(index: Optional[list]) -> List[str]:
     # e.g. mycluster:logs-* -> logs-*
     for index in indexes:
         if "beat-*" in index:
-            index_parts = index.replace('::', ':').split(':', 1)
+            index_parts = index.replace("::", ":").split(":", 1)
             last_part = index_parts[-1]
             beat_type = last_part.split("-")[0]
             beat_types.append(beat_type)
