@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2025/06/11"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/06/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious Diagnostics Utility for Internet Explorer child process. This may indicate the successful exploitation of the vulnerability CVE-2025-33053.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential CVE-2025-33053 Exploitation"
+note = """## Triage and analysis
+
+### Investigating Potential CVE-2025-33053 Exploitation
+
+### Possible investigation steps
+
+- Review the process details to confirm the suspicious child process was indeed started by iediagcmd.exe.
+- Check any URL file type creation before the alert and review the source of those files.
+- Investigate the process tree and make sure all descendant processes are terminated.
+- Examine the network activity associated with the suspicious process to detect any unauthorized data exfiltration or communication with known malicious IP addresses.
+- Assess the system for any additional indicators of compromise, such as unexpected changes in system files or registry keys, which might suggest a broader attack.
+
+### False positive analysis
+
+- This behavior is very rare and should be highly suspicious.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any malicious activity.
+- Terminate the suspicious child process identified in the alert.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or processes.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
+- Implement additional monitoring and alerting for similar suspicious activities involving explorer.exe to enhance detection capabilities and prevent recurrence.
+- Review and update endpoint security policies to restrict the execution of potentially malicious URL files."""
+references = [
+     "https://research.checkpoint.com/2025/stealth-falcon-zero-day/", 
+     "https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2025-33053",
+]
+risk_score = 73
+rule_id = "5e23495f-09e2-4484-8235-bdb150d698c9"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.executable : "C:\\Program Files\\Internet Explorer\\iediagcmd.exe" and
+  process.name : ("route.exe", "netsh.exe", "ipconfig.exe", "dxdiag.exe", "conhost.exe", "makecab.exe") and
+  process.executable != null and
+  not process.executable : ("C:\\Windows\\System32\\route.exe",
+                            "C:\\Windows\\System32\\netsh.exe",
+                            "C:\\Windows\\System32\\ipconfig.exe",
+                            "C:\\Windows\\System32\\dxdiag.exe",
+                            "C:\\Windows\\System32\\conhost.exe",
+                            "C:\\Windows\\System32\\makecab.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
