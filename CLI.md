@@ -465,7 +465,7 @@ Options:
 
 This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs-dev/custom-rules-management.md) for more information.
 
-Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `cro` flag to only export custom rules, or the `eq` flag to filter by query.
+Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `-cro` flag to only export custom rules, or the `-eq` flag to filter by query.
 
 ```
 python -m detection_rules kibana export-rules -h
