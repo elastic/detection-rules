@@ -2,13 +2,12 @@
 creation_date = "2020/06/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of one or more flow logs in AWS Elastic Compute Cloud (EC2). An adversary may delete flow logs
-in an attempt to evade defenses.
+Identifies the deletion of one or more flow logs in AWS Elastic Compute Cloud (EC2). An adversary may delete flow logs in an attempt to evade defenses.
 """
 false_positives = [
     """
@@ -17,9 +16,9 @@ false_positives = [
     be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
+interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS VPC Flow Logs Deletion"
@@ -81,6 +80,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
     "Use Case: Log Auditing",
     "Resources: Investigation Guide",
     "Tactic: Defense Evasion",
@@ -92,6 +92,22 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:DeleteFlowLogs and event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -100,9 +116,9 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.001"
-name = "Disable or Modify Tools"
-reference = "https://attack.mitre.org/techniques/T1562/001/"
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
 
 
 
