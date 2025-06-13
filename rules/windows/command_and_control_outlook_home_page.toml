@@ -2,7 +2,7 @@
 creation_date = "2024/08/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/06/12"
 
 [rule]
 author = ["Elastic"]
@@ -82,12 +82,9 @@ type = "eql"
 query = '''
 registry where host.os.type == "windows" and event.action != "deletion" and registry.value : "URL" and
     registry.path : (
-        "HKCU\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
-        "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
-        "HKU\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
-        "\\REGISTRY\\USER\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
-        "USER\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL"
-    ) and registry.data.strings : "*http*"
+        "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\*",
+        "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Today\\*"
+    ) and registry.data.strings : "*://*"
 '''
 
 
