@@ -249,10 +249,9 @@ TimelineTemplateTitle = Annotated[str, fields.String(validate=elastic_timeline_t
 UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN))]
 
 # experimental machine learning features and releases
-# FIXME: what is this?
-# MachineLearningType = getattr(Literal, "__getitem__")(tuple(MACHINE_LEARNING_PACKAGES))
-# MachineLearningTypeLower = getattr(Literal, "__getitem__")(tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))
-##
+MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]
+MACHINE_LEARNING_PACKAGES_LOWER = tuple(map(str.lower, MACHINE_LEARNING_PACKAGES))
+MachineLearningTypeLower = Literal[MACHINE_LEARNING_PACKAGES_LOWER]
 
 ActionTypeId = Literal[
     ".slack",
