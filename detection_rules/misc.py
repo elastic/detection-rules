@@ -12,18 +12,14 @@ import unittest
 import uuid
 from pathlib import Path
 from functools import wraps
-from typing import NoReturn
-
-from typing import Any, IO
+from typing import NoReturn, IO, Any, Callable
 
 import click
 import requests
 
-from kibana import Kibana
+from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
-from .utils import add_params, cached, get_path, load_etc_dump
-
-_CONFIG = {}
+from .utils import add_params, cached, load_etc_dump
 
 LICENSE_HEADER = """
 Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
@@ -47,12 +43,12 @@ ROOT_DIR = Path(__file__).parent.parent
 class ClientError(click.ClickException):
     """Custom CLI error to format output or full debug stacktrace."""
 
-    def __init__(self, message, original_error=None):
+    def __init__(self, message: str, original_error: Exception | None = None):
         super(ClientError, self).__init__(message)
         self.original_error = original_error
         self.original_error_type = type(original_error).__name__ if original_error else ""
 
-    def show(self, file=None, err=True):
+    def show(self, file: IO[Any] | None = None, err: bool = True):
         """Print the error to the console."""
         # err_msg = f' {self.original_error_type}' if self.original_error else ''
         msg = f"{click.style(f'CLI Error ({self.original_error_type})', fg='red', bold=True)}: {self.format_message()}"
@@ -81,7 +77,7 @@ def nested_get(_dict: dict[str, Any] | None, dot_key: str | None, default: Any |
     """Get a nested field from a nested dict with dot notation."""
     if _dict is None or dot_key is None:
         return default
-    elif "." in dot_key and isinstance(_dict, dict):
+    elif "." in dot_key:
         dot_key_parts = dot_key.split(".")
         this_key = dot_key_parts.pop(0)
         return nested_get(_dict.get(this_key, default), ".".join(dot_key_parts), default)
@@ -113,10 +109,10 @@ def nest_from_dot(dots: str, value: Any) -> Any:
     return nested
 
 
-def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: str) -> Any:
+def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:
     """Interactively prompt based on schema requirements."""
     field_type = options.get("type")
-    pattern = options.get("pattern")
+    pattern: str | None = options.get("pattern")
     enum = options.get("enum", [])
     minimum = int(options["minimum"]) if "minimum" in options else None
     maximum = int(options["maximum"]) if "maximum" in options else None
@@ -267,11 +263,11 @@ def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -
 
 
 def get_kibana_rules(
-    rule_paths: list[str],
     repo: str = "elastic/kibana",
     branch: str = "master",
     verbose: bool = True,
     threads: int = 50,
+    rule_paths: list[str] = [],
 ) -> dict[str, Any]:
     """Retrieve prepackaged rules from kibana repo."""
     from multiprocessing.pool import ThreadPool
@@ -315,14 +311,13 @@ def get_default_config() -> Path | None:
 @cached
 def parse_user_config():
     """Parse a default config file."""
-    import eql
+    import eql  # type: ignore[reportMissingTypeStubs]
 
     config_file = get_default_config()
     config = {}
 
     if config_file and config_file.exists():
-        config = eql.utils.load_dump(str(config_file))
-
+        config = eql.utils.load_dump(str(config_file))  # type: ignore[reportUnknownMemberType]
         click.secho(f"Loaded config file: {config_file}", fg="yellow")
 
     return config
@@ -432,42 +427,39 @@ kibana_options = list(client_options["kibana"].values())
 elasticsearch_options = list(client_options["elasticsearch"].values())
 
 
-def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
+def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: bool = True):
     """Wrapper to add authed client."""
     from elasticsearch import Elasticsearch
     from elasticsearch.exceptions import AuthenticationException
-    from kibana import Kibana
+    from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
-    def _wrapper(func):
-        client_ops_dict = {}
-        client_ops_keys = {}
-        for c_type in client_type:
-            ops = client_options.get(c_type)
+    def _wrapper(func: Callable[..., Any]):
+        client_ops_dict: dict[str, click.Option] = {}
+        client_ops_keys: dict[str, list[str]] = {}
+        for c_type in client_types:
+            ops = client_options[c_type]
             client_ops_dict.update(ops)
             client_ops_keys[c_type] = list(ops)
 
         if not client_ops_dict:
-            raise ValueError(f"Unknown client: {client_type} in {func.__name__}")
+            client_types_str = ", ".join(client_types)
+            raise ValueError(f"Unknown client: {client_types_str} in {func.__name__}")
 
         client_ops = list(client_ops_dict.values())
 
         @wraps(func)
         @add_params(*client_ops)
-        def _wrapped(*args, **kwargs):
-            ctx: click.Context = next((a for a in args if isinstance(a, click.Context)), None)
+        def _wrapped(*args: Any, **kwargs: Any):
+            ctx: click.Context | None = next((a for a in args if isinstance(a, click.Context)), None)
             es_client_args = {k: kwargs.pop(k, None) for k in client_ops_keys.get("elasticsearch", [])}
             #                                      shared args like cloud_id
             kibana_client_args = {k: kwargs.pop(k, es_client_args.get(k)) for k in client_ops_keys.get("kibana", [])}
 
-            if "elasticsearch" in client_type:
+            if "elasticsearch" in client_types:
                 # for nested ctx invocation, no need to re-auth if an existing client is already passed
-                elasticsearch_client: Elasticsearch = kwargs.get("elasticsearch_client")
+                elasticsearch_client: Elasticsearch | None = kwargs.get("elasticsearch_client")
                 try:
-                    if (
-                        elasticsearch_client
-                        and isinstance(elasticsearch_client, Elasticsearch)
-                        and elasticsearch_client.info()
-                    ):
+                    if elasticsearch_client and elasticsearch_client.info():
                         pass
                     else:
                         elasticsearch_client = get_elasticsearch_client(**es_client_args)
@@ -479,10 +471,10 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
                 if ctx and add_to_ctx:
                     ctx.obj["es"] = elasticsearch_client
 
-            if "kibana" in client_type:
+            if "kibana" in client_types:
                 # for nested ctx invocation, no need to re-auth if an existing client is already passed
-                kibana_client: Kibana = kwargs.get("kibana_client")
-                if kibana_client and isinstance(kibana_client, Kibana):
+                kibana_client: Kibana | None = kwargs.get("kibana_client")
+                if kibana_client:
                     try:
                         with kibana_client:
                             if kibana_client.version:

@@ -25,7 +25,7 @@ from typing import Callable, Any, Iterator
 from string import Template
 
 import click
-import pytoml
+import pytoml  # type: ignore[reportMissingTypeStubs]
 import eql.utils  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
@@ -124,7 +124,7 @@ def load_etc_dump(paths: list[str]) -> Any:
     return eql.utils.load_dump(str(get_etc_path(paths)))  # type: ignore[reportUnknownVariableType]
 
 
-def save_etc_dump(contents: str, path: list[str], sort_keys: bool = True, indent: int = 2):
+def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = True, indent: int = 2):
     """Save a json/yml/toml file from the detection_rules/etc/ folder."""
     path_joined = str(get_etc_path(path))
     _, ext = os.path.splitext(path_joined)
@@ -357,7 +357,7 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
 
         return contents or [{}]
     elif extension == ".toml":
-        rule = pytoml.loads(raw_text)
+        rule = pytoml.loads(raw_text)  # type: ignore[reportUnknownVariableType]
     elif extension.lower() in ("yaml", "yml"):
         rule = load_dump(str(rule_file))
     else:
@@ -477,8 +477,6 @@ def make_git(*prefix_args: Any) -> Callable[..., str]:
 def git(*args: Any, **kwargs: Any) -> str | int:
     """Find and run a one-off Git command."""
     g = make_git()
-    if not g:
-        raise ValueError("Can't make git")
     return g(*args, **kwargs)
 
 

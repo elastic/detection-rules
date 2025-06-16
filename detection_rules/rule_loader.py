@@ -5,6 +5,7 @@
 
 """Load rule metadata transform between rule and api formats."""
 
+import requests
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,13 +14,16 @@ from subprocess import CalledProcessError
 from typing import Callable, Iterable, Any, Iterator
 
 import click
-import pytoml
+import pytoml  # type: ignore[reportMissingTypeStubs]
 import json
 from marshmallow.exceptions import ValidationError
+from github.PullRequest import PullRequest
+from github.File import File
 
 from . import utils
 from .config import parse_rules_config
 from .rule import DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
+from .ghwrap import GithubClient
 from .schemas import definitions
 from .utils import cached, get_path
 
@@ -414,8 +418,15 @@ class RuleCollection(BaseCollection[TOMLRule]):
             file_map = self.file_map
             name_map = self.name_map
 
+        if not rule.id:
+            raise ValueError("Rule has no ID")
+
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
         assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}"
+
+        if not rule.name:
+            raise ValueError("Rule has no name")
+
         assert rule.name not in name_map, (
             f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}"
         )
@@ -433,6 +444,12 @@ class RuleCollection(BaseCollection[TOMLRule]):
 
     def add_deprecated_rule(self, rule: DeprecatedRule):
         self._assert_new(rule, is_deprecated=True)
+
+        if not rule.id:
+            raise ValueError("Rule has no ID")
+        if not rule.name:
+            raise ValueError("Rule has no name")
+
         self.deprecated.id_map[rule.id] = rule
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
@@ -613,7 +630,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
                     changed_rules[rule.id] = rule
 
         for rule in other.deprecated:
-            if rule.id not in self.deprecated.id_map:
+            if rule.id and rule.id not in self.deprecated.id_map:
                 newly_deprecated[rule.id] = rule
 
         return changed_rules, new_rules, newly_deprecated
@@ -622,37 +639,35 @@ class RuleCollection(BaseCollection[TOMLRule]):
 @cached
 def load_github_pr_rules(
     labels: list[str] | None = None,
-    repo: str = "elastic/detection-rules",
+    repo_name: str = "elastic/detection-rules",
     token: str | None = None,
     threads: int = 50,
     verbose: bool = True,
-) -> tuple[dict[str, TOMLRule], dict[str, TOMLRule], dict[str, list]]:
+) -> tuple[dict[str, TOMLRule], dict[str, list[TOMLRule]], dict[str, list[str]]]:
     """Load all rules active as a GitHub PR."""
 
-    from .ghwrap import GithubClient
-
     github = GithubClient(token=token)
-    repo = github.client.get_repo(repo)
+    repo = github.client.get_repo(repo_name)
     labels_set = set(labels or [])
     open_prs = [r for r in repo.get_pulls() if not labels_set.difference(set(lbl.name for lbl in r.get_labels()))]
 
     new_rules: list[TOMLRule] = []
     modified_rules: list[TOMLRule] = []
-    errors: dict[str, list] = {}
+    errors: dict[str, list[str]] = {}
 
     existing_rules = RuleCollection.default()
-    pr_rules = []
+    pr_rules: list[tuple[PullRequest, File]] = []
 
     if verbose:
         click.echo("Downloading rules from GitHub PRs")
 
-    def download_worker(pr_info):
+    def download_worker(pr_info: tuple[PullRequest, File]):
         pull, rule_file = pr_info
         response = requests.get(rule_file.raw_url)
         try:
-            raw_rule = pytoml.loads(response.text)
-            contents = TOMLRuleContents.from_dict(raw_rule)
-            rule = TOMLRule(path=rule_file.filename, contents=contents)
+            raw_rule = pytoml.loads(response.text)  # type: ignore[reportUnknownVariableType]
+            contents = TOMLRuleContents.from_dict(raw_rule)  # type: ignore[reportUnknownArgumentType]
+            rule = TOMLRule(path=Path(rule_file.filename), contents=contents)
             rule.gh_pr = pull
 
             if rule in existing_rules:
@@ -670,12 +685,12 @@ def load_github_pr_rules(
         )
 
     pool = ThreadPool(processes=threads)
-    pool.map(download_worker, pr_rules)
+    _ = pool.map(download_worker, pr_rules)
     pool.close()
     pool.join()
 
     new = OrderedDict([(rule.contents.id, rule) for rule in sorted(new_rules, key=lambda r: r.contents.name)])
-    modified = OrderedDict()
+    modified: OrderedDict[str, list[TOMLRule]] = OrderedDict()
 
     for modified_rule in sorted(modified_rules, key=lambda r: r.contents.name):
         modified.setdefault(modified_rule.contents.id, []).append(modified_rule)

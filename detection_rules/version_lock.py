@@ -12,6 +12,7 @@ from typing import ClassVar, Literal, Any
 import click
 from semver import Version
 
+from .rule import TOMLRule
 from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
@@ -191,7 +192,7 @@ class VersionLock:
         save_changes: bool = False,
         verbose: bool = True,
         buffer_int: int = 100,
-    ) -> tuple[list[str], list[str], list[str]]:
+    ) -> tuple[list[definitions.UUIDString], list[str], list[str]]:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
         from .rule_loader import RuleCollection
@@ -202,7 +203,7 @@ class VersionLock:
         lock_file_contents = deepcopy(self.version_lock.to_dict())
         current_deprecated_lock = deepcopy(self.deprecated_lock.to_dict())
 
-        verbose_echo = click.echo if verbose else (lambda: None)
+        verbose_echo = click.echo if verbose else (lambda _: None)  # type: ignore[reportUnknownVariableType]
 
         already_deprecated = set(current_deprecated_lock)
         deprecated_rules = set(rules.deprecated.id_map)
@@ -216,9 +217,10 @@ class VersionLock:
             return list(changed_rules), list(new_rules), list(newly_deprecated)
 
         verbose_echo("Rule changes detected!")
-        changes = []
 
-        def log_changes(r, route_taken, new_rule_version, *msg):
+        changes: list[str] = []
+
+        def log_changes(r: TOMLRule, route_taken: str, new_rule_version: Any, *msg: str):
             new = [f"  {route_taken}: {r.id}, new version: {new_rule_version}"]
             new.extend([f"    - {m}" for m in msg if m])
             changes.extend(new)
@@ -229,7 +231,7 @@ class VersionLock:
                 min_stack = Version.parse(rule.contents.get_supported_version(), optional_minor_and_patch=True)
 
                 lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
-                lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
+                lock_from_file = lock_file_contents.setdefault(rule.id, {})
 
                 # scenarios to handle, assuming older stacks are always locked first:
                 # 1) no breaking changes ever made or the first time a rule is created
@@ -357,13 +359,13 @@ class VersionLock:
 
         new_hash = self.version_lock.sha256()
 
-        if version_lock_hash != new_hash:
+        if version_lock_hash != new_hash and self.version_lock_file:
             self.save_file(self.version_lock_file, self.version_lock)
 
-        if newly_deprecated:
+        if newly_deprecated and self.deprecated_lock_file:
             self.save_file(self.deprecated_lock_file, self.deprecated_lock)
 
-        return changed_rules, list(new_rules), newly_deprecated
+        return list(changed_rules), list(new_rules), list(newly_deprecated)
 
 
 name = str(RULES_CONFIG.version_lock_file)

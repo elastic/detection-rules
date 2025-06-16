@@ -169,7 +169,8 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict[str, Any]) ->
         job_id = api_contents["machine_learning_job_id"]
 
         if isinstance(job_id, list):
-            if len(job_id) > 1:
+
+            if len(job_id) > 1:  # type: ignore[reportUnknownArgumentType]
                 raise ValueError("Cannot downgrade an ML rule with multiple jobs defined")
 
             api_contents = api_contents.copy()
@@ -317,12 +318,11 @@ def migrate_to_9_0(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     return strip_additional_properties(version, api_contents)
 
 
-def downgrade(api_contents: dict[str, Any], target_version: str, current_version: str | None = None) -> dict[str, Any]:
+def downgrade(api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None) -> dict[str, Any]:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
 
-    if current_version is None:
-        current_version = current_stack_version()
+    current_version = current_version_val or current_stack_version()
 
     current = Version.parse(current_version, optional_minor_and_patch=True)
     target = Version.parse(target_version, optional_minor_and_patch=True)
@@ -347,12 +347,12 @@ def load_stack_schema_map() -> dict[str, Any]:
 
 
 @cached
-def get_stack_schemas(stack_version: Optional[str] = "0.0.0") -> OrderedDictType[str, dict]:
+def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictType[str, dict[str, Any]]:
     """
     Return all ECS, beats, and custom stack versions for every stack version.
     Only versions >= specified stack version and <= package are returned.
     """
-    stack_version = Version.parse(stack_version or "0.0.0", optional_minor_and_patch=True)
+    stack_version = Version.parse(stack_version_val or "0.0.0", optional_minor_and_patch=True)
     current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
     stack_map = load_stack_schema_map()
@@ -360,7 +360,7 @@ def get_stack_schemas(stack_version: Optional[str] = "0.0.0") -> OrderedDictType
         k: v
         for k, v in stack_map.items()
         if (((mapped_version := Version.parse(k)) >= stack_version) and (mapped_version <= current_package) and v)
-    }  # noqa: W503
+    }
 
     if stack_version > current_package:
         versions[stack_version] = {"beats": "main", "ecs": "master"}
@@ -369,11 +369,11 @@ def get_stack_schemas(stack_version: Optional[str] = "0.0.0") -> OrderedDictType
     return versions_reversed
 
 
-def get_stack_versions(drop_patch=False) -> list[str]:
+def get_stack_versions(drop_patch: bool =False) -> list[str]:
     """Get a list of stack versions supported (for the matrix)."""
     versions = list(load_stack_schema_map())
     if drop_patch:
-        abridged_versions = []
+        abridged_versions: list[str] = []
         for version in versions:
             abridged, _ = version.rsplit(".", 1)
             abridged_versions.append(abridged)

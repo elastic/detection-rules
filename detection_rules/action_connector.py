@@ -4,12 +4,13 @@
 # 2.0.
 
 """Dataclasses for Action."""
+
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any
 
-import pytoml
+import pytoml  # type: ignore[reportMissingTypeStubs]
 from marshmallow import EXCLUDE
 
 from .mixins import MarshmallowDataclassMixin
@@ -25,14 +26,14 @@ class ActionConnectorMeta(MarshmallowDataclassMixin):
 
     creation_date: definitions.Date
     action_connector_name: str
-    rule_ids: List[definitions.UUIDString]
-    rule_names: List[str]
+    rule_ids: list[definitions.UUIDString]
+    rule_names: list[str]
     updated_date: definitions.Date
 
     # Optional fields
-    deprecation_date: Optional[definitions.Date]
-    comments: Optional[str]
-    maturity: Optional[definitions.Maturity]
+    deprecation_date: definitions.Date | None
+    comments: str | None
+    maturity: definitions.Maturity | None
 
 
 @dataclass
@@ -40,11 +41,11 @@ class ActionConnector(MarshmallowDataclassMixin):
     """Data object for rule Action Connector."""
 
     id: str
-    attributes: dict
-    frequency: Optional[dict]
-    managed: Optional[bool]
-    type: Optional[str]
-    references: Optional[List]
+    attributes: dict[str, Any]
+    frequency: dict[str, Any] | None
+    managed: bool | None
+    type: str | None
+    references: list[Any] | None
 
 
 @dataclass(frozen=True)
@@ -52,13 +53,15 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
     """Object for action connector from TOML file."""
 
     metadata: ActionConnectorMeta
-    action_connectors: List[ActionConnector]
+    action_connectors: list[ActionConnector]
 
     @classmethod
-    def from_action_connector_dict(cls, actions_dict: dict, rule_list: dict) -> "TOMLActionConnectorContents":
+    def from_action_connector_dict(
+        cls, actions_dict: dict[str, Any], rule_list: list[dict[str, Any]]
+    ) -> "TOMLActionConnectorContents":
         """Create a TOMLActionContents from a kibana rule resource."""
-        rule_ids = []
-        rule_names = []
+        rule_ids: list[str] = []
+        rule_names: list[str] = []
 
         for rule in rule_list:
             rule_ids.append(rule["id"])
@@ -77,9 +80,9 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
 
         return cls.from_dict({"metadata": metadata, "action_connectors": [actions_dict]}, unknown=EXCLUDE)
 
-    def to_api_format(self) -> List[dict]:
+    def to_api_format(self) -> list[dict[str, Any]]:
         """Convert the TOML Action Connector to the API format."""
-        converted = []
+        converted: list[dict[str, Any]] = []
 
         for action in self.action_connectors:
             converted.append(action.to_dict())
@@ -109,13 +112,15 @@ class TOMLActionConnector:
             contents_dict = self.contents.to_dict()
             # Sort the dictionary so that 'metadata' is at the top
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
-            pytoml.dump(sorted_dict, f)
+            pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
 
 
-def parse_action_connector_results_from_api(results: List[dict]) -> tuple[List[dict], List[dict]]:
+def parse_action_connector_results_from_api(
+    results: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Filter Kibana export rule results for action connector dictionaries."""
-    action_results = []
-    non_action_results = []
+    action_results: list[dict[str, Any]] = []
+    non_action_results: list[dict[str, Any]] = []
     for result in results:
         if result.get("type") != "action":
             non_action_results.append(result)
@@ -125,17 +130,21 @@ def parse_action_connector_results_from_api(results: List[dict]) -> tuple[List[d
     return action_results, non_action_results
 
 
-def build_action_connector_objects(action_connectors: List[dict], action_connector_rule_table: dict,
-                                   action_connectors_directory: Path, save_toml: bool = False,
-                                   skip_errors: bool = False, verbose=False,
-                                   ) -> Tuple[List[TOMLActionConnector], List[str], List[str]]:
+def build_action_connector_objects(
+    action_connectors: list[dict[str, Any]],
+    action_connector_rule_table: dict[str, Any],
+    action_connectors_directory: Path | None,
+    save_toml: bool = False,
+    skip_errors: bool = False,
+    verbose: bool = False,
+) -> tuple[list[TOMLActionConnector], list[str], list[str]]:
     """Build TOMLActionConnector objects from a list of action connector dictionaries."""
-    output = []
-    errors = []
-    toml_action_connectors = []
+    output: list[str] = []
+    errors: list[str] = []
+    toml_action_connectors: list[TOMLActionConnector] = []
     for action_connector_dict in action_connectors:
         try:
-            connector_id = action_connector_dict.get("id")
+            connector_id = action_connector_dict["id"]
             rule_list = action_connector_rule_table.get(connector_id)
             if not rule_list:
                 output.append(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
@@ -161,6 +170,7 @@ def build_action_connector_objects(action_connectors: List[dict], action_connect
                 )
                 if save_toml:
                     ac_object.save_toml()
+
                 toml_action_connectors.append(ac_object)
 
         except Exception as e:

@@ -8,7 +8,7 @@ import glob
 import json
 import os
 
-from detection_rules.utils import combine_sources
+from detection_rules.eswrap import combine_sources
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(CURRENT_DIR, 'data')

@@ -10,23 +10,23 @@ import os
 import re
 from typing import Any
 
-import eql
+import eql  # type: ignore[reportMissingTypeStubs]
 import requests
 from semver import Version
 import yaml
 
-import kql
+import kql  # type: ignore[reportMissingTypeStubs]
 
 from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, unzip
 
 
-def _decompress_and_save_schema(url, release_name):
+def _decompress_and_save_schema(url: str, release_name: str):
     print(f"Downloading beats {release_name}")
     response = requests.get(url)
 
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
 
-    fs = {}
+    fs: dict[str, Any] = {}
     parsed = {}
 
     with unzip(response.content) as archive:
@@ -46,6 +46,7 @@ def _decompress_and_save_schema(url, release_name):
                     decoded = yaml.safe_load(contents)
                 except yaml.YAMLError:
                     print(f"Error loading {name}")
+                    raise ValueError(f"Error loading {name}")
 
                 # create a hierarchical structure
                 parsed[key] = decoded
@@ -61,9 +62,9 @@ def _decompress_and_save_schema(url, release_name):
     print(f"Saving detection_rules/etc/beats_schema/{release_name}.json")
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
-    path = get_etc_path("beats_schemas", release_name + ".json.gz")
+    path = get_etc_path(["beats_schemas", release_name + ".json.gz"])
     with open(path, "wb") as f:
-        f.write(compressed)
+        _ = f.write(compressed)
 
 
 def download_beats_schema(version: str):
@@ -102,12 +103,12 @@ def refresh_main_schema():
     _decompress_and_save_schema("https://github.com/elastic/beats/archive/main.zip", "main")
 
 
-def _flatten_schema(schema: list[dict[str, Any]], prefix="") -> list[dict[str, Any]]:
+def _flatten_schema(schema: list[dict[str, Any]] | None, prefix: str = "") -> list[dict[str, Any]]:
     if schema is None:
         # sometimes we see `fields: null` in the yaml
         return []
 
-    flattened = []
+    flattened: list[dict[str, Any]] = []
     for s in schema:
         if s.get("type") == "group":
             nested_prefix = prefix + s["name"] + "."
@@ -145,9 +146,9 @@ def flatten_ecs_schema(schema: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _flatten_schema(schema)
 
 
-def get_field_schema(base_directory, prefix="", include_common=False):
+def get_field_schema(base_directory: dict[str, Any], prefix: str = "", include_common: bool = False):
     base_directory = base_directory.get("folders", {}).get("_meta", {}).get("files", {})
-    flattened = []
+    flattened: list[dict[str, Any]] = []
 
     file_names = ("fields.yml", "fields.common.yml") if include_common else ("fields.yml",)
 
@@ -158,7 +159,7 @@ def get_field_schema(base_directory, prefix="", include_common=False):
     return flattened
 
 
-def get_beat_root_schema(schema: dict, beat: str):
+def get_beat_root_schema(schema: dict[str, Any], beat: str):
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
@@ -168,19 +169,21 @@ def get_beat_root_schema(schema: dict, beat: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
-def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
+def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datasets: str):
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
-    flattened = []
+    flattened: list[dict[str, Any]] = []
     beat_dir = schema[beat]
     module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(module, {})
 
     # if we only have a module then we'll work with what we got
-    if not datasets:
-        datasets = [d for d in module_dir.get("folders", {}) if not d.startswith("_")]
+    if datasets:
+        all_datasets = datasets
+    else:
+        all_datasets = [d for d in module_dir.get("folders", {}) if not d.startswith("_")]
 
-    for dataset in datasets:
+    for dataset in all_datasets:
         # replace aws.s3 -> s3
         if dataset.startswith(module + "."):
             dataset = dataset[len(module) + 1 :]
@@ -196,8 +199,8 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 @cached
 def get_versions() -> list[Version]:
-    versions = []
-    for filename in os.listdir(get_etc_path("beats_schemas")):
+    versions: list[Version] = []
+    for filename in os.listdir(get_etc_path(["beats_schemas"])):
         version_match = re.match(r"v(.+)\.json\.gz", filename)
         if version_match:
             versions.append(Version.parse(version_match.groups()[0]))
@@ -211,23 +214,24 @@ def get_max_version() -> str:
 
 
 @cached
-def read_beats_schema(version: str = None):
+def read_beats_schema(version: str | None = None):
     if version and version.lower() == "main":
-        return json.loads(read_gzip(get_etc_path("beats_schemas", "main.json.gz")))
+        path = get_etc_path(["beats_schemas", "main.json.gz"])
+        return json.loads(read_gzip(path))
 
-    version = Version.parse(version) if version else None
+    ver = Version.parse(version) if version else None
     beats_schemas = get_versions()
 
-    if version and version not in beats_schemas:
-        raise ValueError(f"Unknown beats schema: {version}")
+    if ver and ver not in beats_schemas:
+        raise ValueError(f"Unknown beats schema: {ver}")
 
     version = version or get_max_version()
 
-    return json.loads(read_gzip(get_etc_path("beats_schemas", f"v{version}.json.gz")))
+    return json.loads(read_gzip(get_etc_path(["beats_schemas", f"v{version}.json.gz"])))
 
 
-def get_schema_from_datasets(beats, modules, datasets, version=None):
-    filtered = {}
+def get_schema_from_datasets(beats: list[str], modules: set[str], datasets: set[str], version: str | None = None):
+    filtered: dict[str, Any] = {}
     beats_schema = read_beats_schema(version=version)
 
     # infer the module if only a dataset are defined
@@ -246,51 +250,51 @@ def get_schema_from_datasets(beats, modules, datasets, version=None):
     return filtered
 
 
-def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) -> tuple:
+def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple[set[str], set[str]]:
     """Get datasets and modules from an EQL or KQL AST."""
-    modules = set()
-    datasets = set()
+    modules: set[str] = set()
+    datasets: set[str] = set()
 
     # extract out event.module and event.dataset from the query's AST
-    for node in tree:
+    for node in tree:  # type: ignore[reportUnknownVariableType]
         if (
             isinstance(node, eql.ast.Comparison)
             and node.comparator == node.EQ
             and isinstance(node.right, eql.ast.String)
         ):
             if node.left == eql.ast.Field("event", ["module"]):
-                modules.add(node.right.render())
+                modules.add(node.right.render())  # type: ignore[reportUnknownMemberType]
             elif node.left == eql.ast.Field("event", ["dataset"]):
-                datasets.add(node.right.render())
+                datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, eql.ast.InSet):
             if node.expression == eql.ast.Field("event", ["module"]):
-                modules.add(node.get_literals())
+                modules.add(node.get_literals())  # type: ignore[reportUnknownMemberType]
             elif node.expression == eql.ast.Field("event", ["dataset"]):
-                datasets.add(node.get_literals())
-        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
-            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
-            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+                datasets.add(node.get_literals())  # type: ignore[reportUnknownMemberType]
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):  # type: ignore[reportUnknownMemberType]
+            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):  # type: ignore[reportUnknownMemberType]
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
     return datasets, modules
 
 
-def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
-    """Get a schema based on datasets and modules in an EQL AST."""
-    datasets, modules = get_datasets_and_modules(tree)
-    return get_schema_from_datasets(beats, modules, datasets, version=version)
+# def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+#     """Get a schema based on datasets and modules in an EQL AST."""
+#     datasets, modules = get_datasets_and_modules(tree)
+#     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
-def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
+def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list[str], version: str | None = None) -> dict[str, Any]:
     """Get a schema based on datasets and modules in an KQL AST."""
     datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
-def parse_beats_from_index(index: list | None) -> list[str]:
+def parse_beats_from_index(indexes: list[str] | None) -> list[str]:
     """Parse beats schema types from index."""
-    indexes = index or []
-    beat_types = []
+    indexes = indexes or []
+    beat_types: list[str] = []
     # Need to split on : or :: to support cross-cluster search
     # e.g. mycluster:logs-* -> logs-*
     for index in indexes:
