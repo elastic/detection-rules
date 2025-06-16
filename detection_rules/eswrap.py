@@ -9,9 +9,9 @@ import json
 import os
 import sys
 import time
-import pathlib
+from pathlib import Path
 from collections import defaultdict
-from typing import Any
+from typing import Any, IO
 
 import click
 import elasticsearch
@@ -21,7 +21,7 @@ from elasticsearch.client import AsyncSearchClient
 import kql  # type: ignore[reportMissingTypeStubs]
 from .config import parse_rules_config
 from .main import root
-from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
+from .misc import add_params, raise_client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
 
 from .rule_loader import RuleCollection
@@ -79,7 +79,7 @@ class Events:
     @staticmethod
     def _get_dump_dir(
         rta_name: str | None = None, host_id: str | None = None, host_os_family: str | None = None
-    ) -> pathlib.Path:
+    ) -> Path:
         """Prepare and get the dump path."""
         if rta_name and host_os_family:
             dump_dir = get_path(["unit_tests", "data", "true_positives", rta_name, host_os_family])
@@ -89,7 +89,7 @@ class Events:
             time_str = time.strftime("%Y%m%dT%H%M%SL")
             dump_dir = os.path.join(COLLECTION_DIR, host_id or "unknown_host", time_str)
             os.makedirs(dump_dir, exist_ok=True)
-            return pathlib.Path(dump_dir)
+            return Path(dump_dir)
 
     def evaluate_against_rule(self, rule_id: str, verbose: bool = True):
         """Evaluate a rule against collected events and update mapping."""
@@ -108,7 +108,7 @@ class Events:
         echo_fn = click.echo_via_pager if pager else click.echo
         echo_fn(json.dumps(self.events, indent=2 if pretty else None, sort_keys=True))
 
-    def save(self, rta_name: str | None = None, dump_dir: pathlib.Path | None = None, host_id: str | None = None):
+    def save(self, rta_name: str | None = None, dump_dir: Path | None = None, host_id: str | None = None):
         """Save collected events."""
         assert self.events, "Nothing to save. Run Collector.run() method first or verify logging"
 
@@ -170,7 +170,7 @@ class CollectEvents(object):
 
     @staticmethod
     def _prep_query(
-        query: str,
+        query: str | dict[str, Any],
         language: str,
         index: str | list[str] | tuple[str],
         start_time: str | None = None,
@@ -178,7 +178,7 @@ class CollectEvents(object):
     ) -> tuple[str, dict[str, Any], str | None]:
         """Prep a query for search."""
         index_str = ",".join(index if isinstance(index, (list, tuple)) else index.split(","))
-        lucene_query = query if language == "lucene" else None
+        lucene_query = str(query) if language == "lucene" else None
 
         if language in ("kql", "kuery"):
             formatted_dsl = {"query": kql.to_dsl(query)}  # type: ignore[reportUnknownMemberType]
@@ -207,14 +207,14 @@ class CollectEvents(object):
 
     def search(
         self,
-        query: str,
+        query: str | dict[str, Any],
         language: str,
         index: str | list[str] = "*",
         start_time: str | None = None,
         end_time: str | None = None,
         size: int | None = None,
         **kwargs: Any,
-    ):
+    ) -> list[Any]:
         """Search an elasticsearch instance."""
         index_str, formatted_dsl, lucene_query = self._prep_query(
             query=query, language=language, index=index, start_time=start_time, end_time=end_time
@@ -245,23 +245,23 @@ class CollectEvents(object):
     ):
         """Search an elasticsearch instance using a rule."""
         async_client = AsyncSearchClient(self.client)
-        survey_results = {}
-        multi_search = []
-        multi_search_rules = []
-        async_searches = []
-        eql_searches = []
+        survey_results: dict[str, Any] = {}
+        multi_search: list[dict[str, Any]] = []
+        multi_search_rules: list[TOMLRule] = []
+        async_searches: list[tuple[TOMLRule, Any]] = []
+        eql_searches: list[tuple[TOMLRule, dict[str, Any]]] = []
 
         for rule in rules:
             if not rule.contents.data.get("query"):
                 continue
 
             language = rule.contents.data.get("language")
-            query = rule.contents.data.query
+            query = rule.contents.data.query  # type: ignore[reportAttributeAccessIssue]
             rule_type = rule.contents.data.type
-            index_str, formatted_dsl, lucene_query = self._prep_query(
-                query=query,
-                language=language,
-                index=rule.contents.data.get("index", "*"),
+            index_str, formatted_dsl, _ = self._prep_query(
+                query=query,  # type: ignore[reportUnknownArgumentType]
+                language=language,  # type: ignore[reportUnknownArgumentType]
+                index=rule.contents.data.get("index", "*"),  # type: ignore[reportUnknownArgumentType]
                 start_time=start_time,
                 end_time=end_time,
             )
@@ -276,7 +276,7 @@ class CollectEvents(object):
                 # wait for 0 to try and force async with no immediate results (not guaranteed)
                 result = async_client.submit(
                     body=formatted_dsl,
-                    q=query,
+                    q=query,  # type: ignore[reportUnknownArgumentType]
                     index=index_str,
                     allow_no_indices=True,
                     ignore_unavailable=True,
@@ -289,7 +289,7 @@ class CollectEvents(object):
                         rule_type, ["process.name"], result["response"]
                     )
             elif language == "eql":
-                eql_body = {
+                eql_body: dict[str, Any] = {
                     "index": index_str,
                     "params": {"ignore_unavailable": "true", "allow_no_indices": "true"},
                     "body": {"query": query, "filter": formatted_dsl["filter"]},
@@ -302,19 +302,21 @@ class CollectEvents(object):
             try:
                 rule = multi_search_rules[index]
                 survey_results[rule.id] = parse_unique_field_results(
-                    rule.contents.data.type, rule.contents.data.unique_fields, result
+                    rule.contents.data.type,
+                    rule.contents.data.unique_fields,  # type: ignore[reportAttributeAccessIssje]
+                    result,
                 )
             except KeyError:
                 survey_results[multi_search_rules[index].id] = {"error_retrieving_results": True}
 
         for entry in eql_searches:
-            rule: TOMLRule
-            search_args: dict
             rule, search_args = entry
             try:
                 result = self.client.eql.search(**search_args)
                 survey_results[rule.id] = parse_unique_field_results(
-                    rule.contents.data.type, rule.contents.data.unique_fields, result
+                    rule.contents.data.type,
+                    rule.contents.data.unique_fields,  # type: ignore[reportAttributeAccessIssue]
+                    result,  # type: ignore[reportAttributeAccessIssue]
                 )
             except (elasticsearch.NotFoundError, elasticsearch.RequestError) as e:
                 survey_results[rule.id] = {"error_retrieving_results": True, "error": e.info["error"]["reason"]}
@@ -327,7 +329,14 @@ class CollectEvents(object):
 
         return survey_results
 
-    def count(self, query, language, index: Union[str, list], start_time=None, end_time="now"):
+    def count(
+        self,
+        query: str,
+        language: str,
+        index: str | list[str],
+        start_time: str | None = None,
+        end_time: str | None = "now",
+    ):
         """Get a count of documents from elasticsearch."""
         index_str, formatted_dsl, lucene_query = self._prep_query(
             query=query, language=language, index=index, start_time=start_time, end_time=end_time
@@ -344,21 +353,26 @@ class CollectEvents(object):
                 body=formatted_dsl, index=index_str, q=lucene_query, allow_no_indices=True, ignore_unavailable=True
             )["count"]
 
-    def count_from_rule(self, rules: RuleCollection, start_time=None, end_time="now"):
+    def count_from_rule(
+        self,
+        rules: RuleCollection,
+        start_time: str | None = None,
+        end_time: str | None = "now",
+    ):
         """Get a count of documents from elasticsearch using a rule."""
-        survey_results = {}
+        survey_results: dict[str, Any] = {}
 
         for rule in rules.rules:
-            rule_results = {"rule_id": rule.id, "name": rule.name}
+            rule_results: dict[str, Any] = {"rule_id": rule.id, "name": rule.name}
 
             if not rule.contents.data.get("query"):
                 continue
 
             try:
                 rule_results["search_count"] = self.count(
-                    query=rule.contents.data.query,
-                    language=rule.contents.data.language,
-                    index=rule.contents.data.get("index", "*"),
+                    query=rule.contents.data.query,  # type: ignore[reportAttributeAccessIssue]
+                    language=rule.contents.data.language,  # type: ignore[reportAttributeAccessIssue]
+                    index=rule.contents.data.get("index", "*"),  # type: ignore[reportAttributeAccessIssue]
                     start_time=start_time,
                     end_time=end_time,
                 )
@@ -390,16 +404,16 @@ class CollectEventsWithDSL(CollectEvents):
     """Collect events from elasticsearch."""
 
     @staticmethod
-    def _group_events_by_type(events):
+    def _group_events_by_type(events: list[Any]):
         """Group events by agent.type."""
-        event_by_type = {}
+        event_by_type: dict[str, list[Any]] = {}
 
         for event in events:
             event_by_type.setdefault(event["_source"]["agent"]["type"], []).append(event["_source"])
 
         return event_by_type
 
-    def run(self, dsl, indexes, start_time):
+    def run(self, dsl: dict[str, Any], indexes: str | list[str], start_time: str):
         """Collect the events."""
         results = self.search(
             dsl,
@@ -416,19 +430,20 @@ class CollectEventsWithDSL(CollectEvents):
 
 @root.command("normalize-data")
 @click.argument("events-file", type=click.File("r"))
-def normalize_data(events_file):
+def normalize_data(events_file: IO[Any]):
     """Normalize Elasticsearch data timestamps and sort."""
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
     events = Events({file_name: [json.loads(e) for e in events_file.readlines()]})
-    events.save(dump_dir=os.path.dirname(events_file.name))
+    dirname = os.path.dirname(events_file.name)
+    events.save(dump_dir=Path(dirname))
 
 
 @root.group("es")
 @add_params(*elasticsearch_options)
 @click.pass_context
-def es_group(ctx: click.Context, **kwargs):
+def es_group(ctx: click.Context, **kwargs: Any):
     """Commands for integrating with Elasticsearch."""
-    ctx.ensure_object(dict)
+    _ = ctx.ensure_object(dict)  # type: ignore[reportUnknownVariableType
 
     # only initialize an es client if the subcommand is invoked without help (hacky)
     if sys.argv[-1] in ctx.help_option_names:
@@ -447,22 +462,30 @@ def es_group(ctx: click.Context, **kwargs):
 @click.option("--rule-id", help="Updates rule mapping in rule-mapping.yaml file (requires --rta-name)")
 @click.option("--view-events", is_flag=True, help="Print events after saving")
 @click.pass_context
-def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
+def collect_events(
+    ctx: click.Context,
+    host_id: str,
+    query: str,
+    index: list[str],
+    rta_name: str,
+    rule_id: str,
+    view_events: bool,
+):
     """Collect events from Elasticsearch."""
     client: Elasticsearch = ctx.obj["es"]
-    dsl = kql.to_dsl(query) if query else MATCH_ALL
-    dsl["bool"].setdefault("filter", []).append({"bool": {"should": [{"match_phrase": {"host.id": host_id}}]}})
+    dsl = kql.to_dsl(query) if query else MATCH_ALL  # type: ignore[reportUnknownMemberType]
+    dsl["bool"].setdefault("filter", []).append({"bool": {"should": [{"match_phrase": {"host.id": host_id}}]}})  # type: ignore[reportUnknownMemberType]
 
     try:
         collector = CollectEventsWithDSL(client)
         start = time.time()
         click.pause("Press any key once detonation is complete ...")
         start_time = f"now-{round(time.time() - start) + 5}s"
-        events = collector.run(dsl, index or "*", start_time)
+        events = collector.run(dsl, index or "*", start_time)  # type: ignore[reportUnknownArgument]
         events.save(rta_name=rta_name, host_id=host_id)
 
         if rta_name and rule_id:
-            events.evaluate_against_rule(rule_id)
+            _ = events.evaluate_against_rule(rule_id)
 
         if view_events and events.events:
             events.echo_events(pager=True)
@@ -470,7 +493,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
         return events
     except AssertionError as e:
         error_msg = "No events collected! Verify events are streaming and that the agent-hostname is correct"
-        client_error(error_msg, e, ctx=ctx)
+        raise_client_error(error_msg, e, ctx=ctx)
 
 
 @es_group.command("index-rules")
@@ -478,7 +501,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
 @click.option("--from-file", "-f", type=click.File("r"), help="Load a previously saved uploadable bulk file")
 @click.option("--save_files", "-s", is_flag=True, help="Optionally save the bulk request to a file")
 @click.pass_context
-def index_repo(ctx: click.Context, query, from_file, save_files):
+def index_repo(ctx: click.Context, query: str, from_file: IO[Any] | None, save_files: bool):
     """Index rules based on KQL search results to an elasticsearch instance."""
     from .main import generate_rules_index
 
@@ -492,8 +515,8 @@ def index_repo(ctx: click.Context, query, from_file, save_files):
             index_body = [json.loads(line) for line in bulk_upload_docs.splitlines()]
             click.echo(f"{len([r for r in index_body if 'rule' in r])} rules included")
         except json.JSONDecodeError:
-            client_error(f"Improperly formatted bulk request file: {from_file.name}")
+            raise_client_error(f"Improperly formatted bulk request file: {from_file.name}")
     else:
-        bulk_upload_docs, importable_rules_docs = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
+        bulk_upload_docs, _ = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
 
-    es_client.bulk(bulk_upload_docs)
+    _ = es_client.bulk(operations=bulk_upload_docs)
