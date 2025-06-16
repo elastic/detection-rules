@@ -93,7 +93,7 @@ class MarkdownGenerator:
 
         entry = {
             'name': hunt_config.name,
-            'path': f"./{toml_path.relative_to(self.base_path).as_posix()}",
+            'path': f"./{toml_path.resolve().relative_to(self.base_path).as_posix()}",
             'mitre': hunt_config.mitre
         }
 
