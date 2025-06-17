@@ -13,11 +13,12 @@ import pytoml
 from detection_rules.rule_formatter import nested_normalize, toml_write
 from detection_rules.utils import get_etc_path
 
-tmp_file = 'tmp_file.toml'
+tmp_file = "tmp_file.toml"
 
 
 class TestRuleTomlFormatter(unittest.TestCase):
     """Test that the custom toml formatting is not compromising the integrity of the data."""
+
     with open(get_etc_path("test_toml.json"), "r") as f:
         test_data = json.load(f)
 
@@ -26,13 +27,13 @@ class TestRuleTomlFormatter(unittest.TestCase):
         try:
             toml_write(copy.deepcopy(data), tmp_file)
 
-            with open(tmp_file, 'r') as f:
+            with open(tmp_file, "r") as f:
                 formatted_contents = pytoml.load(f)
 
             # callbacks such as nested normalize leave in line breaks, so this must be manually done
-            query = data.get('rule', {}).get('query')
+            query = data.get("rule", {}).get("query")
             if query:
-                data['rule']['query'] = query.strip()
+                data["rule"]["query"] = query.strip()
 
             original = json.dumps(copy.deepcopy(data), sort_keys=True)
 
@@ -41,12 +42,12 @@ class TestRuleTomlFormatter(unittest.TestCase):
                 formatted_contents = callback(formatted_contents, **kwargs)
 
             # callbacks such as nested normalize leave in line breaks, so this must be manually done
-            query = formatted_contents.get('rule', {}).get('query')
+            query = formatted_contents.get("rule", {}).get("query")
             if query:
-                formatted_contents['rule']['query'] = query.strip()
+                formatted_contents["rule"]["query"] = query.strip()
 
             formatted = json.dumps(formatted_contents, sort_keys=True)
-            self.assertEqual(original, formatted, 'Formatting may be modifying contents')
+            self.assertEqual(original, formatted, "Formatting may be modifying contents")
 
         finally:
             os.remove(tmp_file)
@@ -67,6 +68,7 @@ class TestRuleTomlFormatter(unittest.TestCase):
     def test_formatter_deep(self):
         """Test that the data remains unchanged from formatting."""
         self.compare_test_data(self.test_data[1:])
+
     #
     # def test_format_of_all_rules(self):
     #     """Test all rules."""
