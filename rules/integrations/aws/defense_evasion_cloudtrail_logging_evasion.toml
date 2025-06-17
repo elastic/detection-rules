@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/06/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the evasion of cloudtrail logging for IAM actions involving policy creation, modification or attachment. When making certain policy-related API calls, an adversary may pad the associated policy document with whitespaces to trigger CloudTrail’s logging size constraints, resulting in incomplete logging where critical details about the policy are omitted. By exploiting this gap, threat actors can bypass monitoring performed through CloudTrail and can effectively obscure unauthorized changes. This rule looks for IAM API calls with the requestParameters property containing reason:”requestParameters too large” and omitted:true.
+"""
+false_positives = [
+    """
+    There is no known legitimate reason for padding policies with white spaces to the extent it would take to trigger Cloudtrail's logging constraints. Any instance of this should be investigated.
+    """,
+]
+from = "now-6m"
+interval = "5m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CloudTrail Log Evasion"
+note = """## Triage and analysis
+
+### Investigating AWS CloudTrail Log Evasion
+
+Amazon CloudTrail is a service that enables governance, compliance, operational auditing, and risk auditing of your Amazon Web Services account. With CloudTrail, you can log, continuously monitor, and retain account activity related to actions across your Amazon Web Services infrastructure. In the `requestParameters` field of CloudTrail logs, a policy that was created/updated is typically displayed, including details such as the policy name and the full policy document content. However, when policies padded with large amounts of insignificant whitespace (such as spaces, tabs, or line breaks), reach a size range of 102,401 to 131,072 characters they begin to be omitted from CloudTrail logs and are instead rendered as "requestParameters too large". Attackers can do this to cover their tracks and impact security monitoring that relies on this source. This rule looks for IAM API calls with the requestParameters property containing reason:”requestParameters too large” and omitted:true.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Contact the account and resource owners and confirm whether they are aware of this activity.
+- Check if this operation was approved and performed according to the organization's change management policy.
+- Considering the source IP address and geolocation of the user who issued the command:
+    - Do they look normal for the user?
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
+    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
+- Examine the newly created or modified policy highlighted in `target.entity.id`.
+- If no policy name is included for event.actions like `PutRolePolicy`, analyze the inline policies attached to the `actor.entity.id` for unexpected permission changes or additions.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+
+### False positive analysis
+
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and IP address conditions. However, this behavior is rarely seen in legitimate operations and should be thoroughly investigated. 
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Take the actions needed to return affected systems, data, or services to their normal operational levels.
+- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://permiso.io/blog/cloudtrail-logging-evasion-where-policy-size-matters",
+]
+risk_score = 47
+rule_id = "9ebd48ac-a0e2-430a-a219-fe072a50146b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Log Auditing",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: aws.cloudtrail and event.provider: iam.amazonaws.com and aws.cloudtrail.flattened.request_parameters.reason: "requestParameters too large" and aws.cloudtrail.flattened.request_parameters.omitted : true and event.outcome: success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "target.entity.id",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
