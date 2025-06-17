@@ -2,7 +2,7 @@
 creation_date = "2025/04/03"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/04/03"
+updated_date = "2025/06/10"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,20 @@ FROM logs-windows.powershell_operational* metadata _id, _version, _index
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
 | WHERE count > 3
+
+// Exclude Noisy Patterns
+
+// Icinga Framework
+| WHERE (file.name NOT LIKE "framework_cache.psm1" or file.name IS NULL)
+| WHERE NOT
+    // https://wtfbins.wtf/17
+    (
+        (powershell.file.script_block_text LIKE "*sentinelbreakpoints*" OR
+         powershell.file.script_block_text LIKE "*:::::\\\\windows\\\\sentinel*")
+        AND
+        (powershell.file.script_block_text LIKE "*$local:Bypassed*" OR
+        powershell.file.script_block_text LIKE "*origPSExecutionPolicyPreference*")
+    )
 '''
 
 
