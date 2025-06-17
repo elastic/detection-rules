@@ -114,7 +114,7 @@ def dev_group():
 @click.pass_context
 def build_release(
     ctx: click.Context,
-    config_file: Path | None,
+    config_file: Path,
     update_version_lock: bool,
     generate_navigator: bool,
     generate_docs: str,
@@ -130,7 +130,7 @@ def build_release(
         )
         ctx.exit()
 
-    config = load_dump(config_file)["package"]
+    config = load_dump(str(config_file))["package"]
 
     package_path = get_etc_path(["package.yaml"])
     err_msg = (
