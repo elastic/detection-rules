@@ -18,7 +18,7 @@ from semver import Version
 import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
-import kql
+import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .config import load_current_package_version

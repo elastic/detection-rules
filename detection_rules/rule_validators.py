@@ -371,7 +371,7 @@ class EQLValidator(QueryValidator):
                         and RULES_CONFIG.auto_gen_schema_file
                     ):
                         # auto add the field and re-validate
-                        self.auto_add_field(stack_check, data.index_or_dataview[0]) # type: ignore[reportArgumentType]
+                        self.auto_add_field(stack_check, data.index_or_dataview[0])  # type: ignore[reportArgumentType]
                     else:
                         raise stack_check
 
@@ -622,7 +622,7 @@ class ESQLValidator(QueryValidator):
         # raise NotImplementedError('ES|QL query parsing not yet supported')
         return []
 
-    def validate(self, _: "QueryRuleData", _: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
         # temporarily override to NOP until ES|QL query parsing is supported
 

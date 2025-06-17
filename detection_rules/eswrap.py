@@ -443,7 +443,7 @@ def normalize_data(events_file: IO[Any]):
 @click.pass_context
 def es_group(ctx: click.Context, **kwargs: Any):
     """Commands for integrating with Elasticsearch."""
-    _ = ctx.ensure_object(dict)  # type: ignore[reportUnknownVariableType
+    _ = ctx.ensure_object(dict)  # type: ignore[reportUnknownVariableType]
 
     # only initialize an es client if the subcommand is invoked without help (hacky)
     if sys.argv[-1] in ctx.help_option_names:

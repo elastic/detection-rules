@@ -187,7 +187,7 @@ class VersionLock:
 
     def manage_versions(
         self,
-        rules: Any, # type: ignore[reportRedeclaration]
+        rules: Any,  # type: ignore[reportRedeclaration]
         exclude_version_update: bool = False,
         save_changes: bool = False,
         verbose: bool = True,
