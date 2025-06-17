@@ -5,6 +5,7 @@
 
 # coding=utf-8
 """Shell for detection-rules."""
+
 import sys
 from pathlib import Path
 

@@ -361,7 +361,7 @@ class IntegrationSecurityDocs:
         """).lstrip()
 
         include_format = f"include::{self.prebuilt_rule_base}-" + "{}.asciidoc[]"
-        appendix_lines = [appendix_header] + [include_format.format(name_to_title(r.name)) for r in self.included_rules] # type: ignore[reportArgumentType]
+        appendix_lines = [appendix_header] + [include_format.format(name_to_title(r.name)) for r in self.included_rules]  # type: ignore[reportArgumentType]
         appendix_str = "\n".join(appendix_lines) + "\n"
         _ = appendix.write_text(appendix_str)
 
@@ -385,7 +385,7 @@ class IntegrationSecurityDocs:
         for rule in self.included_rules:
             if rule.contents.metadata.get("maturity") == "development":
                 continue
-            title_name = name_to_title(rule.name) # type: ignore[reportArgumentType]
+            title_name = name_to_title(rule.name)  # type: ignore[reportArgumentType]
 
             if self.new_rules and rule.id in self.new_rules:
                 status = "new"

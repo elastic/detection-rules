@@ -785,10 +785,12 @@ def integrations_pr(
     )
 
     # labels could also be comma separated
-    label: set[str] = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
+    cs_labels_split = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
 
-    if label:
-        pr.add_to_labels(*sorted(label))
+    labels = sorted(list(label) + list(cs_labels_split))
+
+    if labels:
+        pr.add_to_labels(*labels)
 
     if assign:
         pr.add_to_assignees(*assign)
@@ -1382,32 +1384,32 @@ def rule_event_search(
 @click.option("--date-range", "-d", type=(str, str), default=("now-7d", "now"), help="Date range to scope search")
 @click.option(
     "--dump-file",
-    type=click.Path(dir_okay=False),
-    default=get_path("surveys", f"{time.strftime('%Y%m%dT%H%M%SL')}.json"),
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=get_path(["surveys", f"{time.strftime('%Y%m%dT%H%M%SL')}.json"]),
     help="Save details of results (capped at 1000 results/rule)",
 )
 @click.option("--hide-zero-counts", "-z", is_flag=True, help="Exclude rules with zero hits from printing")
 @click.option("--hide-errors", "-e", is_flag=True, help="Exclude rules with errors from printing")
 @click.pass_context
-@add_client("elasticsearch", "kibana", add_to_ctx=True)
+@add_client(["elasticsearch", "kibana"], add_to_ctx=True)
 def rule_survey(
     ctx: click.Context,
-    query,
-    date_range,
-    dump_file,
-    hide_zero_counts,
-    hide_errors,
-    elasticsearch_client: Elasticsearch = None,
-    kibana_client: Kibana = None,
+    query: str,
+    date_range: tuple[str, str],
+    dump_file: Path,
+    hide_zero_counts: bool,
+    hide_errors: bool,
+    elasticsearch_client: Elasticsearch,
+    kibana_client: Kibana,
 ):
     """Survey rule counts."""
-    from kibana.resources import Signal
+    from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
 
     from .main import search_rules
 
     # from .eswrap import parse_unique_field_results
 
-    survey_results = []
+    survey_results: list[dict[str, int]] = []
     start_time, end_time = date_range
 
     if query:
@@ -1426,11 +1428,11 @@ def rule_survey(
 
     # add alerts
     with kibana_client:
-        range_dsl = {"query": {"bool": {"filter": []}}}
+        range_dsl: dict[str, Any] = {"query": {"bool": {"filter": []}}}
         add_range_to_dsl(range_dsl["query"]["bool"]["filter"], start_time, end_time)
-        alerts = {
+        alerts: dict[str, Any] = {
             a["_source"]["signal"]["rule"]["rule_id"]: a["_source"]
-            for a in Signal.search(range_dsl, size=10000)["hits"]["hits"]
+            for a in Signal.search(range_dsl, size=10000)["hits"]["hits"]  # type: ignore[reportUnknownMemberType]
         }
 
     # for alert in alerts:
@@ -1452,14 +1454,14 @@ def rule_survey(
         survey_results.append(count)
 
     fields = ["rule_id", "name", "search_count", "alert_count"]
-    table = Table.from_list(fields, survey_results)
+    table = Table.from_list(fields, survey_results)  # type: ignore[reportUnknownMemberType]
 
     if len(survey_results) > 200:
         click.echo_via_pager(table)
     else:
         click.echo(table)
 
-    os.makedirs(get_path("surveys"), exist_ok=True)
+    os.makedirs(get_path(["surveys"]), exist_ok=True)
     with open(dump_file, "w") as f:
         json.dump(details, f, indent=2, sort_keys=True)
 
@@ -1472,11 +1474,17 @@ def utils_group():
 
 
 @utils_group.command("get-branches")
-@click.option("--outfile", "-o", type=Path, default=get_etc_path("target-branches.yaml"), help="File to save output to")
+@click.option(
+    "--outfile",
+    "-o",
+    type=Path,
+    default=get_etc_path(["target-branches.yaml"]),
+    help="File to save output to",
+)
 def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
     target_branches = json.dumps(branch_list[:-1]) + "\n"
-    outfile.write_text(target_branches)
+    _ = outfile.write_text(target_branches)
 
 
 @dev_group.group("integrations")
@@ -1492,7 +1500,7 @@ def build_integration_manifests(overwrite: bool, integration: str, prerelease: b
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
-    def flatten(tag_list: list[str]) -> list[str]:
+    def flatten(tag_list: list[str | list[str]] | list[str]) -> list[str]:
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
     if integration:
@@ -1610,9 +1618,9 @@ def generate_schema(token: str, schema: str, schema_version: str, endpoint_targe
         repo = client.get_repo("elastic/endpoint-package")
         contents = repo.get_contents("custom_schemas")
         optional_endpoint_targets = [
-            Path(f.path).name.replace("custom_", "").replace(".yml", "")
-            for f in contents
-            if f.name.endswith(".yml") or Path(f.path).name == endpoint_target
+            Path(f.path).name.replace("custom_", "").replace(".yml", "")  # type: ignore[reportUnknownMemberType]
+            for f in contents  # type: ignore[reportUnknownVariableType]
+            if f.name.endswith(".yml") or Path(f.path).name == endpoint_target  # type: ignore
         ]
 
         if not endpoint_target:
@@ -1630,7 +1638,7 @@ def attack_group():
 
 
 @attack_group.command("refresh-data")
-def refresh_attack_data() -> dict:
+def refresh_attack_data() -> dict[str, Any] | None:
     """Refresh the ATT&CK data file."""
     data, _ = attack.refresh_attack_data()
     return data
@@ -1645,9 +1653,9 @@ def refresh_threat_mappings():
 
 
 @attack_group.command("update-rules")
-def update_attack_in_rules() -> list[TOMLRule | None]:
+def update_attack_in_rules() -> list[TOMLRule]:
     """Update threat mappings attack data in all rules."""
-    new_rules = []
+    new_rules: list[TOMLRule] = []
     redirected_techniques = attack.load_techniques_redirect()
     today = time.strftime("%Y/%m/%d")
 
@@ -1656,13 +1664,13 @@ def update_attack_in_rules() -> list[TOMLRule | None]:
     for rule in rules.rules:
         needs_update = False
         valid_threat: list[ThreatMapping] = []
-        threat_pending_update = {}
+        threat_pending_update: dict[str, list[str]] = {}
         threat = rule.contents.data.threat or []
 
         for entry in threat:
             tactic = entry.tactic.name
-            technique_ids = []
-            technique_names = []
+            technique_ids: list[str] = []
+            technique_names: list[str] = []
             for technique in entry.technique or []:
                 technique_ids.append(technique.id)
                 technique_names.append(technique.name)
@@ -1717,26 +1725,31 @@ def transforms_group():
 
 
 def guide_plugin_convert_(
-    contents: str | None = None, default: str | None = ""
-) -> Optional[dict[str, dict[str, list]]]:
+    contents: str | None = None,
+    default: str | None = "",
+) -> dict[str, dict[str, list[str]]] | None:
     """Convert investigation guide plugin format to toml"""
     contents = contents or click.prompt("Enter plugin contents", default=default)
     if not contents:
         return
 
     parsed = re.match(r"!{(?P<plugin>\w+)(?P<data>{.+})}", contents.strip())
+    if not parsed:
+        raise ValueError("No plugin name found")
     try:
         plugin = parsed.group("plugin")
         data = parsed.group("data")
     except AttributeError as e:
         raise raise_client_error("Unrecognized pattern", exc=e)
     loaded = {"transform": {plugin: [json.loads(data)]}}
-    click.echo(pytoml.dumps(loaded))
+    click.echo(pytoml.dumps(loaded))  # type: ignore[reportUnknownMemberType]
     return loaded
 
 
 @transforms_group.command("guide-plugin-convert")
-def guide_plugin_convert(contents: str | None = None, default: str | None = "") -> Optional[dict[str, dict[str, list]]]:
+def guide_plugin_convert(
+    contents: str | None = None, default: str | None = ""
+) -> dict[str, dict[str, list[str]]] | None:
     """Convert investigation guide plugin format to toml."""
     return guide_plugin_convert_(contents=contents, default=default)
 
@@ -1749,9 +1762,9 @@ def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True)
     rc = RuleCollection()
     rule = rc.load_file(rule_path)
 
-    transforms = defaultdict(list)
-    existing_transform = rule.contents.transform
-    transforms.update(existing_transform.to_dict() if existing_transform is not None else {})
+    transforms: dict[str, list[Any]] = defaultdict(list)
+    existing_transform: RuleTransform | None = rule.contents.transform  # type: ignore[reportAssignmentType]
+    transforms.update(existing_transform.to_dict() if existing_transform else {})
 
     click.secho("(blank line to continue)", fg="yellow")
     while True:
@@ -1764,7 +1777,7 @@ def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True)
             transforms[plugin].extend(entries)
 
     transform = RuleTransform.from_dict(transforms)
-    new_contents = TOMLRuleContents(data=rule.contents.data, metadata=rule.contents.metadata, transform=transform)
+    new_contents = TOMLRuleContents(data=rule.contents.data, metadata=rule.contents.metadata, transform=transform)  # type: ignore[reportArgumentType]
     updated_rule = TOMLRule(contents=new_contents, path=rule.path)
 
     if save:
