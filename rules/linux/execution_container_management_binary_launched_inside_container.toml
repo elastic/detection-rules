@@ -2,7 +2,7 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/12"
+updated_date = "2025/06/17"
 
 [rule]
 author = ["Elastic"]
@@ -65,8 +65,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.entry_leader.entry_meta.type == "container" and
-process.name in ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "runc", "systemd", "crictl")
+process.entry_leader.entry_meta.type == "container" and process.interactive == true and
+process.name in ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") and
+not process.parent.executable in ("/sbin/init", "/usr/bin/dockerd")
 '''
 note = """## Triage and analysis
 
