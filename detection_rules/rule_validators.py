@@ -367,7 +367,7 @@ class EQLValidator(QueryValidator):
                 if stack_check and not package_integrations:
                     # if auto add, try auto adding and then validate again
                     if (
-                        "Field not recognized" in stack_check.error_msg  # type: ignore[reportUnknownMemberType]
+                        "Field not recognized" in str(stack_check)  # type: ignore[reportUnknownMemberType]
                         and RULES_CONFIG.auto_gen_schema_file
                     ):
                         # auto add the field and re-validate

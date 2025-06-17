@@ -459,8 +459,6 @@ class RuleCollection(BaseCollection[TOMLRule]):
         if obj.get("metadata", {}).get("maturity", "") == "deprecated":
             contents = DeprecatedRuleContents.from_dict(obj)
             if not RULES_CONFIG.bypass_version_lock:
-                if not self._version_lock:
-                    raise ValueError("No version lock found")
                 contents.set_version_lock(self._version_lock)
             if not path:
                 raise ValueError("No path value provided")

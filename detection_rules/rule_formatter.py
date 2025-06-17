@@ -192,9 +192,12 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
     def write(text: str, nl: bool = True):
         if out_file_path:
-            _ = out_file_path.write_text(text)
+            # Append data to a file
+            with out_file_path.open("a") as f:
+                _ = f.write(text)
             if nl:
-                _ = out_file_path.write_text("\n")
+                with out_file_path.open("a") as f:
+                    _ = f.write("\n")
         else:
             print(text, end="" if not nl else "\n")
 
@@ -310,5 +313,6 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
         _contents = contents.get(data, {})
         if not _contents:
             continue
-        order_rule(_contents)
+        # FIXME: commenting out the call here as order_rule has subtle side-effects while its output is not used explicitely
+        # order_rule(_contents)
         _do_write(data, _contents)

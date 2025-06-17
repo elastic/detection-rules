@@ -66,6 +66,7 @@ class BaseRuleTest(unittest.TestCase):
             except Exception as e:
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
+                raise
 
         cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
         cls.rules_config = RULES_CONFIG
@@ -83,7 +84,7 @@ class BaseRuleTest(unittest.TestCase):
             if not RULE_LOADER_FAIL_RAISED:
                 RULE_LOADER_FAIL_RAISED = True
                 with self.subTest("Test that the rule loader loaded with no validation or other failures."):
-                    self.fail(f"Rule loader failure: \n{RULE_LOADER_FAIL_MSG}")
+                    self.fail(f"Rule loader failure: {RULE_LOADER_FAIL_MSG}")
 
             self.skipTest("Rule loader failure")
         else:

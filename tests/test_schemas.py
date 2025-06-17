@@ -298,6 +298,6 @@ class TestVersions(unittest.TestCase):
     def test_stack_schema_map(self):
         """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
         package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        stack_map = utils.load_etc_dump("stack-schema-map.yaml")
+        stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
         err_msg = f"There is no entry defined for the current package ({package_version}) in the stack-schema-map"
         self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)

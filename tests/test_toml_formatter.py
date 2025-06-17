@@ -1,4 +1,4 @@
-# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one2020/02/2t
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
@@ -7,6 +7,7 @@ import copy
 import json
 import os
 import unittest
+from pathlib import Path
 
 import pytoml
 
@@ -19,16 +20,20 @@ tmp_file = "tmp_file.toml"
 class TestRuleTomlFormatter(unittest.TestCase):
     """Test that the custom toml formatting is not compromising the integrity of the data."""
 
-    with open(get_etc_path("test_toml.json"), "r") as f:
-        test_data = json.load(f)
+    maxDiff = None
+
+    def setUp(self):
+        with open(get_etc_path(["test_toml.json"]), "r") as f:
+            self.test_data = json.load(f)
 
     def compare_formatted(self, data, callback=None, kwargs=None):
         """Compare formatted vs expected."""
         try:
-            toml_write(copy.deepcopy(data), tmp_file)
+            tmp_path = Path(tmp_file)
+            toml_write(copy.deepcopy(data), tmp_path)
 
-            with open(tmp_file, "r") as f:
-                formatted_contents = pytoml.load(f)
+            formatted_data = tmp_path.read_text()
+            formatted_contents = pytoml.loads(formatted_data)
 
             # callbacks such as nested normalize leave in line breaks, so this must be manually done
             query = data.get("rule", {}).get("query")
@@ -48,9 +53,9 @@ class TestRuleTomlFormatter(unittest.TestCase):
 
             formatted = json.dumps(formatted_contents, sort_keys=True)
             self.assertEqual(original, formatted, "Formatting may be modifying contents")
-
         finally:
-            os.remove(tmp_file)
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
 
     def compare_test_data(self, test_dicts, callback=None):
         """Compare test data against expected."""

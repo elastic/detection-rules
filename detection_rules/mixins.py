@@ -184,7 +184,7 @@ class LockDataclassMixin:
         try:
             loaded = schema.load(obj)
         except ValidationError as e:
-            err_msg = json.dumps(e.normalized_messages, indent=2)
+            err_msg = json.dumps(e.normalized_messages(), indent=2)
             raise ValidationError(f"Validation error loading: {cls.__name__}\n{err_msg}")
         return loaded
 

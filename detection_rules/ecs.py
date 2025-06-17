@@ -241,7 +241,8 @@ class KqlSchema2Eql(eql.Schema):
         dotted = ".".join(path)
         elasticsearch_type = self.kql_schema.get(dotted)
         if not elasticsearch_type:
-            raise ValueError("ElasticSearch type not found")
+            return None
+
         es_type_family = elasticsearch_type_family(elasticsearch_type)
         eql_hint = self.type_mapping.get(es_type_family)
 
