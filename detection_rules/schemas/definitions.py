@@ -7,9 +7,9 @@
 
 import os
 import re
-from typing import Final, Literal, Annotated, Pattern, Any
+from typing import Final, Literal, Annotated, Pattern, Any, Callable
 
-from marshmallow import fields, validate, Callable
+from marshmallow import fields, validate
 from semver import Version
 
 from detection_rules.config import CUSTOM_RULES_DIR
