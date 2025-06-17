@@ -40,7 +40,7 @@ class TestEndpointQuery(BaseRuleTest):
     def test_os_and_platform_in_query(self):
         """Test that all endpoint rules have an os defined and linux includes platform."""
         for rule in self.all_rules:
-            if not rule.contents.data.get("language") in ("eql", "kuery"):
+            if rule.contents.data.get("language") not in ("eql", "kuery"):
                 continue
             if rule.path.parent.name not in ("windows", "macos", "linux"):
                 # skip cross-platform for now
@@ -189,7 +189,7 @@ class TestESQLRules(BaseRuleTest):
     def run_esql_test(self, esql_query, expectation, message):
         """Test that the query validation is working correctly."""
         rc = RuleCollection()
-        file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
 
         # Test that a ValidationError is raised if the query doesn't match the schema
