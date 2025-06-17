@@ -4,6 +4,7 @@
 # 2.0.
 
 """Shared resources for tests."""
+
 import os
 import unittest
 from pathlib import Path
@@ -19,7 +20,7 @@ RULE_LOADER_FAIL = False
 RULE_LOADER_FAIL_MSG = None
 RULE_LOADER_FAIL_RAISED = False
 
-CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
+CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
 RULES_CONFIG = parse_rules_config()
 
 
@@ -28,7 +29,7 @@ def load_rules() -> RuleCollection:
     if CUSTOM_RULES_DIR:
         rc = RuleCollection()
         path = Path(CUSTOM_RULES_DIR)
-        assert path.exists(), f'Custom rules directory {path} does not exist'
+        assert path.exists(), f"Custom rules directory {path} does not exist"
         rc.load_directories(directories=RULES_CONFIG.rule_dirs)
         rc.freeze()
         return rc
@@ -36,7 +37,7 @@ def load_rules() -> RuleCollection:
 
 
 def default_bbr(rc: RuleCollection) -> RuleCollection:
-    rules = [r for r in rc.rules if 'rules_building_block' in r.path.parent.parts]
+    rules = [r for r in rc.rules if "rules_building_block" in r.path.parent.parts]
     return RuleCollection(rules=rules)
 
 
@@ -70,8 +71,8 @@ class BaseRuleTest(unittest.TestCase):
         cls.rules_config = RULES_CONFIG
 
     @staticmethod
-    def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=' ->') -> str:
-        return f'{rule.id} - {rule.name}{trailer or ""}'
+    def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=" ->") -> str:
+        return f"{rule.id} - {rule.name}{trailer or ''}"
 
     def setUp(self) -> None:
         global RULE_LOADER_FAIL, RULE_LOADER_FAIL_MSG, RULE_LOADER_FAIL_RAISED
@@ -81,9 +82,9 @@ class BaseRuleTest(unittest.TestCase):
             # raise a dedicated test failure for the loader
             if not RULE_LOADER_FAIL_RAISED:
                 RULE_LOADER_FAIL_RAISED = True
-                with self.subTest('Test that the rule loader loaded with no validation or other failures.'):
-                    self.fail(f'Rule loader failure: \n{RULE_LOADER_FAIL_MSG}')
+                with self.subTest("Test that the rule loader loaded with no validation or other failures."):
+                    self.fail(f"Rule loader failure: \n{RULE_LOADER_FAIL_MSG}")
 
-            self.skipTest('Rule loader failure')
+            self.skipTest("Rule loader failure")
         else:
             super().setUp()
