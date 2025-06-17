@@ -12,7 +12,6 @@ from typing import ClassVar, Literal, Any
 import click
 from semver import Version
 
-from .rule import TOMLRule
 from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
@@ -196,6 +195,7 @@ class VersionLock:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
         from .rule_loader import RuleCollection
+        from .rule import TOMLRule
 
         rules: RuleCollection = rules
 
