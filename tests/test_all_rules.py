@@ -723,7 +723,7 @@ class TestRuleMetadata(BaseRuleTest):
     def test_deprecated_rules_modified(self):
         """Test to ensure deprecated rules are not modified."""
 
-        rules_path = get_path("rules", "_deprecated")
+        rules_path = get_path(["rules", "_deprecated"])
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
@@ -737,8 +737,8 @@ class TestRuleMetadata(BaseRuleTest):
     def test_rule_change_has_updated_date(self):
         """Test to ensure modified rules have updated_date field updated."""
 
-        rules_path = get_path("rules")
-        rules_bbr_path = get_path("rules_building_block")
+        rules_path = get_path(["rules"])
+        rules_bbr_path = get_path(["rules_building_block"])
 
         # Use git diff to check if the file(s) has been modified in rules/ rules_build_block/ directories.
         # For now this checks even rules/_deprecated any modification there will fail

@@ -37,15 +37,15 @@ class BaseEntry:
 class PreviousEntry(BaseEntry):
     # this is Optional for resiliency in already tagged branches missing this field. This means we should strictly
     # validate elsewhere
-    max_allowable_version: int | None
+    max_allowable_version: int | None = None
 
 
 @dataclass(frozen=True)
 class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
     """Schema for a rule entry in the version lock."""
 
-    min_stack_version: definitions.SemVerMinorOnly | None
-    previous: dict[definitions.SemVerMinorOnly, PreviousEntry] | None
+    min_stack_version: definitions.SemVerMinorOnly | None = None
+    previous: dict[definitions.SemVerMinorOnly, PreviousEntry] | None = None
 
 
 @dataclass(frozen=True)

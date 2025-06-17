@@ -66,7 +66,7 @@ BUILD_FIELD_VERSIONS = {
 }
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DictRule:
     """Simple object wrapper for raw rule dicts."""
 
@@ -102,28 +102,28 @@ class DictRule:
         return f"Rule({self.name} {self.id})"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""
 
     creation_date: definitions.Date
     updated_date: definitions.Date
-    deprecation_date: definitions.Date | None
+    deprecation_date: definitions.Date | None = None
 
     # Optional fields
-    bypass_bbr_timing: bool | None
-    comments: str | None
-    integration: str | list[str] | None
-    maturity: definitions.Maturity | None
-    min_stack_version: definitions.SemVer | None
-    min_stack_comments: str | None
-    os_type_list: list[definitions.OSType] | None
-    query_schema_validation: bool | None
-    related_endpoint_rules: list[str] | None
-    promotion: bool | None
+    bypass_bbr_timing: bool | None = None
+    comments: str | None = None
+    integration: str | list[str] | None = None
+    maturity: definitions.Maturity | None = None
+    min_stack_version: definitions.SemVer | None = None
+    min_stack_comments: str | None = None
+    os_type_list: list[definitions.OSType] | None = None
+    query_schema_validation: bool | None = None
+    related_endpoint_rules: list[str] | None = None
+    promotion: bool | None = None
 
     # Extended information as an arbitrary dictionary
-    extended: dict[str, Any] | None
+    extended: dict[str, Any] | None = None
 
     def get_validation_stack_versions(self) -> dict[str, dict[str, Any]]:
         """Get a dict of beats and ecs versions per stack release."""
@@ -131,7 +131,7 @@ class RuleMeta(MarshmallowDataclassMixin):
         return stack_versions
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class RuleTransform(MarshmallowDataclassMixin):
     """Data stored in a rule's [transform] section of TOML."""
 
@@ -141,13 +141,13 @@ class RuleTransform(MarshmallowDataclassMixin):
 
     # timelines out of scope at the moment
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, kw_only=True)
     class OsQuery:
         label: str
         query: str
-        ecs_mapping: dict[str, dict[Literal["field", "value"], str]] | None
+        ecs_mapping: dict[str, dict[Literal["field", "value"], str]] | None = None
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, kw_only=True)
     class Investigate:
         @dataclass(frozen=True)
         class Provider:
@@ -158,15 +158,15 @@ class RuleTransform(MarshmallowDataclassMixin):
             valueType: definitions.InvestigateProviderValueType
 
         label: str
-        description: str | None
+        description: str | None = None
         providers: list[list[Provider]]
-        relativeFrom: str | None
-        relativeTo: str | None
+        relativeFrom: str | None = None
+        relativeTo: str | None = None
 
     # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
     # note string templates
-    osquery: list[OsQuery] | None
-    investigate: list[Investigate] | None
+    osquery: list[OsQuery] | None = None
+    investigate: list[Investigate] | None = None
 
     def render_investigate_osquery_to_string(self) -> dict[definitions.TransformTypes, list[str]]:
         obj = self.to_dict()
@@ -190,7 +190,7 @@ class BaseThreatEntry:
     reference: str
 
     @pre_load
-    def modify_url(self, data: dict[str, Any]):
+    def modify_url(self, data: dict[str, Any], **_: Any):
         """Modify the URL to support MITRE ATT&CK URLS with and without trailing forward slash."""
         p = urlparse(data["reference"])  # type: ignore[reportUnknownVariableType]
         if p.scheme:  # type: ignore[reportUnknownMemberType]
@@ -206,13 +206,13 @@ class SubTechnique(BaseThreatEntry):
     reference: definitions.SubTechniqueURL
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Technique(BaseThreatEntry):
     """Mapping to threat subtechnique."""
 
     # subtechniques are stored at threat[].technique.subtechnique[]
     reference: definitions.TechniqueURL
-    subtechnique: list[SubTechnique] | None
+    subtechnique: list[SubTechnique] | None = None
 
 
 @dataclass(frozen=True)
@@ -222,13 +222,13 @@ class Tactic(BaseThreatEntry):
     reference: definitions.TacticURL
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ThreatMapping(MarshmallowDataclassMixin):
     """Mapping to a threat framework."""
 
     framework: Literal["MITRE ATT&CK"]
     tactic: Tactic
-    technique: list[Technique] | None
+    technique: list[Technique] | None = None
 
     @staticmethod
     def flatten(threat_mappings: list["ThreatMapping"] | None) -> "FlatThreatMapping":
@@ -262,19 +262,19 @@ class ThreatMapping(MarshmallowDataclassMixin):
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class RiskScoreMapping(MarshmallowDataclassMixin):
     field: str
-    operator: definitions.Operator | None
-    value: str | None
+    operator: definitions.Operator | None = None
+    value: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SeverityMapping(MarshmallowDataclassMixin):
     field: str
-    operator: definitions.Operator | None
-    value: str | None
-    severity: str | None
+    operator: definitions.Operator | None = None
+    value: str | None = None
+    severity: str | None = None
 
 
 @dataclass(frozen=True)
@@ -295,12 +295,12 @@ class AlertSuppressionDuration:
     value: definitions.AlertSuppressionValue
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
 
     group_by: definitions.AlertSuppressionGroupBy
-    duration: AlertSuppressionDuration | None
+    duration: AlertSuppressionDuration | None = None
     missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
@@ -316,13 +316,13 @@ class FilterStateStore:
     store: definitions.StoreType
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class FilterMeta:
     alias: str | None = None
     disabled: bool | None = None
     negate: bool | None = None
-    controlledBy: str | None = None  # identify who owns the filter
-    group: str | None = None  # allows grouping of filters
+    controlledBy: str | None  # identify who owns the filter
+    group: str | None  # allows grouping of filters
     index: str | None = None
     isMultiIndex: bool | None = None
     type: str | None = None
@@ -337,12 +337,12 @@ class WildcardQuery:
     value: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Query:
     wildcard: dict[str, WildcardQuery] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Filter:
     """Kibana Filter for Base Rule Data."""
 
@@ -353,7 +353,7 @@ class Filter:
     query: Query | dict[str, Any] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     """Base rule data."""
 
@@ -371,48 +371,47 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     class RelatedIntegrations:
         package: definitions.NonEmptyStr
         version: definitions.NonEmptyStr
-        integration: definitions.NonEmptyStr | None
+        integration: definitions.NonEmptyStr | None = None
 
-    actions: list[dict[str, Any]] | None
-    author: list[str]
-    building_block_type: definitions.BuildingBlockType | None
-    description: str
-    enabled: bool | None
-    exceptions_list: list[dict[str, str]] | None
-    license: str | None
-    false_positives: list[str] | None
-    filters: list[dict[str, Any]] | None
-    # trailing `_` required since `from` is a reserved word in python
-    from_: str | None = field(metadata=dict(data_key="from"))
-    interval: definitions.Interval | None
-    investigation_fields: InvestigationFields | None = field(metadata=dict(metadata=dict(min_compat="8.11")))
-    max_signals: definitions.MaxSignals | None
-    meta: dict[str, Any] | None
     name: definitions.RuleName
-    note: definitions.Markdown | None
-    # can we remove this comment?
-    # explicitly NOT allowed!
-    # output_index: str | None
-    references: list[str] | None
+
+    author: list[str]
+    description: str
+    from_: str | None = field(metadata=dict(data_key="from"))
+    investigation_fields: InvestigationFields | None = field(metadata=dict(metadata=dict(min_compat="8.11")))
     related_integrations: list[RelatedIntegrations] | None = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: list[RequiredFields] | None = field(metadata=dict(metadata=dict(min_compat="8.3")))
     revision: int | None = field(metadata=dict(metadata=dict(min_compat="8.8")))
-    risk_score: definitions.RiskScore
-    risk_score_mapping: list[RiskScoreMapping] | None
-    rule_id: definitions.UUIDString
-    rule_name_override: str | None
     setup: definitions.Markdown | None = field(metadata=dict(metadata=dict(min_compat="8.3")))
-    severity_mapping: list[SeverityMapping] | None
+
+    risk_score: definitions.RiskScore
+    rule_id: definitions.UUIDString
     severity: definitions.Severity
-    tags: list[str] | None
-    throttle: str | None
-    timeline_id: definitions.TimelineTemplateId | None
-    timeline_title: definitions.TimelineTemplateTitle | None
-    timestamp_override: str | None
-    to: str | None
     type: definitions.RuleType
-    threat: list[ThreatMapping] | None
-    version: definitions.PositiveInteger | None
+
+    actions: list[dict[str, Any]] | None = None
+    building_block_type: definitions.BuildingBlockType | None = None
+    enabled: bool | None = None
+    exceptions_list: list[dict[str, str]] | None = None
+    false_positives: list[str] | None = None
+    filters: list[dict[str, Any]] | None = None
+    interval: definitions.Interval | None = None
+    license: str | None = None
+    max_signals: definitions.MaxSignals | None = None
+    meta: dict[str, Any] | None = None
+    note: definitions.Markdown | None = None
+    references: list[str] | None = None
+    risk_score_mapping: list[RiskScoreMapping] | None = None
+    rule_name_override: str | None = None
+    severity_mapping: list[SeverityMapping] | None = None
+    tags: list[str] | None = None
+    threat: list[ThreatMapping] | None = None
+    throttle: str | None = None
+    timeline_id: definitions.TimelineTemplateId | None = None
+    timeline_title: definitions.TimelineTemplateTitle | None = None
+    timestamp_override: str | None = None
+    to: str | None = None
+    version: definitions.PositiveInteger | None = None
 
     @classmethod
     def save_schema(cls):
@@ -487,13 +486,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             obj["note"] = rendered_note
 
         # call transform functions
-        if transform:
-            process_note_plugins()
+        process_note_plugins()
 
         return obj
 
     @validates_schema
-    def validates_data(self, data: dict[str, Any]):
+    def validates_data(self, data: dict[str, Any], **_: Any):
         """Validate fields and data for marshmallow schemas."""
 
         # Validate version and revision fields not supplied.
@@ -730,17 +728,17 @@ class QueryValidator:
         return endgame.EndgameSchema(endgame_schema)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class QueryRuleData(BaseRuleData):
     """Specific fields for query event types."""
 
     type: Literal["query"]
-
-    index: list[str] | None
-    data_view_id: str | None
     query: str
     language: definitions.FilterLanguages
     alert_suppression: AlertSuppressionMapping | None = field(metadata=dict(metadata=dict(min_compat="8.8")))
+
+    index: list[str] | None = None
+    data_view_id: str | None = None
 
     @cached_property
     def index_or_dataview(self) -> list[str]:
@@ -785,13 +783,13 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validates_index_and_data_view_id(self, data: dict[str, Any]):
+    def validates_index_and_data_view_id(self, data: dict[str, Any], **_: Any):
         """Validate that either index or data_view_id is set, but not both."""
         if data.get("index") and data.get("data_view_id"):
             raise ValidationError("Only one of index or data_view_id should be set.")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
@@ -800,11 +798,11 @@ class MachineLearningRuleData(BaseRuleData):
     alert_suppression: AlertSuppressionMapping | None = field(metadata=dict(metadata=dict(min_compat="8.15")))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ThresholdQueryRuleData(QueryRuleData):
     """Specific fields for query event types."""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, kw_only=True)
     class ThresholdMapping(MarshmallowDataclassMixin):
         @dataclass(frozen=True)
         class ThresholdCardinality:
@@ -813,14 +811,14 @@ class ThresholdQueryRuleData(QueryRuleData):
 
         field: definitions.CardinalityFields
         value: definitions.ThresholdValue
-        cardinality: list[ThresholdCardinality] | None
+        cardinality: list[ThresholdCardinality] | None = None
 
     type: Literal["threshold"]  # type: ignore[reportIncompatibleVariableOverride]
     threshold: ThresholdMapping
     alert_suppression: ThresholdAlertSuppression | None = field(metadata=dict(metadata=dict(min_compat="8.12")))  # type: ignore[reportIncompatibleVariableOverride]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class NewTermsRuleData(QueryRuleData):
     """Specific fields for new terms field rule."""
 
@@ -840,7 +838,7 @@ class NewTermsRuleData(QueryRuleData):
     alert_suppression: AlertSuppressionMapping | None = field(metadata=dict(metadata=dict(min_compat="8.14")))
 
     @pre_load
-    def preload_data(self, data: dict[str, Any]) -> dict[str, Any]:
+    def preload_data(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
         """Preloads and formats the data to match the required schema."""
         if "new_terms_fields" in data and "history_window_start" in data:
             new_terms_mapping = {
@@ -863,7 +861,7 @@ class NewTermsRuleData(QueryRuleData):
         return obj
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
 
@@ -925,7 +923,7 @@ class EQLRuleData(QueryRuleData):
             return interval / self.max_span
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ESQLRuleData(QueryRuleData):
     """ESQL rules are a special case of query rules."""
 
@@ -935,7 +933,7 @@ class ESQLRuleData(QueryRuleData):
     alert_suppression: AlertSuppressionMapping | None = field(metadata=dict(metadata=dict(min_compat="8.15")))
 
     @validates_schema
-    def validates_esql_data(self, data: dict[str, Any]):
+    def validates_esql_data(self, data: dict[str, Any], **_: Any):
         """Custom validation for query rule type and subclasses."""
         if data.get("index"):
             raise ValidationError("Index is not a valid field for ES|QL rule type.")
@@ -963,7 +961,7 @@ class ESQLRuleData(QueryRuleData):
             )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ThreatMatchRuleData(QueryRuleData):
     """Specific fields for indicator (threat) match rule."""
 
@@ -979,15 +977,15 @@ class ThreatMatchRuleData(QueryRuleData):
 
     type: Literal["threat_match"]  # type: ignore[reportIncompatibleVariableOverride]
 
-    concurrent_searches: definitions.PositiveInteger | None
-    items_per_search: definitions.PositiveInteger | None
+    concurrent_searches: definitions.PositiveInteger | None = None
+    items_per_search: definitions.PositiveInteger | None = None
 
     threat_mapping: list[Entries]
-    threat_filters: dict[str, Any] | None
-    threat_query: str | None
-    threat_language: definitions.FilterLanguages | None
+    threat_filters: list[dict[str, Any]] | None = None
+    threat_query: str | None = None
+    threat_language: definitions.FilterLanguages | None = None
     threat_index: list[str]
-    threat_indicator_path: str | None
+    threat_indicator_path: str | None = None
     alert_suppression: AlertSuppressionMapping | None = field(metadata=dict(metadata=dict(min_compat="8.13")))
 
     def validate_query(self, meta: RuleMeta) -> None:
@@ -1199,8 +1197,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
 
     metadata: RuleMeta
-    transform: RuleTransform | None
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
+    transform: RuleTransform | None = None
 
     @cached_property
     def version_lock(self) -> VersionLock:  # type: ignore[reportIncompatibleMethodOverride]
@@ -1407,10 +1405,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
         min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
-        if not min_stack:
-            raise ValueError("No min stack value found")
-        if not max_stack:
-            raise ValueError("No max stack value found")
+        if not min_stack or not max_stack:
+            return True
         return self.compare_field_versions(min_stack, max_stack)
 
     def check_restricted_field_version(self, field_name: str) -> bool:
@@ -1418,10 +1414,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not self.data.get_restricted_fields:
             raise ValueError("No restricted fields found")
         min_stack, max_stack = self.data.get_restricted_fields[field_name]
-        if not min_stack:
-            raise ValueError("No min stack value found")
-        if not max_stack:
-            raise ValueError("No max stack value found")
+        if not min_stack or not max_stack:
+            return True
         return self.compare_field_versions(min_stack, max_stack)
 
     @staticmethod
@@ -1460,7 +1454,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return packaged_integrations
 
     @validates_schema
-    def post_conversion_validation(self, value: dict[str, Any]):
+    def post_conversion_validation(self, value: dict[str, Any], **_: Any):
         """Additional validations beyond base marshmallow schemas."""
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
@@ -1504,9 +1498,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
         metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
         data = self.data.to_dict(strip_none_values=strip_none_values)
-        if not self.transform:
-            raise ValueError("No transform found")
-        _ = self.data.process_transforms(self.transform, data)
+        if self.transform:
+            _ = self.data.process_transforms(self.transform, data)
         dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
@@ -1517,7 +1510,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return flattened
 
     def to_api_format(
-        self, include_version: bool = not BYPASS_VERSION_LOCK, include_metadata: bool = False
+        self,
+        include_version: bool = not BYPASS_VERSION_LOCK,
+        include_metadata: bool = False,
     ) -> dict[str, Any]:
         """Convert the TOML rule to the API format."""
         rule_dict = self.to_dict()
@@ -1612,7 +1607,7 @@ class TOMLRule:
 class DeprecatedRuleContents(BaseRuleContents):
     metadata: dict[str, Any]
     data: dict[str, Any]
-    transform: dict[str, Any] | None
+    transform: dict[str, Any] | None = None
 
     @cached_property
     def version_lock(self):  # type: ignore[reportIncompatibleMethodOverride]
@@ -1620,7 +1615,7 @@ class DeprecatedRuleContents(BaseRuleContents):
 
         return getattr(self, "_version_lock", None) or loaded_version_lock
 
-    def set_version_lock(self, value: "VersionLock"):
+    def set_version_lock(self, value: "VersionLock | None"):
         err_msg = (
             "Cannot set the version lock when the versioning strategy is configured to bypass the version lock."
             " Set `bypass_version_lock` to `false` in the rules config to use the version lock."

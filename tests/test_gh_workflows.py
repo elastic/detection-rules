@@ -6,14 +6,12 @@
 """Tests for GitHub workflow functionality."""
 
 import unittest
-from pathlib import Path
-
 import yaml
 
 from detection_rules.schemas import get_stack_versions, RULES_CONFIG
-from detection_rules.utils import get_path
+from detection_rules.utils import ROOT_DIR
 
-GITHUB_FILES = Path(get_path()) / ".github"
+GITHUB_FILES = ROOT_DIR / ".github"
 GITHUB_WORKFLOWS = GITHUB_FILES / "workflows"
 
 
