@@ -10,7 +10,7 @@ from detection_rules.misc import get_default_config
 # from detection_rules.remote_validation import RemoteValidator
 
 
-@unittest.skipIf(get_default_config() is None, 'Skipping remote validation due to missing config')
+@unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
 

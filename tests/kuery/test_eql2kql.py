@@ -9,7 +9,6 @@ import kql
 
 
 class TestEql2Kql(unittest.TestCase):
-
     def validate(self, kql_source, eql_source):
         self.assertEqual(kql_source, str(kql.from_eql(eql_source)))
 
@@ -55,8 +54,8 @@ class TestEql2Kql(unittest.TestCase):
 
     def test_wildcard_field(self):
         with eql.parser.elasticsearch_validate_optional_fields:
-            self.validate('field:value-*', 'field : "value-*"')
-            self.validate('field:value-?', 'field : "value-?"')
+            self.validate("field:value-*", 'field : "value-*"')
+            self.validate("field:value-?", 'field : "value-?"')
 
         with eql.parser.elasticsearch_validate_optional_fields, self.assertRaises(AssertionError):
             self.validate('field:"value-*"', 'field == "value-*"')
