@@ -169,7 +169,6 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict[str, Any]) ->
         job_id = api_contents["machine_learning_job_id"]
 
         if isinstance(job_id, list):
-
             if len(job_id) > 1:  # type: ignore[reportUnknownArgumentType]
                 raise ValueError("Cannot downgrade an ML rule with multiple jobs defined")
 
@@ -318,7 +317,9 @@ def migrate_to_9_0(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     return strip_additional_properties(version, api_contents)
 
 
-def downgrade(api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None) -> dict[str, Any]:
+def downgrade(
+    api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None
+) -> dict[str, Any]:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
 
@@ -369,7 +370,7 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     return versions_reversed
 
 
-def get_stack_versions(drop_patch: bool =False) -> list[str]:
+def get_stack_versions(drop_patch: bool = False) -> list[str]:
     """Get a list of stack versions supported (for the matrix)."""
     versions = list(load_stack_schema_map())
     if drop_patch:
