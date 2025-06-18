@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+import typing
 from typing import Any
 
 import xlsxwriter  # type: ignore[reportMissingTypeStubs]
@@ -86,19 +87,20 @@ class PackageDocument(xlsxwriter.Workbook):
         self.add_attack_matrix()
         self.add_rule_details(self.deprecated_rules, "Deprecated Rules")
 
+    @typing.no_type_check
     def add_summary(self):
         """Add the summary worksheet."""
-        worksheet = self.add_worksheet("Summary")  # type: ignore[reportUnknownMemberType]
-        worksheet.freeze_panes(1, 0)  # type: ignore[reportUnknownMemberType]
-        worksheet.set_column(0, 0, 25)  # type: ignore[reportUnknownMemberType]
-        worksheet.set_column(1, 1, 10)  # type: ignore[reportUnknownMemberType]
+        worksheet = self.add_worksheet("Summary")
+        worksheet.freeze_panes(1, 0)
+        worksheet.set_column(0, 0, 25)
+        worksheet.set_column(1, 1, 10)
 
         row = 0
-        worksheet.merge_range(row, 0, row, 1, "SUMMARY", self.bold_center)  # type: ignore[reportUnknownMemberType]
+        worksheet.merge_range(row, 0, row, 1, "SUMMARY", self.bold_center)
         row += 1
 
-        _ = worksheet.write(row, 0, "Package Name")  # type: ignore[reportUnknownMemberType]
-        _ = worksheet.write(row, 1, self.package.name, self.right_align)  # type: ignore[reportUnknownMemberType]
+        _ = worksheet.write(row, 0, "Package Name")
+        _ = worksheet.write(row, 1, self.package.name, self.right_align)
         row += 1
 
         tactic_counts: dict[str, int] = defaultdict(int)
@@ -108,29 +110,29 @@ class PackageDocument(xlsxwriter.Workbook):
                 for entry in threat:
                     tactic_counts[entry.tactic.name] += 1
 
-        _ = worksheet.write(row, 0, "Total Production Rules")  # type: ignore[reportUnknownVariableType]
-        _ = worksheet.write(row, 1, len(self.production_rules))  # type: ignore[reportUnknownVariableType]
+        _ = worksheet.write(row, 0, "Total Production Rules")
+        _ = worksheet.write(row, 1, len(self.production_rules))
         row += 2
 
-        _ = worksheet.write(row, 0, "Total Deprecated Rules")  # type: ignore[reportUnknownVariableType]
-        _ = worksheet.write(row, 1, len(self.deprecated_rules))  # type: ignore[reportUnknownVariableType]
+        _ = worksheet.write(row, 0, "Total Deprecated Rules")
+        _ = worksheet.write(row, 1, len(self.deprecated_rules))
         row += 1
 
-        _ = worksheet.write(row, 0, "Total Rules")  # type: ignore[reportUnknownVariableType]
-        _ = worksheet.write(row, 1, len(self.package.rules))  # type: ignore[reportUnknownVariableType]
+        _ = worksheet.write(row, 0, "Total Rules")
+        _ = worksheet.write(row, 1, len(self.package.rules))
         row += 2
 
-        worksheet.merge_range(row, 0, row, 3, f"MITRE {attack_tm} TACTICS", self.bold_center)  # type: ignore[reportUnknownVariableType]
+        worksheet.merge_range(row, 0, row, 3, f"MITRE {attack_tm} TACTICS", self.bold_center)
         row += 1
 
         for tactic in tactics:
-            _ = worksheet.write(row, 0, tactic)  # type: ignore[reportUnknownVariableType]
-            _ = worksheet.write(row, 1, tactic_counts[tactic])  # type: ignore[reportUnknownVariableType]
+            _ = worksheet.write(row, 0, tactic)
+            _ = worksheet.write(row, 1, tactic_counts[tactic])
             num_techniques = len(self._coverage[tactic])
             total_techniques = len(matrix[tactic])
             percent = float(num_techniques) / float(total_techniques)
-            _ = worksheet.write(row, 2, percent, self.percent)  # type: ignore[reportUnknownVariableType]
-            _ = worksheet.write(row, 3, f"{num_techniques}/{total_techniques}", self.right_align)  # type: ignore[reportUnknownVariableType]
+            _ = worksheet.write(row, 2, percent, self.percent)
+            _ = worksheet.write(row, 3, f"{num_techniques}/{total_techniques}", self.right_align)
             row += 1
 
     def add_rule_details(
