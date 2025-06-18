@@ -66,7 +66,6 @@ class BaseRuleTest(unittest.TestCase):
             except Exception as e:
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
-                raise
 
         cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
         cls.rules_config = RULES_CONFIG
