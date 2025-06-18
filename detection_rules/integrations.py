@@ -56,7 +56,7 @@ class IntegrationManifestSchema(Schema):
     owner = fields.Dict(required=False)
 
     @post_load
-    def transform_policy_template(self, data: dict[str, Any]):
+    def transform_policy_template(self, data: dict[str, Any], **_: Any):
         if "policy_templates" in data:
             data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
         return data
