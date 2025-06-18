@@ -277,12 +277,6 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
     return datasets, modules
 
 
-# def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
-#     """Get a schema based on datasets and modules in an EQL AST."""
-#     datasets, modules = get_datasets_and_modules(tree)
-#     return get_schema_from_datasets(beats, modules, datasets, version=version)
-
-
 def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list[str], version: str | None = None) -> dict[str, Any]:
     """Get a schema based on datasets and modules in an KQL AST."""
     datasets, modules = get_datasets_and_modules(tree)
