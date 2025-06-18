@@ -1062,40 +1062,6 @@ class TestRuleMetadata(BaseRuleTest):
 class TestIntegrationRules(BaseRuleTest):
     """Test integration rules."""
 
-    @unittest.skip("8.3+ Stacks Have Related Integrations Feature")
-    def test_integration_guide(self):
-        """Test that rules which require a config note are using standard verbiage."""
-        config = "## Setup\n\n"
-        beats_integration_pattern = (
-            config + "The {} Fleet integration, Filebeat module, or similarly "
-            "structured data is required to be compatible with this rule."
-        )
-        render = beats_integration_pattern.format
-        integration_notes = {
-            "aws": render("AWS"),
-            "azure": render("Azure"),
-            "cyberarkpas": render("CyberArk Privileged Access Security (PAS)"),
-            "gcp": render("GCP"),
-            "google_workspace": render("Google Workspace"),
-            "o365": render("Office 365 Logs"),
-            "okta": render("Okta"),
-        }
-
-        for rule in self.all_rules:
-            integration = rule.contents.metadata.integration
-            note_str = integration_notes.get(integration)
-
-            if note_str:
-                error_message = f"{self.rule_str(rule)} note required for config information"
-                self.assertIsNotNone(rule.contents.data.note, error_message)
-
-                if note_str not in rule.contents.data.note:
-                    self.fail(
-                        f"{self.rule_str(rule)} expected {integration} config missing\n\n"
-                        f"Expected: {note_str}\n\n"
-                        f"Actual: {rule.contents.data.note}"
-                    )
-
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
         versions = loaded_version_lock.version_lock
