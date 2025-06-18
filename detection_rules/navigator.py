@@ -68,7 +68,7 @@ class Techniques(MarshmallowDataclassMixin):
     showSubtechniques: bool = False
 
     @pre_load
-    def set_score(self, data: dict[str, Any]):
+    def set_score(self, data: dict[str, Any], **_: Any):
         data["score"] = len(data["metadata"])
         return data
 
