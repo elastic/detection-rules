@@ -21,11 +21,17 @@ name = "Kubernetes Unusual Decision by User Agent"
 risk_score = 21
 rule_id = "8a1db198-da6f-4500-b985-7fe2457300af"
 severity = "low"
-tags = ["Data Source: Kubernetes", "Tactic: Execution"]
+tags = [
+    "Domain: Kubernetes",
+    "Domain: Container",
+    "Use Case: Threat Detection",
+    "Data Source: Kubernetes",
+    "Tactic: Execution"
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.dataset:"kubernetes.audit_logs" and host.os.type:"linux" and kubernetes.audit.stage:"ResponseComplete" and user_agent.original:*
+event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and user_agent.original:*
 '''
 
 [[rule.threat]]
