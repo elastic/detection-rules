@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2025/06/18"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual request responses in Kubernetes audit logs through the
+use of the "new_terms" rule type. In production environments, default API requests
+are typically made by system components or trusted users, which are expected to
+have a consistent user agent and allowed response annotations. By monitoring
+for anomalies in the username and response annotations, this rule helps identify
+potential unauthorized access or misconfigurations in the Kubernetes environment.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Unusual Request Response by User Agent"
+risk_score = 21
+rule_id = "8a1db198-da6f-4500-b985-7fe2457300af"
+severity = "low"
+tags = ["Data Source: Kubernetes", "Tactic: Execution"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.dataset:"kubernetes.audit_logs" and host.os.type:"linux" and kubernetes.audit.stage:"ResponseComplete" and user_agent.original:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
