@@ -1,0 +1,195 @@
+[metadata]
+creation_date = "2023/07/18"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious Microsoft 365 mail access by ClientAppId. This rule detects when a user accesses their mailbox
+using a client application that is not typically used by the user, which may indicate potential compromise or
+unauthorized access attempts. Adversaries may use custom or third-party applications to access mailboxes, bypassing
+standard security controls. First-party Microsoft applications are also abused after OAuth tokens are compromised,
+allowing adversaries to access mailboxes without raising suspicion.
+"""
+false_positives = [
+    "User using a new mail client or mobile application to access their mailbox.",
+    """
+    Users accessing their mailboxes using custom or third-party applications that are authorized by the organization,
+    such as CRM or ERP systems.
+    """,
+    """
+    Users accessing their mailboxes using first-party Microsoft applications that are not typically used by the user,
+    such as Outlook on the web or Outlook mobile app.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious Microsoft 365 Mail Access by Unusual ClientAppId"
+note = """## Triage and Analysis
+
+### Investigating Suspicious Microsoft 365 Mail Access by Unusual ClientAppId
+
+This rule detects when a user accesses their mailbox using a client application that is not typically used by the user, which may indicate potential compromise or unauthorized access attempts. Adversaries may use custom or third-party applications to access mailboxes, bypassing standard security controls. First-party Microsoft applications are also abused after OAuth tokens are compromised, allowing adversaries to access mailboxes without raising suspicion.
+
+### Possible investigation steps
+- Review the `o365.audit.UserId` field to identify the user associated with the mailbox access.
+- Check the `o365.audit.ClientAppId` field to determine which client application was used for the mailbox access. Look for unusual or unexpected applications or determine which first-party Microsoft applications are being abused.
+- Review `o365.audit.ClientInfoString` to gather additional information about the client application used for the mailbox access.
+- Examine `o365.audit.Folders.Path` to identify the specific mailbox folders accessed by the client application. This can help determine if sensitive information was accessed or if the access was legitimate.
+- Ensure that `o365.audit.MailboxOwnerUPN` matches the `o365.audit.UserId` to confirm that the mailbox accessed belongs to the user identified in the `o365.audit.UserId` field.
+- Review geolocation information to identify the location from which the mailbox access occurred. Look for any anomalies or unexpected locations that may indicate suspicious activity.
+- Examine `o365.audit.Folders.FolderItems.Id` to identify the specific items accessed within the mailbox folders. This can help determine if sensitive information was accessed or if the access was legitimate.
+
+### False positive analysis
+- Legitimate users may access their mailboxes using new or different client applications, such as when switching to a new email client or using a mobile application. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users or client applications.
+- Users may access their mailboxes using custom or third-party applications that are authorized by the organization, such as CRM or ERP systems. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications.
+
+### Response and remediation
+- If the mailbox access is confirmed to be suspicious or unauthorized, take immediate action to revoke the access token and prevent further access.
+- Disable the user account temporarily to prevent any potential compromise or unauthorized access.
+- Examine the sensitivity of the mailbox data accessed and determine if any sensitive information was compromised.
+- Rotate the user's credentials and enforce multi-factor authentication (MFA) to prevent further unauthorized access.
+- Review the conditional access policies in place to ensure they are sufficient to prevent unauthorized access to sensitive resources.
+"""
+references = [
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-193a",
+    "https://trustedsec.com/blog/mailitemsaccessed-woes-m365-investigation-challenges",
+    "https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts",
+]
+risk_score = 47
+rule_id = "48819484-9826-4083-9eba-1da74cd0eaf2"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Email",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "o365.audit" and
+    event.provider: "Exchange" and
+    event.category: "web" and
+    event.action: "MailItemsAccessed" and
+    event.outcome: "success" and
+    o365.audit.LogonType: ("0" or "1" or "6") and
+    o365.audit.UserType: ("0" or "2" or "3" or "10") and
+    o365.audit.OperationProperties.Value: "Bind" and
+    not o365.audit.ClientAppId : (
+        "00000002-0000-0000-c000-000000000000" or "00000002-0000-0ff1-ce00-000000000000" or
+        "00000003-0000-0ff1-ce00-000000000000" or "00000004-0000-0ff1-ce00-000000000000" or
+        "00000005-0000-0ff1-ce00-000000000000" or "00000006-0000-0ff1-ce00-000000000000" or
+        "00000007-0000-0000-c000-000000000000" or "00000007-0000-0ff1-ce00-000000000000" or
+        "00000009-0000-0000-c000-000000000000" or "0000000c-0000-0000-c000-000000000000" or
+        "00000012-0000-0000-c000-000000000000" or "00000015-0000-0000-c000-000000000000" or
+        "0000001a-0000-0000-c000-000000000000" or "00b41c95-dab0-4487-9791-b9d2c32c80f2" or
+        "022907d3-0f1b-48f7-badc-1ba6abab6d66" or "04b07795-8ddb-461a-bbee-02f9e1bf7b46" or
+        "08543e9e-5b1f-4af5-8228-cb5a5c9d4e24" or "08e18876-6177-487e-b8b5-cf950c1e598c" or
+        "0cb7b9ec-5336-483b-bc31-b15b5788de71" or "0cd196ee-71bf-4fd6-a57c-b491ffd4fb1e" or
+        "0f698dd4-f011-4d23-a33e-b36416dcb1e6" or "1150aefc-07de-4228-b2b2-042a536703c0" or
+        "11ba4a52-3159-44e1-93cd-d18e9443e3ef" or "13937bba-652e-4c46-b222-3003f4d1ff97" or
+        "13937bba-652e-4c46-b222-3003f4d1ff97" or "13937bba-652e-4c46-b222-3003f4d1ff97" or
+        "14d82eec-204b-4c2f-b7e8-296a70dab67e" or "157cdfbf-7398-4a56-96c3-e93e9ab309b5" or
+        "16aeb910-ce68-41d1-9ac3-9e1673ac9575" or "1786c5ed-9644-47b2-8aa0-7201292175b6" or
+        "17d5e35f-655b-4fb0-8ae6-86356e9a49f5" or "18fbca16-2224-45f6-85b0-f7bf2b39b3f3" or
+        "1950a258-227b-4e31-a9cf-717495945fc2" or "1b3c667f-cde3-4090-b60b-3d2abd0117f0" or
+        "1fec8e78-bce4-4aaf-ab1b-5451cc387264" or "1fec8e78-bce4-4aaf-ab1b-5451cc387264" or
+        "20a11fe0-faa8-4df5-baf2-f965f8f9972e" or "23523755-3a2b-41ca-9315-f81f3f566a95" or
+        "243c63a3-247d-41c5-9d83-7788c43f1c43" or "268761a2-03f3-40df-8a8b-c3db24145b6b" or
+        "26a7ee05-5602-4d76-a7ba-eae8b7b67941" or "26a7ee05-5602-4d76-a7ba-eae8b7b67941" or
+        "26abc9a8-24f0-4b11-8234-e86ede698878" or "27922004-5251-4030-b22d-91ecd9a37ea4" or
+        "27922004-5251-4030-b22d-91ecd9a37ea4" or "27b9c0f2-3d8e-4a1c-8b6f-5d7a0c6e1f2b" or
+        "28b567f6-162c-4f54-99a0-6887f387bbcc" or "29d9ed98-a469-4536-ade2-f981bc1d605e" or
+        "2abdc806-e091-4495-9b10-b04d93c3f040" or "2cee05de-2b8f-45a2-8289-2a06ca32c4c8" or
+        "2d4d3d8e-2be3-4bef-9f87-7875a61c29de" or "2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8" or
+        "2fd64745-b008-3e7d-4903-15d43e60f62a" or "3090ab82-f1c1-4cdf-af2c-5d7a6f3e2cc7" or
+        "35d54a08-36c9-4847-9018-93934c62740c" or "37182072-3c9c-4f6a-a4b3-b3f91cacffce" or
+        "38049638-cc2c-4cde-abe4-4479d721ed44" or "3c896ded-22c5-450f-91f6-3d1ef0848f6e" or
+        "43375d74-c6a5-4d4e-a0a3-de139860ea75" or "4345a7b9-9a63-4910-a426-35363201d503" or
+        "45a330b1-b1ec-4cc1-9161-9f03992aa49f" or "464e0e4d-676a-4c3b-9f81-2ed9b2a9acd2" or
+        "4765445b-32c6-49b0-83e6-1d93765276ca" or "497effe9-df71-4043-a8bb-14cf78c4b63b" or
+        "4b233688-031c-404b-9a80-a4f3f2351f90" or "4d5c2d63-cf83-4365-853c-925fd1a64357" or
+        "51be292c-a17e-4f17-9a7e-4b661fb16dd2" or "5572c4c0-d078-44ce-b81c-6cbf8d3ed39e" or
+        "5d661950-3475-41cd-a2c3-d671a3162bc1" or "5e3ce6c0-2b1f-4285-8d4b-75ee78787346" or
+        "60c8bde5-3167-4f92-8fdb-059f6176dc0f" or "61109738-7d2b-4a0b-9fe3-660b1ff83505" or
+        "62256cef-54c0-4cb4-bcac-4c67989bdc40" or "6253bca8-faf2-4587-8f2f-b056d80998a7" or
+        "6326e366-9d6d-4c70-b22a-34c7ea72d73d" or "65d91a3d-ab74-42e6-8a2f-0add61688c74" or
+        "66a88757-258c-4c72-893c-3e8bed4d6899" or "67e3df25-268a-4324-a550-0de1c7f97287" or
+        "69893ee3-dd10-4b1c-832d-4870354be3d8" or "74658136-14ec-4630-ad9b-26e160ff0fc6" or
+        "74bcdadc-2fdc-4bb3-8459-76d06952a0e9" or "75efb5bc-18a1-4e7b-8a66-2ad2503d79c6" or
+        "75f31797-37c9-498e-8dc9-53c16a36afca" or "797f4846-ba00-4fd7-ba43-dac1f8f63013" or
+        "7ab7862c-4c57-491e-8a45-d52a7e023983" or "7ae974c5-1af7-4923-af3a-fb1fd14dcb7e" or
+        "7b7531ad-5926-4f2d-8a1d-38495ad33e17" or "7fba38f4-ec1f-458d-906c-f4e3c4f41335" or
+        "80ccca67-54bd-44ab-8625-4b79c4dc7775" or "82d8ab62-be52-a567-14ea-1616c4ee06c4" or
+        "835b2a73-6e10-4aa5-a979-21dfda45231c" or "871c010f-5e61-4fb1-83ac-98610a7e9110" or
+        "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" or "8acd33ea-7197-4a96-bc33-d7cc7101262f" or
+        "8edd93e1-2103-40b4-bd70-6e34e586362d" or "905fcf26-4eb7-48a0-9ff0-8dcc7194b5ba" or
+        "9199bf20-a13f-4107-85dc-02114787ef48" or "9199bf20-a13f-4107-85dc-02114787ef48" or
+        "91ca2ca5-3b3e-41dd-ab65-809fa3dffffa" or "93625bc8-bfe2-437a-97e0-3d0060024faa" or
+        "93d53678-613d-4013-afc1-62e9e444a0a5" or "944f0bd1-117b-4b1c-af26-804ed95e767e" or
+        "94c63fef-13a3-47bc-8074-75af8c65887a" or "95de633a-083e-42f5-b444-a4295d8e9314" or
+        "97cb1f73-50df-47d1-8fb0-0271f2728514" or "98db8bd6-0cc0-4e67-9de5-f187f1cd1b41" or
+        "99b904fd-a1fe-455c-b86c-2f9fb1da7687" or "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7" or
+        "9fd38622-d9b4-4401-b1b9-1ce14c5e435a" or "a3475900-ccec-4a69-98f5-a65cd5dc5306" or
+        "a3883eba-fbe9-48bd-9ed3-dca3e0e84250" or "a3883eba-fbe9-48bd-9ed3-dca3e0e84250" or
+        "a3b79187-70b2-4139-83f9-6016c58cd27b" or "a40d7d7d-59aa-447e-a655-679a4107e548" or
+        "a57aca87-cbc0-4f3c-8b9e-dc095fdc8978" or "a970bac6-63fe-4ec5-8884-8536862c42d4" or
+        "a9b49b65-0a12-430b-9540-c80b3332c127" or "ab9b8c07-8f02-4f72-87fa-80105867a763" or
+        "ae8e128e-080f-4086-b0e3-4c19301ada69" or "b23dd4db-9142-4734-867f-3577f640ad0c" or
+        "b4bddae8-ab25-483e-8670-df09b9f1d0ea" or "b669c6ea-1adf-453f-b8bc-6d526592b419" or
+        "b6e69c34-5f1f-4c34-8cdf-7fea120b8670" or "bb2a2e3a-c5e7-4f0a-88e0-8e01fd3fc1f4" or
+        "bdd48c81-3a58-4ea9-849c-ebea7f6b6360" or "c1c74fed-04c9-4704-80dc-9f79a2e515cb" or
+        "c35cb2ba-f88b-4d15-aa9d-37bd443522e1" or "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" or
+        "c9a559d2-7aab-4f13-a6ed-e7e9c52aec87" or "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe" or
+        "cf36b471-5b44-428c-9ce7-313bf84528de" or "cf53fce8-def6-4aeb-8d30-b158e7b1cf83" or
+        "d176f6e7-38e5-40c9-8a78-3998aab820e7" or "d34dcd43-8519-44e4-827c-de79b767da47" or
+        "d3590ed6-52b3-4102-aeff-aad2292ab01c" or "d3590ed6-52b3-4102-aeff-aad2292ab01c" or
+        "d3590ed6-52b3-4102-aeff-aad2292ab01c" or "d396de1f-10d4-4023-aae2-5bb3d724ba9a" or
+        "d71dfe16-1070-48f3-bd3a-c3ec919d34e7" or "d73f4b35-55c9-48c7-8b10-651f6f2acb2e" or
+        "d9b8ec3a-1e4e-4e08-b3c2-5baf00c0fcb0" or "de8bc8b5-d9f9-48b1-a8ad-b748da725064" or
+        "dfe74da8-9279-44ec-8fb2-2aed9e1c73d0" or "e1ef36fd-b883-4dbf-97f0-9ece4b576fc6" or
+        "e64aa8bc-8eb4-40e2-898b-cf261a25954f" or "e9b154d0-7658-433b-bb25-6b8e0a8a7c59" or
+        "e9f49c6b-5ce5-44c8-925d-015017e9f7ad" or "ee272b19-4411-433f-8f28-5c13cb6fd407" or
+        "eed83176-464d-48c7-a887-cc5cc534c7b8" or "f5eaa862-7f08-448c-9c4e-f4047d4d4521" or
+        "f8d98a96-0999-43f5-8af3-69971c7bb423" or "fb78d390-0c51-40cd-8e17-fdbfab77341b" or
+        "fc0f3af4-6835-4174-b806-f7db311fd2f3" or "fdf9885b-dd37-42bf-82e5-c3129ef5a302" or
+        "ffcb16e8-f789-467c-8ce9-f826a080d987"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+[[rule.threat.technique.subtechnique]]
+id = "T1114.002"
+name = "Remote Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.ClientAppId"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
