@@ -2,7 +2,7 @@
 creation_date = "2023/11/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,10 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
+event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and
+    winlog.event_data.LogonProcessName:Advapi* and
+    not winlog.event_data.SubjectUserName:*$ and
+    not process.executable: (C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe)
 '''
 
 
