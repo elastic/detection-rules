@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2025/06/17"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/06/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a forbidden request is made from an unusual user agent in a Kubernetes environment.
+Adversary tooling may use non-standard or unexpected user agents to interact with the Kubernetes API, which
+can indicate an attempt to evade detection or blend in with legitimate traffic. In combination with a forbidden
+request, this behavior can suggest an adversary is attempting to exploit vulnerabilities or misconfigurations
+in the Kubernetes cluster.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Forbidden Request from Unusual User Agent in Kubernetes"
+risk_score = 47
+rule_id = "4b77d382-b78e-4aae-85a0-8841b80e4fc4"
+severity = "medium"
+tags = ["Data Source: Kubernetes", "Tactic: Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid" and
+not user_agent.original like~ (
+  "/", "karpenter", "csi-secrets-store/*", "elastic-agent/*", "agentbeat/*", "insights-operator*", "oc/*", "cloud-defend/*",
+  "OpenAPI-Generator/*", "local-storage-operator/*", "falcon-client/*", "nginx-ingress-controller/*", "config-translator/*",
+  "kwatch/*", "PrometheusOperator/*", "kube*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
