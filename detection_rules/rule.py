@@ -470,23 +470,19 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         """Process transforms from toml [transform] called in TOMLRuleContents.to_dict."""
         # only create functions that CAREFULLY mutate the obj dict
 
-        def process_note_plugins():
-            """Format the note field with osquery and investigate plugin strings."""
-            note = obj.get("note")
-            if not note:
-                return
+        # Format the note field with osquery and investigate plugin strings
+        note = obj.get("note")
+        if not note:
+            return obj
 
-            rendered = transform.render_investigate_osquery_to_string()
-            rendered_patterns: dict[str, Any] = {}
-            for plugin, entries in rendered.items():
-                rendered_patterns.update(**{f"{plugin}_{i}": e for i, e in enumerate(entries)})  # type: ignore[reportUnknownMemberType]
+        rendered = transform.render_investigate_osquery_to_string()
+        rendered_patterns: dict[str, Any] = {}
+        for plugin, entries in rendered.items():
+            rendered_patterns.update(**{f"{plugin}_{i}": e for i, e in enumerate(entries)})  # type: ignore[reportUnknownMemberType]
 
-            note_template = PatchedTemplate(note)
-            rendered_note = note_template.safe_substitute(**rendered_patterns)
-            obj["note"] = rendered_note
-
-        # call transform functions
-        process_note_plugins()
+        note_template = PatchedTemplate(note)
+        rendered_note = note_template.safe_substitute(**rendered_patterns)
+        obj["note"] = rendered_note
 
         return obj
 
@@ -1499,7 +1495,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
         data = self.data.to_dict(strip_none_values=strip_none_values)
         if self.transform:
-            _ = self.data.process_transforms(self.transform, data)
+            data = self.data.process_transforms(self.transform, data)
         dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
@@ -1515,6 +1511,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         include_metadata: bool = False,
     ) -> dict[str, Any]:
         """Convert the TOML rule to the API format."""
+
         rule_dict = self.to_dict()
         rule_dict = self._add_known_nulls(rule_dict)
         converted_data = rule_dict["rule"]
