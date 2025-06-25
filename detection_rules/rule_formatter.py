@@ -32,7 +32,7 @@ def get_preserved_fmt_fields():
     preserved_keys: set[str] = set()
 
     for field in dataclasses.fields(BaseRuleData):
-        if field.type in (definitions.Markdown, None):
+        if field.type in (definitions.Markdown, definitions.Markdown | None):
             preserved_keys.add(field.metadata.get("data_key", field.name))
     return preserved_keys
 
@@ -44,6 +44,9 @@ def cleanup_whitespace(val: Any) -> Any:
 
 
 def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
+
+    preserved_fields = get_preserved_fmt_fields()
+
     if isinstance(d, str):
         return d if skip_cleanup else cleanup_whitespace(d)
     elif isinstance(d, list):
@@ -54,7 +57,7 @@ def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
                 # do not normalize queries
                 d.update({k: v})  # type: ignore[reportUnknownMemberType]
-            elif k in get_preserved_fmt_fields():
+            elif k in preserved_fields:
                 # let these maintain newlines and whitespace for markdown support
                 d.update({k: nested_normalize(v, skip_cleanup=True)})  # type: ignore[reportUnknownMemberType]
             else:
