@@ -2,25 +2,18 @@
 creation_date = "2021/05/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/27"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies when a service has assumed a role in AWS Security Token Service (STS). Services can assume a role to obtain
-temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
-escalation. This is a [New
-Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that identifies
-when a service assumes a role in AWS Security Token Service (STS) to obtain temporary credentials and access AWS
-resources. While often legitimate, adversaries may use this technique for unauthorized access, privilege escalation, or
-lateral movement within an AWS environment.
+Identifies when a service has assumed a role in AWS Security Token Service (STS). Services can assume a role to obtain temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege escalation. This is a New Terms rule that identifies when a service assumes a role in AWS Security Token Service (STS) to obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for unauthorized access, privilege escalation, or lateral movement within an AWS environment.
 """
 false_positives = [
-    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes.",
-    "AWS services might assume roles to access AWS resources as part of their standard operations.",
-    "Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments.",
+    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes. AWS services might assume roles to access AWS resources as part of their standard operations. Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments.",
 ]
-from = "now-9m"
+from = "now-6m"
+interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -34,21 +27,16 @@ This rule identifies instances where AWS STS (Security Token Service) is used to
 #### Possible Investigation Steps
 
 - **Identify the Actor and Assumed Role**:
-  - **User Identity**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` fields to determine who initiated the `AssumeRole` action.
-  - **Role Assumed**: Check the `aws.cloudtrail.flattened.request_parameters.roleArn` field to confirm the assumed role and ensure it aligns with expected responsibilities.
+  - **User Identity**: Review the `aws.cloudtrail.user_identity.invoked_by` field to determine which service initiated the `AssumeRole` action.
+  - **Role Assumed**: Check the `aws.cloudtrail.resources.arn` field to confirm the assumed role and ensure it aligns with expected responsibilities.
   - **Session Name**: Observe the `aws.cloudtrail.flattened.request_parameters.roleSessionName` for context on the session's intended purpose, if available.
-
-- **Analyze the Role Session and Duration**:
-  - **Session Context**: Look at the `aws.cloudtrail.user_identity.session_context.creation_date` to understand when the session began and check if multi-factor authentication (MFA) was used, indicated by the `aws.cloudtrail.user_identity.session_context.mfa_authenticated` field.
-  - **Credential Validity**: Examine the `aws.cloudtrail.flattened.request_parameters.durationSeconds` for the credential's validity period.
-  - **Expiration Time**: Verify `aws.cloudtrail.flattened.response_elements.credentials.expiration` to determine when the credentials expire or expired.
+ - **Expiration Time**: Verify `aws.cloudtrail.flattened.response_elements.credentials.expiration` to determine when the credentials expire or expired.
 
 - **Inspect the User Agent for Tooling Identification**:
   - **User Agent Details**: Review the `user_agent.original` field to identify the tool or SDK used for the role assumption. Indicators include:
     - **AWS SDKs (e.g., Boto3)**: Often used in automated workflows or scripts.
     - **AWS CLI**: Suggests command-line access, potentially indicating direct user interaction.
     - **Custom Tooling**: Unusual user agents may signify custom or suspicious tools.
-  - **Source IP and Location**: Evaluate the `source.address` and `source.geo` fields to confirm if the access source aligns with typical access locations for your environment.
 
 - **Contextualize with Related Events**:
   - **Review Event Patterns**: Check surrounding CloudTrail events to see if other actions coincide with this `AssumeRole` activity, such as attempts to access sensitive resources.
@@ -61,7 +49,7 @@ This rule identifies instances where AWS STS (Security Token Service) is used to
 ### False Positive Analysis
 
 - **Automated Workflows and Applications**: Many applications or scheduled tasks may assume roles for standard operations. Check user agents and ARNs for consistency with known workflows.
-- **Routine IAM Policy Actions**: Historical data may reveal if the same user or application assumes this specific role regularly as part of authorized operations.
+- **Routine AWS Service Actions**: Historical data may reveal if the same service assumes new roles regularly as part of authorized operations.
 
 ### Response and Remediation
 
@@ -86,6 +74,7 @@ tags = [
     "Resources: Investigation Guide",
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -113,16 +102,18 @@ event.dataset: "aws.cloudtrail"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.resources.arn",
-    "aws.cloudtrail.resources.type",
     "source.address",
+    "user_agent.original",
     "aws.cloudtrail.user_identity.invoked_by",
-    "aws.cloudtrail.flattened.request_parameters.roleArn",
-    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.flattened.response_elements.credentials.accessKeyId",
     "event.action",
     "event.outcome",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
     "cloud.region",
+    "cloud.account.id",
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements"
 ]
@@ -159,9 +150,9 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.resources.arn", "aws.cloudtrail.user_identity.invoked_by"]
+value = ["aws.cloudtrail.user_identity.invoked_by", "aws.cloudtrail.resources.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
 
 
