@@ -44,7 +44,6 @@ def cleanup_whitespace(val: Any) -> Any:
 
 
 def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
-
     preserved_fields = get_preserved_fmt_fields()
 
     if isinstance(d, str):
@@ -318,4 +317,3 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
     finally:
         if f:
             f.close()
-
