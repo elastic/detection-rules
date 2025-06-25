@@ -143,7 +143,7 @@ def generate_rules_index(ctx: click.Context, query: str, overwrite: bool, save_f
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 def import_rules_into_repo(
-    input_file: Path | None,
+    input_file: tuple[Path, ...] | None,
     required_only: bool,
     action_connector_import: bool,
     exceptions_import: bool,
@@ -161,7 +161,7 @@ def import_rules_into_repo(
     errors: list[str] = []
     rule_files = glob.glob(os.path.join(str(directory), "**", "*.*"), recursive=True) if directory else []
     if input_file:
-        rule_files = sorted(set(rule_files + [input_file]))
+        rule_files = sorted(set(rule_files + list(input_file)))
 
     file_contents: list[Any] = []
     for rule_file in rule_files:
