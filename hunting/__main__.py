@@ -29,7 +29,7 @@ def hunting():
 
 
 @hunting.command("generate-markdown")
-@click.argument("path", required=False)
+@click.argument("path", required=False, type=Path)
 def generate_markdown(path: Path | None = None):
     """Convert TOML hunting queries to Markdown format."""
     markdown_generator = MarkdownGenerator(HUNTING_DIR)
