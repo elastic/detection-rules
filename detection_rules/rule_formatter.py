@@ -12,7 +12,7 @@ import textwrap
 from pathlib import Path
 from collections import OrderedDict
 
-from typing import Any, Iterable
+from typing import Any, Iterable, TextIO
 
 import toml
 
@@ -193,17 +193,6 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
 def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None):
     """Write rule in TOML."""
 
-    def write(text: str, nl: bool = True):
-        if out_file_path:
-            # Append data to a file
-            with out_file_path.open("a") as f:
-                _ = f.write(text)
-            if nl:
-                with out_file_path.open("a") as f:
-                    _ = f.write("\n")
-        else:
-            print(text, end="" if not nl else "\n")
-
     encoder = RuleTomlEncoder()
     contents = copy.deepcopy(rule_contents)
 
@@ -222,7 +211,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
         return obj
 
-    def _do_write(_data: str, _contents: dict[str, Any]):
+    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]):
         query = None
         threat_query = None
 
@@ -310,12 +299,23 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             formatted_query = "\nquery = '''\n{}\n'''{}".format(query, "\n\n" if bottom else "")
             top_out = top_out.replace('query = "XXxXX"', formatted_query)
 
-        write(top_out)
+        if f:
+            _ = f.write(top_out + "\n")
+        else:
+            print(top_out)
 
-    for data in ("metadata", "transform", "rule"):
-        _contents = contents.get(data, {})
-        if not _contents:
-            continue
-        # FIXME: commenting out the call here as order_rule has subtle side-effects while its output is not used explicitely
-        # order_rule(_contents)
-        _do_write(data, _contents)
+    f = None
+    if out_file_path:
+        f = out_file_path.open("w")
+
+    try:
+        for data in ("metadata", "transform", "rule"):
+            _contents = contents.get(data, {})
+            if not _contents:
+                continue
+            order_rule(_contents)
+            _do_write(f, data, _contents)
+    finally:
+        if f:
+            f.close()
+
