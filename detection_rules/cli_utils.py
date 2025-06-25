@@ -177,7 +177,7 @@ def rule_prompt(
             continue
 
         if name == "type":
-            contents[name] = rule_type
+            contents[name] = rule_type_val
             continue
 
         # these are set at package release time depending on the version strategy
