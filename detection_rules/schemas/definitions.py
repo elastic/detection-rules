@@ -7,7 +7,7 @@
 
 import os
 import re
-from typing import Final, Literal, Annotated, Pattern, Any, Callable
+from typing import Final, Literal, Annotated, Pattern, Any, Callable, NewType
 
 from marshmallow import fields, validate
 from semver import Version
@@ -191,8 +191,8 @@ EXPECTED_RULE_TAGS = [
 
 MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
 
-CodeString = str
-Markdown = CodeString
+CodeString = NewType("CodeString", str)
+Markdown = NewType("Markdown", CodeString)
 
 TimeUnits = Literal["s", "m", "h"]
 ExceptionEntryOperator = Literal["included", "excluded"]
