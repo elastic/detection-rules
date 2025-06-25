@@ -103,6 +103,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 | where event.provider == "iam.amazonaws.com" and event.action == "AttachUserPolicy" and event.outcome == "success"
 | dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?userName}=%{target.userName}}"
 | where policyName == "AdministratorAccess"
+| drop *.text
 '''
 
 
