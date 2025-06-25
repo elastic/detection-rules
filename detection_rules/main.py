@@ -436,30 +436,21 @@ def _export_rules(
     outfile = outfile.with_suffix(".ndjson")
     unsupported: list[str] = []
 
+    output_lines: list[str] = []
     if downgrade_version:
-        if skip_unsupported:
-            output_lines: list[str] = []
-
-            for rule in rules:
-                try:
-                    output_lines.append(
-                        json.dumps(
-                            downgrade_contents_from_rule(rule, downgrade_version, include_metadata=include_metadata),
-                            sort_keys=True,
-                        )
+        for rule in rules:
+            try:
+                output_lines.append(
+                    json.dumps(
+                        downgrade_contents_from_rule(rule, downgrade_version, include_metadata=include_metadata),
+                        sort_keys=True,
                     )
-                except ValueError as e:
-                    unsupported.append(f"{e}: {rule.id} - {rule.name}")
-                    continue
-
-        else:
-            output_lines = [
-                json.dumps(
-                    downgrade_contents_from_rule(r, downgrade_version, include_metadata=include_metadata),
-                    sort_keys=True,
                 )
-                for r in rules
-            ]
+            except ValueError as e:
+                if skip_unsupported:
+                    unsupported.append(f"{e}: {rule.id} - {rule.name}")
+                else:
+                    raise
     else:
         output_lines = [
             json.dumps(r.contents.to_api_format(include_metadata=include_metadata), sort_keys=True) for r in rules
