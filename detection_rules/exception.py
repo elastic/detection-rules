@@ -240,13 +240,14 @@ def parse_exceptions_results_from_api(
     unparsed_results: list[dict[str, Any]] = []
 
     for result in results:
-        result_type = result["type"]
-        list_id = result["list_id"]
+        result_type = result.get("type")
+        list_id = result.get("list_id")
 
-        if result_type in get_args(definitions.ExceptionContainerType):
-            exceptions_containers[list_id] = result
-        elif result_type in get_args(definitions.ExceptionItemType):
-            exceptions_items[list_id].append(result)
+        if result_type and list_id:
+            if result_type in get_args(definitions.ExceptionContainerType):
+                exceptions_containers[list_id] = result
+            elif result_type in get_args(definitions.ExceptionItemType):
+                exceptions_items[list_id].append(result)
         else:
             unparsed_results.append(result)
 
