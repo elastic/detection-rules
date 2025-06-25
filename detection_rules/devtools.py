@@ -1663,50 +1663,52 @@ def update_attack_in_rules() -> list[TOMLRule]:
 
     for rule in rules.rules:
         needs_update = False
-        valid_threat: list[ThreatMapping] = []
-        threat_pending_update: dict[str, list[str]] = {}
+        updated_threat_map: dict[str, ThreatMapping] = {}
         threat = rule.contents.data.threat or []
 
         for entry in threat:
-            tactic = entry.tactic.name
+            tactic_id = entry.tactic.id
+            tactic_name = entry.tactic.name
             technique_ids: list[str] = []
             technique_names: list[str] = []
             for technique in entry.technique or []:
                 technique_ids.append(technique.id)
                 technique_names.append(technique.name)
-                technique_ids.extend([st.id for st in technique.subtechnique or []])
-                technique_names.extend([st.name for st in technique.subtechnique or []])
+                if technique.subtechnique:
+                    technique_ids.extend([st.id for st in technique.subtechnique])
+                    technique_names.extend([st.name for st in technique.subtechnique])
 
-            # check redirected techniques by ID
-            # redirected techniques are technique IDs that have changed but represent the same technique
-            if any([tid for tid in technique_ids if tid in redirected_techniques]):
+            if any(tid for tid in technique_ids if tid in redirected_techniques):
                 needs_update = True
-                threat_pending_update[tactic] = technique_ids
-                click.echo(f"'{rule.contents.name}' requires update - technique ID change")
-
-            # check for name change
-            # happens if technique ID is the same but name changes
-            expected_technique_names = [attack.technique_lookup[str(tid)]["name"] for tid in technique_ids]
-            if any([tname for tname in technique_names if tname not in expected_technique_names]):
+                click.echo(f"'{rule.contents.name}' requires update - technique ID change for tactic '{tactic_name}'")
+            elif any(
+                tname
+                for tname in technique_names
+                if tname
+                not in [
+                    attack.technique_lookup[str(tid)]["name"]
+                    for tid in technique_ids
+                    if str(tid) in attack.technique_lookup
+                ]
+            ):
                 needs_update = True
-                threat_pending_update[tactic] = technique_ids
-                click.echo(f"'{rule.contents.name}' requires update - technique name change")
+                click.echo(f"'{rule.contents.name}' requires update - technique name change for tactic '{tactic_name}'")
 
-            else:
-                valid_threat.append(entry)
-
-        if needs_update:
-            for tactic, techniques in threat_pending_update.items():
+            if needs_update:
                 try:
-                    updated_threat = attack.build_threat_map_entry(tactic, *techniques)
+                    updated_threat_entry = attack.build_threat_map_entry(tactic_name, *technique_ids)
+                    updated_threat_map[tactic_id] = ThreatMapping.from_dict(updated_threat_entry)
                 except ValueError as err:
                     raise ValueError(f"{rule.id} - {rule.name}: {err}")
+            else:
+                updated_threat_map[tactic_id] = entry
 
-                tm = ThreatMapping.from_dict(updated_threat)
-                valid_threat.append(tm)
+        if needs_update:
+            final_threat_list = list(updated_threat_map.values())
+            final_threat_list.sort(key=lambda x: x.tactic.name)
 
             new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
-            new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
+            new_data = dataclasses.replace(rule.contents.data, threat=final_threat_list)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
             new_rule = TOMLRule(contents=new_contents, path=rule.path)
             new_rule.save_toml()
