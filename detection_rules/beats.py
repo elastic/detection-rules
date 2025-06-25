@@ -266,9 +266,9 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
                 datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, eql.ast.InSet):
             if node.expression == eql.ast.Field("event", ["module"]):
-                modules.add(node.get_literals())  # type: ignore[reportUnknownMemberType]
+                modules.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
             elif node.expression == eql.ast.Field("event", ["dataset"]):
-                datasets.add(node.get_literals())  # type: ignore[reportUnknownMemberType]
+                datasets.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):  # type: ignore[reportUnknownMemberType]
             modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):  # type: ignore[reportUnknownMemberType]
