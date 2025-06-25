@@ -223,7 +223,7 @@ AlertSuppressionGroupBy = Annotated[
     list[NonEmptyStr], fields.List(nonEmptyStringField, validate=validate.Length(min=1, max=3))
 ]
 AlertSuppressionMissing = Annotated[str, fields.String(validate=validate.OneOf(["suppress", "doNotSuppress"]))]
-AlertSuppressionValue = Annotated[int, fields.String(validate=validate.Range(min=1))]
+AlertSuppressionValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 BranchVer = Annotated[str, fields.String(validate=validate.Regexp(BRANCH_PATTERN))]
 CardinalityFields = Annotated[
     list[NonEmptyStr],
