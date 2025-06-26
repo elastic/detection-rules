@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2025/06/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/06/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or modification of sensitive Kubernetes configuration files on Linux systems. These files
+include Kubernetes manifests, PKI files, and configuration files that are critical for the operation of Kubernetes clusters.
+Monitoring these files helps identify potential unauthorized changes or misconfigurations that could lead to security
+vulnerabilities in Kubernetes environments. Attackers may attempt to modify these files to gain persistence or to
+deploy malicious containers within the Kubernetes cluster.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Sensitive Configuration File Activity"
+risk_score = 47
+rule_id = "0fe2290a-2664-4c9c-8263-b88904f12f0d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Kubernetes",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and file.path like (
+  "/etc/kubernetes/manifests/*",
+  "/etc/kubernetes/pki/*",
+  "/etc/kubernetes/*.conf"
+) and not process.name in ("kubeadm", "kubelet", "dpkg", "sed")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Container Service"
+reference = "https://attack.mitre.org/techniques/T1543/005/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.007"
+name = "Container Orchestration Job"
+reference = "https://attack.mitre.org/techniques/T1053/007/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
