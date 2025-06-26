@@ -20,7 +20,7 @@ from .action_connector import (TOMLActionConnectorContents,
                                parse_action_connector_results_from_api, build_action_connector_objects)
 from .exception import (TOMLExceptionContents,
                         build_exception_objects, parse_exceptions_results_from_api)
-from .generic_loader import GenericCollection
+from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
@@ -147,6 +147,13 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
                 )
                 click.echo()
 
+    def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: dict) -> GenericCollectionTypes:
+        """Check if the item matches any of the rule IDs in the provided set."""
+        return any(
+            rule_id in rule_ids
+            for rule_id in item.contents.metadata.get("rule_ids", [])
+        )
+
     def _process_imported_items(imported_items_list, item_type_description, item_key):
         """Displays appropriately formatted success message that all items imported successfully."""
         all_ids = {item[item_key] for sublist in imported_items_list for item in sublist}
@@ -157,13 +164,18 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 
     kibana = ctx.obj['kibana']
     rule_dicts = [r.contents.to_api_format() for r in rules]
+    rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
         exception_dicts = [
-            d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)
+            d.contents.to_api_format()
+            for d in cl.items
+            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids)
         ]
         action_connectors_dicts = [
-            d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            d.contents.to_api_format()
+            for d in cl.items
+            if isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids)
         ]
         response, successful_rule_ids, results = RuleResource.import_rules(
             rule_dicts,
