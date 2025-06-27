@@ -14,7 +14,6 @@ from semver import Version
 
 from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
-from .rule_loader import RuleCollection
 from .schemas import definitions
 from .utils import cached
 
@@ -191,7 +190,7 @@ class VersionLock:
 
     def manage_versions(  # noqa: PLR0912, PLR0915
         self,
-        rules: RuleCollection,
+        rules: Any,  # type: ignore[reportRedeclaration]
         exclude_version_update: bool = False,
         save_changes: bool = False,
         verbose: bool = True,
@@ -200,6 +199,9 @@ class VersionLock:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
         from .rule import TOMLRule
+        from .rule_loader import RuleCollection  # noqa: TC001
+
+        rules: RuleCollection = rules  # noqa: PLW0127
 
         version_lock_hash = self.version_lock.sha256()
         lock_file_contents = deepcopy(self.version_lock.to_dict())
