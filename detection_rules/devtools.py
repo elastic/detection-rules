@@ -499,7 +499,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     target_stack_version_parsed = Version.parse(target_stack_version, optional_minor_and_patch=True)
 
     # load a structured summary of the diff from git
-    git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])  # noqa: S603, S607
+    git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])  # noqa: S607
     changes = [GitChangeEntry.from_line(line) for line in git_output.decode("utf-8").splitlines()]
 
     # track which changes need to be reverted because of incompatibilities
@@ -663,7 +663,7 @@ def integrations_pr(  # noqa: PLR0913, PLR0915
 
     gopath = gopath.strip("'\"")
 
-    if not subprocess.check_output(["elastic-package"], stderr=subprocess.DEVNULL):  # noqa: S603, S607
+    if not subprocess.check_output(["elastic-package"], stderr=subprocess.DEVNULL):  # noqa: S607
         raise ValueError(
             "elastic-package missing, run: go install github.com/elastic/elastic-package@latest and verify go bin path"
         )
@@ -860,7 +860,7 @@ def test_version_lock(ctx: click.Context, branches: list[str], remote: str) -> N
         for branch in branches:
             click.echo(branch)
             _ = git("checkout", f"{remote}/{branch}")
-            _ = subprocess.check_call(["python", "-m", "detection_rules", "dev", "build-release", "-u"])  # noqa: S603, S607
+            _ = subprocess.check_call(["python", "-m", "detection_rules", "dev", "build-release", "-u"])  # noqa: S607
 
     finally:
         rules_config = ctx.obj["rules_config"]
