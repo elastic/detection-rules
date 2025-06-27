@@ -19,6 +19,7 @@ import urllib.parse
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal
+from uuid import uuid4
 
 import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
@@ -28,6 +29,7 @@ from elasticsearch import Elasticsearch
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
+from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
 from . import attack, rule_loader, utils
@@ -911,8 +913,6 @@ def search_rule_prs(  # noqa: PLR0913
     threads: int,
 ) -> None:
     """Use KQL or EQL to find matching rules from active GitHub PRs."""
-    from uuid import uuid4
-
     from .main import search_rules
 
     all_rules: dict[Path, TOMLRule] = {}
@@ -1418,7 +1418,6 @@ def rule_survey(  # noqa: PLR0913
     kibana_client: Kibana,
 ) -> list[dict[str, int]]:
     """Survey rule counts."""
-    from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
 
     from .main import search_rules
 
