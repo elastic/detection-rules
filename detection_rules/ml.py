@@ -6,6 +6,7 @@
 """Schemas and dataclasses for experimental ML features."""
 
 import io
+import json
 import zipfile
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
@@ -14,7 +15,6 @@ from typing import Any, Literal
 
 import click
 import elasticsearch
-import json
 import requests
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IngestClient, LicenseClient, MlClient
@@ -22,7 +22,6 @@ from elasticsearch.client import IngestClient, LicenseClient, MlClient
 from .ghwrap import ManifestManager, ReleaseManifest
 from .schemas import definitions
 from .utils import get_path, unzip_to_dict
-
 
 ML_PATH = get_path(["machine-learning"])
 

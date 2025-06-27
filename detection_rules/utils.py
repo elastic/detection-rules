@@ -18,18 +18,18 @@ import re
 import shutil
 import subprocess
 import zipfile
-from dataclasses import is_dataclass, astuple
-from datetime import datetime, date, timezone
+from collections.abc import Callable, Iterator
+from dataclasses import astuple, is_dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Callable, Any, Iterator
 from string import Template
+from typing import Any
 
 import click
-import pytoml  # type: ignore[reportMissingTypeStubs]
 import eql.utils  # type: ignore[reportMissingTypeStubs]
+import pytoml  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
-
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
@@ -82,8 +82,7 @@ def ensure_list_of_strings(value: str | list[str]) -> list[str]:
         # If it's not a JSON list, split by commas if present
         # Else return a list with the original string
         return list(map(lambda x: x.strip().strip('"'), value.split(",")))
-    else:
-        return [str(v) for v in value]
+    return [str(v) for v in value]
 
 
 def get_nested_value(obj: Any, compound_key: str) -> Any:
@@ -130,7 +129,7 @@ def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = T
     _, ext = os.path.splitext(path_joined)
 
     if ext == ".json":
-        with open(path_joined, "wt") as f:
+        with open(path_joined, "w") as f:
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent)
     else:
         return eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
@@ -263,13 +262,13 @@ def convert_time_span(span: str) -> int:
     return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
-def unix_time_to_formatted(timestamp: int | float | str) -> str:
+def unix_time_to_formatted(timestamp: float | str) -> str:
     """Converts unix time in seconds or milliseconds to the default format."""
     if isinstance(timestamp, (int, float)):
         if timestamp > 2**32:
             timestamp = round(timestamp / 1000, 3)
 
-        return datetime.fromtimestamp(timestamp, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        return datetime.fromtimestamp(timestamp, UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     return timestamp
 
 
@@ -294,11 +293,10 @@ def freeze(obj: Any) -> Any:
 
     if isinstance(obj, (list, tuple)):
         return tuple(freeze(o) for o in obj)  # type: ignore[reportUnknownVariableType]
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         items = obj.items()  # type: ignore[reportUnknownVariableType]
         return freeze(sorted(items))  # type: ignore[reportUnknownVariableType]
-    else:
-        return obj
+    return obj
 
 
 _cache: dict[int, dict[tuple[Any, Any], Any]] = {}
@@ -356,7 +354,7 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
             raise ValueError("Multiple rules not allowed")
 
         return contents or [{}]
-    elif extension == ".toml":
+    if extension == ".toml":
         rule = pytoml.loads(raw_text)  # type: ignore[reportUnknownVariableType]
     elif extension.lower() in ("yaml", "yml"):
         rule = load_dump(str(rule_file))
@@ -365,10 +363,9 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
 
     if isinstance(rule, dict):
         return [rule]
-    elif isinstance(rule, list):
+    if isinstance(rule, list):
         return rule  # type: ignore[reportUnknownVariableType]
-    else:
-        raise ValueError(f"Expected a list or dictionary in {rule_file}")
+    raise ValueError(f"Expected a list or dictionary in {rule_file}")
 
 
 def load_json_from_branch(repo: Repository, file_path: str, branch: str):

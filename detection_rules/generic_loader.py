@@ -5,8 +5,9 @@
 
 """Load generic toml formatted files for exceptions and actions."""
 
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Iterable, Any
+from typing import Any
 
 import pytoml  # type: ignore[reportMissingTypeStubs]
 
@@ -16,7 +17,6 @@ from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
 from .rule_loader import dict_filter
 from .schemas import definitions
-
 
 RULES_CONFIG = parse_rules_config()
 

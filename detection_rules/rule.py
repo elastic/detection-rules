@@ -20,16 +20,14 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import eql  # type: ignore[reportMissingTypeStubs]
+import kql  # type: ignore[reportMissingTypeStubs]
 import marshmallow
-from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, pre_load, validates_schema
-
-import kql  # type: ignore[reportMissingTypeStubs]
+from semver import Version
 
 from . import beats, ecs, endgame, utils
-from .version_lock import loaded_version_lock, VersionLock
 from .config import load_current_package_version, parse_rules_config
 from .integrations import (
     find_least_compatible_version,
@@ -49,7 +47,7 @@ from .schemas import (
 )
 from .schemas.stack_compat import get_restricted_fields
 from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value
-
+from .version_lock import VersionLock, loaded_version_lock
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
@@ -591,7 +589,7 @@ class DataValidator:
                     "BBR require `from` and `interval` to be defined. "
                     "Please set or bypass." + bypass_instructions
                 )
-            elif not validate_lookback(self.from_) or not validate_interval(self.interval):
+            if not validate_lookback(self.from_) or not validate_interval(self.interval):
                 raise ValidationError(
                     f"{self.name} is invalid."
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
@@ -622,10 +620,9 @@ class DataValidator:
 
                         self.setup_in_note = True
 
-                    else:
-                        # check that the header Config does not exist in the Setup section
-                        if child.level == 2 and "config" in header.lower():  # type: ignore[reportAttributeAccessIssue]
-                            raise ValidationError(f"Setup header contains Config: {header}")
+                    # check that the header Config does not exist in the Setup section
+                    elif child.level == 2 and "config" in header.lower():  # type: ignore[reportAttributeAccessIssue]
+                        raise ValidationError(f"Setup header contains Config: {header}")
 
         except Exception as e:
             raise ValidationError(
@@ -644,14 +641,14 @@ class QueryValidator:
 
     @property
     def ast(self) -> Any:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def unique_fields(self) -> Any:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @cached
     def get_required_fields(self, index: str) -> list[dict[str, Any]]:
@@ -741,18 +738,17 @@ class QueryRuleData(BaseRuleData):
         """Return the index or dataview depending on which is set. If neither returns empty list."""
         if self.index is not None:
             return self.index
-        elif self.data_view_id is not None:
+        if self.data_view_id is not None:
             return [self.data_view_id]
-        else:
-            return []
+        return []
 
     @cached_property
     def validator(self) -> QueryValidator | None:
         if self.language == "kuery":
             return KQLValidator(self.query)
-        elif self.language == "eql":
+        if self.language == "eql":
             return EQLValidator(self.query)
-        elif self.language == "esql":
+        if self.language == "esql":
             return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -878,8 +874,7 @@ class EQLRuleData(QueryRuleData):
             span = lookback[1:]
             amount = convert_time_span(span)
             return amount * (-1 if sign == "-" else 1)
-        else:
-            return convert_time_span(lookback)
+        return convert_time_span(lookback)
 
     @cached_property
     def is_sample(self) -> bool:
@@ -908,8 +903,7 @@ class EQLRuleData(QueryRuleData):
 
         if not (to or from_):
             return "unknown"
-        else:
-            return to - from_
+        return to - from_
 
     @cached_property
     def interval_ratio(self) -> float | None:
@@ -1227,7 +1221,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return types
 
     @classmethod
-    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
+    def get_data_subclass(cls, rule_type: str) -> type[BaseRuleData]:
         """Get the proper subclass depending on the rule type"""
         for subclass in typing.get_args(AnyRuleData):
             field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
@@ -1763,5 +1757,5 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
 from .remote_validation import RemoteValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402

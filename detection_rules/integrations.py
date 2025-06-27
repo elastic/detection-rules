@@ -9,22 +9,22 @@ import fnmatch
 import gzip
 import json
 import re
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Any
-
-import requests
-from semver import Version
-import yaml
-from marshmallow import EXCLUDE, Schema, fields, post_load
+from typing import Any
 
 import kql  # type: ignore[reportMissingTypeStubs]
+import requests
+import yaml
+from marshmallow import EXCLUDE, Schema, fields, post_load
+from semver import Version
 
 from . import ecs
-from .config import load_current_package_version
 from .beats import flatten_ecs_schema
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .config import load_current_package_version
 from .schemas import definitions
+from .utils import cached, get_etc_path, read_gzip, unzip
 
 MANIFEST_FILE_PATH = get_etc_path(["integration-manifests.json.gz"])
 DEFAULT_MAX_RULE_VERSIONS = 1
@@ -263,11 +263,10 @@ def find_latest_compatible_version(
         if highest_compatible_version.major == rule_stack_version.major:
             return version, notice
 
-        else:
-            # Check for rules that cross majors
-            for compatible_version in compatible_versions:
-                if Version.parse(compatible_version) <= rule_stack_version:
-                    return version, notice
+        # Check for rules that cross majors
+        for compatible_version in compatible_versions:
+            if Version.parse(compatible_version) <= rule_stack_version:
+                return version, notice
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
@@ -478,7 +477,7 @@ class SecurityDetectionEngine:
     def load_integration_assets(self, package_version: Version) -> dict[str, Any]:
         """Loads integration assets into memory."""
 
-        epr_package_url = f"{self.epr_url}{str(package_version)}/"
+        epr_package_url = f"{self.epr_url}{package_version!s}/"
         epr_response = requests.get(epr_package_url, timeout=10)
         epr_response.raise_for_status()
         package_obj = epr_response.json()

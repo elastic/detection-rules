@@ -5,7 +5,6 @@
 
 import copy
 import json
-import os
 import unittest
 from pathlib import Path
 
@@ -23,13 +22,13 @@ class TestRuleTomlFormatter(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-        with open(get_etc_path(["test_toml.json"]), "r") as f:
+        with open(get_etc_path(["test_toml.json"])) as f:
             self.test_data = json.load(f)
 
     def compare_formatted(self, data, callback=None, kwargs=None):
         """Compare formatted vs expected."""
+        tmp_path = Path(tmp_file)
         try:
-            tmp_path = Path(tmp_file)
             toml_write(copy.deepcopy(data), tmp_path)
 
             formatted_data = tmp_path.read_text()
@@ -54,8 +53,8 @@ class TestRuleTomlFormatter(unittest.TestCase):
             formatted = json.dumps(formatted_contents, sort_keys=True)
             self.assertEqual(original, formatted, "Formatting may be modifying contents")
         finally:
-            if os.path.exists(tmp_file):
-                os.remove(tmp_file)
+            if tmp_path.exists():
+                tmp_path.unlink()
 
     def compare_test_data(self, test_dicts, callback=None):
         """Compare test data against expected."""

@@ -10,14 +10,13 @@ import glob
 import json
 import os
 import shutil
+from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import eql.types  # type: ignore[reportMissingTypeStubs]
 import requests
-from semver import Version
 import yaml
-
-from typing import Any
+from semver import Version
 
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
@@ -298,7 +297,7 @@ def download_schemas(refresh_master: bool = True, refresh_all: bool = False, ver
             base = name_list[0]
 
             # members = [m for m in name_list if m.startswith('{}{}/'.format(base, 'use-cases')) and m.endswith('.yml')]
-            members = ["{}generated/ecs/ecs_flat.yml".format(base), "{}generated/ecs/ecs_nested.yml".format(base)]
+            members = [f"{base}generated/ecs/ecs_flat.yml", f"{base}generated/ecs/ecs_nested.yml"]
             saved: list[str] = []
 
             for member in members:
@@ -332,7 +331,7 @@ def download_schemas(refresh_master: bool = True, refresh_all: bool = False, ver
         for m in existing_master:
             shutil.rmtree(m, ignore_errors=True)
 
-        master_dir = "master_{}".format(master_ver)
+        master_dir = f"master_{master_ver}"
         os.makedirs(get_etc_path([ECS_NAME, master_dir]), exist_ok=True)
 
         compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))

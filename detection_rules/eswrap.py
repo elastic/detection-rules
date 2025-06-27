@@ -9,23 +9,22 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
 from collections import defaultdict
-from typing import Any, IO
+from pathlib import Path
+from typing import IO, Any
 
 import click
 import elasticsearch
+import kql  # type: ignore[reportMissingTypeStubs]
 from elasticsearch import Elasticsearch
 from elasticsearch.client import AsyncSearchClient
 
-import kql  # type: ignore[reportMissingTypeStubs]
 from .config import parse_rules_config
 from .main import root
-from .misc import add_params, raise_client_error, elasticsearch_options, get_elasticsearch_client, nested_get
+from .misc import add_params, elasticsearch_options, get_elasticsearch_client, nested_get, raise_client_error
 from .rule import TOMLRule
-
 from .rule_loader import RuleCollection
-from .utils import event_sort, format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .utils import event_sort, format_command_options, get_path, normalize_timing_and_sort, unix_time_to_formatted
 
 COLLECTION_DIR = get_path(["collections"])
 MATCH_ALL: dict[str, dict[str, Any]] = {"bool": {"filter": [{"match_all": {}}]}}
@@ -85,11 +84,10 @@ class Events:
             dump_dir = get_path(["unit_tests", "data", "true_positives", rta_name, host_os_family])
             os.makedirs(dump_dir, exist_ok=True)
             return dump_dir
-        else:
-            time_str = time.strftime("%Y%m%dT%H%M%SL")
-            dump_dir = os.path.join(COLLECTION_DIR, host_id or "unknown_host", time_str)
-            os.makedirs(dump_dir, exist_ok=True)
-            return Path(dump_dir)
+        time_str = time.strftime("%Y%m%dT%H%M%SL")
+        dump_dir = os.path.join(COLLECTION_DIR, host_id or "unknown_host", time_str)
+        os.makedirs(dump_dir, exist_ok=True)
+        return Path(dump_dir)
 
     def evaluate_against_rule(self, rule_id: str, verbose: bool = True):
         """Evaluate a rule against collected events and update mapping."""
@@ -118,7 +116,7 @@ class Events:
                 host_os_family = self.events.get(key, {})[0].get("host", {}).get("os").get("family")
                 break
         if not host_os_family:
-            click.echo("Unable to determine host.os.family for host_id: {}".format(host_id))
+            click.echo(f"Unable to determine host.os.family for host_id: {host_id}")
             host_os_family = click.prompt(
                 "Please enter the host.os.family for this host_id",
                 type=click.Choice(["windows", "macos", "linux"]),
@@ -131,10 +129,10 @@ class Events:
             path = os.path.join(dump_dir, source + ".ndjson")
             with open(path, "w") as f:
                 f.writelines([json.dumps(e, sort_keys=True) + "\n" for e in events])
-                click.echo("{} events saved to: {}".format(len(events), path))
+                click.echo(f"{len(events)} events saved to: {path}")
 
 
-class CollectEvents(object):
+class CollectEvents:
     """Event collector for elastic stack."""
 
     def __init__(self, client: Elasticsearch, max_events: int = 3000):
@@ -151,7 +149,7 @@ class CollectEvents(object):
         """Get timestamp of most recent event."""
         last_event = self.client.search(query=dsl, index=index, size=1, sort="@timestamp:desc")["hits"]["hits"]
         if not last_event:
-            return
+            return None
 
         last_event = last_event[0]
         index = last_event["_index"]
@@ -348,10 +346,9 @@ class CollectEvents(object):
                 query=query, language=language, index=index, start_time=start_time, end_time=end_time, size=1000
             )
             return len(results)
-        else:
-            return self.client.count(
-                body=formatted_dsl, index=index_str, q=lucene_query, allow_no_indices=True, ignore_unavailable=True
-            )["count"]
+        return self.client.count(
+            body=formatted_dsl, index=index_str, q=lucene_query, allow_no_indices=True, ignore_unavailable=True
+        )["count"]
 
     def count_from_rule(
         self,

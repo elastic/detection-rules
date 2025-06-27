@@ -25,7 +25,6 @@ from .utils import filter_elasticsearch_params, get_hunt_path, load_all_toml, lo
 @click.group()
 def hunting():
     """Commands for managing hunting queries and converting TOML to Markdown."""
-    pass
 
 
 @hunting.command("generate-markdown")
@@ -259,8 +258,7 @@ def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
             if query_number - 1 in eligible_queries:
                 selected_query = eligible_queries[query_number - 1]
                 break
-            else:
-                click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
+            click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
         except ValueError:
             click.secho("Please enter a valid number.", fg="yellow")
 

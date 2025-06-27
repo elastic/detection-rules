@@ -3,21 +3,21 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import cached_property
 from multiprocessing.pool import ThreadPool
-from typing import Any, Callable
+from typing import Any
 
 import elasticsearch
 from elasticsearch import Elasticsearch
+from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 from marshmallow import ValidationError
 from requests import HTTPError
 
-from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
-
 from .config import load_current_package_version
-from .misc import ClientError, getdefault, get_elasticsearch_client, get_kibana_client
+from .misc import ClientError, get_elasticsearch_client, get_kibana_client, getdefault
 from .rule import TOMLRule, TOMLRuleContents
 from .schemas import definitions
 
@@ -128,7 +128,7 @@ class RemoteValidator(RemoteConnector):
     @staticmethod
     def prep_for_preview(contents: TOMLRuleContents) -> dict[str, Any]:
         """Prepare rule for preview."""
-        end_time = datetime.now(timezone.utc).isoformat()
+        end_time = datetime.now(UTC).isoformat()
         dumped = contents.to_api_format().copy()
         dumped.update(timeframeEnd=end_time, invocationCount=1)
         return dumped
@@ -195,8 +195,7 @@ class RemoteValidator(RemoteConnector):
         except Exception as exc:
             if isinstance(exc, elasticsearch.BadRequestError):
                 raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}")
-            else:
-                raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc
+            raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc
 
         return response.body
 
@@ -219,8 +218,7 @@ class RemoteValidator(RemoteConnector):
         except Exception as exc:
             if isinstance(exc, elasticsearch.BadRequestError):
                 raise ValidationError(f"EQL query failed: {exc} for rule: {rule_id}, query: \n{query}")
-            else:
-                raise Exception(f"EQL query failed for rule: {rule_id}, query: \n{query}") from exc
+            raise Exception(f"EQL query failed for rule: {rule_id}, query: \n{query}") from exc
 
         return response.body
 

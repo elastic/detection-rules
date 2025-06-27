@@ -9,9 +9,9 @@ import random
 import time
 import unittest
 
-from detection_rules.utils import normalize_timing_and_sort, cached
-from detection_rules.eswrap import Events
 from detection_rules.ecs import get_kql_schema
+from detection_rules.eswrap import Events
+from detection_rules.utils import cached, normalize_timing_and_sort
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -45,7 +45,7 @@ class TestTimeUtils(unittest.TestCase):
     def assert_sort(self, normalized_events, date_format):
         """Assert normalize and sort."""
         order = [e["id"] for e in normalized_events]
-        self.assertListEqual([1, 2, 3, 4, 5, 6], order, "Sorting failed for date_format: {}".format(date_format))
+        self.assertListEqual([1, 2, 3, 4, 5, 6], order, f"Sorting failed for date_format: {date_format}")
 
     def test_time_normalize(self):
         """Test normalize_timing_from_date_format."""

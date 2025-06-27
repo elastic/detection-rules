@@ -5,17 +5,17 @@
 
 """Mitre attack info."""
 
+import json
 import re
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-import json
 import requests
-from collections import OrderedDict
-
 from semver import Version
-from .utils import cached, clear_caches, get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
+
+from .utils import cached, clear_caches, get_etc_glob_path, get_etc_path, gzip_compress, read_gzip
 
 PLATFORMS = ["Windows", "macOS", "Linux"]
 CROSSWALK_FILE = get_etc_path(["attack-crosswalk.json"])
@@ -34,7 +34,7 @@ def get_attack_file_path() -> Path:
     attack_file = get_etc_glob_path([pattern])
     if len(attack_file) < 1:
         raise FileNotFoundError(f"Missing required {pattern} file")
-    elif len(attack_file) != 1:
+    if len(attack_file) != 1:
         raise FileExistsError(f"Multiple files found with {pattern} pattern. Only one is allowed")
     return Path(attack_file[0])
 
@@ -85,10 +85,9 @@ for technique_id, technique in sorted(technique_lookup.items(), key=lambda kv: k
                 t
                 for t in tactics
                 if tactic["kill_chain_name"] == "mitre-attack" and t.lower() == tactic["phase_name"].replace("-", " ")
-            )  # noqa: E501
+            )
             matrix[tactic_name].append(technique_id)
-        else:
-            no_tactic.append(technique_id)
+        no_tactic.append(technique_id)
 
 for tactic in matrix:
     matrix[tactic].sort(key=lambda tid: technique_lookup[tid]["name"].lower())
@@ -159,7 +158,7 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
         # fail if deprecated or else convert if it has been replaced
         if tid in deprecated:
             raise ValueError(f"Technique ID: {tid} has been deprecated and should not be used")
-        elif tid in techniques_redirect_map:
+        if tid in techniques_redirect_map:
             tid = techniques_redirect_map[tid]
 
         if tid not in matrix[tactic]:

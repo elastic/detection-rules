@@ -7,17 +7,16 @@ import unittest
 from copy import deepcopy
 
 import eql.ast
-
+import kql
 from semver import Version
 
-import kql
+from detection_rules import ecs
+from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     find_latest_compatible_version,
     load_integrations_manifests,
     load_integrations_schemas,
 )
-from detection_rules import ecs
-from detection_rules.config import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryValidator
 from detection_rules.rule_loader import RuleCollection

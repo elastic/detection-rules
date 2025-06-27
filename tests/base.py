@@ -7,14 +7,12 @@
 
 import os
 import unittest
-from pathlib import Path
 from functools import lru_cache
-from typing import Union
+from pathlib import Path
 
 from detection_rules.config import parse_rules_config
 from detection_rules.rule import TOMLRule
 from detection_rules.rule_loader import DeprecatedCollection, DeprecatedRule, RuleCollection, production_filter
-
 
 RULE_LOADER_FAIL = False
 RULE_LOADER_FAIL_MSG = None
@@ -71,7 +69,7 @@ class BaseRuleTest(unittest.TestCase):
         cls.rules_config = RULES_CONFIG
 
     @staticmethod
-    def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=" ->") -> str:
+    def rule_str(rule: DeprecatedRule | TOMLRule, trailer=" ->") -> str:
         return f"{rule.id} - {rule.name}{trailer or ''}"
 
     def setUp(self) -> None:

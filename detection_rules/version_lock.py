@@ -7,7 +7,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Literal, Any
+from typing import Any, ClassVar, Literal
 
 import click
 from semver import Version
@@ -16,7 +16,6 @@ from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
 from .utils import cached
-
 
 RULES_CONFIG = parse_rules_config()
 
@@ -194,8 +193,8 @@ class VersionLock:
     ) -> tuple[list[definitions.UUIDString], list[str], list[str]]:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
-        from .rule_loader import RuleCollection
         from .rule import TOMLRule
+        from .rule_loader import RuleCollection
 
         rules: RuleCollection = rules
 

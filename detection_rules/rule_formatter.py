@@ -9,10 +9,10 @@ import copy
 import dataclasses
 import json
 import textwrap
-from pathlib import Path
 from collections import OrderedDict
-
-from typing import Any, Iterable, TextIO
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any, TextIO
 
 import toml
 
@@ -48,9 +48,9 @@ def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
 
     if isinstance(d, str):
         return d if skip_cleanup else cleanup_whitespace(d)
-    elif isinstance(d, list):
+    if isinstance(d, list):
         return [nested_normalize(val) for val in d]  # type: ignore[reportUnknownVariableType]
-    elif isinstance(d, dict):
+    if isinstance(d, dict):
         for k, v in d.items():  # type: ignore[reportUnknownVariableType]
             if k == "query":
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
@@ -62,8 +62,7 @@ def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
             else:
                 d.update({k: nested_normalize(v)})  # type: ignore[reportUnknownMemberType]
         return d  # type: ignore[reportUnknownVariableType]
-    else:
-        return d
+    return d
 
 
 def wrap_text(v: str, block_indent: int = 0) -> list[str]:
@@ -127,7 +126,7 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         self._old_dump_str = toml.TomlEncoder().dump_funcs[str]
         self._old_dump_list = toml.TomlEncoder().dump_funcs[list]
         self.dump_funcs[str] = self.dump_str
-        self.dump_funcs[type("")] = self.dump_str
+        self.dump_funcs[str] = self.dump_str
         self.dump_funcs[list] = self.dump_list
         self.dump_funcs[NonformattedField] = self.dump_str
 
@@ -149,10 +148,9 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         if multiline:
             if raw:
                 return "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ])
-            else:
-                return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
-        elif raw:
-            return "'{:s}'".format(lines[0])
+            return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
+        if raw:
+            return f"'{lines[0]:s}'"
         return self._old_dump_str(v)
 
     def _dump_flat_list(self, v: Iterable[Any]):
@@ -174,7 +172,7 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             dump: list[str] = []
             for item in v:
                 if len(item) > (120 - 4 - 3 - 3) and " " in item:
-                    dump.append('    """\n{}    """'.format(wrap_text_and_join(item, block_indent=4)))
+                    dump.append(f'    """\n{wrap_text_and_join(item, block_indent=4)}    """')
                 else:
                     dump.append(" " * 4 + self.dump_value(item))
             return "[\n{},\n]".format(",\n".join(dump))

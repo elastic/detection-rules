@@ -14,11 +14,10 @@ from collections import defaultdict
 from pathlib import Path
 
 import eql.ast
-
+import kql
 from marshmallow import ValidationError
 from semver import Version
 
-import kql
 from detection_rules import attack
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
@@ -149,7 +148,7 @@ class TestValidRules(BaseRuleTest):
             "For information on troubleshooting the maximum alerts warning "
             "please refer to this [guide]"
             "(https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts)."
-        )  # noqa: E501
+        )
         for rule in self.all_rules:
             if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
                 error_message = f"{self.rule_str(rule)} max_signals cannot exceed 1000."
@@ -189,16 +188,15 @@ class TestValidRules(BaseRuleTest):
             rule_integrations = rule.contents.metadata.get("integration") or []
             if rule_type == "esql":
                 continue  # the index is part of the query and would be validated in the query
-            elif rule.contents.data.type == "machine_learning" or rule_integrations in machine_learning_packages:
+            if rule.contents.data.type == "machine_learning" or rule_integrations in machine_learning_packages:
                 continue  # Skip all rules of machine learning type or rules that are part of machine learning packages
-            elif rule.contents.data.type == "threat_match":
+            if rule.contents.data.type == "threat_match":
                 continue  # Skip all rules of threat_match type
-            else:
-                index = rule.contents.data.get("index")
-                data_view_id = rule.contents.data.get("data_view_id")
-                if index is None and data_view_id is None:
-                    err_msg = f"{self.rule_str(rule)} does not have either index or data_view_id"
-                    failures.append(err_msg)
+            index = rule.contents.data.get("index")
+            data_view_id = rule.contents.data.get("data_view_id")
+            if index is None and data_view_id is None:
+                err_msg = f"{self.rule_str(rule)} does not have either index or data_view_id"
+                failures.append(err_msg)
         if failures:
             fail_msg = """
             The following prebuilt rules do not have either 'index' or 'data_view_id' \n
@@ -306,7 +304,7 @@ class TestThreatMappings(BaseRuleTest):
                                     sub_technique.id,
                                     sub_technique_reference_id,
                                     f"ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n"
-                                    f"sub-technique ID {sub_technique.id} does not match the reference URL ID "  # noqa: E501
+                                    f"sub-technique ID {sub_technique.id} does not match the reference URL ID "
                                     f"{sub_technique.reference}",
                                 )
 
@@ -794,10 +792,10 @@ class TestRuleMetadata(BaseRuleTest):
                 for rule_integration in rule_integrations:
                     if (
                         "even.dataset" in rule.contents.data.query
-                        and not package_integrations  # noqa: W504
+                        and not package_integrations
                         and not rule_promotion
                         and rule_integration not in definitions.NON_DATASET_PACKAGES
-                    ):  # noqa: W504
+                    ):
                         err_msg = f"{self.rule_str(rule)} {rule_integration} tag, but integration not \
                                 found in manifests/schemas."
                         failures.append(err_msg)
@@ -816,19 +814,17 @@ class TestRuleMetadata(BaseRuleTest):
                     integration_string = "|".join(indices)
                     if not re.search(f"logs-{rule_integration}*", integration_string):
                         if (
-                            rule_integration == "windows"
-                            and re.search("winlog", integration_string)
+                            (rule_integration == "windows"
+                            and re.search("winlog", integration_string))
                             or any(
                                 ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                 for ri in rule_integrations
                             )
-                        ):
-                            continue
-                        elif rule_integration == "apm" and re.search(
+                        ) or (rule_integration == "apm" and re.search(
                             "apm-*-transaction*|traces-apm*", integration_string
-                        ):
+                        )):
                             continue
-                        elif rule.contents.data.type == "threat_match":
+                        if rule.contents.data.type == "threat_match":
                             continue
                         err_msg = f"{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect."
                         failures.append(err_msg)
@@ -841,26 +837,25 @@ class TestRuleMetadata(BaseRuleTest):
                         f"package integrations: {package_integrations_list}"
                     )
                     failures.append(err_msg)
-                else:
-                    # checks if rule has index pattern integration and the integration tag exists
-                    # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
-                    if any(
-                        [
-                            re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
-                            for i in rule.contents.data.get("index") or []
-                        ]
+                # checks if rule has index pattern integration and the integration tag exists
+                # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
+                elif any(
+                    [
+                        re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
+                        for i in rule.contents.data.get("index") or []
+                    ]
+                ):
+                    if (
+                        not rule.contents.metadata.integration
+                        and rule.id not in definitions.IGNORE_IDS
+                        and rule.contents.data.type not in definitions.MACHINE_LEARNING
                     ):
-                        if (
-                            not rule.contents.metadata.integration
-                            and rule.id not in definitions.IGNORE_IDS
-                            and rule.contents.data.type not in definitions.MACHINE_LEARNING
-                        ):
-                            err_msg = (
-                                f"substrings {non_dataset_packages} found in "
-                                f"{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},"
-                                f"but no integration tag found"
-                            )
-                            failures.append(err_msg)
+                        err_msg = (
+                            f"substrings {non_dataset_packages} found in "
+                            f"{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},"
+                            f"but no integration tag found"
+                        )
+                        failures.append(err_msg)
 
                 # checks for a defined index pattern, the related integration exists in metadata
                 expected_integrations, missing_integrations = set(), set()
@@ -1165,8 +1160,7 @@ class TestRuleTiming(BaseRuleTest):
                     # this does not avoid rule types where variants of KQL are used (e.g. new terms)
                     if rule_language not in ("eql", "kuery") or getattr(rule.contents.data, "is_sequence", False):
                         continue
-                    else:
-                        errors.append(f"{rule_str} - rule must have `timestamp_override: event.ingested`")
+                    errors.append(f"{rule_str} - rule must have `timestamp_override: event.ingested`")
 
         if errors:
             self.fail("The following rules are invalid:\n" + "\n".join(errors))
@@ -1343,8 +1337,8 @@ class TestInvestigationGuide(BaseRuleTest):
 
         for rule in self.all_rules:
             if (
-                not rule.contents.data.is_elastic_rule  # noqa: W504
-                or rule.contents.data.building_block_type  # noqa: W504
+                not rule.contents.data.is_elastic_rule
+                or rule.contents.data.building_block_type
                 or rule.contents.data.severity in ("medium", "low")
             ):
                 # dont enforce
@@ -1422,9 +1416,8 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
             if has_transform:
                 if not has_note:
                     self.fail(f"{self.rule_str(rule)} transformed defined with no note")
-            else:
-                if not has_note:
-                    continue
+            elif not has_note:
+                continue
 
             note_template = PatchedTemplate(note)
             identifiers = [i for i in note_template.get_identifiers() if "_" in i]
@@ -1506,8 +1499,8 @@ class TestAlertSuppression(BaseRuleTest):
                         )
 
     @unittest.skipIf(
-        PACKAGE_STACK_VERSION < Version.parse("8.14.0")  # noqa: W504
-        or PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),  # noqa: W504
+        PACKAGE_STACK_VERSION < Version.parse("8.14.0")
+        or PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),
         "Test is applicable to 8.14 --> 8.17 stacks for eql non-sequence rule alert suppression feature.",
     )
     def test_eql_non_sequence_support_only(self):
@@ -1515,7 +1508,7 @@ class TestAlertSuppression(BaseRuleTest):
             if (
                 isinstance(rule.contents.data, EQLRuleData)
                 and rule.contents.data.get("alert_suppression")
-                and rule.contents.data.is_sequence  # noqa: W503
+                and rule.contents.data.is_sequence
             ):
                 # is_sequence method not yet available during schema validation
                 # so we have to check in a unit test

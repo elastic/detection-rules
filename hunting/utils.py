@@ -31,7 +31,7 @@ def get_hunt_path(uuid: str, file_path: str) -> tuple[Path | None, str | None]:
                 return hunt_path.resolve(), None
         return None, f"No hunt found for UUID: {uuid}"
 
-    elif file_path:
+    if file_path:
         # Use the provided file path
         hunt_path = Path(file_path)
         if not hunt_path.is_file():
@@ -48,7 +48,7 @@ def load_index_file() -> dict[str, Any]:
         click.echo(f"No index.yml found at {index_file}.")
         return {}
 
-    with open(index_file, "r") as f:
+    with open(index_file) as f:
         hunting_index = yaml.safe_load(f)
 
     return hunting_index

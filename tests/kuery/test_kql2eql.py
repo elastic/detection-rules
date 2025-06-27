@@ -4,8 +4,8 @@
 # 2.0.
 
 import unittest
-import eql
 
+import eql
 import kql
 
 
@@ -95,4 +95,4 @@ class TestKql2Eql(unittest.TestCase):
         invalid_ips = ["192.168.0.256", "192.168.0.256/33", "1", '"1"']
         for ip in invalid_ips:
             with self.assertRaisesRegex(kql.KqlParseError, r"Value doesn't match dest's type: ip"):
-                kql.to_eql("dest:{ip}".format(ip=ip), schema=schema)
+                kql.to_eql(f"dest:{ip}", schema=schema)

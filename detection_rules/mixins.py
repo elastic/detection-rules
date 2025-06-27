@@ -6,21 +6,22 @@
 """Generic mixin classes."""
 
 import dataclasses
+import json
 from pathlib import Path
 from typing import Any, Literal
 
-import json
+import marshmallow
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema  # type: ignore[reportMissingTypeStubs]
 import marshmallow_union  # type: ignore[reportMissingTypeStubs]
-import marshmallow
-from marshmallow import Schema, ValidationError, validates_schema, fields as marshmallow_fields
+from marshmallow import Schema, ValidationError, validates_schema
+from marshmallow import fields as marshmallow_fields
+from semver import Version
 
 from .config import load_current_package_version
 from .schemas import definitions
 from .schemas.stack_compat import get_incompatible_fields
-from semver import Version
 from .utils import cached, dict_hash
 
 UNKNOWN_VALUES = Literal["raise", "exclude", "include"]
@@ -30,9 +31,9 @@ def _strip_none_from_dict(obj: Any) -> Any:
     """Strip none values from a dict recursively."""
     if isinstance(obj, dict):
         return {key: _strip_none_from_dict(value) for key, value in obj.items() if value is not None}  # type: ignore[reportUnknownVariableType]
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [_strip_none_from_dict(o) for o in obj]  # type: ignore[reportUnknownVariableType]
-    elif isinstance(obj, tuple):
+    if isinstance(obj, tuple):
         return tuple(_strip_none_from_dict(list(obj)))  # type: ignore[reportUnknownVariableType]
     return obj
 
@@ -100,8 +101,7 @@ class MarshmallowDataclassMixin:
         """Get the marshmallow schema for the data class"""
         if unknown:
             return recursive_class_schema(cls, unknown=unknown)()
-        else:
-            return marshmallow_dataclass.class_schema(cls)()
+        return marshmallow_dataclass.class_schema(cls)()
 
     def get(self, key: str, default: Any | None = None):
         """Get a key from the query data without raising attribute errors."""

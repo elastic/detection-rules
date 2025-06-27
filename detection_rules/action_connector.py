@@ -13,9 +13,9 @@ from typing import Any
 import pytoml  # type: ignore[reportMissingTypeStubs]
 from marshmallow import EXCLUDE
 
+from .config import parse_rules_config
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
-from .config import parse_rules_config
 
 RULES_CONFIG = parse_rules_config()
 
@@ -149,29 +149,28 @@ def build_action_connector_objects(
             if not rule_list:
                 output.append(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                 continue
-            else:
-                contents = TOMLActionConnectorContents.from_action_connector_dict(action_connector_dict, rule_list)
-                filename = f"{connector_id}_actions.toml"
-                if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
-                    raise FileNotFoundError(
-                        "No Action Connector directory is specified. Please specify either in the config or CLI."
-                    )
-                actions_path = (
-                    Path(action_connectors_directory) / filename
-                    if action_connectors_directory
-                    else RULES_CONFIG.action_connector_dir / filename
+            contents = TOMLActionConnectorContents.from_action_connector_dict(action_connector_dict, rule_list)
+            filename = f"{connector_id}_actions.toml"
+            if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
+                raise FileNotFoundError(
+                    "No Action Connector directory is specified. Please specify either in the config or CLI."
                 )
-                if verbose:
-                    output.append(f"[+] Building action connector(s) for {actions_path}")
+            actions_path = (
+                Path(action_connectors_directory) / filename
+                if action_connectors_directory
+                else RULES_CONFIG.action_connector_dir / filename
+            )
+            if verbose:
+                output.append(f"[+] Building action connector(s) for {actions_path}")
 
-                ac_object = TOMLActionConnector(
-                    contents=contents,
-                    path=actions_path,
-                )
-                if save_toml:
-                    ac_object.save_toml()
+            ac_object = TOMLActionConnector(
+                contents=contents,
+                path=actions_path,
+            )
+            if save_toml:
+                ac_object.save_toml()
 
-                toml_action_connectors.append(ac_object)
+            toml_action_connectors.append(ac_object)
 
         except Exception as e:
             if skip_errors:

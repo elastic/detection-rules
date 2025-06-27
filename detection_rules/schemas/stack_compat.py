@@ -3,8 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from typing import Any
 from dataclasses import Field
+from typing import Any
 
 from semver import Version
 
@@ -42,14 +42,14 @@ def get_incompatible_fields(
 ) -> dict[str, tuple[Version | None, Version | None]] | None:
     """Get a list of fields that are incompatible with the package version."""
     if not schema_fields:
-        return
+        return None
 
     incompatible: dict[str, tuple[Version | None, Version | None]] = {}
     restricted_fields = get_restricted_fields(schema_fields)
     for field_name, values in restricted_fields.items():
         min_compat, max_compat = values
 
-        if min_compat and package_version < min_compat or max_compat and package_version > max_compat:
+        if (min_compat and package_version < min_compat) or (max_compat and package_version > max_compat):
             incompatible[field_name] = (min_compat, max_compat)
 
     return incompatible

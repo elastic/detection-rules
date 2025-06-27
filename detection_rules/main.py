@@ -10,15 +10,16 @@ import glob
 import json
 import os
 import time
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Literal, get_args
+from uuid import uuid4
 
+import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
 from marshmallow_dataclass import class_schema
-from pathlib import Path
 from semver import Version
-from typing import Iterable, get_args, Any, Literal
-from uuid import uuid4
-import click
 
 from .action_connector import (
     TOMLActionConnectorContents,
@@ -26,17 +27,24 @@ from .action_connector import (
     parse_action_connector_results_from_api,
 )
 from .attack import build_threat_map_entry
-from .cli_utils import rule_prompt, multi_collection
+from .cli_utils import multi_collection, rule_prompt
 from .config import load_current_package_version, parse_rules_config
-from .generic_loader import GenericCollection
 from .exception import TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
-from .misc import add_client, raise_client_error, nested_set, parse_user_config
-from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
+from .generic_loader import GenericCollection
+from .misc import add_client, nested_set, parse_user_config, raise_client_error
+from .rule import QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
-from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_rule_contents, rulename_to_filename
-from .utils import load_dump  # type: ignore[reportUnknownVariableType]
+from .utils import (
+    Ndjson,
+    clear_caches,
+    get_etc_path,
+    get_path,
+    load_dump,  # type: ignore[reportUnknownVariableType]
+    load_rule_contents,
+    rulename_to_filename,
+)
 
 RULES_CONFIG = parse_rules_config()
 RULES_DIRS = RULES_CONFIG.rule_dirs
@@ -584,11 +592,12 @@ def search_rules(
     pager: bool = False,
 ):
     """Use KQL or EQL to find matching rules."""
-    from kql import get_evaluator  # type: ignore[reportMissingTypeStubs]
-    from eql.table import Table  # type: ignore[reportMissingTypeStubs]
-    from eql.build import get_engine  # type: ignore[reportMissingTypeStubs]
     from eql import parse_query  # type: ignore[reportMissingTypeStubs]
+    from eql.build import get_engine  # type: ignore[reportMissingTypeStubs]
     from eql.pipes import CountPipe  # type: ignore[reportMissingTypeStubs]
+    from eql.table import Table  # type: ignore[reportMissingTypeStubs]
+    from kql import get_evaluator  # type: ignore[reportMissingTypeStubs]
+
     from .rule import get_unique_query_fields
 
     flattened_rules: list[dict[str, Any]] = []
@@ -737,7 +746,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     # handle dns.question.registered_domain separately
     _ = fields.pop()
     es_updates: list[dict[str, Any]] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for item in dnstwist_data:
         if item["fuzzer"] == "original*":

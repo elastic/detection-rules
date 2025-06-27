@@ -5,8 +5,8 @@
 
 import re
 import textwrap
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -57,7 +57,7 @@ class QueryRunner:
                 click.secho("Check if index exists (via integration installation) and contains data.", fg="red")
                 click.secho("Alternatively, update the query to reference an existing index.", fg="red")
             else:
-                click.secho(f"Error running query: {str(e)}", fg="red")
+                click.secho(f"Error running query: {e!s}", fg="red")
 
     def run_all_queries(self, queries: dict[int, Any], wait_timeout: int):
         """Run all eligible queries in the hunting file."""

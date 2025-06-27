@@ -4,7 +4,9 @@
 # 2.0.
 import json
 from collections import OrderedDict
-from typing import Callable, Any, OrderedDict as OrderedDictType
+from collections import OrderedDict as OrderedDictType
+from collections.abc import Callable
+from typing import Any
 
 import jsonschema
 from semver import Version
@@ -14,16 +16,15 @@ from ..utils import cached, get_etc_path
 from . import definitions
 from .stack_compat import get_incompatible_fields
 
-
 __all__ = (
     "SCHEMA_DIR",
+    "all_versions",
     "definitions",
     "downgrade",
     "get_incompatible_fields",
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
-    "all_versions",
 )
 
 RULES_CONFIG = parse_rules_config()
@@ -82,8 +83,7 @@ def strip_non_public_fields(min_stack_version: Version, data_dict: dict[str, Any
     """Remove all non public fields."""
     for field, version_range in definitions.NON_PUBLIC_FIELDS.items():
         if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
-            if field in data_dict:
-                del data_dict[field]
+            data_dict.pop(field, None)
     return data_dict
 
 
@@ -379,8 +379,7 @@ def get_stack_versions(drop_patch: bool = False) -> list[str]:
             abridged, _ = version.rsplit(".", 1)
             abridged_versions.append(abridged)
         return abridged_versions
-    else:
-        return versions
+    return versions
 
 
 @cached
