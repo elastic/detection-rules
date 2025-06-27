@@ -10,11 +10,11 @@ import json
 import re
 import shutil
 import textwrap
+import typing
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-import typing
 from typing import Any
 
 import xlsxwriter  # type: ignore[reportMissingTypeStubs]
@@ -188,7 +188,7 @@ class PackageDocument(xlsxwriter.Workbook):
                 value = rule_contents.get(field)
                 if value is None:
                     continue
-                elif isinstance(value, list):
+                if isinstance(value, list):
                     value = ", ".join(value)
                 _ = worksheet.write(row, column, value)  # type: ignore[reportUnknownMemberType]
                 column_max_widths[column] = max(column_max_widths[column], len(str(value)))
@@ -329,7 +329,7 @@ class IntegrationSecurityDocs:
         self.directory = directory
         self.package_directory = (
             directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name
-        )  # noqa: E501
+        )
         self.rule_details = directory / "docs" / "detections" / "prebuilt-rules" / "rule-details"
         self.update_message = update_message
 
@@ -428,7 +428,7 @@ class IntegrationSecurityDocs:
         |==============================================
         |Rule |Description |Tags |Added |Version
 
-        """).lstrip()  # noqa: E501
+        """).lstrip()
 
         rule_entries: list[str] = []
         rule_includes: list[str] = []
@@ -467,7 +467,7 @@ class IntegrationSecurityDocs:
                 continue
             rule_detail = IntegrationRuleDetail(rule.id, rule.contents.to_api_format(), {}, self.base_name)
             rule_path = self.package_directory / f"{self.prebuilt_rule_base}-{name_to_title(rule.name)}.asciidoc"
-            prebuilt_rule_path = self.rule_details / f"{name_to_title(rule.name)}.asciidoc"  # noqa: E501
+            prebuilt_rule_path = self.rule_details / f"{name_to_title(rule.name)}.asciidoc"
 
             if rule.name in included_rules:
                 # only include updates

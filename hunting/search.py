@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import click
+
 from detection_rules.attack import tactics_map, technique_lookup
-from .utils import load_index_file, load_all_toml
+
+from .utils import load_all_toml, load_index_file
 
 
 class QueryIndex:

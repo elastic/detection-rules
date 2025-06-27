@@ -11,23 +11,22 @@ from pathlib import Path
 from typing import Any
 
 import click
-
 import kql  # type: ignore[reportMissingTypeStubs]
-from kibana import Signal, RuleResource  # type: ignore[reportMissingTypeStubs]
+from kibana import RuleResource, Signal  # type: ignore[reportMissingTypeStubs]
 
-from .config import parse_rules_config
-from .cli_utils import multi_collection
 from .action_connector import (
     TOMLActionConnector,
     TOMLActionConnectorContents,
-    parse_action_connector_results_from_api,
     build_action_connector_objects,
+    parse_action_connector_results_from_api,
 )
-from .exception import TOMLExceptionContents, TOMLException, build_exception_objects, parse_exceptions_results_from_api
+from .cli_utils import multi_collection
+from .config import parse_rules_config
+from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
 from .generic_loader import GenericCollection
 from .main import root
-from .misc import add_params, raise_client_error, kibana_options, get_kibana_client, nested_set
-from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
+from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
+from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RuleCollection, update_metadata_from_file
 from .utils import format_command_options, rulename_to_filename
 
@@ -484,6 +483,7 @@ def search_alerts(
 ):
     """Search detection engine alerts with KQL."""
     from eql.table import Table  # type: ignore[reportMissingTypeStubs]
+
     from .eswrap import MATCH_ALL, add_range_to_dsl
 
     kibana = ctx.obj["kibana"]

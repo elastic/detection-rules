@@ -8,12 +8,11 @@
 import json
 import shutil
 import sys
-
-import eql  # type: ignore[reportMissingTypeStubs]
-
 from typing import Any
 
+import eql  # type: ignore[reportMissingTypeStubs]
 from github import Github
+
 from .utils import ETC_DIR, DateTimeEncoder, cached, gzip_compress, read_gzip
 
 ENDGAME_SCHEMA_DIR = ETC_DIR / "endgame_schemas"
@@ -45,9 +44,8 @@ class EndgameSchemaManager:
         schemas_dir = ENDGAME_SCHEMA_DIR / self.endgame_version
         if schemas_dir.exists() and not overwrite:
             raise FileExistsError(f"{schemas_dir} exists, use overwrite to force")
-        else:
-            shutil.rmtree(str(schemas_dir.resolve()), ignore_errors=True)
-            schemas_dir.mkdir()
+        shutil.rmtree(str(schemas_dir.resolve()), ignore_errors=True)
+        schemas_dir.mkdir()
 
         # write the raw schema to disk
         raw_os_schema = self.endgame_schema
@@ -97,9 +95,8 @@ def read_endgame_schema(endgame_version: str, warn: bool = False) -> dict[str, A
         if warn:
             relative_path = endgame_schema_path.relative_to(ENDGAME_SCHEMA_DIR)
             print(f"Missing file to validate: {relative_path}, skipping", file=sys.stderr)
-            return
-        else:
-            raise FileNotFoundError(str(endgame_schema_path))
+            return None
+        raise FileNotFoundError(str(endgame_schema_path))
 
     schema = json.loads(read_gzip(endgame_schema_path))
 

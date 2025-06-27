@@ -10,13 +10,13 @@ import re
 import time
 import unittest
 import uuid
-from pathlib import Path
+from collections.abc import Callable
 from functools import wraps
-from typing import NoReturn, IO, Any, Callable
+from pathlib import Path
+from typing import IO, Any, NoReturn
 
 import click
 import requests
-
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
 from .utils import add_params, cached, load_etc_dump
@@ -69,20 +69,18 @@ def raise_client_error(
     if debug:
         click.echo(click.style("DEBUG: ", fg="yellow") + message, err=err, file=file)
         raise
-    else:
-        raise ClientError(message, original_error=exc)
+    raise ClientError(message, original_error=exc)
 
 
 def nested_get(_dict: dict[str, Any] | None, dot_key: str | None, default: Any | None = None) -> Any:
     """Get a nested field from a nested dict with dot notation."""
     if _dict is None or dot_key is None:
         return default
-    elif "." in dot_key:
+    if "." in dot_key:
         dot_key_parts = dot_key.split(".")
         this_key = dot_key_parts.pop(0)
         return nested_get(_dict.get(this_key, default), ".".join(dot_key_parts), default)
-    else:
-        return _dict.get(dot_key, default)
+    return _dict.get(dot_key, default)
 
 
 def nested_set(_dict: dict[str, Any], dot_key: str, value: Any):
@@ -134,24 +132,24 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
 
     def _check_type(_val: Any):
         if field_type in ("number", "integer") and not str(_val).isdigit():
-            print("Number expected but got: {}".format(_val))
+            print(f"Number expected but got: {_val}")
             return False
         if pattern:
             match = re.match(pattern, _val)
             if not match or len(match.group(0)) != len(_val):
-                print("{} did not match pattern: {}!".format(_val, pattern))
+                print(f"{_val} did not match pattern: {pattern}!")
                 return False
         if enum and _val not in enum:
             print("{} not in valid options: {}".format(_val, ", ".join(enum)))
             return False
         if minimum and (type(_val) is int and int(_val) < minimum):
-            print("{} is less than the minimum: {}".format(str(_val), str(minimum)))
+            print(f"{_val!s} is less than the minimum: {minimum!s}")
             return False
         if maximum and (type(_val) is int and int(_val) > maximum):
-            print("{} is greater than the maximum: {}".format(str(_val), str(maximum)))
+            print(f"{_val!s} is greater than the maximum: {maximum!s}")
             return False
         if type(_val) is str and field_type == "boolean" and _val.lower() not in ("true", "false"):
-            print("Boolean expected but got: {}".format(str(_val)))
+            print(f"Boolean expected but got: {_val!s}")
             return False
         return True
 
@@ -163,7 +161,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
     prompt = (
         "{name}{default}{required}{multi}".format(
             name=name,
-            default=' [{}] ("n/a" to leave blank) '.format(default) if default else "",
+            default=f' [{default}] ("n/a" to leave blank) ' if default else "",
             required=" (required) " if is_required else "",
             multi=" (multi, comma separated) " if field_type == "array" else "",
         ).strip()
@@ -179,8 +177,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             if is_required:
                 value = None
                 continue
-            else:
-                return
+            return None
 
         if field_type == "array":
             result_list = result.split(",")
@@ -189,27 +186,23 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
                 if is_required:
                     value = None
                     break
-                else:
-                    return []
+                return []
 
             for value in result_list:
                 if not _check_type(value):
                     if is_required:
                         value = None
                         break
-                    else:
-                        return []
+                    return []
             if is_required and value is None:
                 continue
-            else:
-                return [_convert_type(r) for r in result_list]
-        else:
-            if _check_type(result):
-                return _convert_type(result)
-            elif is_required:
-                value = None
-                continue
-            return
+            return [_convert_type(r) for r in result_list]
+        if _check_type(result):
+            return _convert_type(result)
+        if is_required:
+            value = None
+            continue
+        return None
 
 
 def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -> dict[str, Any]:

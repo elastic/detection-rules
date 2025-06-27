@@ -6,19 +6,19 @@
 """Validation logic for rules containing queries."""
 
 import re
+from collections.abc import Callable
 from enum import Enum
 from functools import cached_property, wraps
-from typing import Any, Callable
+from typing import Any
 
+import click
 import eql  # type: ignore[reportMissingTypeStubs]
+import kql  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint  # type: ignore[reportMissingTypeStubs]
 from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStubs]
 from marshmallow import ValidationError
 from semver import Version
-
-import kql  # type: ignore[reportMissingTypeStubs]
-import click
 
 from . import ecs, endgame
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
@@ -205,7 +205,7 @@ class KQLValidator(QueryValidator):
     ) -> KQL_ERROR_TYPES | None:
         """Validate the query, called from the parent which contains [metadata] information."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
-            return
+            return None
 
         error_fields = {}
         package_schemas = {}
@@ -449,7 +449,7 @@ class EQLValidator(QueryValidator):
         """Validate an EQL query while checking TOMLRule against integration schemas."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
-            return
+            return None
 
         error_fields = {}
         package_schemas: dict[str, Any] = {}
@@ -603,9 +603,8 @@ class EQLValidator(QueryValidator):
 
             # return a list of rule type config field values and whether any are not in the schema
             return (set_fields, any([f not in schema.keys() for f in set_fields]))
-        else:
-            # if rule type fields are not set, return an empty list and False
-            return [], False
+        # if rule type fields are not set, return an empty list and False
+        return [], False
 
 
 class ESQLValidator(QueryValidator):

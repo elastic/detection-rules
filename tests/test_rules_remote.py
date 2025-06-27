@@ -5,8 +5,10 @@
 
 import unittest
 
-from .base import BaseRuleTest
 from detection_rules.misc import get_default_config
+
+from .base import BaseRuleTest
+
 # from detection_rules.remote_validation import RemoteValidator
 
 

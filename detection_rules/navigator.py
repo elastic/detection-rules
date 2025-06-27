@@ -5,20 +5,19 @@
 
 """Create summary documents for a rule package."""
 
-from functools import reduce
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import reduce
 from pathlib import Path
 from typing import Any
-from marshmallow import pre_load
 
-import json
+from marshmallow import pre_load
 
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
 from .schemas import definitions
-
 
 _DEFAULT_PLATFORMS = [
     "Azure AD",

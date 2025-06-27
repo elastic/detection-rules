@@ -4,7 +4,9 @@
 # 2.0.
 
 from pathlib import Path
+
 import click
+
 from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP, Hunt
 from .utils import load_index_file, load_toml, save_index_file, validate_link
 

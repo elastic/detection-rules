@@ -5,25 +5,26 @@
 
 """Load rule metadata transform between rule and api formats."""
 
-import requests
+import json
 from collections import OrderedDict
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
 from multiprocessing.pool import ThreadPool
+from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Callable, Iterable, Any, Iterator
+from typing import Any
 
 import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
-import json
-from marshmallow.exceptions import ValidationError
-from github.PullRequest import PullRequest
+import requests
 from github.File import File
+from github.PullRequest import PullRequest
+from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .config import parse_rules_config
-from .rule import DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
 from .ghwrap import GithubClient
+from .rule import DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
 from .schemas import definitions
 from .utils import cached, get_path
 
@@ -465,13 +466,12 @@ class RuleCollection(BaseCollection[TOMLRule]):
             deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
-        else:
-            contents = TOMLRuleContents.from_dict(obj)
-            if not RULES_CONFIG.bypass_version_lock:
-                contents.set_version_lock(self._version_lock)
-            rule = TOMLRule(path=path, contents=contents)
-            self.add_rule(rule)
-            return rule
+        contents = TOMLRuleContents.from_dict(obj)
+        if not RULES_CONFIG.bypass_version_lock:
+            contents.set_version_lock(self._version_lock)
+        rule = TOMLRule(path=path, contents=contents)
+        self.add_rule(rule)
+        return rule
 
     def load_file(self, path: Path) -> TOMLRule | DeprecatedRule:
         try:
@@ -484,7 +484,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
                     rule = self.__default.file_map[path]
                     self.add_rule(rule)
                     return rule
-                elif path in self.__default.deprecated.file_map:
+                if path in self.__default.deprecated.file_map:
                     deprecated_rule = self.__default.deprecated.file_map[path]
                     self.add_deprecated_rule(deprecated_rule)
                     return deprecated_rule
@@ -697,15 +697,15 @@ def load_github_pr_rules(
 
 
 __all__ = (
-    "FILE_PATTERN",
-    "DEFAULT_PREBUILT_RULES_DIRS",
     "DEFAULT_PREBUILT_BBR_DIRS",
-    "load_github_pr_rules",
+    "DEFAULT_PREBUILT_RULES_DIRS",
+    "FILE_PATTERN",
     "DeprecatedCollection",
     "DeprecatedRule",
     "RawRuleCollection",
     "RuleCollection",
+    "dict_filter",
+    "load_github_pr_rules",
     "metadata_filter",
     "production_filter",
-    "dict_filter",
 )

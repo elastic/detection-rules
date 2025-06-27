@@ -5,9 +5,9 @@
 
 """Dataclasses for Action."""
 
-from typing import Any
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions

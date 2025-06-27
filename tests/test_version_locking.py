@@ -10,7 +10,7 @@ import unittest
 from semver import Version
 
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.version_lock import loaded_version_lock, RULES_CONFIG
+from detection_rules.version_lock import RULES_CONFIG, loaded_version_lock
 
 
 class TestVersionLock(unittest.TestCase):

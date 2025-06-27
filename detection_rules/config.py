@@ -8,15 +8,15 @@
 import fnmatch
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from functools import cached_property
+from pathlib import Path
 from typing import Any
 
 import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 
 from .misc import discover_tests
-from .utils import cached, load_etc_dump, get_etc_path, set_all_validation_bypass
+from .utils import cached, get_etc_path, load_etc_dump, set_all_validation_bypass
 
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
@@ -166,8 +166,7 @@ class TestConfig:
 
         if formatted:
             return self.format_tests(tests), self.format_tests(skipped)
-        else:
-            return tests, skipped
+        return tests, skipped
 
     def check_skip_by_rule_id(self, rule_id: str) -> bool:
         """Check if a rule_id should be skipped."""
@@ -241,7 +240,7 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:
     try:
         _ = ConfigFile.from_dict(loaded)
     except KeyError as e:
-        raise SystemExit(f"Missing key `{str(e)}` in _config.yaml file.")
+        raise SystemExit(f"Missing key `{e!s}` in _config.yaml file.")
     except (AttributeError, TypeError):
         raise SystemExit(f"No data properly loaded from {path}")
     except ValueError as e:
@@ -332,7 +331,7 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)  # type: ignore[reportArgumentType]
     except (ValueError, TypeError) as e:
-        raise SystemExit(f"Error parsing packages.yaml: {str(e)}")
+        raise SystemExit(f"Error parsing packages.yaml: {e!s}")
 
     return rules_config
 

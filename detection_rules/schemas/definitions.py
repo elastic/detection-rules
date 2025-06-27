@@ -7,7 +7,9 @@
 
 import os
 import re
-from typing import Final, Literal, Annotated, Pattern, Any, Callable, NewType
+from collections.abc import Callable
+from re import Pattern
+from typing import Annotated, Any, Final, Literal, NewType
 
 from marshmallow import fields, validate
 from semver import Version

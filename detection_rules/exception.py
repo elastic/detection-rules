@@ -8,14 +8,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import get_args, Any
+from typing import Any, get_args
 
 import pytoml  # type: ignore[reportMissingTypeStubs]
 from marshmallow import EXCLUDE, ValidationError, validates_schema
 
+from .config import parse_rules_config
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
-from .config import parse_rules_config
 
 RULES_CONFIG = parse_rules_config()
 
@@ -80,9 +80,9 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
         value = data.get("value", "")
         if data["type"] in ("exists", "list") and value is not None:
             raise ValidationError(f"Entry of type {data['type']} cannot have a value")
-        elif data["type"] in ("match", "wildcard") and not isinstance(value, str):
+        if data["type"] in ("match", "wildcard") and not isinstance(value, str):
             raise ValidationError(f"Entry of type {data['type']} must have a string value")
-        elif data["type"] == "match_any" and not isinstance(value, list):
+        if data["type"] == "match_any" and not isinstance(value, list):
             raise ValidationError(f"Entry of type {data['type']} must have a list of strings as a value")
 
 

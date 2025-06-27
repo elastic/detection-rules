@@ -6,29 +6,28 @@
 """Packaging and preparation for releases."""
 
 import base64
-from datetime import datetime, timezone, date
 import hashlib
 import json
 import os
 import shutil
 import textwrap
 from collections import defaultdict
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
-from semver import Version
 
 import click
 import yaml
+from semver import Version
 
 from .config import load_current_package_version, parse_rules_config
 from .misc import JS_LICENSE, cached
-from .navigator import NavigatorBuilder, Navigator
-from .rule import TOMLRule, QueryRuleData, ThreatMapping
+from .navigator import Navigator, NavigatorBuilder
+from .rule import QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .schemas import definitions
-from .utils import Ndjson, get_path, get_etc_path
+from .utils import Ndjson, get_etc_path, get_path
 from .version_lock import loaded_version_lock
-
 
 RULES_CONFIG = parse_rules_config()
 RELEASE_DIR = get_path(["releases"])
@@ -76,7 +75,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: d
 CURRENT_RELEASE_PATH = RELEASE_DIR / load_current_package_version()
 
 
-class Package(object):
+class Package:
     """Packaging object for siem rules and releases."""
 
     def __init__(
@@ -121,10 +120,10 @@ class Package(object):
     @staticmethod
     def _package_kibana_notice_file(save_dir: Path):
         """Convert and save notice file with package."""
-        with open(NOTICE_FILE, "rt") as f:
+        with open(NOTICE_FILE) as f:
             notice_txt = f.read()
 
-        with open(os.path.join(save_dir, "notice.ts"), "wt") as f:
+        with open(os.path.join(save_dir, "notice.ts"), "w") as f:
             commented_notice = [f" * {line}".rstrip() for line in notice_txt.splitlines()]
             lines = ["/* eslint-disable @kbn/eslint/require-license-header */", "", "/* @notice"]
             lines = lines + commented_notice + [" */", ""]
@@ -155,7 +154,7 @@ class Package(object):
         index_ts.append("")
         index_ts.extend(const_exports)
 
-        with open(os.path.join(save_dir, "index.ts"), "wt") as f:
+        with open(os.path.join(save_dir, "index.ts"), "w") as f:
             _ = f.write("\n".join(index_ts))
 
     def save_release_files(
@@ -265,7 +264,7 @@ class Package(object):
         sha256 = hashlib.sha256(contents).hexdigest()
 
         if verbose:
-            click.echo("- sha256: {}".format(sha256))
+            click.echo(f"- sha256: {sha256}")
 
         return sha256
 
@@ -491,7 +490,7 @@ class Package(object):
 
         ## License Notice
 
-        """).lstrip()  # noqa: E501
+        """).lstrip()
 
         # notice only needs to be appended to the README for 7.13.x
         # in 7.14+ there's a separate modal to display this
@@ -504,7 +503,7 @@ class Package(object):
     def create_bulk_index_body(self) -> tuple[Ndjson, Ndjson]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         create = {"create": {"_index": f"rules-repo-{self.name}-{package_hash}"}}
 
         # first doc is summary stats

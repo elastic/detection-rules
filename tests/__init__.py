@@ -40,7 +40,7 @@ def get_data_files_list(*folder, ext="ndjson", recursive=False):
     if recursive:
         data_dir.append("**")
 
-    data_dir.append("*.{}".format(ext))
+    data_dir.append(f"*.{ext}")
     return glob.glob(os.path.join(*data_dir), recursive=recursive)
 
 
@@ -48,7 +48,7 @@ def get_data_files(*folder, ext="ndjson", recursive=False):
     """Get data from data files."""
     data_files = {}
     for data_file in get_data_files_list(*folder, ext=ext, recursive=recursive):
-        with open(data_file, "r") as f:
+        with open(data_file) as f:
             file_name = os.path.splitext(os.path.basename(data_file))[0]
 
             if ext in (".ndjson", ".jsonl"):
@@ -63,5 +63,5 @@ def get_data_files(*folder, ext="ndjson", recursive=False):
 def get_data_file(*folder):
     file = os.path.join(DATA_DIR, os.path.sep.join(folder))
     if os.path.exists(file):
-        with open(file, "r") as f:
+        with open(file) as f:
             return json.load(f)

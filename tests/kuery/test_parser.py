@@ -4,14 +4,15 @@
 # 2.0.
 
 import unittest
+
 import kql
 from kql.ast import (
+    Exists,
     Field,
     FieldComparison,
     FieldRange,
-    String,
     Number,
-    Exists,
+    String,
 )
 
 

@@ -6,9 +6,10 @@
 """Tests for GitHub workflow functionality."""
 
 import unittest
+
 import yaml
 
-from detection_rules.schemas import get_stack_versions, RULES_CONFIG
+from detection_rules.schemas import RULES_CONFIG, get_stack_versions
 from detection_rules.utils import ROOT_DIR
 
 GITHUB_FILES = ROOT_DIR / ".github"

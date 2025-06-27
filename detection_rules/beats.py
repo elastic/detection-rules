@@ -11,11 +11,10 @@ import re
 from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
-import requests
-from semver import Version
-import yaml
-
 import kql  # type: ignore[reportMissingTypeStubs]
+import requests
+import yaml
+from semver import Version
 
 from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, unzip
 
@@ -122,7 +121,7 @@ def _flatten_schema(schema: list[dict[str, Any]] | None, prefix: str = "") -> li
                 # integrations sometimes have a group with a single field
                 flattened.extend(_flatten_schema(s["field"], prefix=nested_prefix))
                 continue
-            elif "fields" not in s:
+            if "fields" not in s:
                 # integrations sometimes have a group with no fields
                 continue
 

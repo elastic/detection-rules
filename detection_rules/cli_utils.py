@@ -8,20 +8,20 @@ import datetime
 import functools
 import os
 import typing
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Any
+from typing import Any
 
 import click
-
 import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
+from .config import parse_rules_config
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
-from .config import parse_rules_config
 
 RULES_CONFIG = parse_rules_config()
 
@@ -233,12 +233,11 @@ def rule_prompt(
                 }
             ]
 
+        elif skip_errors:
+            # return missing information
+            return f"Rule: {kwargs['id']}, Rule Name: {rule_name} is missing {name} information"
         else:
-            if skip_errors:
-                # return missing information
-                return f"Rule: {kwargs['id']}, Rule Name: {rule_name} is missing {name} information"
-            else:
-                result = schema_prompt(name, is_required=name in required_fields, **options.copy())
+            result = schema_prompt(name, is_required=name in required_fields, **options.copy())
         if result:
             if name not in required_fields and result == options.get("default", ""):
                 skipped.append(name)
@@ -263,8 +262,8 @@ def rule_prompt(
             return f"Rule: {kwargs['id']}, Rule Name: {rule_name} query failed to parse: {e.error_msg}"
         if e.error_msg == "Unknown field":
             warning = (
-                'If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
-                "`legacy-endgame` (Non-ECS fields should be used minimally).".format(os.path.sep)
+                f'If using a non-ECS field, you must update "ecs{os.path.sep}.non-ecs-schema.json" under `beats` or '
+                "`legacy-endgame` (Non-ECS fields should be used minimally)."
             )
             click.secho(e.args[0], fg="red", err=True)
             click.secho(warning, fg="yellow", err=True)

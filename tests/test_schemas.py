@@ -8,15 +8,16 @@
 import copy
 import unittest
 import uuid
-from semver import Version
 
 import eql
+from marshmallow import ValidationError
+from semver import Version
+
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
-from detection_rules.schemas import downgrade, RULES_CONFIG
+from detection_rules.schemas import RULES_CONFIG, downgrade
 from detection_rules.version_lock import VersionLockFile
-from marshmallow import ValidationError
 
 
 class TestSchemas(unittest.TestCase):

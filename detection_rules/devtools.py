@@ -7,7 +7,6 @@
 
 import csv
 import dataclasses
-import io
 import json
 import os
 import re
@@ -19,24 +18,23 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Literal, Any
+from typing import Any, Literal
 
 import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
 import requests.exceptions
 import yaml
 from elasticsearch import Elasticsearch
-from semver import Version
-
-from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
+from semver import Version
 
 from . import attack, rule_loader, utils
 from .beats import download_beats_schema, download_latest_beats_schema, refresh_main_schema
 from .cli_utils import single_collection
 from .config import parse_rules_config
-from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX, REPO_DOCS_DIR
+from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -55,16 +53,16 @@ from .packaging import CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package
 from .rule import (
     AnyRuleData,
     BaseRuleData,
+    DeprecatedRule,
     QueryRuleData,
     RuleTransform,
     ThreatMapping,
     TOMLRule,
     TOMLRuleContents,
-    DeprecatedRule,
 )
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import dict_hash, get_etc_path, get_path, check_version_lock_double_bumps
+from .utils import check_version_lock_double_bumps, dict_hash, get_etc_path, get_path
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -539,7 +537,7 @@ def update_lock_versions(ctx: click.Context, rule_ids: tuple[str, ...], force: b
     if not force and not click.confirm(
         f"Are you sure you want to update hashes for {len(rules)} rules without a version bump?"
     ):
-        return
+        return None
 
     if RULES_CONFIG.bypass_version_lock:
         click.echo(
@@ -825,7 +823,7 @@ def license_check(ctx: click.Context, ignore_directory: list[str]):
         if relative_path.parts[0] in ignore_directory:
             continue
 
-        with io.open(path, "rt", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             contents = f.read()
 
         # skip over shebang lines
@@ -1045,8 +1043,7 @@ def update_navigator_gists(
             raise raise_client_error(
                 "Gist not found: verify the gist_id exists and the token has access to it", exc=exc
             )
-        else:
-            raise
+        raise
 
     response_data = response.json()
     raw_urls = {name: raw_permalink(data["raw_url"]) for name, data in response_data["files"].items()}
@@ -1132,10 +1129,9 @@ def trim_version_lock(ctx: click.Context, stack_version: str, skip_rule_updates:
     rc: RuleCollection | None = None
     if dry_run:
         rc = RuleCollection()
-    else:
-        if not skip_rule_updates:
-            click.echo("Loading rules ...")
-            rc = RuleCollection.default()
+    elif not skip_rule_updates:
+        click.echo("Loading rules ...")
+        rc = RuleCollection.default()
 
     if not rc:
         raise ValueError("No rule collection found")
@@ -1448,7 +1444,7 @@ def rule_survey(
         details[rule_id].update(count)
 
         search_count = count["search_count"]
-        if not alert_count and (hide_zero_counts and search_count == 0) or (hide_errors and search_count == -1):
+        if (not alert_count and (hide_zero_counts and search_count == 0)) or (hide_errors and search_count == -1):
             continue
 
         survey_results.append(count)
@@ -1541,7 +1537,7 @@ def show_latest_compatible_version(package: str, stack_version: str) -> None:
     try:
         packages_manifest = load_integrations_manifests()
     except Exception as e:
-        click.echo(f"Error loading integrations manifests: {str(e)}")
+        click.echo(f"Error loading integrations manifests: {e!s}")
         return
 
     try:
@@ -1550,7 +1546,7 @@ def show_latest_compatible_version(package: str, stack_version: str) -> None:
         )
         click.echo(f"Compatible integration {version=}")
     except Exception as e:
-        click.echo(f"Error finding compatible version: {str(e)}")
+        click.echo(f"Error finding compatible version: {e!s}")
         return
 
 
@@ -1733,7 +1729,7 @@ def guide_plugin_convert_(
     """Convert investigation guide plugin format to toml"""
     contents = contents or click.prompt("Enter plugin contents", default=default)
     if not contents:
-        return
+        return None
 
     parsed = re.match(r"!{(?P<plugin>\w+)(?P<data>{.+})}", contents.strip())
     if not parsed:

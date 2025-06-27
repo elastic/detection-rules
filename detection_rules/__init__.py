@@ -7,20 +7,19 @@
 
 import sys
 
-
 assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
 
 from . import (  # noqa: E402
-    custom_schemas,
     custom_rules,
+    custom_schemas,
     devtools,
     docs,
     eswrap,
     ghwrap,
     kbwrap,
     main,
-    ml,
     misc,
+    ml,
     navigator,
     rule_formatter,
     rule_loader,

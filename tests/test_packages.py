@@ -7,13 +7,13 @@
 
 import unittest
 import uuid
-from semver import Version
+
 from marshmallow import ValidationError
+from semver import Version
 
 from detection_rules import rule_loader
-from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
 from detection_rules.packaging import PACKAGE_FILE, Package
-
+from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
 from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()

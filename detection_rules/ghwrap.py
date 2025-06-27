@@ -12,21 +12,20 @@ import json
 import shutil
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
 import click
 import requests
+from github import Github
+from github.GitRelease import GitRelease
+from github.GitReleaseAsset import GitReleaseAsset
+from github.Repository import Repository
 from requests import Response
 
 from .schemas import definitions
-
-from github import Github
-from github.Repository import Repository
-from github.GitRelease import GitRelease
-from github.GitReleaseAsset import GitReleaseAsset
 
 
 def get_gh_release(repo: Repository, release_name: str | None = None, tag_name: str | None = None) -> GitRelease | None:
@@ -35,9 +34,7 @@ def get_gh_release(repo: Repository, release_name: str | None = None, tag_name: 
 
     releases = repo.get_releases()
     for release in releases:
-        if release_name and release_name == release.title:
-            return release
-        elif tag_name and tag_name == release.tag_name:
+        if (release_name and release_name == release.title) or (tag_name and tag_name == release.tag_name):
             return release
 
 
@@ -166,7 +163,7 @@ class AssetManifestMetadata:
     relative_url: str
     entries: dict[str, AssetManifestEntry]
     zipped_sha256: definitions.Sha256
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     description: str | None = None  # populated by GitHub release asset label
 
 
