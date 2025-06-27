@@ -9,11 +9,10 @@ import os
 import re
 import unittest
 import uuid
-import warnings
 from collections import defaultdict
 from pathlib import Path
 
-import eql.ast
+import eql
 import kql
 from marshmallow import ValidationError
 from semver import Version
@@ -169,10 +168,9 @@ class TestValidRules(BaseRuleTest):
         valid_format = re.compile(r"^now-\d+[yMwdhHms]$")
         for rule in self.all_rules:
             from_field = rule.contents.data.get("from_")
-            if from_field is not None:
-                if not valid_format.match(from_field):
-                    err_msg = f"{self.rule_str(rule)} has invalid value {from_field}"
-                    failures.append(err_msg)
+            if from_field and not valid_format.match(from_field):
+                err_msg = f"{self.rule_str(rule)} has invalid value {from_field}"
+                failures.append(err_msg)
         if failures:
             fail_msg = """
             The following rules have invalid 'from' filed value \n
@@ -313,7 +311,7 @@ class TestThreatMappings(BaseRuleTest):
         for rule in self.all_rules:
             threat_mapping = rule.contents.data.threat
             tactics = [t.tactic.name for t in threat_mapping or []]
-            duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
+            duplicates = sorted({t for t in tactics if tactics.count(t) > 1})
 
             if duplicates:
                 self.fail(
@@ -409,10 +407,9 @@ class TestRuleTags(BaseRuleTest):
 
     def test_bbr_tags(self):
         """Test that "Rule Type: BBR" tag is present for all BBR rules."""
-        invalid_bbr_rules = []
-        for rule in self.bbr:
-            if "Rule Type: BBR" not in rule.contents.data.tags:
-                invalid_bbr_rules.append(self.rule_str(rule))
+        invalid_bbr_rules = [
+            self.rule_str(rule) for rule in self.bbr if "Rule Type: BBR" not in rule.contents.data.tags
+        ]
         if invalid_bbr_rules:
             error_rules = "\n".join(invalid_bbr_rules)
             self.fail(f"The following building block rule(s) have missing tag: Rule Type: BBR:\n{error_rules}")
@@ -463,13 +460,11 @@ class TestRuleTags(BaseRuleTest):
         invalid = []
         for rule in self.all_rules:
             dir_name = rule.path.parent.name
-            # if directory name is linux, macos, or windows,
-            # ensure the rule has the corresponding tag
-            if dir_name in ["linux", "macos", "windows"]:
-                if required_tags_map[dir_name] not in rule.contents.data.tags:
-                    err_msg = self.rule_str(rule)
-                    err_msg += f"\n    expected: {required_tags_map[dir_name]}"
-                    invalid.append(err_msg)
+            # if directory name is linux, macos, or windows, ensure the rule has the corresponding tag
+            if dir_name in ["linux", "macos", "windows"] and required_tags_map[dir_name] not in rule.contents.data.tags:
+                err_msg = self.rule_str(rule)
+                err_msg += f"\n    expected: {required_tags_map[dir_name]}"
+                invalid.append(err_msg)
 
         if invalid:
             err_msg = "\n".join(invalid)
@@ -503,12 +498,11 @@ class TestRuleTags(BaseRuleTest):
             note = rule.contents.data.get("note")
             if note is not None:
                 results = re.search(r"Investigating", note, re.M)
-                if results is not None:
-                    # check if investigation guide tag is present
-                    if "Resources: Investigation Guide" not in rule.contents.data.tags:
-                        err_msg = self.rule_str(rule)
-                        err_msg += "\n    expected: Resources: Investigation Guide"
-                        invalid.append(err_msg)
+                # check if investigation guide tag is present
+                if results and "Resources: Investigation Guide" not in rule.contents.data.tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += "\n    expected: Resources: Investigation Guide"
+                    invalid.append(err_msg)
         if invalid:
             err_msg = "\n".join(invalid)
             self.fail(f"Rules with missing Investigation tag:\n{err_msg}")
@@ -519,12 +513,14 @@ class TestRuleTags(BaseRuleTest):
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
-            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
-            [
-                invalid.append(f"{self.rule_str(rule)}-{tag}")
-                for tag in rule_tags
-                if not any(prefix in tag for prefix in expected_prefixes)
-            ]
+            expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
+            invalid.extend(
+                [
+                    f"{self.rule_str(rule)}-{tag}"
+                    for tag in rule_tags
+                    if not any(prefix in tag for prefix in expected_prefixes)
+                ]
+            )
         if invalid:
             self.fail(f"Rules with invalid tags:\n{invalid}")
 
@@ -698,15 +694,6 @@ class TestRuleMetadata(BaseRuleTest):
             err_msg = f"{self.rule_str(rule)} deprecation_date and updated_date should match"
             self.assertEqual(meta["deprecation_date"], meta["updated_date"], err_msg)
 
-        # skip this so the lock file can be shared across branches
-        #
-        # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
-        # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
-        #           f'The following rules have been version locked and are missing. ' \
-        #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        # self.assertEqual([], missing_rules, err_msg)
-
         for rule_id, entry in deprecations.items():
             # if a rule is deprecated and not backported in order to keep the rule active in older branches, then it
             # will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
@@ -768,10 +755,10 @@ class TestRuleMetadata(BaseRuleTest):
         PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
         "Test only applicable to 8.3+ stacks regarding related integrations build time field.",
     )
-    def test_integration_tag(self):
+    def test_integration_tag(self):  # noqa: PLR0912, PLR0915
         """Test integration rules defined by metadata tag."""
         failures = []
-        non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
+        non_dataset_packages = [*definitions.NON_DATASET_PACKAGES, "winlog"]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != "endpoint"]
@@ -787,7 +774,7 @@ class TestRuleMetadata(BaseRuleTest):
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-                package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
+                package_integrations_list = {integration["package"] for integration in package_integrations}
                 indices = data.get("index") or []
                 for rule_integration in rule_integrations:
                     if (
@@ -802,27 +789,28 @@ class TestRuleMetadata(BaseRuleTest):
 
                     # checks if the rule path matches the intended integration
                     # excludes BBR rules
-                    if rule_integration in valid_integration_folders and not hasattr(
-                        rule.contents.data, "building_block_type"
+                    if (
+                        rule_integration in valid_integration_folders
+                        and not hasattr(rule.contents.data, "building_block_type")
+                        and rule.path.parent.name not in rule_integrations
                     ):
-                        if rule.path.parent.name not in rule_integrations:
-                            err_msg = f"{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}"
-                            failures.append(err_msg)
+                        err_msg = f"{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}"
+                        failures.append(err_msg)
 
                     # checks if an index pattern exists if the package integration tag exists
                     # and is of pattern logs-{integration}*
                     integration_string = "|".join(indices)
                     if not re.search(f"logs-{rule_integration}*", integration_string):
                         if (
-                            (rule_integration == "windows"
-                            and re.search("winlog", integration_string))
+                            (rule_integration == "windows" and re.search("winlog", integration_string))
                             or any(
                                 ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                 for ri in rule_integrations
                             )
-                        ) or (rule_integration == "apm" and re.search(
-                            "apm-*-transaction*|traces-apm*", integration_string
-                        )):
+                        ) or (
+                            rule_integration == "apm"
+                            and re.search("apm-*-transaction*|traces-apm*", integration_string)
+                        ):
                             continue
                         if rule.contents.data.type == "threat_match":
                             continue
@@ -840,10 +828,8 @@ class TestRuleMetadata(BaseRuleTest):
                 # checks if rule has index pattern integration and the integration tag exists
                 # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
                 elif any(
-                    [
-                        re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
-                        for i in rule.contents.data.get("index") or []
-                    ]
+                    re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
+                    for i in rule.contents.data.get("index") or []
                 ):
                     if (
                         not rule.contents.metadata.integration
@@ -1037,21 +1023,22 @@ class TestRuleMetadata(BaseRuleTest):
                     continue
                 data = rule.contents.data
                 meta = rule.contents.metadata
-                if meta.query_schema_validation is not False or meta.maturity != "deprecated":
-                    if isinstance(data, QueryRuleData) and data.language != "lucene":
-                        packages_manifest = load_integrations_manifests()
-                        pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+                if (meta.query_schema_validation is not False or meta.maturity != "deprecated") and (
+                    isinstance(data, QueryRuleData) and data.language != "lucene"
+                ):
+                    packages_manifest = load_integrations_manifests()
+                    pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
-                        validation_integrations_check = None
+                    validation_integrations_check = None
 
-                        if pkg_integrations:
-                            # validate the query against related integration fields
-                            validation_integrations_check = test_validator.validate_integration(
-                                data, meta, pkg_integrations
-                            )
+                    if pkg_integrations:
+                        # validate the query against related integration fields
+                        validation_integrations_check = test_validator.validate_integration(
+                            data, meta, pkg_integrations
+                        )
 
-                        if validation_integrations_check and "event.dataset" in rule.contents.data.query:
-                            raise validation_integrations_check
+                    if validation_integrations_check and "event.dataset" in rule.contents.data.query:
+                        raise validation_integrations_check
 
 
 class TestIntegrationRules(BaseRuleTest):
@@ -1073,14 +1060,14 @@ class TestIntegrationRules(BaseRuleTest):
             self.fail(f"The following rules have been improperly demoted:\n{err_msg}")
 
     def test_all_min_stack_rules_have_comment(self):
-        failures = []
-
-        for rule in self.all_rules:
-            if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments:
-                failures.append(
-                    f"{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: "
-                    f"{rule.contents.metadata.min_stack_version}"
-                )
+        failures = [
+            (
+                f"{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: "
+                f"{rule.contents.metadata.min_stack_version}"
+            )
+            for rule in self.all_rules
+            if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments
+        ]
 
         if failures:
             err_msg = "\n".join(failures)
@@ -1138,11 +1125,11 @@ class TestRuleTiming(BaseRuleTest):
 
     def test_event_override(self):
         """Test that timestamp_override is properly applied to rules."""
-        # kql: always require (fallback to @timestamp enabled)
-        # eql:
-        #   sequences: never
-        #   min_stack_version >= 8.2: any - fallback to @timestamp enabled https://github.com/elastic/kibana/pull/127989
-        #  if 'event.ingested' is missing, '@timestamp' will be default
+        # when kql: always require (fallback to @timestamp enabled)
+        # when eql:
+        # - sequences: never
+        # - min_stack_version >= 8.2: any - fallback to @timestamp enabled https://github.com/elastic/kibana/pull/127989
+        # - if 'event.ingested' is missing, '@timestamp' will be default
         errors = []
 
         for rule in self.all_rules:
@@ -1173,9 +1160,12 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             contents = rule.contents
 
-            if isinstance(contents.data, QueryRuleData):
-                if set(getattr(contents.data, "index", None) or []) & long_indexes and not contents.data.from_:
-                    missing.append(rule)
+            if (
+                isinstance(contents.data, QueryRuleData)
+                and (set(getattr(contents.data, "index", None) or []) & long_indexes)
+                and not contents.data.from_
+            ):
+                missing.append(rule)
 
         if missing:
             rules_str = "\n ".join(self.rule_str(r, trailer=None) for r in missing)
@@ -1204,7 +1194,7 @@ class TestRuleTiming(BaseRuleTest):
 
         if unknowns:
             warn_str = "\n".join(unknowns)
-            warnings.warn(f"Unable to determine lookbacks for the following rules:\n{warn_str}")
+            print(f"WARNING: Unable to determine lookbacks for the following rules:\n{warn_str}")
 
         if invalids:
             invalids_str = "\n".join(invalids)
@@ -1286,9 +1276,12 @@ class TestBuildTimeFields(BaseRuleTest):
                 # change which is different because of the build time fields.
                 # This also ensures that the introduced version is greater than the min supported, in order to age off
                 # old and unneeded checks. (i.e. 8.3.0 < 8.9.0 min supported, so it is irrelevant now)
-                if start_ver is not None and current_stack_ver >= start_ver >= min_supported_stack_version:
-                    if min_stack is None or not Version.parse(min_stack) >= start_ver:
-                        errors.append(f"{build_field} >= {start_ver}")
+                if (
+                    start_ver
+                    and current_stack_ver >= start_ver >= min_supported_stack_version
+                    and (min_stack is None or not Version.parse(min_stack) >= start_ver)
+                ):
+                    errors.append(f"{build_field} >= {start_ver}")
 
             if errors:
                 err_str = ", ".join(errors)
@@ -1359,13 +1352,11 @@ class TestInvestigationGuide(BaseRuleTest):
         errors = []
         for rule in self.all_rules.rules:
             note = rule.contents.data.get("note")
-            if note is not None:
-                # Check if `### Investigating` is present and if so,
-                # check if it is followed by the rule name.
-                if "### Investigating" in note:
-                    results = re.search(rf"### Investigating\s+{re.escape(rule.name)}", note, re.I | re.M)
-                    if results is None:
-                        errors.append(f"{self.rule_str(rule)} investigation guide does not use rule name in the title")
+            # Check if `### Investigating` is present and if so, check if it is followed by the rule name.
+            if note and "### Investigating" in note:
+                results = re.search(rf"### Investigating\s+{re.escape(rule.name)}", note, re.I | re.M)
+                if results is None:
+                    errors.append(f"{self.rule_str(rule)} investigation guide does not use rule name in the title")
         if errors:
             self.fail("\n".join(errors))
 
@@ -1489,18 +1480,17 @@ class TestAlertSuppression(BaseRuleTest):
                     for ints in integration_tag:
                         integration_schema = integration_schemas[ints]
                         int_schema = integration_schema[list(integration_schema.keys())[-1]]
-                        for data_source in int_schema.keys():
+                        for data_source in int_schema:
                             schema.update(**int_schema[data_source])
                 for fld in group_by_fields:
-                    if fld not in schema.keys():
+                    if fld not in schema:
                         self.fail(
                             f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas"
                         )
 
     @unittest.skipIf(
-        PACKAGE_STACK_VERSION < Version.parse("8.14.0")
-        or PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),
+        PACKAGE_STACK_VERSION < Version.parse("8.14.0") or PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),
         "Test is applicable to 8.14 --> 8.17 stacks for eql non-sequence rule alert suppression feature.",
     )
     def test_eql_non_sequence_support_only(self):

@@ -80,7 +80,7 @@ class TestHuntIndex(unittest.TestCase):
 
     def test_mitre_techniques_present(self):
         """Ensure each query has at least one MITRE technique."""
-        for folder, queries in self.hunting_index.items():
+        for queries in self.hunting_index.values():
             for query_uuid, query_data in queries.items():
                 self.assertTrue(
                     query_data.get("mitre"),
@@ -91,8 +91,8 @@ class TestHuntIndex(unittest.TestCase):
         """Ensure each query entry has a valid structure."""
         required_fields = ["name", "path", "mitre"]
 
-        for folder, queries in self.hunting_index.items():
-            for query_uuid, query_data in queries.items():
+        for queries in self.hunting_index.values():
+            for query_data in queries.values():
                 for field in required_fields:
                     self.assertIn(field, query_data, f"Missing field '{field}' in query: {query_data}")
 
@@ -102,10 +102,8 @@ class TestHuntIndex(unittest.TestCase):
         all_toml_data = load_all_toml(HUNTING_DIR)
         uuids = [hunt.uuid for hunt, path in all_toml_data]
 
-        for folder, queries in self.hunting_index.items():
-            for query_uuid in queries:
-                if query_uuid not in uuids:
-                    missing_index_entries.append(query_uuid)
+        for queries in self.hunting_index.values():
+            missing_index_entries.extend([query_uuid for query_uuid in queries if query_uuid not in uuids])
 
         self.assertFalse(
             missing_index_entries, f"Missing index entries for the following queries: {missing_index_entries}"

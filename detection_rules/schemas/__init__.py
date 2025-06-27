@@ -11,8 +11,9 @@ from typing import Any
 import jsonschema
 from semver import Version
 
-from ..config import load_current_package_version, parse_rules_config
-from ..utils import cached, get_etc_path
+from detection_rules.config import load_current_package_version, parse_rules_config
+from detection_rules.utils import cached, get_etc_path
+
 from . import definitions
 from .stack_compat import get_incompatible_fields
 
@@ -47,7 +48,8 @@ def migrate(version: str) -> Callable[[MigratedFuncT], MigratedFuncT]:
     _ = Version.parse(version, optional_minor_and_patch=True)
 
     def wrapper(f: MigratedFuncT) -> MigratedFuncT:
-        assert version not in migrations
+        if version in migrations:
+            raise ValueError("Version found in migrations")
         migrations[version] = f
         return f
 
@@ -70,7 +72,7 @@ def strip_additional_properties(version: Version, api_contents: dict[str, Any]) 
     stripped: dict[str, Any] = {}
     target_schema = get_schema_file(version, api_contents["type"])
 
-    for field, _ in target_schema["properties"].items():
+    for field in target_schema["properties"]:
         if field in api_contents:
             stripped[field] = api_contents[field]
 
@@ -111,14 +113,14 @@ def downgrade_threat_to_7_10(version: Version, api_contents: dict[str, Any]) -> 
             if "technique" not in threat:
                 continue
 
-            threat = threat.copy()
-            threat["technique"] = [t.copy() for t in threat["technique"]]
+            threat_copy = threat.copy()
+            threat_copy["technique"] = [t.copy() for t in threat_copy["technique"]]
 
             # drop subtechniques
-            for technique in threat["technique"]:
+            for technique in threat_copy["technique"]:
                 technique.pop("subtechnique", None)
 
-            v710_threats.append(threat)
+            v710_threats.append(threat_copy)
 
         api_contents = api_contents.copy()
         api_contents.pop("threat")
@@ -321,7 +323,7 @@ def downgrade(
     api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None
 ) -> dict[str, Any]:
     """Downgrade a rule to a target stack version."""
-    from ..packaging import current_stack_version
+    from ..packaging import current_stack_version  # noqa: TID252
 
     current_version = current_version_val or current_stack_version()
 
@@ -366,8 +368,7 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     if stack_version > current_package:
         versions[stack_version] = {"beats": "main", "ecs": "master"}
 
-    versions_reversed = OrderedDict(sorted(versions.items(), reverse=True))
-    return versions_reversed
+    return OrderedDict(sorted(versions.items(), reverse=True))
 
 
 def get_stack_versions(drop_patch: bool = False) -> list[str]:
@@ -386,5 +387,4 @@ def get_stack_versions(drop_patch: bool = False) -> list[str]:
 def get_min_supported_stack_version() -> Version:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
-    min_version = min([Version.parse(v) for v in list(stack_map)])
-    return min_version
+    return min([Version.parse(v) for v in list(stack_map)])

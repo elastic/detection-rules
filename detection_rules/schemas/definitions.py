@@ -218,24 +218,26 @@ StoreType = Literal["appState", "globalState"]
 TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
-nonEmptyStringField = fields.String(validate=validate.Length(min=1))
-NonEmptyStr = Annotated[str, nonEmptyStringField]
+NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
+NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
 
 AlertSuppressionGroupBy = Annotated[
-    list[NonEmptyStr], fields.List(nonEmptyStringField, validate=validate.Length(min=1, max=3))
+    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 AlertSuppressionMissing = Annotated[str, fields.String(validate=validate.OneOf(["suppress", "doNotSuppress"]))]
 AlertSuppressionValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 BranchVer = Annotated[str, fields.String(validate=validate.Regexp(BRANCH_PATTERN))]
 CardinalityFields = Annotated[
     list[NonEmptyStr],
-    fields.List(nonEmptyStringField, validate=validate.Length(min=0, max=3)),
+    fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=0, max=3)),
 ]
 ConditionSemVer = Annotated[str, fields.String(validate=validate.Regexp(CONDITION_VERSION_PATTERN))]
 Date = Annotated[str, fields.String(validate=validate.Regexp(DATE_PATTERN))]
 Interval = Annotated[str, fields.String(validate=validate.Regexp(INTERVAL_PATTERN))]
 MaxSignals = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-NewTermsFields = Annotated[list[NonEmptyStr], fields.List(nonEmptyStringField, validate=validate.Length(min=1, max=3))]
+NewTermsFields = Annotated[
+    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
+]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]

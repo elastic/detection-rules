@@ -86,8 +86,7 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
                 "language": "eql",
             },
         }
-        sample_rule = rc.load_dict(windows_rule)
-        return sample_rule
+        return rc.load_dict(windows_rule)
 
     def test_transform_guide_markdown_plugins(self) -> None:
         sample_rule = self.load_rule()

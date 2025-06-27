@@ -25,7 +25,7 @@ class TestPackages(BaseRuleTest):
     @staticmethod
     def get_test_rule(version=1, count=1):
         def get_rule_contents():
-            contents = {
+            return {
                 "author": ["Elastic"],
                 "description": "test description",
                 "language": "kuery",
@@ -37,7 +37,6 @@ class TestPackages(BaseRuleTest):
                 "severity": "low",
                 "type": "query",
             }
-            return contents
 
         rules = [rule_loader.TOMLRule("test.toml", get_rule_contents()) for i in range(count)]
         version_info = {
@@ -67,7 +66,6 @@ class TestPackages(BaseRuleTest):
         self.maxDiff = None
         rules = self.rc
         original_hashes = []
-        post_bump_hashes = []
 
         # test that no rules have versions defined
         for rule in rules:
@@ -77,13 +75,12 @@ class TestPackages(BaseRuleTest):
         package = Package(rules, "test-package")
 
         # test that all rules have versions defined
-        # package.bump_versions(save_changes=False)
         for rule in package.rules:
             self.assertGreaterEqual(rule.contents.autobumped_version, 1, "{} - {}: version is not being set in package")
 
         # test that rules validate with version
-        for rule in package.rules:
-            post_bump_hashes.append(rule.contents.get_hash())
+
+        post_bump_hashes = [rule.contents.get_hash() for rule in package.rules]
 
         # test that no hashes changed as a result of the version bumps
         self.assertListEqual(original_hashes, post_bump_hashes, "Version bumping modified the hash of a rule")

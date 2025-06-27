@@ -14,7 +14,7 @@ from .utils import load_index_file, load_toml, save_index_file, validate_link
 class MarkdownGenerator:
     """Class to generate or update Markdown documentation from TOML or YAML files."""
 
-    def __init__(self, base_path: Path):
+    def __init__(self, base_path: Path) -> None:
         """Initialize with the base path and load the hunting index."""
         self.base_path = base_path
         self.hunting_index = load_index_file()

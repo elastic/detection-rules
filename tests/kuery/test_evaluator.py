@@ -7,23 +7,20 @@ import unittest
 
 import kql
 
+document = {
+    "number": 1,
+    "boolean": True,
+    "ip": "192.168.16.3",
+    "string": "hello world",
+    "string_list": ["hello world", "example"],
+    "number_list": [1, 2, 3],
+    "boolean_list": [True, False],
+    "structured": [{"a": [{"b": 1}]}],
+}
 
 class EvaluatorTests(unittest.TestCase):
-    document = {
-        "number": 1,
-        "boolean": True,
-        "ip": "192.168.16.3",
-        "string": "hello world",
-        "string_list": ["hello world", "example"],
-        "number_list": [1, 2, 3],
-        "boolean_list": [True, False],
-        "structured": [{"a": [{"b": 1}]}],
-    }
 
-    def evaluate(self, source_text, document=None):
-        if document is None:
-            document = self.document
-
+    def evaluate(self, source_text):
         evaluator = kql.get_evaluator(source_text, optimize=False)
         return evaluator(document)
 

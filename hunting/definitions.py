@@ -34,7 +34,7 @@ class Hunt:
     mitre: list[str] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     references: list[str] | None = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Post-initialization to determine which validation to apply."""
         if not self.query:
             raise ValueError(f"Hunt: {self.name} - Query field must be provided.")
@@ -59,5 +59,6 @@ class Hunt:
             # Check if either "stats by" or "| keep" exists in the query
             if not stats_by_pattern.search(query) and not keep_pattern.search(query):
                 raise ValueError(
-                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions."
+                    f"Hunt: {self.name} contains an ES|QL query that must"
+                    "contain either 'stats by' or 'keep' functions."
                 )

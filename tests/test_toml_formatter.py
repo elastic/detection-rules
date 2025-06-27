@@ -22,7 +22,7 @@ class TestRuleTomlFormatter(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-        with open(get_etc_path(["test_toml.json"])) as f:
+        with get_etc_path(["test_toml.json"]).open() as f:
             self.test_data = json.load(f)
 
     def compare_formatted(self, data, callback=None, kwargs=None):
@@ -72,13 +72,3 @@ class TestRuleTomlFormatter(unittest.TestCase):
     def test_formatter_deep(self):
         """Test that the data remains unchanged from formatting."""
         self.compare_test_data(self.test_data[1:])
-
-    #
-    # def test_format_of_all_rules(self):
-    #     """Test all rules."""
-    #     rules = rule_loader.load_rules().values()
-    #
-    #     for rule in rules:
-    #         is_eql_rule = isinstance(rule.contents.data, EQLRuleData)
-    #         self.compare_formatted(
-    #             rule.rule_format(formatted_query=False), callback=nested_normalize, kwargs={'eql_rule': is_eql_rule})
