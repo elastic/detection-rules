@@ -12,7 +12,7 @@ import re
 from collections import OrderedDict, defaultdict
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import kql  # type: ignore[reportMissingTypeStubs]
 import requests
@@ -26,9 +26,14 @@ from .config import load_current_package_version
 from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
+if TYPE_CHECKING:
+    from .rule import QueryRuleData, RuleMeta
+
+
 MANIFEST_FILE_PATH = get_etc_path(["integration-manifests.json.gz"])
 DEFAULT_MAX_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
+
 
 _notified_integrations: set[str] = set()
 
@@ -56,7 +61,7 @@ class IntegrationManifestSchema(Schema):
     owner = fields.Dict(required=False)
 
     @post_load
-    def transform_policy_template(self, data: dict[str, Any], **_: Any):
+    def transform_policy_template(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
         if "policy_templates" in data:
             data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
         return data
@@ -64,7 +69,7 @@ class IntegrationManifestSchema(Schema):
 
 def build_integrations_manifest(
     overwrite: bool,
-    rule_integrations: list[str] = [],
+    rule_integrations: list[str] = [],  # noqa: B006
     integration: str | None = None,
     prerelease: bool = False,
 ) -> None:
@@ -75,31 +80,30 @@ def build_integrations_manifest(
         with gzip.open(MANIFEST_FILE_PATH, "wb") as f:
             _ = f.write(manifest_file_bytes)
 
-    if overwrite:
-        if MANIFEST_FILE_PATH.exists():
-            MANIFEST_FILE_PATH.unlink()
+    if overwrite and MANIFEST_FILE_PATH.exists():
+        MANIFEST_FILE_PATH.unlink()
 
-    final_integration_manifests: dict[str, dict[str, Any]] = dict()
+    final_integration_manifests: dict[str, dict[str, Any]] = {}
     if rule_integrations:
-        final_integration_manifests = {integration: dict() for integration in rule_integrations}
+        final_integration_manifests = {integration: {} for integration in rule_integrations}
     elif integration:
-        final_integration_manifests = {integration: dict()}
+        final_integration_manifests = {integration: {}}
         rule_integrations = [integration]
 
-    for integration in rule_integrations:
-        integration_manifests = get_integration_manifests(integration, prerelease=prerelease)
+    for _integration in rule_integrations:
+        integration_manifests = get_integration_manifests(_integration, prerelease=prerelease)
         for manifest in integration_manifests:
             validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(manifest)  # type: ignore[reportUnknownVariableType]
-            package_version = validated_manifest.pop("version")  # type: ignore
-            final_integration_manifests[integration][package_version] = validated_manifest
+            package_version = validated_manifest.pop("version")  # type: ignore[reportOptionalMemberAccess]
+            final_integration_manifests[_integration][package_version] = validated_manifest
 
     if overwrite and rule_integrations:
         write_manifests(final_integration_manifests)
     elif integration and not overwrite:
-        manifest_file = gzip.open(MANIFEST_FILE_PATH, "rb")
-        manifest_file_bytes = manifest_file.read()
+        with gzip.open(MANIFEST_FILE_PATH, "rb") as manifest_file:
+            manifest_file_bytes = manifest_file.read()
+
         manifest_file_contents = json.loads(manifest_file_bytes.decode("utf-8"))
-        manifest_file.close()
         manifest_file_contents[integration] = final_integration_manifests[integration]
         write_manifests(manifest_file_contents)
 
@@ -140,7 +144,7 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
 
             # Download the zip file
             download_url = f"https://epr.elastic.co{manifest['download']}"
-            response = requests.get(download_url)
+            response = requests.get(download_url, timeout=30)
             response.raise_for_status()
 
             # Update the final integration schemas
@@ -163,11 +167,12 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
                         final_integration_schemas[package][version][integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
                     # add machine learning jobs to the schema
-                    if package in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
-                        if fnmatch.fnmatch(file, "*/ml_module/*ml.json"):
-                            ml_module = json.loads(file_data_bytes)
-                            job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
-                            final_integration_schemas[package][version]["jobs"] = job_ids
+                    if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
+                        file, "*/ml_module/*ml.json"
+                    ):
+                        ml_module = json.loads(file_data_bytes)
+                        job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
+                        final_integration_schemas[package][version]["jobs"] = job_ids
 
                     del file_data_bytes
 
@@ -186,14 +191,13 @@ def find_least_compatible_version(
     packages_manifest: dict[str, Any],
 ) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = {
-        k: v for k, v in sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0]))
-    }
+    integration_manifests = dict(sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0])))
     stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(
-        list(set([Version.parse(manifest_version).major for manifest_version in integration_manifests])), reverse=True
+        {Version.parse(manifest_version).major for manifest_version in integration_manifests},
+        reverse=True,
     )
     for max_major in major_versions:
         major_integration_manifests = {
@@ -209,11 +213,10 @@ def find_least_compatible_version(
                 " || "
             )
             for kibana_ver in compatible_versions:
-                kibana_ver = Version.parse(kibana_ver)
+                _kibana_ver = Version.parse(kibana_ver)
                 # check versions have the same major
-                if kibana_ver.major == stack_version.major:
-                    if kibana_ver <= stack_version:
-                        return f"^{version}"
+                if _kibana_ver.major == stack_version.major and _kibana_ver <= stack_version:
+                    return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
@@ -278,10 +281,7 @@ def get_integration_manifests(
 ) -> list[Any]:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
-    if not prerelease:
-        prerelease_str = "false"
-    else:
-        prerelease_str = "true"
+    prerelease_str = "true" if prerelease else "false"
 
     # link for search parameters - https://github.com/elastic/package-registry
     epr_search_parameters = {
@@ -309,7 +309,7 @@ def get_integration_manifests(
 
 def find_latest_integration_version(integration: str, maturity: str, stack_version: Version) -> Version:
     """Finds the latest integration version based on maturity and stack version"""
-    prerelease = False if maturity == "ga" else True
+    prerelease = maturity != "ga"
     existing_pkgs = get_integration_manifests(integration, prerelease, str(stack_version))
     if maturity == "ga":
         existing_pkgs = [pkg for pkg in existing_pkgs if not Version.parse(pkg["version"]).prerelease]
@@ -326,14 +326,8 @@ def get_integration_schema_data(
 ) -> Iterator[dict[str, Any]]:
     """Iterates over specified integrations from package-storage and combines schemas per version."""
 
-    # lazy import to avoid circular import
-    from .rule import (
-        QueryRuleData,
-        RuleMeta,
-    )
-
-    data: QueryRuleData = data  # type: ignore[reportAssignmentType]
-    meta: RuleMeta = meta
+    data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
+    meta: RuleMeta = meta  # noqa: PLW0127
 
     packages_manifest = load_integrations_manifests()
     integrations_schemas = load_integrations_schemas()
@@ -376,7 +370,7 @@ def get_integration_schema_data(
                 }
 
 
-def get_integration_schema_fields(
+def get_integration_schema_fields(  # noqa: PLR0913
     integrations_schemas: dict[str, Any],
     package: str,
     integration: str,
@@ -385,12 +379,7 @@ def get_integration_schema_fields(
     ecs_schema: dict[str, Any],
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
-    # lazy import to avoid circular import
-    from .rule import (
-        QueryRuleData,
-    )
-
-    data: QueryRuleData = data  # type: ignore[reportAssignmentType]
+    data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     """Extracts the integration fields to schema based on package integrations."""
     package_version, notice = find_latest_compatible_version(package, integration, min_stack, packages_manifest)
     notify_user_if_update_available(data, notice, integration)
@@ -409,14 +398,8 @@ def notify_user_if_update_available(
 ) -> None:
     """Notifies the user if an update is available, only once per integration."""
 
-    # lazy import to avoid circular import
-    from .rule import (
-        QueryRuleData,
-    )
+    data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
 
-    data: QueryRuleData = data  # type: ignore[reportAssignmentType]
-
-    global _notified_integrations
     if notice and data.get("notify", False) and integration not in _notified_integrations:
         # flag to only warn once per integration for available upgrades
         _notified_integrations.add(integration)
@@ -449,9 +432,9 @@ def collect_schema_fields(
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations: list[dict[str, Any]] = []
-    for value in sorted(datasets):
+    for _value in sorted(datasets):
         # cleanup extra quotes pulled from ast field
-        value = value.strip('"')
+        value = _value.strip('"')
 
         integration = "Unknown"
         if "." in value:
@@ -471,7 +454,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
 class SecurityDetectionEngine:
     """Dedicated to Security Detection Engine integration."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.epr_url = "https://epr.elastic.co/package/security_detection_engine/"
 
     def load_integration_assets(self, package_version: Version) -> dict[str, Any]:
@@ -482,17 +465,18 @@ class SecurityDetectionEngine:
         epr_response.raise_for_status()
         package_obj = epr_response.json()
         zip_url = f"https://epr.elastic.co{package_obj['download']}"
-        zip_response = requests.get(zip_url)
+        zip_response = requests.get(zip_url, timeout=30)
         with unzip(zip_response.content) as zip_package:
             asset_file_names = [asset for asset in zip_package.namelist() if "json" in asset]
-            assets = {
+            return {
                 x.split("/")[-1].replace(".json", ""): json.loads(zip_package.read(x).decode("utf-8"))
                 for x in asset_file_names
             }
-        return assets
 
     def keep_latest_versions(
-        self, assets: dict[str, Any], num_versions: int = DEFAULT_MAX_RULE_VERSIONS
+        self,
+        assets: dict[str, Any],
+        num_versions: int = DEFAULT_MAX_RULE_VERSIONS,
     ) -> dict[str, Any]:
         """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
 
@@ -511,7 +495,7 @@ class SecurityDetectionEngine:
         # Keep only the last/latest num_versions versions for each rule
         # Sort versions and take the last num_versions
         # Add the latest versions of the rule to the filtered assets
-        for base_id, versions in rule_versions.items():
+        for versions in rule_versions.values():
             latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
             for _, key in latest_versions:
                 filtered_assets[key] = assets[key]

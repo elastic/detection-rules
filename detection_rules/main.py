@@ -6,14 +6,13 @@
 """CLI commands for detection_rules."""
 
 import dataclasses
-import glob
 import json
 import os
 import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 from uuid import uuid4
 
 import click
@@ -32,7 +31,7 @@ from .config import load_current_package_version, parse_rules_config
 from .exception import TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
 from .generic_loader import GenericCollection
 from .misc import add_client, nested_set, parse_user_config, raise_client_error
-from .rule import QueryRuleData, TOMLRule, TOMLRuleContents
+from .rule import DeprecatedRule, QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
@@ -46,6 +45,9 @@ from .utils import (
     rulename_to_filename,
 )
 
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
+
 RULES_CONFIG = parse_rules_config()
 RULES_DIRS = RULES_CONFIG.rule_dirs
 
@@ -54,7 +56,7 @@ RULES_DIRS = RULES_CONFIG.rule_dirs
     "detection-rules",
     context_settings={
         "help_option_names": ["-h", "--help"],
-        "max_content_width": int(os.getenv("DR_CLI_MAX_WIDTH", 240)),
+        "max_content_width": int(os.getenv("DR_CLI_MAX_WIDTH", 240)),  # noqa: PLW1508
     },
 )
 @click.option(
@@ -65,7 +67,7 @@ RULES_DIRS = RULES_CONFIG.rule_dirs
     help="Print full exception stacktrace on errors",
 )
 @click.pass_context
-def root(ctx: click.Context, debug: bool):
+def root(ctx: click.Context, debug: bool) -> None:
     """Commands for detection-rules repository."""
     debug = debug if debug else parse_user_config().get("debug")
     ctx.obj = {"debug": debug, "rules_config": RULES_CONFIG}
@@ -82,7 +84,7 @@ def root(ctx: click.Context, debug: bool):
 @click.option(
     "--rule-type", "-t", type=click.Choice(sorted(TOMLRuleContents.all_rule_types())), help="Type of rule to create"
 )
-def create_rule(path: Path, config: Path, required_only: bool, rule_type: str):
+def create_rule(path: Path, config: Path, required_only: bool, rule_type: str):  # noqa: ANN201
     """Create a detection rule."""
     contents: dict[str, Any] = load_rule_contents(config, single_only=True)[0] if config else {}
     return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
@@ -92,7 +94,12 @@ def create_rule(path: Path, config: Path, required_only: bool, rule_type: str):
 @click.option("--query", "-q", help="Optional KQL query to limit to specific rules")
 @click.option("--overwrite", is_flag=True, help="Overwrite files in an existing folder")
 @click.pass_context
-def generate_rules_index(ctx: click.Context, query: str, overwrite: bool, save_files: bool = True):
+def generate_rules_index(
+    ctx: click.Context,
+    query: str,
+    overwrite: bool,
+    save_files: bool = True,
+) -> tuple[Ndjson, Ndjson]:
     """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
     from .packaging import Package
 
@@ -150,7 +157,7 @@ def generate_rules_index(ctx: click.Context, query: str, overwrite: bool, save_f
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
-def import_rules_into_repo(
+def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     input_file: tuple[Path, ...] | None,
     required_only: bool,
     action_connector_import: bool,
@@ -164,12 +171,16 @@ def import_rules_into_repo(
     strip_none_values: bool,
     local_creation_date: bool,
     local_updated_date: bool,
-):
+) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors: list[str] = []
-    rule_files = glob.glob(os.path.join(str(directory), "**", "*.*"), recursive=True) if directory else []
+
+    rule_files: list[Path] = []
+    if directory:
+        rule_files = list(directory.glob("**/*.*"))
+
     if input_file:
-        rule_files = sorted(set(rule_files + list(input_file)))
+        rule_files = sorted({*rule_files, *input_file})
 
     file_contents: list[Any] = []
     for rule_file in rule_files:
@@ -199,7 +210,7 @@ def import_rules_into_repo(
         base_path = rulename_to_filename(base_path) if base_path else base_path
         if base_path is None:
             raise ValueError(f"Invalid rule file, please ensure the rule has a name field: {contents}")
-        rule_path = Path(os.path.join(str(save_directory) if save_directory else RULES_DIRS[0], base_path))
+        rule_path = Path(os.path.join(str(save_directory) if save_directory else RULES_DIRS[0], base_path))  # noqa: PTH118
 
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
@@ -286,8 +297,8 @@ def import_rules_into_repo(
     click.echo(f"{exceptions_count} exceptions exported")
     click.echo(f"{len(action_connectors)} actions connectors exported")
     if errors:
-        dir = save_directory if save_directory else RULES_DIRS[0]
-        err_file = dir / "_errors.txt"
+        _dir = save_directory if save_directory else RULES_DIRS[0]
+        err_file = _dir / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
         click.echo(f"{len(errors)} errors saved to {err_file}")
 
@@ -300,7 +311,7 @@ def import_rules_into_repo(
     help="Version to downgrade to be compatible with the older instance of Kibana",
 )
 @click.option("--output-file", "-o", type=click.Path(dir_okay=False, exists=False), required=True)
-def build_limited_rules(stack_version: str, output_file: str):
+def build_limited_rules(stack_version: str, output_file: str) -> None:
     """
     Import rules from json, toml, or Kibana exported rule file(s),
     filter out unsupported ones, and write to output NDJSON file.
@@ -326,7 +337,7 @@ def build_limited_rules(stack_version: str, output_file: str):
     api_schema = get_schema_file(stack_version, "base")["properties"]["type"]["enum"]
 
     # Function to process each rule
-    def process_rule(rule: TOMLRule, incompatible_fields: list[str]):
+    def process_rule(rule: TOMLRule, incompatible_fields: list[str]) -> dict[str, Any] | None:
         if rule.contents.type not in api_schema:
             click.secho(
                 f"{rule.contents.name} - Skipping unsupported rule type: {rule.contents.get('type')}", fg="yellow"
@@ -360,7 +371,7 @@ def build_limited_rules(stack_version: str, output_file: str):
     type=click.Path(exists=True, path_type=Path),
     help="Specify one or more rule files.",
 )
-def toml_lint(rule_file: list[Path]):
+def toml_lint(rule_file: list[Path]) -> None:
     """Cleanup files with some simple toml formatting."""
     if rule_file:
         rules = RuleCollection()
@@ -389,12 +400,16 @@ def toml_lint(rule_file: list[Path]):
 )
 @click.pass_context
 def mass_update(
-    ctx: click.Context, query: str, metadata: bool, language: Literal["eql", "kql"], field: tuple[str, str]
-):
+    ctx: click.Context,
+    query: str,
+    metadata: bool,
+    language: Literal["eql", "kql"],
+    field: tuple[str, str],
+) -> Any:
     """Update multiple rules based on eql results."""
     rules = RuleCollection().default()
     results = ctx.invoke(search_rules, query=query, language=language, verbose=False)
-    matching_ids = set(r["rule_id"] for r in results)
+    matching_ids = {r["rule_id"] for r in results}
     rules = rules.filter(lambda r: r.id in matching_ids)
 
     for rule in rules:
@@ -416,7 +431,7 @@ def mass_update(
 @click.argument("rule-file", type=Path)
 @click.option("--api-format/--rule-format", default=True, help="Print the rule in final api or rule format")
 @click.pass_context
-def view_rule(_: click.Context, rule_file: Path, api_format: str):
+def view_rule(_: click.Context, rule_file: Path, api_format: str) -> TOMLRule | DeprecatedRule:
     """View an internal rule or specified rule file."""
     rule = RuleCollection().load_file(rule_file)
 
@@ -428,7 +443,7 @@ def view_rule(_: click.Context, rule_file: Path, api_format: str):
     return rule
 
 
-def _export_rules(
+def _export_rules(  # noqa: PLR0913
     rules: RuleCollection,
     outfile: Path,
     downgrade_version: definitions.SemVer | None = None,
@@ -437,7 +452,7 @@ def _export_rules(
     include_metadata: bool = False,
     include_action_connectors: bool = False,
     include_exceptions: bool = False,
-):
+) -> None:
     """Export rules and exceptions into a consolidated ndjson file."""
     from .rule import downgrade_contents_from_rule
 
@@ -522,7 +537,7 @@ def _export_rules(
 @click.option(
     "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
 )
-def export_rules_from_repo(
+def export_rules_from_repo(  # noqa: PLR0913
     rules: RuleCollection,
     outfile: Path,
     replace_id: bool,
@@ -533,7 +548,8 @@ def export_rules_from_repo(
     include_exceptions: bool,
 ) -> RuleCollection:
     """Export rule(s) and exception(s) into an importable ndjson file."""
-    assert len(rules) > 0, "No rules found"
+    if len(rules) == 0:
+        raise ValueError("No rules found")
 
     if replace_id:
         # if we need to replace the id, take each rule object and create a copy
@@ -563,7 +579,7 @@ def export_rules_from_repo(
 @root.command("validate-rule")
 @click.argument("path")
 @click.pass_context
-def validate_rule(_: click.Context, path: str):
+def validate_rule(_: click.Context, path: str) -> TOMLRule | DeprecatedRule:
     """Check if a rule staged in rules dir validates against a schema."""
     rule = RuleCollection().load_file(Path(path))
     click.echo("Rule validation successful")
@@ -571,7 +587,7 @@ def validate_rule(_: click.Context, path: str):
 
 
 @root.command("validate-all")
-def validate_all():
+def validate_all() -> None:
     """Check if all rules validates against a schema."""
     _ = RuleCollection.default()
     click.echo("Rule validation successful")
@@ -582,7 +598,7 @@ def validate_all():
 @click.option("--columns", "-c", multiple=True, help="Specify columns to add the table")
 @click.option("--language", type=click.Choice(["eql", "kql"]), default="kql")
 @click.option("--count", is_flag=True, help="Return a count rather than table")
-def search_rules(
+def search_rules(  # noqa: PLR0913
     query: str | None,
     columns: list[str],
     language: Literal["eql", "kql"],
@@ -590,7 +606,7 @@ def search_rules(
     verbose: bool = True,
     rules: dict[str, TOMLRule] | None = None,
     pager: bool = False,
-):
+) -> list[dict[str, Any]]:
     """Use KQL or EQL to find matching rules."""
     from eql import parse_query  # type: ignore[reportMissingTypeStubs]
     from eql.build import get_engine  # type: ignore[reportMissingTypeStubs]
@@ -648,10 +664,7 @@ def search_rules(
         click.echo(f"{len(filtered)} rules")
         return filtered
 
-    if columns:
-        columns = ",".join(columns).split(",")
-    else:
-        columns = ["rule_id", "file", "name"]
+    columns = ",".join(columns).split(",") if columns else ["rule_id", "file", "name"]
 
     table: Table = Table.from_list(columns, filtered)  # type: ignore[reportUnknownMemberType]
 
@@ -664,7 +677,7 @@ def search_rules(
 @root.command("build-threat-map-entry")
 @click.argument("tactic")
 @click.argument("technique-ids", nargs=-1)
-def build_threat_map(tactic: str, technique_ids: Iterable[str]):
+def build_threat_map(tactic: str, technique_ids: Iterable[str]) -> dict[str, Any]:
     """Build a threat map entry."""
     entry = build_threat_map_entry(tactic, *technique_ids)
     rendered = pytoml.dumps({"rule": {"threat": [entry]}})  # type: ignore[reportUnknownMemberType]
@@ -676,7 +689,7 @@ def build_threat_map(tactic: str, technique_ids: Iterable[str]):
 
 @root.command("test")
 @click.pass_context
-def test_rules(ctx: click.Context):
+def test_rules(ctx: click.Context) -> None:
     """Run unit tests over all of the rules."""
     import pytest
 
@@ -690,13 +703,13 @@ def test_rules(ctx: click.Context):
 
     clear_caches()
     if tests:
-        ctx.exit(pytest.main(["-v"] + tests))
+        ctx.exit(pytest.main(["-v", *tests]))
     else:
         click.echo("No tests found to execute!")
 
 
 @root.group("typosquat")
-def typosquat_group():
+def typosquat_group() -> None:
     """Commands for generating typosquat detections."""
 
 
@@ -704,10 +717,8 @@ def typosquat_group():
 @click.argument("input-file", type=click.Path(exists=True, dir_okay=False), required=True)
 @click.pass_context
 @add_client(["elasticsearch"], add_func_arg=False)
-def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
+def create_dnstwist_index(ctx: click.Context, input_file: click.Path) -> None:
     """Create a dnstwist index in Elasticsearch to work with a threat match rule."""
-    from elasticsearch import Elasticsearch
-
     es_client: Elasticsearch = ctx.obj["es"]
 
     click.echo(f"Attempting to load dnstwist data from {input_file}")
@@ -720,12 +731,11 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     domain = original_domain.split(".")[0]
     domain_index = f"dnstwist-{domain}"
     # If index already exists, prompt user to confirm if they want to overwrite
-    if es_client.indices.exists(index=domain_index):
-        if click.confirm(
-            f"dnstwist index: {domain_index} already exists for {original_domain}. Do you want to overwrite?",
-            abort=True,
-        ):
-            _ = es_client.indices.delete(index=domain_index)
+    if es_client.indices.exists(index=domain_index) and click.confirm(
+        f"dnstwist index: {domain_index} already exists for {original_domain}. Do you want to overwrite?",
+        abort=True,
+    ):
+        _ = es_client.indices.delete(index=domain_index)
 
     fields = [
         "dns-a",
@@ -766,7 +776,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
 
     results = es_client.bulk(body=es_updates)
     if results["errors"]:
-        error = {r["create"]["result"] for r in results["items"] if r["create"]["status"] != 201}
+        error = {r["create"]["result"] for r in results["items"] if r["create"]["status"] != 201}  # noqa: PLR2004
         raise_client_error(f"Errors occurred during indexing:\n{error}")
 
     click.echo(f"{len(results['items'])} watchlist domains added to index")
@@ -775,7 +785,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
 
 @typosquat_group.command("prep-rule")
 @click.argument("author")
-def prep_rule(author: str):
+def prep_rule(author: str) -> None:
     """Prep the detection threat match rule for dnstwist data with a rule_id and author."""
     rule_template_file = get_etc_path(["rule_template_typosquatting_domain.json"])
     template_rule = json.loads(rule_template_file.read_text())

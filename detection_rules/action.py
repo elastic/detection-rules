@@ -63,9 +63,9 @@ class TOMLAction:
     path: Path
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.contents.metadata.rule_name
 
     @property
-    def id(self):
+    def id(self) -> list[definitions.UUIDString]:
         return self.contents.metadata.rule_id

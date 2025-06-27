@@ -6,7 +6,6 @@
 """Elasticsearch cli commands."""
 
 import json
-import os
 import sys
 import time
 from collections import defaultdict
@@ -31,13 +30,25 @@ MATCH_ALL: dict[str, dict[str, Any]] = {"bool": {"filter": [{"match_all": {}}]}}
 RULES_CONFIG = parse_rules_config()
 
 
-def add_range_to_dsl(dsl_filter: list[dict[str, Any]], start_time: str, end_time: str = "now"):
+def add_range_to_dsl(dsl_filter: list[dict[str, Any]], start_time: str, end_time: str = "now") -> None:
     dsl_filter.append(
-        {"range": {"@timestamp": {"gt": start_time, "lte": end_time, "format": "strict_date_optional_time"}}}
+        {
+            "range": {
+                "@timestamp": {
+                    "gt": start_time,
+                    "lte": end_time,
+                    "format": "strict_date_optional_time",
+                },
+            },
+        }
     )
 
 
-def parse_unique_field_results(rule_type: str, unique_fields: list[str], search_results: dict[str, Any]):
+def parse_unique_field_results(
+    rule_type: str,
+    unique_fields: list[str],
+    search_results: dict[str, Any],
+) -> dict[str, Any]:
     parsed_results: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     hits = search_results["hits"]
     hits = hits["hits"] if rule_type != "eql" else hits.get("events") or hits.get("sequences", [])
@@ -64,7 +75,7 @@ def parse_unique_field_results(rule_type: str, unique_fields: list[str], search_
 class Events:
     """Events collected from Elasticsearch."""
 
-    def __init__(self, events: dict[str, Any]):
+    def __init__(self, events: dict[str, Any]) -> None:
         self.events = self._normalize_event_timing(events)
 
     @staticmethod
@@ -77,22 +88,25 @@ class Events:
 
     @staticmethod
     def _get_dump_dir(
-        rta_name: str | None = None, host_id: str | None = None, host_os_family: str | None = None
+        rta_name: str | None = None,
+        host_id: str | None = None,
+        host_os_family: str | None = None,
     ) -> Path:
         """Prepare and get the dump path."""
         if rta_name and host_os_family:
             dump_dir = get_path(["unit_tests", "data", "true_positives", rta_name, host_os_family])
-            os.makedirs(dump_dir, exist_ok=True)
+            dump_dir.mkdir(parents=True, exist_ok=True)
             return dump_dir
         time_str = time.strftime("%Y%m%dT%H%M%SL")
-        dump_dir = os.path.join(COLLECTION_DIR, host_id or "unknown_host", time_str)
-        os.makedirs(dump_dir, exist_ok=True)
-        return Path(dump_dir)
+        dump_dir = COLLECTION_DIR / (host_id or "unknown_host") / time_str
+        dump_dir.mkdir(parents=True, exist_ok=True)
+        return dump_dir
 
-    def evaluate_against_rule(self, rule_id: str, verbose: bool = True):
+    def evaluate_against_rule(self, rule_id: str, verbose: bool = True) -> list[Any]:
         """Evaluate a rule against collected events and update mapping."""
         rule = RuleCollection.default().id_map.get(rule_id)
-        assert rule is not None, f"Unable to find rule with ID {rule_id}"
+        if not rule:
+            raise ValueError(f"Unable to find rule with ID {rule_id}")
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
@@ -101,17 +115,18 @@ class Events:
 
         return filtered
 
-    def echo_events(self, pager: bool = False, pretty: bool = True):
+    def echo_events(self, pager: bool = False, pretty: bool = True) -> None:
         """Print events to stdout."""
         echo_fn = click.echo_via_pager if pager else click.echo
         echo_fn(json.dumps(self.events, indent=2 if pretty else None, sort_keys=True))
 
-    def save(self, rta_name: str | None = None, dump_dir: Path | None = None, host_id: str | None = None):
+    def save(self, rta_name: str | None = None, dump_dir: Path | None = None, host_id: str | None = None) -> None:
         """Save collected events."""
-        assert self.events, "Nothing to save. Run Collector.run() method first or verify logging"
+        if not self.events:
+            raise ValueError("Nothing to save. Run Collector.run() method first or verify logging")
 
         host_os_family = None
-        for key in self.events.keys():
+        for key in self.events:
             if self.events.get(key, {})[0].get("host", {}).get("id") == host_id:
                 host_os_family = self.events.get(key, {})[0].get("host", {}).get("os").get("family")
                 break
@@ -126,8 +141,8 @@ class Events:
         dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id, host_os_family=host_os_family)
 
         for source, events in self.events.items():
-            path = os.path.join(dump_dir, source + ".ndjson")
-            with open(path, "w") as f:
+            path = dump_dir / (source + ".ndjson")
+            with path.open("w") as f:
                 f.writelines([json.dumps(e, sort_keys=True) + "\n" for e in events])
                 click.echo(f"{len(events)} events saved to: {path}")
 
@@ -135,17 +150,16 @@ class Events:
 class CollectEvents:
     """Event collector for elastic stack."""
 
-    def __init__(self, client: Elasticsearch, max_events: int = 3000):
+    def __init__(self, client: Elasticsearch, max_events: int = 3000) -> None:
         self.client = client
         self.max_events = max_events
 
-    def _build_timestamp_map(self, index: str):
+    def _build_timestamp_map(self, index: str) -> dict[str, Any]:
         """Build a mapping of indexes to timestamp data formats."""
         mappings = self.client.indices.get_mapping(index=index)
-        timestamp_map = {n: m["mappings"].get("properties", {}).get("@timestamp", {}) for n, m in mappings.items()}
-        return timestamp_map
+        return {n: m["mappings"].get("properties", {}).get("@timestamp", {}) for n, m in mappings.items()}
 
-    def _get_last_event_time(self, index: str, dsl: dict[str, Any] | None = None):
+    def _get_last_event_time(self, index: str, dsl: dict[str, Any] | None = None) -> None | str:
         """Get timestamp of most recent event."""
         last_event = self.client.search(query=dsl, index=index, size=1, sort="@timestamp:desc")["hits"]["hits"]
         if not last_event:
@@ -175,7 +189,7 @@ class CollectEvents:
         end_time: str | None = None,
     ) -> tuple[str, dict[str, Any], str | None]:
         """Prep a query for search."""
-        index_str = ",".join(index if isinstance(index, (list, tuple)) else index.split(","))
+        index_str = ",".join(index if isinstance(index, (list | tuple)) else index.split(","))
         lucene_query = str(query) if language == "lucene" else None
 
         if language in ("kql", "kuery"):
@@ -203,7 +217,7 @@ class CollectEvents:
 
         return index_str, formatted_dsl, lucene_query
 
-    def search(
+    def search(  # noqa: PLR0913
         self,
         query: str | dict[str, Any],
         language: str,
@@ -240,7 +254,7 @@ class CollectEvents:
         start_time: str | None = None,
         end_time: str = "now",
         size: int | None = None,
-    ):
+    ) -> dict[str, Any]:
         """Search an elasticsearch instance using a rule."""
         async_client = AsyncSearchClient(self.client)
         survey_results: dict[str, Any] = {}
@@ -334,28 +348,43 @@ class CollectEvents:
         index: str | list[str],
         start_time: str | None = None,
         end_time: str | None = "now",
-    ):
+    ) -> Any:
         """Get a count of documents from elasticsearch."""
         index_str, formatted_dsl, lucene_query = self._prep_query(
-            query=query, language=language, index=index, start_time=start_time, end_time=end_time
+            query=query,
+            language=language,
+            index=index,
+            start_time=start_time,
+            end_time=end_time,
         )
 
         # EQL API has no count endpoint
         if language == "eql":
             results = self.search(
-                query=query, language=language, index=index, start_time=start_time, end_time=end_time, size=1000
+                query=query,
+                language=language,
+                index=index,
+                start_time=start_time,
+                end_time=end_time,
+                size=1000,
             )
             return len(results)
-        return self.client.count(
-            body=formatted_dsl, index=index_str, q=lucene_query, allow_no_indices=True, ignore_unavailable=True
-        )["count"]
+        resp = self.client.count(
+            body=formatted_dsl,
+            index=index_str,
+            q=lucene_query,
+            allow_no_indices=True,
+            ignore_unavailable=True,
+        )
+
+        return resp["count"]
 
     def count_from_rule(
         self,
         rules: RuleCollection,
         start_time: str | None = None,
         end_time: str | None = "now",
-    ):
+    ) -> dict[str, Any]:
         """Get a count of documents from elasticsearch using a rule."""
         survey_results: dict[str, Any] = {}
 
@@ -384,8 +413,7 @@ class CollectEvents:
 def evaluate(rule: TOMLRule, events: list[Any], normalize_kql_keywords: bool = False) -> list[Any]:
     """Evaluate a query against events."""
     evaluator = kql.get_evaluator(kql.parse(rule.query), normalize_kql_keywords=normalize_kql_keywords)  # type: ignore[reportUnknownMemberType]
-    filtered = list(filter(evaluator, events))  # type: ignore[reportUnknownMemberType]
-    return filtered  # type: ignore[reportUnknownMemberType]
+    return list(filter(evaluator, events))  # type: ignore[reportUnknownMemberType]
 
 
 def combine_sources(sources: list[Any]) -> list[Any]:
@@ -401,7 +429,7 @@ class CollectEventsWithDSL(CollectEvents):
     """Collect events from elasticsearch."""
 
     @staticmethod
-    def _group_events_by_type(events: list[Any]):
+    def _group_events_by_type(events: list[Any]) -> dict[str, list[Any]]:
         """Group events by agent.type."""
         event_by_type: dict[str, list[Any]] = {}
 
@@ -410,7 +438,7 @@ class CollectEventsWithDSL(CollectEvents):
 
         return event_by_type
 
-    def run(self, dsl: dict[str, Any], indexes: str | list[str], start_time: str):
+    def run(self, dsl: dict[str, Any], indexes: str | list[str], start_time: str) -> Events:
         """Collect the events."""
         results = self.search(
             dsl,
@@ -426,19 +454,22 @@ class CollectEventsWithDSL(CollectEvents):
 
 
 @root.command("normalize-data")
-@click.argument("events-file", type=click.File("r"))
-def normalize_data(events_file: IO[Any]):
+@click.argument("events-file", type=Path)
+def normalize_data(events_file: Path) -> None:
     """Normalize Elasticsearch data timestamps and sort."""
-    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = Events({file_name: [json.loads(e) for e in events_file.readlines()]})
-    dirname = os.path.dirname(events_file.name)
-    events.save(dump_dir=Path(dirname))
+
+    file_name = events_file.name
+    content = events_file.read_text()
+    lines = content.splitlines()
+
+    events = Events({file_name: [json.loads(line) for line in lines]})
+    events.save(dump_dir=events_file.parent)
 
 
 @root.group("es")
 @add_params(*elasticsearch_options)
 @click.pass_context
-def es_group(ctx: click.Context, **kwargs: Any):
+def es_group(ctx: click.Context, **kwargs: Any) -> None:
     """Commands for integrating with Elasticsearch."""
     _ = ctx.ensure_object(dict)  # type: ignore[reportUnknownVariableType]
 
@@ -459,7 +490,7 @@ def es_group(ctx: click.Context, **kwargs: Any):
 @click.option("--rule-id", help="Updates rule mapping in rule-mapping.yaml file (requires --rta-name)")
 @click.option("--view-events", is_flag=True, help="Print events after saving")
 @click.pass_context
-def collect_events(
+def collect_events(  # noqa: PLR0913
     ctx: click.Context,
     host_id: str,
     query: str,
@@ -467,11 +498,17 @@ def collect_events(
     rta_name: str,
     rule_id: str,
     view_events: bool,
-):
+) -> Events:
     """Collect events from Elasticsearch."""
     client: Elasticsearch = ctx.obj["es"]
     dsl = kql.to_dsl(query) if query else MATCH_ALL  # type: ignore[reportUnknownMemberType]
-    dsl["bool"].setdefault("filter", []).append({"bool": {"should": [{"match_phrase": {"host.id": host_id}}]}})  # type: ignore[reportUnknownMemberType]
+    dsl["bool"].setdefault("filter", []).append(  # type: ignore[reportUnknownMemberType]
+        {
+            "bool": {
+                "should": [{"match_phrase": {"host.id": host_id}}],
+            },
+        }
+    )
 
     try:
         collector = CollectEventsWithDSL(client)
@@ -487,10 +524,11 @@ def collect_events(
         if view_events and events.events:
             events.echo_events(pager=True)
 
-        return events
     except AssertionError as e:
         error_msg = "No events collected! Verify events are streaming and that the agent-hostname is correct"
         raise_client_error(error_msg, e, ctx=ctx)
+
+    return events
 
 
 @es_group.command("index-rules")
@@ -498,7 +536,7 @@ def collect_events(
 @click.option("--from-file", "-f", type=click.File("r"), help="Load a previously saved uploadable bulk file")
 @click.option("--save_files", "-s", is_flag=True, help="Optionally save the bulk request to a file")
 @click.pass_context
-def index_repo(ctx: click.Context, query: str, from_file: IO[Any] | None, save_files: bool):
+def index_repo(ctx: click.Context, query: str, from_file: IO[Any] | None, save_files: bool) -> None:
     """Index rules based on KQL search results to an elasticsearch instance."""
     from .main import generate_rules_index
 

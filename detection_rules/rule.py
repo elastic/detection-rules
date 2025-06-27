@@ -154,15 +154,15 @@ class RuleTransform(MarshmallowDataclassMixin):
         class Provider:
             excluded: bool
             field: str
-            queryType: definitions.InvestigateProviderQueryType  # noqa: N815
+            queryType: definitions.InvestigateProviderQueryType
             value: str
-            valueType: definitions.InvestigateProviderValueType  # noqa: N815
+            valueType: definitions.InvestigateProviderValueType
 
         label: str
         description: str | None = None
         providers: list[list[Provider]]
-        relativeFrom: str | None = None  # noqa: N815
-        relativeTo: str | None = None  # noqa: N815
+        relativeFrom: str | None = None
+        relativeTo: str | None = None
 
     # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
     # note string templates
@@ -321,10 +321,10 @@ class FilterMeta:
     alias: str | None = None
     disabled: bool | None = None
     negate: bool | None = None
-    controlledBy: str | None  # identify who owns the filter  # noqa: N815
+    controlledBy: str | None  # identify who owns the filter
     group: str | None  # allows grouping of filters
     index: str | None = None
-    isMultiIndex: bool | None = None  # noqa: N815
+    isMultiIndex: bool | None = None
     type: str | None = None
     key: str | None = None
     params: str | None = None  # Expand to FilterMetaParams when needed

@@ -29,8 +29,9 @@ class UnitTest:
     bypass: list[str] | None = None
     test_only: list[str] | None = None
 
-    def __post_init__(self):
-        assert self.bypass is None or self.test_only is None, "Cannot set both `test_only` and `bypass` in test_config!"
+    def __post_init__(self) -> None:
+        if self.bypass and self.test_only:
+            raise ValueError("Cannot set both `test_only` and `bypass` in test_config!")
 
 
 @dataclass
@@ -40,8 +41,9 @@ class RuleValidation:
     bypass: list[str] | None = None
     test_only: list[str] | None = None
 
-    def __post_init__(self):
-        assert not (self.bypass and self.test_only), "Cannot use both test_only and bypass"
+    def __post_init__(self) -> None:
+        if self.bypass and self.test_only:
+            raise ValueError("Cannot use both test_only and bypass")
 
 
 @dataclass
@@ -102,7 +104,7 @@ class TestConfig:
         )
 
     @cached_property
-    def all_tests(self):
+    def all_tests(self) -> list[str]:
         """Get the list of all test names."""
         return discover_tests()
 
@@ -133,7 +135,7 @@ class TestConfig:
         for test in raw:
             path, clazz, method = test
             path = f"{path.replace('.', os.path.sep)}.py"
-            formatted.append("::".join([path, clazz, method]))
+            formatted.append(f"{path}::{clazz}::{method}")
         return formatted
 
     def get_test_names(self, formatted: bool = False) -> tuple[list[str], list[str]]:
@@ -145,7 +147,8 @@ class TestConfig:
         defined_tests = tests_t + tests_b
         patterns = patterns_t + patterns_b
         unknowns = sorted(set(defined_tests) - set(self.all_tests))
-        assert not unknowns, f"Unrecognized test names in config ({self.test_file}): {unknowns}"
+        if unknowns:
+            raise ValueError(f"Unrecognized test names in config ({self.test_file}): {unknowns}")
 
         combined_tests = sorted(set(defined_tests + self.tests_by_patterns(*patterns)))
 
@@ -207,7 +210,7 @@ class RulesConfig:
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Perform post validation on packages.yaml file."""
         if "package" not in self.packages:
             raise ValueError("Missing the `package` field defined in packages.yaml.")
@@ -217,10 +220,11 @@ class RulesConfig:
 
 
 @cached
-def parse_rules_config(path: Path | None = None) -> RulesConfig:
+def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR0912, PLR0915
     """Parse the _config.yaml file for default or custom rules."""
     if path:
-        assert path.exists(), f"rules config file does not exist: {path}"
+        if not path.exists():
+            raise ValueError(f"rules config file does not exist: {path}")
         loaded = yaml.safe_load(path.read_text())
     elif CUSTOM_RULES_DIR:
         path = Path(CUSTOM_RULES_DIR) / "_config.yaml"
@@ -240,11 +244,11 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:
     try:
         _ = ConfigFile.from_dict(loaded)
     except KeyError as e:
-        raise SystemExit(f"Missing key `{e!s}` in _config.yaml file.")
-    except (AttributeError, TypeError):
-        raise SystemExit(f"No data properly loaded from {path}")
+        raise SystemExit(f"Missing key `{e!s}` in _config.yaml file.") from e
+    except (AttributeError, TypeError) as e:
+        raise SystemExit(f"No data properly loaded from {path}") from e
     except ValueError as e:
-        raise SystemExit(e)
+        raise SystemExit(e) from e
 
     base_dir = path.resolve().parent
 
@@ -256,10 +260,7 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:
         test_config_path = Path(test_config_ev)
     else:
         test_config_file = loaded.get("testing", {}).get("config")
-        if test_config_file:
-            test_config_path = base_dir.joinpath(test_config_file)
-        else:
-            test_config_path = None
+        test_config_path = base_dir.joinpath(test_config_file) if test_config_file else None
 
     if test_config_path:
         test_config_data = yaml.safe_load(test_config_path.read_text())
@@ -331,7 +332,7 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)  # type: ignore[reportArgumentType]
     except (ValueError, TypeError) as e:
-        raise SystemExit(f"Error parsing packages.yaml: {e!s}")
+        raise SystemExit(f"Error parsing packages.yaml: {e!s}") from e
 
     return rules_config
 

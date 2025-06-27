@@ -5,9 +5,9 @@
 
 """Load generic toml formatted files for exceptions and actions."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytoml  # type: ignore[reportMissingTypeStubs]
 
@@ -16,7 +16,9 @@ from .action_connector import TOMLActionConnector, TOMLActionConnectorContents
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
 from .rule_loader import dict_filter
-from .schemas import definitions
+
+if TYPE_CHECKING:
+    from .schemas import definitions
 
 RULES_CONFIG = parse_rules_config()
 
@@ -41,7 +43,7 @@ class GenericCollection:
     items: list[GenericCollectionTypes]
     __default = None
 
-    def __init__(self, items: list[GenericCollectionTypes] | None = None):
+    def __init__(self, items: list[GenericCollectionTypes] | None = None) -> None:
         self.id_map: dict[definitions.UUIDString, GenericCollectionTypes] = {}
         self.file_map: dict[Path, GenericCollectionTypes] = {}
         self.name_map: dict[definitions.RuleName, GenericCollectionTypes] = {}
@@ -58,7 +60,7 @@ class GenericCollection:
         """Get the total amount of exceptions in the collection."""
         return len(self.items)
 
-    def __iter__(self) -> Iterable[GenericCollectionTypes]:
+    def __iter__(self) -> Iterator[GenericCollectionTypes]:
         """Iterate over all items in the collection."""
         return iter(self.items)
 
@@ -102,12 +104,16 @@ class GenericCollection:
         file_map = self.file_map
         name_map = self.name_map
 
-        assert not self.frozen, f"Unable to add item {item.name} to a frozen collection"
-        assert item.name not in name_map, f"Rule Name {item.name} collides with {name_map[item.name].name}"
+        if self.frozen:
+            raise ValueError(f"Unable to add item {item.name} to a frozen collection")
+
+        if item.name in name_map:
+            raise ValueError(f"Rule Name {item.name} collides with {name_map[item.name].name}")
 
         if item.path is not None:
             item_path = item.path.resolve()
-            assert item_path not in file_map, f"Item file {item_path} already loaded"
+            if item_path in file_map:
+                raise ValueError(f"Item file {item_path} already loaded")
             file_map[item_path] = item
 
     def add_item(self, item: GenericCollectionTypes) -> None:
@@ -144,11 +150,10 @@ class GenericCollection:
 
             # use the default generic loader as a cache.
             # if it already loaded the item, then we can just use it from that
-            if self.__default is not None and self is not self.__default:
-                if path in self.__default.file_map:
-                    item = self.__default.file_map[path]
-                    self.add_item(item)
-                    return item
+            if self.__default and self is not self.__default and path in self.__default.file_map:
+                item = self.__default.file_map[path]
+                self.add_item(item)
+                return item
 
             obj = self._load_toml_file(path)
             return self.load_dict(obj, path=path)
@@ -156,7 +161,7 @@ class GenericCollection:
             print(f"Error loading item in {path}")
             raise
 
-    def load_files(self, paths: Iterable[Path]):
+    def load_files(self, paths: Iterable[Path]) -> None:
         """Load multiple files into the collection."""
         for path in paths:
             _ = self.load_file(path)
@@ -166,7 +171,7 @@ class GenericCollection:
         directory: Path,
         recursive: bool = True,
         toml_filter: Callable[[dict[str, Any]], bool] | None = None,
-    ):
+    ) -> None:
         """Load all TOML files in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if toml_filter is not None:
@@ -179,7 +184,7 @@ class GenericCollection:
         directories: Iterable[Path],
         recursive: bool = True,
         toml_filter: Callable[[dict[str, Any]], bool] | None = None,
-    ):
+    ) -> None:
         """Load all TOML files in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, toml_filter=toml_filter)

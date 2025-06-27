@@ -53,9 +53,9 @@ class NestedExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin
     entries: list["ExceptionItemEntry"]
 
     @validates_schema
-    def validate_nested_entry(self, data: dict[str, Any], **kwargs: Any):
+    def validate_nested_entry(self, data: dict[str, Any], **_: Any) -> None:
         """More specific validation."""
-        if data.get("list") is not None:
+        if data.get("list"):
             raise ValidationError("Nested entries cannot define a list")
 
 
@@ -75,7 +75,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
     value: str | None | list[str]
 
     @validates_schema
-    def validate_entry(self, data: dict[str, Any], **kwargs: Any):
+    def validate_entry(self, data: dict[str, Any], **_: Any) -> None:
         """Validate the entry based on its type."""
         value = data.get("value", "")
         if data["type"] in ("exists", "list") and value is not None:
@@ -115,7 +115,7 @@ class EndpointException(ExceptionItem, MarshmallowDataclassMixin):
     _tags: list[definitions.ExceptionItemEndpointTags]
 
     @validates_schema
-    def validate_endpoint(self, data: dict[str, Any], **kwargs: Any):
+    def validate_endpoint(self, data: dict[str, Any], **_: Any) -> None:
         """Validate the endpoint exception."""
         for entry in data["entries"]:
             if entry["operator"] == "excluded":
@@ -144,7 +144,7 @@ class ExceptionContainer(MarshmallowDataclassMixin):
     def to_rule_entry(self) -> dict[str, Any]:
         """Returns a dict of the format required in rule.exception_list."""
         # requires KSO id to be consider valid structure
-        return dict(namespace_type=self.namespace_type, type=self.type, list_id=self.list_id)
+        return {"namespace_type": self.namespace_type, "type": self.type, "list_id": self.list_id}
 
 
 @dataclass(frozen=True)
@@ -175,12 +175,9 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
             rule_names.append(rule["name"])
 
         # Format date to match schema
-        creation_date = datetime.strptime(exceptions_dict["container"]["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
-            "%Y/%m/%d"
-        )
-        updated_date = datetime.strptime(exceptions_dict["container"]["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
-            "%Y/%m/%d"
-        )
+        container = exceptions_dict["container"]
+        creation_date = datetime.strptime(container["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        updated_date = datetime.strptime(container["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
         metadata = {
             "creation_date": creation_date,
             "list_name": exceptions_dict["container"]["name"],
@@ -198,8 +195,7 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
         for exception in self.exceptions:
             converted.append(exception.container.to_dict())
             if exception.items:
-                for item in exception.items:
-                    converted.append(item.to_dict())
+                converted.extend([item.to_dict() for item in exception.items])
 
         return converted
 
@@ -212,13 +208,14 @@ class TOMLException:
     path: Path | None = None
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the exception list."""
         return self.contents.metadata.list_name
 
-    def save_toml(self):
+    def save_toml(self) -> None:
         """Save the exception to a TOML file."""
-        assert self.path is not None, f"Can't save exception {self.name} without a path"
+        if not self.path:
+            raise ValueError(f"Can't save exception {self.name} without a path")
         # Check if self.path has a .toml extension
         path = self.path
         if path.suffix != ".toml":
@@ -254,7 +251,7 @@ def parse_exceptions_results_from_api(
     return exceptions_containers, exceptions_items, [], unparsed_results
 
 
-def build_exception_objects(
+def build_exception_objects(  # noqa: PLR0913
     exceptions_containers: dict[str, Any],
     exceptions_items: dict[str, Any],
     exception_list_rule_table: dict[str, Any],
@@ -277,7 +274,7 @@ def build_exception_objects(
             )
             filename = f"{list_id}_exceptions.toml"
             if RULES_CONFIG.exception_dir is None and not exceptions_directory:
-                raise FileNotFoundError(
+                raise FileNotFoundError(  # noqa: TRY301
                     "No Exceptions directory is specified. Please specify either in the config or CLI."
                 )
             exceptions_path = (

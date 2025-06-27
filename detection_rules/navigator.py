@@ -67,7 +67,7 @@ class Techniques(MarshmallowDataclassMixin):
     showSubtechniques: bool = False
 
     @pre_load
-    def set_score(self, data: dict[str, Any], **_: Any):
+    def set_score(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
         data["score"] = len(data["metadata"])
         return data
 
@@ -132,7 +132,7 @@ def technique_dict() -> dict[str, Any]:
 class NavigatorBuilder:
     """Rule navigator mappings and management."""
 
-    def __init__(self, detection_rules: list[TOMLRule]):
+    def __init__(self, detection_rules: list[TOMLRule]) -> None:
         self.detection_rules = detection_rules
 
         self.layers: dict[str, Any] = {
@@ -146,13 +146,11 @@ class NavigatorBuilder:
 
     @staticmethod
     def meta_dict(name: str, value: Any) -> dict[str, Any]:
-        meta = {"name": name, "value": value}
-        return meta
+        return {"name": name, "value": value}
 
     @staticmethod
     def links_dict(label: str, url: Any) -> dict[str, Any]:
-        links = {"label": label, "url": url}
-        return links
+        return {"label": label, "url": url}
 
     def rule_links_dict(self, rule: TOMLRule) -> dict[str, Any]:
         """Create a links dictionary for a rule."""
@@ -170,30 +168,30 @@ class NavigatorBuilder:
         """Safely retrieve a layer with optional sub-keys."""
         return self.layers[layer_name][layer_key] if layer_key else self.layers[layer_name]
 
-    def _update_all(self, rule: TOMLRule, tactic: str, technique_id: str):
+    def _update_all(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         value = f"{rule.contents.data.type}/{rule.contents.data.get('language')}"
         self.add_rule_to_technique(rule, "all", tactic, technique_id, value)
 
-    def _update_platforms(self, rule: TOMLRule, tactic: str, technique_id: str):
+    def _update_platforms(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         if not rule.path:
             raise ValueError("No rule path found")
         value = rule.path.parent.name
         self.add_rule_to_technique(rule, "platforms", tactic, technique_id, value)
 
-    def _update_indexes(self, rule: TOMLRule, tactic: str, technique_id: str):
+    def _update_indexes(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         for index in rule.contents.data.get("index") or []:  # type: ignore[reportUnknownVariableType]
             value = rule.id
             self.add_rule_to_technique(rule, "indexes", tactic, technique_id, value, layer_key=index.lower())  # type: ignore[reportUnknownVariableType]
 
-    def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str):
-        for tag in rule.contents.data.get("tags") or []:  # type: ignore[reportUnknownVariableType]
+    def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
+        for _tag in rule.contents.data.get("tags") or []:  # type: ignore[reportUnknownVariableType]
             value = rule.id
-            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
-            tag = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, tag).lstrip()  # type: ignore[reportUnknownMemberType]
+            expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
+            tag = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, _tag).lstrip()  # type: ignore[reportUnknownMemberType]
             layer_key = tag.replace(" ", "-").lower()  # type: ignore[reportUnknownVariableType]
             self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)  # type: ignore[reportUnknownArgumentType]
 
-    def add_rule_to_technique(
+    def add_rule_to_technique(  # noqa: PLR0913
         self,
         rule: TOMLRule,
         layer_name: str,
@@ -201,19 +199,19 @@ class NavigatorBuilder:
         technique_id: str,
         value: str,
         layer_key: str | None = None,
-    ):
+    ) -> None:
         """Add a rule to a technique metadata and links."""
         layer = self.get_layer(layer_name, layer_key)
         layer[tactic][technique_id]["metadata"].append(self.meta_dict(rule.name, value))
         layer[tactic][technique_id]["links"].append(self.rule_links_dict(rule))
 
-    def process_rule(self, rule: TOMLRule, tactic: str, technique_id: str):
+    def process_rule(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         self._update_all(rule, tactic, technique_id)
         self._update_platforms(rule, tactic, technique_id)
         self._update_indexes(rule, tactic, technique_id)
         self._update_tags(rule, tactic, technique_id)
 
-    def process_rules(self):
+    def process_rules(self) -> None:
         """Adds rule to each applicable layer, including multi-layers."""
         for rule in self.detection_rules:
             threat = rule.contents.data.threat
@@ -240,17 +238,16 @@ class NavigatorBuilder:
             tactic_normalized = "-".join(tactic.lower().split())
             for technique_id, rules_data in techniques.items():
                 rules_data.update(tactic=tactic_normalized, techniqueID=technique_id)
-                techniques = Techniques.from_dict(rules_data)
+                _techniques = Techniques.from_dict(rules_data)
 
-                populated_techniques.append(techniques.to_dict())
+                populated_techniques.append(_techniques.to_dict())
 
         base_nav_obj = {
             "name": name,
             "techniques": populated_techniques,
             "versions": {"attack": CURRENT_ATTACK_VERSION},
         }
-        navigator = Navigator.from_dict(base_nav_obj)
-        return navigator
+        return Navigator.from_dict(base_nav_obj)
 
     def build_all(self) -> list[Navigator]:
         built: list[Navigator] = []
@@ -261,8 +258,7 @@ class NavigatorBuilder:
                 built.append(self.build_navigator(layer_name))
             else:
                 # multi layers
-                for layer_key, _ in data.items():
-                    built.append(self.build_navigator(layer_name, layer_key))
+                built.extend([self.build_navigator(layer_name, layer_key) for layer_key in data])
 
         return built
 

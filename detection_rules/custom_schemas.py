@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
-from eql import load_dump, save_dump  # type: ignore
+from eql import load_dump, save_dump  # type: ignore[reportMissingTypeStubs]
 
 from .config import parse_rules_config
 from .utils import cached, clear_caches
@@ -61,9 +61,9 @@ def update_stack_schema_map(
     """Update the stack-schema-map.yaml file with the appropriate auto_gen_schema_file location."""
     random_uuid = str(uuid.uuid4())
     auto_generated_id = None
-    for version in stack_schema_map:
+    for val in stack_schema_map.values():
         key_found = False
-        for key, value in stack_schema_map[version].items():
+        for key, value in val.items():
             value_path = resolve_schema_path(value)
             if value_path == Path(auto_gen_schema_file).resolve() and key not in RESERVED_SCHEMA_NAMES:
                 auto_generated_id = key
@@ -72,7 +72,7 @@ def update_stack_schema_map(
         if key_found is False:
             if auto_generated_id is None:
                 auto_generated_id = random_uuid
-            stack_schema_map[version][auto_generated_id] = str(auto_gen_schema_file)
+            val[auto_generated_id] = str(auto_gen_schema_file)
     return stack_schema_map, auto_generated_id, random_uuid
 
 
@@ -80,13 +80,13 @@ def clean_stack_schema_map(
     stack_schema_map: dict[str, Any], auto_generated_id: str, random_uuid: str
 ) -> dict[str, Any]:
     """Clean up the stack-schema-map.yaml file replacing the random UUID with a known key if possible."""
-    for version in stack_schema_map:
-        if random_uuid in stack_schema_map[version]:
-            stack_schema_map[version][auto_generated_id] = stack_schema_map[version].pop(random_uuid)
+    for val in stack_schema_map.values():
+        if random_uuid in val:
+            val[auto_generated_id] = val.pop(random_uuid)
     return stack_schema_map
 
 
-def update_auto_generated_schema(index: str, field: str, field_type: str | None = None):
+def update_auto_generated_schema(index: str, field: str, field_type: str | None = None) -> None:
     """Load custom schemas if present."""
     auto_gen_schema_file = str(RULES_CONFIG.auto_gen_schema_file)
     stack_schema_map_file = str(RULES_CONFIG.stack_schema_map_file)

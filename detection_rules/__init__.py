@@ -5,11 +5,7 @@
 
 """Detection rules."""
 
-import sys
-
-assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
-
-from . import (  # noqa: E402
+from . import (
     custom_rules,
     custom_schemas,
     devtools,

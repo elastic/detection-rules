@@ -36,7 +36,7 @@ RULES_CONFIG = parse_rules_config()
 @root.group("kibana")
 @add_params(*kibana_options)
 @click.pass_context
-def kibana_group(ctx: click.Context, **kibana_kwargs: Any):
+def kibana_group(ctx: click.Context, **kibana_kwargs: Any) -> None:
     """Commands for integrating with Kibana."""
     _ = ctx.ensure_object(dict)  # type: ignore[reportUnknownVariableType]
 
@@ -53,7 +53,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs: Any):
 @multi_collection
 @click.option("--replace-id", "-r", is_flag=True, help="Replace rule IDs with new IDs before export")
 @click.pass_context
-def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool):
+def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> list[RuleResource]:
     """[Deprecated] Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj["kibana"]
     api_payloads: list[RuleResource] = []
@@ -69,8 +69,7 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool):
         except ValueError as e:
             raise_client_error(f"{e} in version:{kibana.version}, for rule: {rule.name}", e, ctx=ctx)
 
-        rule = RuleResource(payload)
-        api_payloads.append(rule)
+        api_payloads.append(RuleResource(payload))
 
     with kibana:
         results: list[RuleResource] = RuleResource.bulk_create_legacy(api_payloads)  # type: ignore[reportUnknownMemberType]
@@ -96,10 +95,13 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool):
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing rules")
 @click.option("--overwrite-exceptions", "-e", is_flag=True, help="Overwrite exceptions in existing rules")
 @click.option(
-    "--overwrite-action-connectors", "-ac", is_flag=True, help="Overwrite action connectors in existing rules"
+    "--overwrite-action-connectors",
+    "-ac",
+    is_flag=True,
+    help="Overwrite action connectors in existing rules",
 )
 @click.pass_context
-def kibana_import_rules(
+def kibana_import_rules(  # noqa: PLR0915
     ctx: click.Context,
     rules: RuleCollection,
     overwrite: bool = False,
@@ -108,10 +110,10 @@ def kibana_import_rules(
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import custom rules into Kibana."""
 
-    def _handle_response_errors(response: dict[str, Any]):
+    def _handle_response_errors(response: dict[str, Any]) -> None:
         """Handle errors from the import response."""
 
-        def _parse_list_id(s: str):
+        def _parse_list_id(s: str) -> str | None:
             """Parse the list ID from the error message."""
             match = re.search(r'list_id: "(.*?)"', s)
             return match.group(1) if match else None
@@ -158,8 +160,10 @@ def kibana_import_rules(
                 click.echo()
 
     def _process_imported_items(
-        imported_items_list: list[list[dict[str, Any]]], item_type_description: str, item_key: str
-    ):
+        imported_items_list: list[list[dict[str, Any]]],
+        item_type_description: str,
+        item_key: str,
+    ) -> None:
         """Displays appropriately formatted success message that all items imported successfully."""
         all_ids = {item[item_key] for sublist in imported_items_list for item in sublist}
         if all_ids:
@@ -238,7 +242,7 @@ def kibana_import_rules(
     ),
 )
 @click.pass_context
-def kibana_export_rules(
+def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
     directory: Path,
     action_connectors_directory: Path | None,
@@ -267,7 +271,7 @@ def kibana_export_rules(
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
         if rule_name:
-            found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")  # type: ignore
+            found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")  # type: ignore[reportUnknownMemberType]
             rule_id = [r["rule_id"] for r in found]  # type: ignore[reportUnknownVariableType]
         query = (
             export_query
@@ -278,7 +282,7 @@ def kibana_export_rules(
         )
 
         results = (  # type: ignore[reportUnknownVariableType]
-            RuleResource.bulk_export(rule_ids=list(rule_id), query=query)  # type: ignore
+            RuleResource.bulk_export(rule_ids=list(rule_id), query=query)  # type: ignore[reportArgumentType]
             if query
             else RuleResource.export_rules(list(rule_id), exclude_export_details=not kibana_include_details)  # type: ignore[reportArgumentType]
         )
@@ -478,9 +482,14 @@ def kibana_export_rules(
 @click.option("--extend", "-e", is_flag=True, help="If columns are specified, extend the original columns")
 @click.option("--max-count", "-m", default=100, help="The max number of alerts to return")
 @click.pass_context
-def search_alerts(
-    ctx: click.Context, query: str, date_range: tuple[str, str], columns: list[str], extend: bool, max_count: int
-):
+def search_alerts(  # noqa: PLR0913
+    ctx: click.Context,
+    query: str,
+    date_range: tuple[str, str],
+    columns: list[str],
+    extend: bool,
+    max_count: int,
+) -> None:
     """Search detection engine alerts with KQL."""
     from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 
@@ -492,7 +501,7 @@ def search_alerts(
     add_range_to_dsl(kql_query["bool"].setdefault("filter", []), start_time, end_time)  # type: ignore[reportUnknownArgumentType]
 
     with kibana:
-        alerts = [a["_source"] for a in Signal.search({"query": kql_query}, size=max_count)["hits"]["hits"]]  # type: ignore
+        alerts = [a["_source"] for a in Signal.search({"query": kql_query}, size=max_count)["hits"]["hits"]]  # type: ignore[reportUnknownMemberType]
 
     # check for events with nested signal fields
     if alerts:
