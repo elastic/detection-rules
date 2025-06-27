@@ -556,7 +556,7 @@ class EQLValidator(QueryValidator):
 
     def validate_query_with_schema(
         self,
-        _: "QueryRuleData",
+        data: "QueryRuleData",  # noqa: ARG002
         schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
         err_trailer: str,
         min_stack_version: str,
@@ -597,7 +597,7 @@ class EQLValidator(QueryValidator):
             # get a list of rule type configuration fields
             # Get a list of rule type configuration fields
             fields = ["timestamp_field", "event_category_override", "tiebreaker_field"]
-            set_fields = list(filter(None, (data.get(field) for field in fields)))
+            set_fields = list(filter(None, (data.get(field) for field in fields)))  # type: ignore[reportUnknownVariableType]
 
             # get stack_version and ECS schema
             min_stack_version = meta.get("min_stack_version")
@@ -607,7 +607,7 @@ class EQLValidator(QueryValidator):
             schema = ecs.get_schema(ecs_version)
 
             # return a list of rule type config field values and whether any are not in the schema
-            return (set_fields, any(f not in schema for f in set_fields))
+            return (set_fields, any(f not in schema for f in set_fields))  # type: ignore[reportUnknownVariableType]
         # if rule type fields are not set, return an empty list and False
         return [], False
 

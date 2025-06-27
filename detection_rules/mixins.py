@@ -103,17 +103,16 @@ class MarshmallowDataclassMixin:
             return recursive_class_schema(cls, unknown=unknown)()
         return marshmallow_dataclass.class_schema(cls)()
 
-    def get(self, key: str, default: Any | None = None):
+    def get(self, key: str, default: Any = None) -> Any:
         """Get a key from the query data without raising attribute errors."""
         return getattr(self, key, default)
 
     @classmethod
     @cached
-    def jsonschema(cls):
+    def jsonschema(cls) -> dict[str, Any]:
         """Get the jsonschema representation for this class."""
         jsonschema = PatchedJSONSchema().dump(cls.__schema())  # type: ignore[reportUnknownMemberType]
-        jsonschema = patch_jsonschema(jsonschema)
-        return jsonschema
+        return patch_jsonschema(jsonschema)
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any], unknown: UNKNOWN_VALUES | None = None) -> Any:
@@ -173,7 +172,7 @@ class LockDataclassMixin:
         """Get the marshmallow schema for the data class"""
         return marshmallow_dataclass.class_schema(cls)()
 
-    def get(self, key: str, default: Any = None):
+    def get(self, key: str, default: Any = None) -> Any:
         """Get a key from the query data without raising attribute errors."""
         return getattr(self, key, default)
 
@@ -185,7 +184,7 @@ class LockDataclassMixin:
             loaded = schema.load(obj)
         except ValidationError as e:
             err_msg = json.dumps(e.normalized_messages(), indent=2)
-            raise ValidationError(f"Validation error loading: {cls.__name__}\n{err_msg}")
+            raise ValidationError(f"Validation error loading: {cls.__name__}\n{err_msg}") from e
         return loaded
 
     def to_dict(self, strip_none_values: bool = True) -> dict[str, Any]:
@@ -205,15 +204,14 @@ class LockDataclassMixin:
         if not path:
             raise ValueError("No file path found")
         contents = json.loads(path.read_text())
-        loaded = cls.from_dict(dict(data=contents))
-        return loaded
+        return cls.from_dict({"data": contents})
 
     def sha256(self) -> definitions.Sha256:
         """Get the sha256 hash of the version lock contents."""
         contents = self.to_dict()
         return dict_hash(contents)
 
-    def save_to_file(self, lock_file: Path | None = None):
+    def save_to_file(self, lock_file: Path | None = None) -> None:
         """Save and validate a version lock file."""
         path = lock_file or getattr(self, "file_path", None)
         if not path:
@@ -226,7 +224,7 @@ class StackCompatMixin:
     """Mixin to restrict schema compatibility to defined stack versions."""
 
     @validates_schema
-    def validate_field_compatibility(self, data: dict[str, Any], **_: dict[str, Any]):
+    def validate_field_compatibility(self, data: dict[str, Any], **_: dict[str, Any]) -> None:
         """Verify stack-specific fields are properly applied to schema."""
         package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         schema_fields = getattr(self, "fields", {})
@@ -250,9 +248,6 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
         """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
         if isinstance(field, marshmallow_fields.Raw) and field.allow_none and not field.validate:
             # raw fields shouldn't be type string but type any. bug in marshmallow_dataclass:__init__.py:
-            #  if typ is Any:
-            #      metadata.setdefault("allow_none", True)
-            #      return marshmallow.fields.Raw(**metadata)
             return {"type": ["string", "number", "object", "array", "boolean", "null"]}
 
         if isinstance(field, marshmallow_dataclass.union_field.Union):

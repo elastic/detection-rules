@@ -68,8 +68,8 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
             rule_names.append(rule["name"])
 
         # Format date to match schema
-        creation_date = datetime.strptime(actions_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")
-        updated_date = datetime.strptime(actions_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")
+        creation_date = datetime.strptime(actions_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        updated_date = datetime.strptime(actions_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
         metadata = {
             "creation_date": creation_date,
             "rule_ids": rule_ids,
@@ -82,11 +82,7 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
 
     def to_api_format(self) -> list[dict[str, Any]]:
         """Convert the TOML Action Connector to the API format."""
-        converted: list[dict[str, Any]] = []
-
-        for action in self.action_connectors:
-            converted.append(action.to_dict())
-        return converted
+        return [action.to_dict() for action in self.action_connectors]
 
 
 @dataclass(frozen=True)
@@ -97,12 +93,13 @@ class TOMLActionConnector:
     path: Path
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.contents.metadata.action_connector_name
 
-    def save_toml(self):
+    def save_toml(self) -> None:
         """Save the action to a TOML file."""
-        assert self.path is not None, f"Can't save action for {self.name} without a path"
+        if not self.path:
+            raise ValueError(f"Can't save action for {self.name} without a path")
         # Check if self.path has a .toml extension
         path = self.path
         if path.suffix != ".toml":
@@ -130,7 +127,7 @@ def parse_action_connector_results_from_api(
     return action_results, non_action_results
 
 
-def build_action_connector_objects(
+def build_action_connector_objects(  # noqa: PLR0913
     action_connectors: list[dict[str, Any]],
     action_connector_rule_table: dict[str, Any],
     action_connectors_directory: Path | None,
@@ -152,7 +149,7 @@ def build_action_connector_objects(
             contents = TOMLActionConnectorContents.from_action_connector_dict(action_connector_dict, rule_list)
             filename = f"{connector_id}_actions.toml"
             if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
-                raise FileNotFoundError(
+                raise FileNotFoundError(  # noqa: TRY301
                     "No Action Connector directory is specified. Please specify either in the config or CLI."
                 )
             actions_path = (

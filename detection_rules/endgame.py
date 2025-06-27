@@ -21,7 +21,7 @@ ENDGAME_SCHEMA_DIR = ETC_DIR / "endgame_schemas"
 class EndgameSchemaManager:
     """Endgame Class to download, convert, and save endgame schemas from endgame-evecs."""
 
-    def __init__(self, github_client: Github, endgame_version: str):
+    def __init__(self, github_client: Github, endgame_version: str) -> None:
         self.repo = github_client.get_repo("elastic/endgame-evecs")
         self.endgame_version = endgame_version
         self.endgame_schema = self.download_endgame_schema()
@@ -34,11 +34,9 @@ class EndgameSchemaManager:
         main_branch_sha = main_branch.commit.sha
         schema_path = "pkg/mapper/ecs/schema.json"
         contents = self.repo.get_contents(schema_path, ref=main_branch_sha)
-        endgame_mapping = json.loads(contents.decoded_content.decode())  # type: ignore[reportAttributeAccessIssue]
+        return json.loads(contents.decoded_content.decode())  # type: ignore[reportAttributeAccessIssue]
 
-        return endgame_mapping
-
-    def save_schemas(self, overwrite: bool = False):
+    def save_schemas(self, overwrite: bool = False) -> None:
         """Save the endgame schemas to the etc/endgame_schemas directory."""
 
         schemas_dir = ENDGAME_SCHEMA_DIR / self.endgame_version
@@ -58,7 +56,7 @@ class EndgameSchemaManager:
 class EndgameSchema(eql.Schema):
     """Endgame schema for query validation."""
 
-    type_mapping: dict[str, Any] = {
+    type_mapping: dict[str, Any] = {  # noqa: RUF012
         "keyword": eql.types.TypeHint.String,  # type: ignore[reportAttributeAccessIssue]
         "ip": eql.types.TypeHint.String,  # type: ignore[reportAttributeAccessIssue]
         "float": eql.types.TypeHint.Numeric,  # type: ignore[reportAttributeAccessIssue]
@@ -67,11 +65,11 @@ class EndgameSchema(eql.Schema):
         "text": eql.types.TypeHint.String,  # type: ignore[reportAttributeAccessIssue]
     }
 
-    def __init__(self, endgame_schema: dict[str, Any]):
+    def __init__(self, endgame_schema: dict[str, Any]) -> None:
         self.endgame_schema = endgame_schema
         eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)  # type: ignore[reportUnknownMemberType]
 
-    def get_event_type_hint(self, event_type: str, path: list[str]):
+    def get_event_type_hint(self, _: str, path: list[str]) -> None | tuple[Any, None]:  # type: ignore[reportIncompatibleMethodOverride]
         from kql.parser import elasticsearch_type_family  # type: ignore[reportMissingTypeStubs]
 
         dotted = ".".join(str(p) for p in path)
@@ -79,8 +77,9 @@ class EndgameSchema(eql.Schema):
         es_type_family = elasticsearch_type_family(elasticsearch_type)  # type: ignore[reportArgumentType]
         eql_hint = self.type_mapping.get(es_type_family)
 
-        if eql_hint is not None:
+        if eql_hint:
             return eql_hint, None
+        return None
 
 
 @cached
@@ -98,6 +97,4 @@ def read_endgame_schema(endgame_version: str, warn: bool = False) -> dict[str, A
             return None
         raise FileNotFoundError(str(endgame_schema_path))
 
-    schema = json.loads(read_gzip(endgame_schema_path))
-
-    return schema
+    return json.loads(read_gzip(endgame_schema_path))

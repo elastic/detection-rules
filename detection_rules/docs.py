@@ -33,10 +33,10 @@ REPO_DOCS_DIR = "docs-dev"
 class PackageDocument(xlsxwriter.Workbook):
     """Excel document for summarizing a rules package."""
 
-    def __init__(self, path: str, package: Package):
+    def __init__(self, path: str, package: Package) -> None:
         """Create an excel workbook for the package."""
         self._default_format = {"font_name": "Helvetica", "font_size": 12}
-        super(PackageDocument, self).__init__(path)  # type: ignore[reportUnknownMemberType]
+        super().__init__(path)  # type: ignore[reportUnknownMemberType]
 
         self.package = package
         self.deprecated_rules = package.deprecated_rules
@@ -58,9 +58,9 @@ class PackageDocument(xlsxwriter.Workbook):
             if key not in properties:
                 properties[key] = self._default_format[key]
 
-        return super(PackageDocument, self).add_format(properties)  # type: ignore[reportUnknownMemberType]
+        return super().add_format(properties)  # type: ignore[reportUnknownMemberType]
 
-    def _get_attack_coverage(self):
+    def _get_attack_coverage(self) -> dict[str, Any]:
         coverage: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
         for rule in self.package.rules:
@@ -80,7 +80,7 @@ class PackageDocument(xlsxwriter.Workbook):
 
         return coverage
 
-    def populate(self):
+    def populate(self) -> None:
         """Populate the different pages."""
         self.add_summary()
         self.add_rule_details()
@@ -88,7 +88,7 @@ class PackageDocument(xlsxwriter.Workbook):
         self.add_rule_details(self.deprecated_rules, "Deprecated Rules")
 
     @typing.no_type_check
-    def add_summary(self):
+    def add_summary(self) -> None:
         """Add the summary worksheet."""
         worksheet = self.add_worksheet("Summary")
         worksheet.freeze_panes(1, 0)
@@ -139,7 +139,7 @@ class PackageDocument(xlsxwriter.Workbook):
         self,
         rules: DeprecatedCollection | RuleCollection | None = None,
         name: str = "Rule Details",
-    ):
+    ) -> None:
         """Add a worksheet for detailed metadata of rules."""
         if rules is None:
             rules = self.production_rules
@@ -202,7 +202,7 @@ class PackageDocument(xlsxwriter.Workbook):
 
         _ = worksheet.autofilter(0, 0, len(rules) + 1, len(headers) - 1)  # type: ignore[reportUnknownMemberType]
 
-    def add_attack_matrix(self):
+    def add_attack_matrix(self) -> None:
         """Add a worksheet for ATT&CK coverage."""
         worksheet = self.add_worksheet(attack_tm + " Coverage")  # type: ignore[reportUnknownMemberType]
         worksheet.freeze_panes(1, 0)  # type: ignore[reportUnknownMemberType]
@@ -243,38 +243,38 @@ class PackageDocument(xlsxwriter.Workbook):
 
 class AsciiDoc:
     @classmethod
-    def bold_kv(cls, key: str, value: str):
+    def bold_kv(cls, key: str, value: str) -> str:
         return f"*{key}*: {value}"
 
     @classmethod
-    def description_list(cls, value: dict[str, str], linesep: str = "\n\n"):
+    def description_list(cls, value: dict[str, str], linesep: str = "\n\n") -> str:
         return f"{linesep}".join(f"{k}::\n{v}" for k, v in value.items())
 
     @classmethod
-    def bulleted(cls, value: str, depth: int = 1):
+    def bulleted(cls, value: str, depth: int = 1) -> str:
         return f"{'*' * depth} {value}"
 
     @classmethod
-    def bulleted_list(cls, values: list[str]):
+    def bulleted_list(cls, values: list[str]) -> str:
         return "* " + "\n* ".join(values)
 
     @classmethod
-    def code(cls, value: str, code: str = "js"):
+    def code(cls, value: str, code: str = "js") -> str:
         line_sep = "-" * 34
         return f"[source, {code}]\n{line_sep}\n{value}\n{line_sep}"
 
     @classmethod
-    def title(cls, depth: int, value: str):
+    def title(cls, depth: int, value: str) -> str:
         return f"{'=' * depth} {value}"
 
     @classmethod
-    def inline_anchor(cls, value: str):
+    def inline_anchor(cls, value: str) -> str:
         return f"[[{value}]]"
 
     @classmethod
     def table(cls, data: dict[str, Any]) -> str:
         entries = [f"| {k} | {v}" for k, v in data.items()]
-        table = ['[width="100%"]', "|==="] + entries + ["|==="]
+        table = ['[width="100%"]', "|===", *entries, "|==="]
         return "\n".join(table)
 
 
@@ -300,7 +300,7 @@ class KibanaSecurityDocs:
 class IntegrationSecurityDocs:
     """Generate docs for prebuilt rules in Elastic documentation."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         registry_version: str,
         directory: Path,
@@ -309,7 +309,7 @@ class IntegrationSecurityDocs:
         new_rules: dict[str, TOMLRule] | None = None,
         deprecated_rules: dict[str, DeprecatedRule] | None = None,
         update_message: str = "",
-    ):
+    ) -> None:
         self.new_rules = new_rules
         self.updated_rules = updated_rules
         self.deprecated_rules = deprecated_rules
@@ -343,14 +343,14 @@ class IntegrationSecurityDocs:
         registry_version = Version.parse(registry_version_val, optional_minor_and_patch=True)
 
         parts = registry_version[:3]
-        short_registry_version = [str(n) for n in parts]  # type: ignore
+        short_registry_version = [str(n) for n in parts]  # type: ignore[reportOptionalIterable]
         registry_version_str = ".".join(short_registry_version)
         base_name = "-".join(short_registry_version)
         prebuilt_rule_base = f"prebuilt-rule-{base_name}"
 
         return registry_version_str, base_name, prebuilt_rule_base
 
-    def generate_appendix(self):
+    def generate_appendix(self) -> None:
         # appendix
         appendix = self.package_directory / f"prebuilt-rules-{self.base_name}-appendix.asciidoc"
 
@@ -360,14 +360,14 @@ class IntegrationSecurityDocs:
 
         This section lists all updates associated with version {self.registry_version_str} of the Fleet integration *Prebuilt Security Detection Rules*.
 
-        """).lstrip()
+        """).lstrip()  # noqa: E501
 
         include_format = f"include::{self.prebuilt_rule_base}-" + "{}.asciidoc[]"
         appendix_lines = [appendix_header] + [include_format.format(name_to_title(r.name)) for r in self.included_rules]  # type: ignore[reportArgumentType]
         appendix_str = "\n".join(appendix_lines) + "\n"
         _ = appendix.write_text(appendix_str)
 
-    def generate_summary(self):
+    def generate_summary(self) -> None:
         summary = self.package_directory / f"prebuilt-rules-{self.base_name}-summary.asciidoc"
 
         summary_header = textwrap.dedent(f"""
@@ -403,11 +403,11 @@ class IntegrationSecurityDocs:
                 f"| {description} | {status} | {version} \n"
             )
 
-        summary_lines = [summary_header] + rule_entries + ["|=============================================="]
+        summary_lines = [summary_header, *rule_entries, "|=============================================="]
         summary_str = "\n".join(summary_lines) + "\n"
         _ = summary.write_text(summary_str)
 
-    def generate_rule_reference(self):
+    def generate_rule_reference(self) -> None:
         """Generate rule reference page for prebuilt rules."""
         summary = self.directory / "docs" / "detections" / "prebuilt-rules" / "prebuilt-rules-reference.asciidoc"
         rule_list = self.directory / "docs" / "detections" / "prebuilt-rules" / "rule-desc-index.asciidoc"
@@ -452,14 +452,14 @@ class IntegrationSecurityDocs:
             added = rule.contents.metadata.min_stack_version
             rule_entries.append(f"|<<{title_name}, {rule.name}>> |{description} |{tags} |{added} |{version}\n")
 
-        summary_lines = [summary_header] + rule_entries + ["|=============================================="]
+        summary_lines = [summary_header, *rule_entries, "|=============================================="]
         summary_str = "\n".join(summary_lines) + "\n"
         _ = summary.write_text(summary_str)
 
         # update rule-desc-index.asciidoc
         _ = rule_list.write_text("\n".join(rule_includes))
 
-    def generate_rule_details(self):
+    def generate_rule_details(self) -> None:
         """Generate rule details for each prebuilt rule."""
         included_rules = [x.name for x in self.included_rules]
         for rule in self.sorted_rules:
@@ -476,14 +476,14 @@ class IntegrationSecurityDocs:
             # add all available rules to the rule details directory
             _ = prebuilt_rule_path.write_text(rule_detail.generate(title=f"{name_to_title(rule.name)}"))
 
-    def generate_manual_updates(self):
+    def generate_manual_updates(self) -> None:
         """
         Generate manual updates for prebuilt rules downloadable updates and index.
         """
         updates = {}
 
         # Update downloadable rule updates entry
-        today = datetime.today().strftime("%d %b %Y")
+        today = datetime.today().strftime("%d %b %Y")  # noqa: DTZ002
 
         updates["downloadable-updates.asciidoc"] = {
             "table_entry": (
@@ -539,7 +539,7 @@ class IntegrationSecurityDocs:
             historic_data + updates["downloadable-updates.asciidoc"]["table_include"] + "\n"
         )
 
-    def add_content_to_table_top(self, file_path: Path, summary_header: str, new_content: str):
+    def add_content_to_table_top(self, file_path: Path, summary_header: str, new_content: str) -> None:
         """Insert content at the top of a Markdown table right after the specified header."""
         file_contents = file_path.read_text()
 
@@ -571,7 +571,13 @@ class IntegrationSecurityDocs:
 class IntegrationRuleDetail:
     """Rule detail page generation."""
 
-    def __init__(self, rule_id: str, rule: dict[str, Any], changelog: dict[str, dict[str, Any]], package_str: str):
+    def __init__(
+        self,
+        rule_id: str,
+        rule: dict[str, Any],
+        changelog: dict[str, dict[str, Any]],
+        package_str: str,
+    ) -> None:
         self.rule_id = rule_id
         self.rule = rule
         self.changelog = changelog
@@ -711,9 +717,7 @@ def convert_markdown_to_asciidoc(text: str) -> str:
 
     # Convert Markdown links to AsciiDoc format
     markdown_link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-    text = re.sub(markdown_link_pattern, lambda m: f"{m.group(2)}[{m.group(1)}]", text)
-
-    return text
+    return re.sub(markdown_link_pattern, lambda m: f"{m.group(2)}[{m.group(1)}]", text)
 
 
 @dataclass
@@ -735,19 +739,19 @@ class DownloadableUpdates:
     packages: list[UpdateEntry]
 
     @classmethod
-    def load_updates(cls):
+    def load_updates(cls) -> "DownloadableUpdates":
         """Load the package."""
         prebuilt = load_etc_dump(["downloadable_updates.json"])
         packages = [UpdateEntry(**entry) for entry in prebuilt["packages"]]
         return cls(packages)
 
-    def save_updates(self):
+    def save_updates(self) -> None:
         """Save the package."""
         sorted_package = sorted(self.packages, key=lambda entry: Version.parse(entry.update_version), reverse=True)
         data = {"packages": [asdict(entry) for entry in sorted_package]}
         save_etc_dump(data, ["downloadable_updates.json"])
 
-    def add_entry(self, entry: UpdateEntry, overwrite: bool = False):
+    def add_entry(self, entry: UpdateEntry, overwrite: bool = False) -> None:
         """Add an entry to the package."""
         existing_entry_index = -1
         for index, existing_entry in enumerate(self.packages):
@@ -767,42 +771,42 @@ class MDX:
     """A class for generating Markdown content."""
 
     @classmethod
-    def bold(cls, value: str):
+    def bold(cls, value: str) -> str:
         """Return a bold str in Markdown."""
         return f"**{value}**"
 
     @classmethod
-    def bold_kv(cls, key: str, value: str):
+    def bold_kv(cls, key: str, value: str) -> str:
         """Return a bold key-value pair in Markdown."""
         return f"**{key}**: {value}"
 
     @classmethod
-    def description_list(cls, value: dict[str, str], linesep: str = "\n\n"):
+    def description_list(cls, value: dict[str, str], linesep: str = "\n\n") -> str:
         """Create a description list in Markdown."""
         return f"{linesep}".join(f"**{k}**:\n\n{v}" for k, v in value.items())
 
     @classmethod
-    def bulleted(cls, value: str, depth: int = 1):
+    def bulleted(cls, value: str, depth: int = 1) -> str:
         """Create a bulleted list item with a specified depth."""
         return f"{'  ' * (depth - 1)}* {value}"
 
     @classmethod
-    def bulleted_list(cls, values: list[str]):
+    def bulleted_list(cls, values: list[str]) -> str:
         """Create a bulleted list from an iterable."""
         return "\n* " + "\n* ".join(values)
 
     @classmethod
-    def code(cls, value: str, language: str = "js"):
+    def code(cls, value: str, language: str = "js") -> str:
         """Return a code block with the specified language."""
         return f"```{language}\n{value}```"
 
     @classmethod
-    def title(cls, depth: int, value: str):
+    def title(cls, depth: int, value: str) -> str:
         """Create a title with the specified depth."""
         return f"{'#' * depth} {value}"
 
     @classmethod
-    def inline_anchor(cls, value: str):
+    def inline_anchor(cls, value: str) -> str:
         """Create an inline anchor with the specified value."""
         return f'<a id="{value}" />'
 
@@ -810,14 +814,14 @@ class MDX:
     def table(cls, data: dict[str, Any]) -> str:
         """Create a table from a dictionary."""
         entries = [f"| {k} | {v}" for k, v in data.items()]
-        table = ["|---|---|"] + entries
+        table = ["|---|---|", *entries]
         return "\n".join(table)
 
 
 class IntegrationSecurityDocsMDX:
     """Generate docs for prebuilt rules in Elastic documentation using MDX."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         release_version: str,
         directory: Path,
@@ -825,7 +829,7 @@ class IntegrationSecurityDocsMDX:
         new_package: Package | None = None,
         historical_package: dict[str, Any] | None = None,
         note: str | None = "Rule Updates.",
-    ):
+    ) -> None:
         self.historical_package = historical_package
         self.new_package = new_package
         self.rule_changes = self.get_rule_changes()
@@ -848,14 +852,14 @@ class IntegrationSecurityDocsMDX:
         """Parse the release version into a string, base name, and prebuilt rule base."""
         release_version = Version.parse(release_version_val)
         parts = release_version[:3]
-        short_release_version = [str(n) for n in parts]  # type: ignore
+        short_release_version = [str(n) for n in parts]  # type: ignore[reportOptionalIterable]
         release_version_str = ".".join(short_release_version)
         base_name = "-".join(short_release_version)
         prebuilt_rule_base = f"prebuilt-rule-{base_name}"
 
         return release_version_str, base_name, prebuilt_rule_base
 
-    def get_rule_changes(self):
+    def get_rule_changes(self) -> dict[str, list[TOMLRule | DeprecatedRule]]:
         """Compare the rules from the new_package against rules in the historical_package."""
 
         rule_changes: dict[str, list[TOMLRule | DeprecatedRule]] = {
@@ -864,7 +868,7 @@ class IntegrationSecurityDocsMDX:
             "deprecated": [],
         }
 
-        historical_package: dict[str, Any] = self.historical_package or dict()
+        historical_package: dict[str, Any] = self.historical_package or {}
         historical_rule_ids: set[str] = set(historical_package.keys())
 
         if self.new_package:
@@ -883,9 +887,9 @@ class IntegrationSecurityDocsMDX:
         # Identify deprecated rules
         # if rule is in the historical but not in the current package, its deprecated
         deprecated_rule_ids: list[str] = []
-        for _, content in historical_package.items():
+        for content in historical_package.values():
             rule_id = content["attributes"]["rule_id"]
-            if self.new_package and rule_id in self.new_package.deprecated_rules.id_map.keys():
+            if self.new_package and rule_id in self.new_package.deprecated_rules.id_map:
                 deprecated_rule_ids.append(rule_id)
 
         deprecated_rule_ids = list(set(deprecated_rule_ids))
@@ -895,7 +899,7 @@ class IntegrationSecurityDocsMDX:
 
         return dict(rule_changes)
 
-    def generate_current_rule_summary(self):
+    def generate_current_rule_summary(self) -> None:
         """Generate a summary of all available current rules in the latest package."""
         slug = f"prebuilt-rules-{self.base_name}-all-available-summary.mdx"
         summary = self.package_directory / slug
@@ -916,7 +920,7 @@ class IntegrationSecurityDocsMDX:
 
         | Rule | Description | Tags | Version
         |---|---|---|---|
-        """).lstrip()
+        """).lstrip()  # noqa: DTZ002
 
         rule_entries: list[str] = []
 
@@ -936,7 +940,7 @@ class IntegrationSecurityDocsMDX:
 
         _ = summary.write_text(summary_header + rule_entries_str)
 
-    def generate_update_summary(self):
+    def generate_update_summary(self) -> None:
         """Generate a summary of all rule updates based on the latest package."""
         slug = f"prebuilt-rules-{self.base_name}-update-summary.mdx"
         summary = self.package_directory / slug
@@ -957,7 +961,7 @@ class IntegrationSecurityDocsMDX:
 
         | Rule | Description | Status | Version
         |---|---|---|---|
-        """).lstrip()
+        """).lstrip()  # noqa: DTZ002
 
         rule_entries: list[str] = []
         new_rule_id_list = [rule.id for rule in self.rule_changes["new"]]
@@ -981,7 +985,7 @@ class IntegrationSecurityDocsMDX:
 
         _ = summary.write_text(summary_header + rule_entries_str)
 
-    def generate_rule_details(self):
+    def generate_rule_details(self) -> None:
         """Generate a markdown file for each rule."""
         rules_dir = self.package_directory / "rules"
         rules_dir.mkdir(exist_ok=True)
@@ -1000,17 +1004,17 @@ class IntegrationSecurityDocsMDX:
                 tags: [{tags}]
                 ---
 
-                """).lstrip()
+                """).lstrip()  # noqa: DTZ002
                 _ = rule_path.write_text(frontmatter + rule_detail.generate())
 
-    def generate_downloadable_updates_summary(self):
+    def generate_downloadable_updates_summary(self) -> None:
         """Generate a summary of all the downloadable updates."""
 
         docs_url = "https://www.elastic.co/guide/en/security/current/rules-ui-management.html#update-prebuilt-rules"
         slug = "prebuilt-rules-downloadable-packages-summary.mdx"
         title = "Downloadable rule updates"
         summary = self.package_directory / slug
-        today = datetime.today().strftime("%d %b %Y")
+        today = datetime.today().strftime("%d %b %Y")  # noqa: DTZ002
         package_list = DownloadableUpdates.load_updates()
         ref = f"./prebuilt-rules-{self.base_name}-update-summary.mdx"
 
@@ -1048,14 +1052,19 @@ class IntegrationSecurityDocsMDX:
 
         |Update version |Date | New rules | Updated rules | Notes
         |---|---|---|---|---|
-        """).lstrip()
+        """).lstrip()  # noqa: DTZ002
 
-        entries: list[str] = []
-        for entry in sorted(package_list.packages, key=lambda entry: Version.parse(entry.update_version), reverse=True):
-            entries.append(
+        entries: list[str] = [
+            (
                 f"| [{entry.update_version}]({entry.url}) | {today} |"
                 f" {entry.new_rules} | {entry.updated_rules} | {entry.note}| "
             )
+            for entry in sorted(
+                package_list.packages,
+                key=lambda entry: Version.parse(entry.update_version),
+                reverse=True,
+            )
+        ]
 
         entries_str = "\n".join(entries)
         _ = summary.write_text(summary_header + entries_str)
@@ -1081,7 +1090,13 @@ class IntegrationSecurityDocsMDX:
 class IntegrationRuleDetailMDX:
     """Generates a rule detail page in Markdown."""
 
-    def __init__(self, rule_id: str, rule: dict[str, Any], changelog: dict[str, dict[str, Any]], package_str: str):
+    def __init__(
+        self,
+        rule_id: str,
+        rule: dict[str, Any],
+        changelog: dict[str, dict[str, Any]],
+        package_str: str,
+    ) -> None:
         """Initialize with rule ID, rule details, changelog, and package string.
 
         >>> rule_file = "/path/to/rule.toml"

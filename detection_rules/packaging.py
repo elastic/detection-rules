@@ -8,7 +8,6 @@
 import base64
 import hashlib
 import json
-import os
 import shutil
 import textwrap
 from collections import defaultdict
@@ -36,9 +35,6 @@ NOTICE_FILE = get_path(["NOTICE.txt"])
 FLEET_PKG_LOGO = get_etc_path(["security-logo-color-64px.svg"])
 
 
-# CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
-
-
 def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: dict[str, Any] | None = None) -> bool:
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.contents.flattened_dict()
@@ -47,7 +43,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: d
         if key not in flat_rule:
             return False
 
-        values = set([v.lower() if isinstance(v, str) else v for v in values])
+        values_set = {v.lower() if isinstance(v, str) else v for v in values}
         rule_value = flat_rule[key]
 
         if isinstance(rule_value, list):
@@ -55,7 +51,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: d
         else:
             rule_values = {rule_value.lower() if isinstance(rule_value, str) else rule_value}
 
-        if len(rule_values & values) == 0:
+        if len(rule_values & values_set) == 0:
             return False
 
     exclude_fields = exclude_fields or {}
@@ -65,9 +61,12 @@ def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: d
         unique_fields = get_unique_query_fields(rule)
 
         for index, fields in exclude_fields.items():
-            if unique_fields and (rule.contents.data.index_or_dataview == index or index == "any"):  # type: ignore[reportAttributeAccessIssue]
-                if set(unique_fields) & set(fields):
-                    return False
+            if (
+                unique_fields
+                and (rule.contents.data.index_or_dataview == index or index == "any")  # type: ignore[reportAttributeAccessIssue]  # noqa: PLR1714
+                and (set(unique_fields) & set(fields))
+            ):
+                return False
 
     return True
 
@@ -78,7 +77,7 @@ CURRENT_RELEASE_PATH = RELEASE_DIR / load_current_package_version()
 class Package:
     """Packaging object for siem rules and releases."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         rules: RuleCollection,
         name: str,
@@ -89,7 +88,7 @@ class Package:
         generate_navigator: bool = False,
         verbose: bool = True,
         historical: bool = False,
-    ):
+    ) -> None:
         """Initialize a package."""
         self.name = name
         self.rules = rules
@@ -105,7 +104,8 @@ class Package:
         if max_version is not None:
             self.rules = self.rules.filter(lambda r: max_version >= r.contents.saved_version)  # type: ignore[reportOperatorIssue]
 
-        assert not RULES_CONFIG.bypass_version_lock, "Packaging can not be used when version locking is bypassed."
+        if RULES_CONFIG.bypass_version_lock:
+            raise ValueError("Packaging can not be used when version locking is bypassed.")
         self.changed_ids, self.new_ids, self.removed_ids = loaded_version_lock.manage_versions(
             self.rules,
             verbose=verbose,
@@ -113,23 +113,23 @@ class Package:
         )
 
     @classmethod
-    def load_configs(cls):
+    def load_configs(cls) -> Any:
         """Load configs from packages.yaml."""
         return RULES_CONFIG.packages["package"]
 
     @staticmethod
-    def _package_kibana_notice_file(save_dir: Path):
+    def _package_kibana_notice_file(save_dir: Path) -> None:
         """Convert and save notice file with package."""
-        with open(NOTICE_FILE) as f:
+        with NOTICE_FILE.open() as f:
             notice_txt = f.read()
 
-        with open(os.path.join(save_dir, "notice.ts"), "w") as f:
+        with (save_dir / "notice.ts").open("w") as f:
             commented_notice = [f" * {line}".rstrip() for line in notice_txt.splitlines()]
             lines = ["/* eslint-disable @kbn/eslint/require-license-header */", "", "/* @notice"]
             lines = lines + commented_notice + [" */", ""]
             _ = f.write("\n".join(lines))
 
-    def _package_kibana_index_file(self, save_dir: Path):
+    def _package_kibana_index_file(self, save_dir: Path) -> None:
         """Convert and save index file with package."""
         sorted_rules = sorted(self.rules, key=lambda k: (k.contents.metadata.creation_date, k.path.name))  # type: ignore[reportOptionalMemberAccess]
         comments = [
@@ -139,7 +139,7 @@ class Package:
             "// Do not hand edit. Run script/command to regenerate package information instead",
         ]
         rule_imports = [
-            f"import rule{i} from './{os.path.splitext(r.path.name)[0] + '.json'}';"  # type: ignore[reportOptionalMemberAccess]
+            f"import rule{i} from './{r.path.name + '.json'}';"  # type: ignore[reportOptionalMemberAccess]
             for i, r in enumerate(sorted_rules, 1)
         ]
         const_exports = ["export const rawRules = ["]
@@ -154,7 +154,7 @@ class Package:
         index_ts.append("")
         index_ts.extend(const_exports)
 
-        with open(os.path.join(save_dir, "index.ts"), "w") as f:
+        with (save_dir / "index.ts").open("w") as f:
             _ = f.write("\n".join(index_ts))
 
     def save_release_files(
@@ -163,42 +163,44 @@ class Package:
         changed_rules: list[definitions.UUIDString],
         new_rules: list[str],
         removed_rules: list[str],
-    ):
+    ) -> None:
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
-        with open(os.path.join(directory, f"{self.name}-summary.txt"), "w") as f:
+        with (directory / f"{self.name}-summary.txt").open("w") as f:
             _ = f.write(summary)
-        with open(os.path.join(directory, f"{self.name}-changelog-entry.md"), "w") as f:
+        with (directory / f"{self.name}-changelog-entry.md").open("w") as f:
             _ = f.write(changelog)
 
         if self.generate_navigator:
             _ = self.generate_attack_navigator(Path(directory))
 
         consolidated = json.loads(self.get_consolidated())
-        with open(os.path.join(directory, f"{self.name}-consolidated-rules.json"), "w") as f:
+        with (directory / f"{self.name}-consolidated-rules.json").open("w") as f:
             json.dump(consolidated, f, sort_keys=True, indent=2)
         consolidated_rules = Ndjson(consolidated)
         consolidated_rules.dump(Path(directory).joinpath(f"{self.name}-consolidated-rules.ndjson"), sort_keys=True)
 
-        self.generate_xslx(os.path.join(directory, f"{self.name}-summary.xlsx"))
+        self.generate_xslx(str(directory / f"{self.name}-summary.xlsx"))
 
         bulk_upload, rules_ndjson = self.create_bulk_index_body()
         bulk_upload.dump(
-            Path(directory).joinpath(f"{self.name}-enriched-rules-index-uploadable.ndjson"), sort_keys=True
+            directory / f"{self.name}-enriched-rules-index-uploadable.ndjson",
+            sort_keys=True,
         )
         rules_ndjson.dump(
-            Path(directory).joinpath(f"{self.name}-enriched-rules-index-importable.ndjson"), sort_keys=True
+            directory / f"{self.name}-enriched-rules-index-importable.ndjson",
+            sort_keys=True,
         )
 
-    def get_consolidated(self, as_api: bool = True):
+    def get_consolidated(self, as_api: bool = True) -> str:
         """Get a consolidated package of the rules in a single file."""
-        full_package: list[dict[str, Any]] = []
-        for rule in self.rules:
-            full_package.append(rule.contents.to_api_format() if as_api else rule.contents.to_dict())
-
+        full_package = [
+            rule.contents.to_api_format() if as_api else rule.contents.to_dict()
+            for rule in self.rules
+        ]
         return json.dumps(full_package, sort_keys=True)
 
-    def save(self, verbose: bool = True):
+    def save(self, verbose: bool = True) -> None:
         """Save a package and all artifacts."""
         save_dir = RELEASE_DIR / self.name
         rules_dir = save_dir / "rules"
@@ -246,7 +248,7 @@ class Package:
         downgrade_version: definitions.SemVer | None = None,
         verbose: bool = True,
         skip_unsupported: bool = False,
-    ):
+    ) -> None:
         """Export rules into a consolidated ndjson file."""
         from .main import _export_rules  # type: ignore[reportPrivateUsage]
 
@@ -258,7 +260,7 @@ class Package:
             skip_unsupported=skip_unsupported,
         )
 
-    def get_package_hash(self, as_api: bool = True, verbose: bool = True):
+    def get_package_hash(self, as_api: bool = True, verbose: bool = True) -> str:
         """Get hash of package contents."""
         contents = base64.b64encode(self.get_consolidated(as_api=as_api).encode("utf-8"))
         sha256 = hashlib.sha256(contents).hexdigest()
@@ -292,16 +294,14 @@ class Package:
         if verbose:
             click.echo(f" - {len(all_rules) - len(rules)} rules excluded from package")
 
-        package = cls(rules, verbose=verbose, historical=historical, **config)
+        return cls(rules, verbose=verbose, historical=historical, **config)
 
-        return package
-
-    def generate_summary_and_changelog(
+    def generate_summary_and_changelog(  # noqa: PLR0915
         self,
         changed_rule_ids: list[definitions.UUIDString],
         new_rule_ids: list[str],
         removed_rules: list[str],
-    ):
+    ) -> tuple[str, str]:
         """Generate stats on package."""
 
         summary: dict[str, dict[str, list[str]]] = {
@@ -338,17 +338,19 @@ class Package:
 
             return rule_str
 
-        def get_markdown_rule_info(r: TOMLRule, sd: str):
+        def get_markdown_rule_info(r: TOMLRule, sd: str) -> str:
             # lookup the rule in the GitHub tag v{major.minor.patch}
+            if not r.path:
+                raise ValueError("Unknown rule path")
             data = r.contents.data
             rules_dir_link = f"https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/"
             rule_type = data.language if isinstance(data, QueryRuleData) else data.type
-            return f"`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(str(r.path))})** (_{rule_type}_)"
+            return f"`{r.id}` **[{r.name}]({rules_dir_link + r.path.name})** (_{rule_type}_)"
 
         for rule in self.rules:
             if not rule.path:
                 raise ValueError("Unknown rule path")
-            sub_dir = os.path.basename(os.path.dirname(rule.path))
+            sub_dir = rule.path.parent.name
 
             if rule.id in changed_rule_ids:
                 summary["changed"][sub_dir].append(get_summary_rule_info(rule))
@@ -361,7 +363,10 @@ class Package:
                 changelog["unchanged"][sub_dir].append(get_markdown_rule_info(rule, sub_dir))
 
         for rule in self.deprecated_rules:
-            sub_dir = os.path.basename(os.path.dirname(rule.path))
+            if not rule.path:
+                raise ValueError("Unknown rule path")
+
+            sub_dir = rule.path.parent.name
 
             if not rule.name:
                 raise ValueError("Rule name is not found")
@@ -370,27 +375,27 @@ class Package:
                 summary["removed"][sub_dir].append(rule.name)
                 changelog["removed"][sub_dir].append(rule.name)
 
-        def format_summary_rule_str(rule_dict: dict[str, Any]):
+        def format_summary_rule_str(rule_dict: dict[str, Any]) -> str:
             str_fmt = ""
             for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
                 str_fmt += f"\n{sd} ({len(rules)})\n"
                 str_fmt += "\n".join(" - " + s for s in sorted(rules))
             return str_fmt or "\nNone"
 
-        def format_changelog_rule_str(rule_dict: dict[str, Any]):
+        def format_changelog_rule_str(rule_dict: dict[str, Any]) -> str:
             str_fmt = ""
             for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
                 str_fmt += f"\n- **{sd}** ({len(rules)})\n"
                 str_fmt += "\n".join("   - " + s for s in sorted(rules))
             return str_fmt or "\nNone"
 
-        def rule_count(rule_dict: dict[str, Any]):
+        def rule_count(rule_dict: dict[str, Any]) -> int:
             count = 0
-            for _, rules in rule_dict.items():
+            for rules in rule_dict.values():
                 count += len(rules)
             return count
 
-        today = str(date.today())
+        today = str(date.today())  # noqa: DTZ011
         summary_fmt = [
             f"{sf.capitalize()} ({rule_count(summary[sf])}): \n{format_summary_rule_str(summary[sf])}\n"
             for sf in ("added", "changed", "removed", "unchanged")
@@ -431,7 +436,7 @@ class Package:
         lb = NavigatorBuilder(self.rules.rules)
         return lb.save_all(save_dir, verbose=False)
 
-    def generate_xslx(self, path: str):
+    def generate_xslx(self, path: str) -> None:
         """Generate a detailed breakdown of a package in an excel file."""
         from .docs import PackageDocument
 
@@ -439,7 +444,7 @@ class Package:
         doc.populate()
         doc.close()
 
-    def _generate_registry_package(self, save_dir: Path):
+    def _generate_registry_package(self, save_dir: Path) -> None:
         """Generate the artifact for the oob package-storage."""
         from .schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
 
@@ -466,7 +471,6 @@ class Package:
 
         logo_file.parent.mkdir(parents=True)
         shutil.copyfile(FLEET_PKG_LOGO, logo_file)
-        # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
             asset = rule.get_asset()
@@ -539,15 +543,15 @@ class Package:
             if not relative_path:
                 raise ValueError(f"Could not find a valid relative path for the rule: {rule.id}")
 
-            rule_doc = dict(
-                hash=rule.contents.get_hash(),
-                source="repo",
-                datetime_uploaded=now,
-                status=status,
-                package_version=self.name,
-                flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                relative_path=relative_path,
-            )
+            rule_doc = {
+                "hash": rule.contents.get_hash(),
+                "source": "repo",
+                "datetime_uploaded": now,
+                "status": status,
+                "package_version": self.name,
+                "flat_mitre": ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
+                "relative_path": relative_path,
+            }
             rule_doc.update(**rule.contents.to_api_format())
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
@@ -563,7 +567,7 @@ class Package:
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
 
         # iterates over historical rules from previous package and writes them to disk
-        for _, historical_rule_contents in historical_rules.items():
+        for historical_rule_contents in historical_rules.values():
             rule_id = historical_rule_contents["attributes"]["rule_id"]
             historical_rule_version = historical_rule_contents["attributes"]["version"]
 

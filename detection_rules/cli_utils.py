@@ -26,14 +26,14 @@ from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 RULES_CONFIG = parse_rules_config()
 
 
-def single_collection(f: Callable[..., Any]):
+def single_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     """Add arguments to get a RuleCollection by file, directory or a list of IDs"""
     from .misc import raise_client_error
 
     @click.option("--rule-file", "-f", multiple=False, required=False, type=click.Path(dir_okay=False))
     @click.option("--rule-id", "-id", multiple=False, required=False)
     @functools.wraps(f)
-    def get_collection(*args: Any, **kwargs: Any):
+    def get_collection(*args: Any, **kwargs: Any) -> Any:
         rule_name: list[str] = kwargs.pop("rule_name", [])
         rule_id: list[str] = kwargs.pop("rule_id", [])
         rule_files: list[str] = kwargs.pop("rule_file")
@@ -60,7 +60,7 @@ def single_collection(f: Callable[..., Any]):
     return get_collection
 
 
-def multi_collection(f: Callable[..., Any]):
+def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     """Add arguments to get a RuleCollection by file, directory or a list of IDs"""
     from .misc import raise_client_error
 
@@ -82,7 +82,7 @@ def multi_collection(f: Callable[..., Any]):
         help="Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.",
     )
     @functools.wraps(f)
-    def get_collection(*args: Any, **kwargs: Any):
+    def get_collection(*args: Any, **kwargs: Any) -> Any:
         rule_id: list[str] = kwargs.pop("rule_id", [])
         rule_files: list[str] = kwargs.pop("rule_file")
         directories: list[str] = kwargs.pop("directory")
@@ -132,7 +132,7 @@ def multi_collection(f: Callable[..., Any]):
     return get_collection
 
 
-def rule_prompt(
+def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     path: Path | None = None,
     rule_type: str | None = None,
     required_only: bool = True,
@@ -147,7 +147,7 @@ def rule_prompt(
     from .misc import schema_prompt
 
     additional_required = additional_required or []
-    creation_date = datetime.date.today().strftime("%Y/%m/%d")
+    creation_date = datetime.date.today().strftime("%Y/%m/%d")  # noqa: DTZ011
     if verbose and path:
         click.echo(f"[+] Building rule for {path}")
 
@@ -181,7 +181,7 @@ def rule_prompt(
             continue
 
         # these are set at package release time depending on the version strategy
-        if (name == "version" or name == "revision") and not BYPASS_VERSION_LOCK:
+        if name not in ("version", "revision") and not BYPASS_VERSION_LOCK:
             continue
 
         if required_only and name not in required_fields:
@@ -252,7 +252,7 @@ def rule_prompt(
     meta = {
         "creation_date": kwargs.get("creation_date") or creation_date,
         "updated_date": kwargs.get("updated_date") or creation_date,
-        "maturity": "development" or kwargs.get("maturity"),
+        "maturity": "development",
     }
 
     try:
@@ -274,7 +274,8 @@ def rule_prompt(
             try:
                 contents["query"] = click.edit(contents["query"], extension=".eql")
                 rule = TOMLRule(
-                    path=Path(path), contents=TOMLRuleContents.from_dict({"rule": contents, "metadata": meta})
+                    path=Path(path),
+                    contents=TOMLRuleContents.from_dict({"rule": contents, "metadata": meta}),
                 )
             except kql.KqlParseError as e:
                 click.secho(e.args[0], fg="red", err=True)
@@ -290,7 +291,7 @@ def rule_prompt(
     except Exception as e:
         if skip_errors:
             return f"Rule: {kwargs['id']}, Rule Name: {rule_name} failed: {e}"
-        raise e
+        raise
 
     if save:
         rule.save_toml(strip_none_values=strip_none_values)

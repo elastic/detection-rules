@@ -8,6 +8,7 @@
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
@@ -19,9 +20,9 @@ from semver import Version
 from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, unzip
 
 
-def _decompress_and_save_schema(url: str, release_name: str):
+def _decompress_and_save_schema(url: str, release_name: str) -> None:
     print(f"Downloading beats {release_name}")
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
 
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
 
@@ -31,7 +32,8 @@ def _decompress_and_save_schema(url: str, release_name: str):
         base_directory = archive.namelist()[0]
 
         for name in archive.namelist():
-            if os.path.basename(name) in ("fields.yml", "fields.common.yml", "config.yml"):
+            path = Path(name)
+            if path.name in ("fields.yml", "fields.common.yml", "config.yml"):
                 contents = archive.read(name)
 
                 # chop off the base directory name
@@ -42,9 +44,9 @@ def _decompress_and_save_schema(url: str, release_name: str):
 
                 try:
                     decoded = yaml.safe_load(contents)
-                except yaml.YAMLError:
+                except yaml.YAMLError as e:
                     print(f"Error loading {name}")
-                    raise ValueError(f"Error loading {name}")
+                    raise ValueError(f"Error loading {name}") from e
 
                 # create a hierarchical structure
                 branch = fs
@@ -60,14 +62,14 @@ def _decompress_and_save_schema(url: str, release_name: str):
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
     path = get_etc_path(["beats_schemas", release_name + ".json.gz"])
-    with open(path, "wb") as f:
+    with path.open("wb") as f:
         _ = f.write(compressed)
 
 
-def download_beats_schema(version: str):
+def download_beats_schema(version: str) -> None:
     """Download a beats schema by version."""
     url = "https://api.github.com/repos/elastic/beats/releases"
-    releases = requests.get(url)
+    releases = requests.get(url, timeout=30)
 
     version = f"v{version.lstrip('v')}"
     beats_release = None
@@ -86,16 +88,16 @@ def download_beats_schema(version: str):
     _decompress_and_save_schema(beats_url, name)
 
 
-def download_latest_beats_schema():
+def download_latest_beats_schema() -> None:
     """Download additional schemas from beats releases."""
     url = "https://api.github.com/repos/elastic/beats/releases"
-    releases = requests.get(url)
+    releases = requests.get(url, timeout=30)
 
     latest_release = max(releases.json(), key=lambda release: Version.parse(release["tag_name"].lstrip("v")))
     download_beats_schema(latest_release["tag_name"])
 
 
-def refresh_main_schema():
+def refresh_main_schema() -> None:
     """Download and refresh beats schema from main."""
     _decompress_and_save_schema("https://github.com/elastic/beats/archive/main.zip", "main")
 
@@ -129,12 +131,12 @@ def _flatten_schema(schema: list[dict[str, Any]] | None, prefix: str = "") -> li
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
         elif "name" in s:
-            s = s.copy()
+            _s = s.copy()
             # type is implicitly keyword if not defined
             # example: https://github.com/elastic/beats/blob/main/packetbeat/_meta/fields.common.yml#L7-L12
-            s.setdefault("type", "keyword")
-            s["name"] = prefix + s["name"]
-            flattened.append(s)
+            _s.setdefault("type", "keyword")
+            _s["name"] = prefix + s["name"]
+            flattened.append(_s)
 
     return flattened
 
@@ -143,7 +145,11 @@ def flatten_ecs_schema(schema: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _flatten_schema(schema)
 
 
-def get_field_schema(base_directory: dict[str, Any], prefix: str = "", include_common: bool = False):
+def get_field_schema(
+    base_directory: dict[str, Any],
+    prefix: str = "",
+    include_common: bool = False,
+) -> list[dict[str, Any]]:
     base_directory = base_directory.get("folders", {}).get("_meta", {}).get("files", {})
     flattened: list[dict[str, Any]] = []
 
@@ -156,7 +162,7 @@ def get_field_schema(base_directory: dict[str, Any], prefix: str = "", include_c
     return flattened
 
 
-def get_beat_root_schema(schema: dict[str, Any], beat: str):
+def get_beat_root_schema(schema: dict[str, Any], beat: str) -> dict[str, Any]:
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
@@ -166,7 +172,7 @@ def get_beat_root_schema(schema: dict[str, Any], beat: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
-def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datasets: str):
+def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datasets: str) -> dict[str, Any]:
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
@@ -175,15 +181,11 @@ def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datase
     module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(module, {})
 
     # if we only have a module then we'll work with what we got
-    if datasets:
-        all_datasets = datasets
-    else:
-        all_datasets = [d for d in module_dir.get("folders", {}) if not d.startswith("_")]
+    all_datasets = datasets if datasets else [d for d in module_dir.get("folders", {}) if not d.startswith("_")]
 
-    for dataset in all_datasets:
+    for _dataset in all_datasets:
         # replace aws.s3 -> s3
-        if dataset.startswith(module + "."):
-            dataset = dataset[len(module) + 1 :]
+        dataset = _dataset[len(module) + 1 :] if _dataset.startswith(module + ".") else _dataset
 
         dataset_dir = module_dir.get("folders", {}).get(dataset, {})
         flattened.extend(get_field_schema(dataset_dir, prefix=module + ".", include_common=True))
@@ -197,7 +199,7 @@ def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datase
 @cached
 def get_versions() -> list[Version]:
     versions: list[Version] = []
-    for filename in os.listdir(get_etc_path(["beats_schemas"])):
+    for filename in os.listdir(get_etc_path(["beats_schemas"])):  # noqa: PTH208
         version_match = re.match(r"v(.+)\.json\.gz", filename)
         if version_match:
             versions.append(Version.parse(version_match.groups()[0]))
@@ -211,7 +213,7 @@ def get_max_version() -> str:
 
 
 @cached
-def read_beats_schema(version: str | None = None):
+def read_beats_schema(version: str | None = None) -> dict[str, Any]:
     if version and version.lower() == "main":
         path = get_etc_path(["beats_schemas", "main.json.gz"])
         return json.loads(read_gzip(path))
@@ -227,7 +229,12 @@ def read_beats_schema(version: str | None = None):
     return json.loads(read_gzip(get_etc_path(["beats_schemas", f"v{version}.json.gz"])))
 
 
-def get_schema_from_datasets(beats: list[str], modules: set[str], datasets: set[str], version: str | None = None):
+def get_schema_from_datasets(
+    beats: list[str],
+    modules: set[str],
+    datasets: set[str],
+    version: str | None = None,
+) -> dict[str, Any]:
     filtered: dict[str, Any] = {}
     beats_schema = read_beats_schema(version=version)
 
@@ -237,8 +244,6 @@ def get_schema_from_datasets(beats: list[str], modules: set[str], datasets: set[
 
     for beat in beats:
         # if no modules are specified then grab them all
-        # all_modules = list(beats_schema.get(beat, {}).get("folders", {}).get("module", {}).get("folders", {}))
-        # beat_modules = modules or all_modules
         filtered.update(get_beat_root_schema(beats_schema, beat))
 
         for module in modules:

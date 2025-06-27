@@ -107,10 +107,10 @@ def get_etc_path(paths: list[str]) -> Path:
     return ETC_DIR.joinpath(*paths)
 
 
-def get_etc_glob_path(patterns: list[str]) -> Iterator[Path]:
+def get_etc_glob_path(patterns: list[str]) -> list[Path]:
     """Load a file from the detection_rules/etc/ folder."""
     pattern = os.path.join(*patterns)  # noqa: PTH118
-    return ETC_DIR.glob(pattern)
+    return list(ETC_DIR.glob(pattern))
 
 
 def get_etc_file(name: str, mode: str = "r") -> str:

@@ -16,11 +16,11 @@ from .main import root
 from .utils import ROOT_DIR, get_etc_path, load_etc_dump
 
 DEFAULT_CONFIG_PATH = Path(get_etc_path(["_config.yaml"]))
-CUSTOM_RULES_DOC_PATH = Path(ROOT_DIR).joinpath(REPO_DOCS_DIR, "custom-rules-management.md")
+CUSTOM_RULES_DOC_PATH = ROOT_DIR / REPO_DOCS_DIR / "custom-rules-management.md"
 
 
 @root.group("custom-rules")
-def custom_rules():
+def custom_rules() -> None:
     """Commands for supporting custom rules."""
 
 
@@ -83,7 +83,7 @@ def create_test_config_content(enable_prebuilt_tests: bool) -> str:
 @click.option(
     "--enable-prebuilt-tests", "-e", is_flag=True, help="Enable all prebuilt tests instead of default subset."
 )
-def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_prebuilt_tests: bool):
+def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_prebuilt_tests: bool) -> None:
     """Setup the custom rules configuration directory and files with defaults."""
 
     config = directory / "_config.yaml"

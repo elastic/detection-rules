@@ -30,17 +30,19 @@ from .schemas import definitions
 
 def get_gh_release(repo: Repository, release_name: str | None = None, tag_name: str | None = None) -> GitRelease | None:
     """Get a list of GitHub releases by repo."""
-    assert release_name or tag_name, "Must specify a release_name or tag_name"
+    if not release_name and not tag_name:
+        raise ValueError("Must specify a release_name or tag_name")
 
     releases = repo.get_releases()
     for release in releases:
         if (release_name and release_name == release.title) or (tag_name and tag_name == release.tag_name):
             return release
+    return None
 
 
 def load_zipped_gh_assets_with_metadata(url: str) -> tuple[str, dict[str, Any]]:
     """Download and unzip a GitHub assets."""
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
     zipped_asset = ZipFile(io.BytesIO(response.content))
     zipped_sha256 = hashlib.sha256(response.content).hexdigest()
 
@@ -57,7 +59,7 @@ def load_zipped_gh_assets_with_metadata(url: str) -> tuple[str, dict[str, Any]]:
             "metadata": {
                 "compress_size": zipped.compress_size,
                 # zipfile provides only a 6 tuple datetime; -1 means DST is unknown;  0's set tm_wday and tm_yday
-                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", zipped.date_time + (0, 0, -1)),
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", (*zipped.date_time, 0, 0, -1)),
                 "sha256": sha256,
                 "size": zipped.file_size,
             },
@@ -68,14 +70,14 @@ def load_zipped_gh_assets_with_metadata(url: str) -> tuple[str, dict[str, Any]]:
 
 def load_json_gh_asset(url: str) -> dict[str, Any]:
     """Load and return the contents of a json asset file."""
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
     response.raise_for_status()
     return response.json()
 
 
-def download_gh_asset(url: str, path: str, overwrite: bool = False):
+def download_gh_asset(url: str, path: str, overwrite: bool = False) -> None:
     """Download and unzip a GitHub asset."""
-    zipped = requests.get(url)
+    zipped = requests.get(url, timeout=30)
     z = ZipFile(io.BytesIO(zipped.content))
 
     Path(path).mkdir(exist_ok=True)
@@ -88,7 +90,7 @@ def download_gh_asset(url: str, path: str, overwrite: bool = False):
     z.close()
 
 
-def update_gist(
+def update_gist(  # noqa: PLR0913
     token: str,
     file_map: dict[Path, str],
     description: str,
@@ -107,16 +109,16 @@ def update_gist(
 
     if pre_purge:
         # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
-        response = requests.get(url)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
         data = response.json()
         files = list(data["files"])
         body["files"] = {file: {} for file in files if file not in file_map}
-        response = requests.patch(url, headers=headers, json=body)
+        response = requests.patch(url, headers=headers, json=body, timeout=30)
         response.raise_for_status()
 
     body["files"] = {path.name: {"content": contents} for path, contents in file_map.items()}
-    response = requests.patch(url, headers=headers, json=body)
+    response = requests.patch(url, headers=headers, json=body, timeout=30)
     response.raise_for_status()
     return response
 
@@ -124,7 +126,7 @@ def update_gist(
 class GithubClient:
     """GitHub client wrapper."""
 
-    def __init__(self, token: str | None = None):
+    def __init__(self, token: str | None = None) -> None:
         """Get an unauthenticated client, verified authenticated client, or a default client."""
         self.assert_github()
         self.client = Github(token)
@@ -133,7 +135,7 @@ class GithubClient:
         self.__authenticated_client = None
 
     @classmethod
-    def assert_github(cls):
+    def assert_github(cls) -> None:
         if not Github:
             raise ModuleNotFoundError("Missing PyGithub - try running `pip3 install .[dev]`")
 
@@ -145,7 +147,7 @@ class GithubClient:
             self.__authenticated_client = Github(self.__token)
         return self.__authenticated_client
 
-    def add_token(self, token: str):
+    def add_token(self, token: str) -> None:
         self.__token = token
 
 
@@ -192,7 +194,7 @@ class ManifestManager:
         release_name: str | None = None,
         tag_name: str | None = None,
         token: str | None = None,
-    ):
+    ) -> None:
         self.repo_name = repo
         self.release_name = release_name
         self.tag_name = tag_name
@@ -248,9 +250,7 @@ class ManifestManager:
 
         release_metadata = self._parse_release_metadata()
         release_metadata.update(assets=assets)
-        release_manifest = ReleaseManifest(**release_metadata)
-
-        return release_manifest
+        return ReleaseManifest(**release_metadata)
 
     def _parse_release_metadata(self) -> dict[str, Any]:
         """Parse relevant info from GitHub metadata for release manifest."""
@@ -288,6 +288,7 @@ class ManifestManager:
         for asset in release.get_assets():
             if asset.name == f"manifest-{name}.json":
                 return load_json_gh_asset(asset.browser_download_url)
+        return None
 
     @classmethod
     def load_all(

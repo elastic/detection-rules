@@ -89,8 +89,8 @@ for technique_id, technique in sorted(technique_lookup.items(), key=lambda kv: k
             matrix[tactic_name].append(technique_id)
         no_tactic.append(technique_id)
 
-for tactic in matrix:
-    matrix[tactic].sort(key=lambda tid: technique_lookup[tid]["name"].lower())
+for val in matrix.values():
+    val.sort(key=lambda tid: technique_lookup[tid]["name"].lower())
 
 
 technique_lookup = OrderedDict(sorted(technique_lookup.items()))
@@ -104,13 +104,13 @@ def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes
     attack_path = get_attack_file_path()
     filename, _, _ = attack_path.name.rsplit(".", 2)
 
-    def get_version_from_tag(name: str, pattern: str = "att&ck-v"):
+    def get_version_from_tag(name: str, pattern: str = "att&ck-v") -> str:
         _, version = name.lower().split(pattern, 1)
         return version
 
     current_version = Version.parse(get_version_from_tag(filename, "attack-v"), optional_minor_and_patch=True)
 
-    r = requests.get("https://api.github.com/repos/mitre/cti/tags")
+    r = requests.get("https://api.github.com/repos/mitre/cti/tags", timeout=30)
     r.raise_for_status()
     releases = [t for t in r.json() if t["name"].startswith("ATT&CK-v")]
     latest_release = max(
@@ -125,7 +125,7 @@ def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes
         return None, None
 
     download = f"https://raw.githubusercontent.com/mitre/cti/{release_name}/enterprise-attack/enterprise-attack.json"
-    r = requests.get(download)
+    r = requests.get(download, timeout=30)
     r.raise_for_status()
     attack_data = r.json()
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
@@ -146,20 +146,19 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
     tactic_id = tactics_map[tactic]
     tech_entries: dict[str, Any] = {}
 
-    def make_entry(_id: str):
-        e = {
+    def make_entry(_id: str) -> dict[str, Any]:
+        return {
             "id": _id,
             "name": technique_lookup[_id]["name"],
             "reference": url_base.format(type="techniques", id=_id.replace(".", "/")),
         }
-        return e
 
     for tid in technique_ids:
         # fail if deprecated or else convert if it has been replaced
         if tid in deprecated:
             raise ValueError(f"Technique ID: {tid} has been deprecated and should not be used")
         if tid in techniques_redirect_map:
-            tid = techniques_redirect_map[tid]
+            tid = techniques_redirect_map[tid]  # noqa: PLW2901
 
         if tid not in matrix[tactic]:
             raise ValueError(f"Technique ID: {tid} does not fall under tactic: {tactic}")
@@ -183,14 +182,14 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
     return entry
 
 
-def update_threat_map(rule_threat_map: list[dict[str, Any]]):
+def update_threat_map(rule_threat_map: list[dict[str, Any]]) -> None:
     """Update rule map techniques to reflect changes from ATT&CK."""
     for entry in rule_threat_map:
         for tech in entry["technique"]:
             tech["name"] = technique_lookup[tech["id"]]["name"]
 
 
-def retrieve_redirected_id(asset_id: str):
+def retrieve_redirected_id(asset_id: str) -> str | Any:
     """Get the ID for a redirected ATT&CK asset."""
     if asset_id in (tactics_map.values()):
         attack_type = "tactics"
@@ -199,7 +198,10 @@ def retrieve_redirected_id(asset_id: str):
     else:
         raise ValueError(f"Unknown asset_id: {asset_id}")
 
-    response = requests.get(f"https://attack.mitre.org/{attack_type}/{asset_id.replace('.', '/')}")
+    response = requests.get(
+        f"https://attack.mitre.org/{attack_type}/{asset_id.replace('.', '/')}",
+        timeout=30,
+    )
     text = response.text.strip().strip("'").lower()
 
     if text.startswith('<meta http-equiv="refresh"'):
@@ -207,17 +209,17 @@ def retrieve_redirected_id(asset_id: str):
         if not found:
             raise ValueError("Meta refresh tag is not found")
 
-        new_id = found.group(1).replace("/", ".").upper()
-        return new_id
+        return found.group(1).replace("/", ".").upper()
+    return None
 
 
-def build_redirected_techniques_map(threads: int = 50):
+def build_redirected_techniques_map(threads: int = 50) -> dict[str, Any]:
     """Build a mapping of revoked technique IDs to new technique IDs."""
     from multiprocessing.pool import ThreadPool
 
     technique_map: dict[str, Any] = {}
 
-    def download_worker(tech_id: str):
+    def download_worker(tech_id: str) -> None:
         new = retrieve_redirected_id(tech_id)
         if new:
             technique_map[tech_id] = new
@@ -230,7 +232,7 @@ def build_redirected_techniques_map(threads: int = 50):
     return technique_map
 
 
-def refresh_redirected_techniques_map(threads: int = 50):
+def refresh_redirected_techniques_map(threads: int = 50) -> None:
     """Refresh the locally saved copy of the mapping."""
     replacement_map = build_redirected_techniques_map(threads)
     mapping = {"saved_date": time.asctime(), "mapping": replacement_map}

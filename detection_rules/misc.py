@@ -17,6 +17,7 @@ from typing import IO, Any, NoReturn
 
 import click
 import requests
+from elasticsearch import AuthenticationException, Elasticsearch
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
 from .utils import add_params, cached, load_etc_dump
@@ -43,19 +44,18 @@ ROOT_DIR = Path(__file__).parent.parent
 class ClientError(click.ClickException):
     """Custom CLI error to format output or full debug stacktrace."""
 
-    def __init__(self, message: str, original_error: Exception | None = None):
-        super(ClientError, self).__init__(message)
+    def __init__(self, message: str, original_error: Exception | None = None) -> None:
+        super().__init__(message)
         self.original_error = original_error
         self.original_error_type = type(original_error).__name__ if original_error else ""
 
-    def show(self, file: IO[Any] | None = None, err: bool = True):
+    def show(self, file: IO[Any] | None = None, err: bool = True) -> None:
         """Print the error to the console."""
-        # err_msg = f' {self.original_error_type}' if self.original_error else ''
         msg = f"{click.style(f'CLI Error ({self.original_error_type})', fg='red', bold=True)}: {self.format_message()}"
         click.echo(msg, err=err, file=file)
 
 
-def raise_client_error(
+def raise_client_error(  # noqa: PLR0913
     message: str,
     exc: Exception | None = None,
     debug: bool | None = False,
@@ -63,12 +63,12 @@ def raise_client_error(
     file: IO[Any] | None = None,
     err: bool = False,
 ) -> NoReturn:
-    config_debug = True if ctx and ctx.ensure_object(dict) and ctx.obj.get("debug") is True else False
+    config_debug = bool(ctx and ctx.ensure_object(dict) and ctx.obj.get("debug"))  # type: ignore[reportUnknownArgumentType]
     debug = debug if debug is not None else config_debug
 
     if debug:
         click.echo(click.style("DEBUG: ", fg="yellow") + message, err=err, file=file)
-        raise
+        raise ClientError(message, original_error=exc)
     raise ClientError(message, original_error=exc)
 
 
@@ -83,7 +83,7 @@ def nested_get(_dict: dict[str, Any] | None, dot_key: str | None, default: Any |
     return _dict.get(dot_key, default)
 
 
-def nested_set(_dict: dict[str, Any], dot_key: str, value: Any):
+def nested_set(_dict: dict[str, Any], dot_key: str, value: Any) -> None:
     """Set a nested field from a key in dot notation."""
     keys = dot_key.split(".")
     for key in keys[:-1]:
@@ -107,7 +107,7 @@ def nest_from_dot(dots: str, value: Any) -> Any:
     return nested
 
 
-def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:
+def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
     """Interactively prompt based on schema requirements."""
     field_type = options.get("type")
     pattern: str | None = options.get("pattern")
@@ -130,7 +130,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
     if len(enum) == 1 and is_required and field_type != "array":
         return enum[0]
 
-    def _check_type(_val: Any):
+    def _check_type(_val: Any) -> bool:  # noqa: PLR0911
         if field_type in ("number", "integer") and not str(_val).isdigit():
             print(f"Number expected but got: {_val}")
             return False
@@ -153,9 +153,9 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             return False
         return True
 
-    def _convert_type(_val: Any):
+    def _convert_type(_val: Any) -> Any:
         if field_type == "boolean" and type(_val) is not bool:
-            _val = True if _val.lower() == "true" else False
+            _val = _val.lower() == "true"
         return int(_val) if field_type in ("number", "integer") else _val
 
     prompt = (
@@ -191,7 +191,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             for value in result_list:
                 if not _check_type(value):
                     if is_required:
-                        value = None
+                        value = None  # noqa: PLW2901
                         break
                     return []
             if is_required and value is None:
@@ -207,8 +207,11 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
 
 def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -> dict[str, Any]:
     """Get list of available rules from the Kibana repo and return a list of URLs."""
+
+    timeout = 30  # secs
+
     # ensure branch exists
-    r = requests.get(f"https://api.github.com/repos/{repo}/branches/{branch}")
+    r = requests.get(f"https://api.github.com/repos/{repo}/branches/{branch}", timeout=timeout)
     r.raise_for_status()
 
     url = (
@@ -216,24 +219,26 @@ def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -
         "detection_engine/rules/prepackaged_rules?ref={branch}"
     )
 
-    r = requests.get(url.format(legacy="", app="security_solution", branch=branch, repo=repo))
+    r = requests.get(url.format(legacy="", app="security_solution", branch=branch, repo=repo), timeout=timeout)
     r.raise_for_status()
 
     gh_rules = r.json()
 
     # pre-7.9 app was siem
     if isinstance(gh_rules, dict) and gh_rules.get("message", "") == "Not Found":  # type: ignore[reportUnknownMemberType]
-        gh_rules = requests.get(url.format(legacy="", app="siem", branch=branch, repo=repo)).json()
+        gh_rules = requests.get(url.format(legacy="", app="siem", branch=branch, repo=repo), timeout=timeout).json()
 
     # pre-7.8 the siem was under the legacy directory
     if isinstance(gh_rules, dict) and gh_rules.get("message", "") == "Not Found":  # type: ignore[reportUnknownMemberType]
-        gh_rules = requests.get(url.format(legacy="legacy/", app="siem", branch=branch, repo=repo)).json()
+        gh_rules = requests.get(
+            url.format(legacy="legacy/", app="siem", branch=branch, repo=repo), timeout=timeout
+        ).json()
 
     if isinstance(gh_rules, dict) and gh_rules.get("message", "") == "Not Found":  # type: ignore[reportUnknownMemberType]
         raise ValueError(f"rules directory does not exist for {repo} branch: {branch}")
 
     if not isinstance(gh_rules, list):
-        raise ValueError("Expected to receive a list")
+        raise TypeError("Expected to receive a list")
 
     results: dict[str, Any] = {}
 
@@ -244,11 +249,10 @@ def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -
         name = r["name"]  # type: ignore[reportUnknownMemberType]
 
         if not isinstance(name, str):
-            raise ValueError("String value is expected for name")
+            raise TypeError("String value is expected for name")
 
         if name.endswith(".json"):
-            name_parts = os.path.splitext(name)
-            key = name_parts[0]
+            key = Path(name).name
             val = r["download_url"]  # type: ignore[reportUnknownMemberType]
             results[key] = val
 
@@ -260,7 +264,7 @@ def get_kibana_rules(
     branch: str = "master",
     verbose: bool = True,
     threads: int = 50,
-    rule_paths: list[str] = [],
+    rule_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     """Retrieve prepackaged rules from kibana repo."""
     from multiprocessing.pool import ThreadPool
@@ -271,7 +275,7 @@ def get_kibana_rules(
         thread_use = f" using {threads} threads" if threads > 1 else ""
         click.echo(f"Downloading rules from {repo} {branch} branch in kibana repo{thread_use} ...")
 
-    rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
+    rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in (rule_paths or [])]  # noqa: PTH119, PTH122
     rules_mapping = (
         [(n, u) for n, u in get_kibana_rules_map(repo=repo, branch=branch).items() if n in rule_paths]
         if rule_paths
@@ -280,7 +284,7 @@ def get_kibana_rules(
 
     def download_worker(rule_info: tuple[str, str]) -> None:
         n, u = rule_info
-        kibana_rules[n] = requests.get(u).json()
+        kibana_rules[n] = requests.get(u, timeout=30).json()
 
     pool = ThreadPool(processes=threads)
     _ = pool.map(download_worker, rules_mapping)
@@ -302,7 +306,7 @@ def get_default_config() -> Path | None:
 
 
 @cached
-def parse_user_config():
+def parse_user_config() -> dict[str, Any]:
     """Parse a default config file."""
     import eql  # type: ignore[reportMissingTypeStubs]
 
@@ -321,7 +325,7 @@ def discover_tests(start_dir: str = "tests", pattern: str = "test*.py", top_leve
 
     tests: list[str] = []
 
-    def list_tests(s: unittest.TestSuite):
+    def list_tests(s: unittest.TestSuite) -> None:
         for test in s:
             if isinstance(test, unittest.TestSuite):
                 list_tests(test)
@@ -334,14 +338,14 @@ def discover_tests(start_dir: str = "tests", pattern: str = "test*.py", top_leve
     return tests
 
 
-def getdefault(name: str):
+def getdefault(name: str) -> Callable[[], Any]:
     """Callback function for `default` to get an environment variable."""
     envvar = f"DR_{name.upper()}"
     config = parse_user_config()
     return lambda: os.environ.get(envvar, config.get(name))
 
 
-def get_elasticsearch_client(
+def get_elasticsearch_client(  # noqa: PLR0913
     cloud_id: str | None = None,
     elasticsearch_url: str | None = None,
     es_user: str | None = None,
@@ -349,9 +353,8 @@ def get_elasticsearch_client(
     ctx: click.Context | None = None,
     api_key: str | None = None,
     **kwargs: Any,
-):
+) -> Elasticsearch:
     """Get an authenticated elasticsearch client."""
-    from elasticsearch import AuthenticationException, Elasticsearch
 
     if not (cloud_id or elasticsearch_url):
         raise_client_error("Missing required --cloud-id or --elasticsearch-url")
@@ -375,10 +378,11 @@ def get_elasticsearch_client(
         )
         # force login to test auth
         _ = client.info()
-        return client
     except AuthenticationException as e:
         error_msg = f"Failed authentication for {elasticsearch_url or cloud_id}"
         raise_client_error(error_msg, e, ctx=ctx, err=True)
+    else:
+        return client
 
 
 def get_kibana_client(
@@ -389,7 +393,7 @@ def get_kibana_client(
     space: str | None = None,
     ignore_ssl_errors: bool = False,
     **kwargs: Any,
-):
+) -> Kibana:
     """Get an authenticated Kibana client."""
     if not (cloud_id or kibana_url):
         raise_client_error("Missing required --cloud-id or --kibana-url")
@@ -420,13 +424,10 @@ kibana_options = list(client_options["kibana"].values())
 elasticsearch_options = list(client_options["elasticsearch"].values())
 
 
-def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: bool = True):
+def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: bool = True) -> Callable[..., Any]:
     """Wrapper to add authed client."""
-    from elasticsearch import Elasticsearch
-    from elasticsearch.exceptions import AuthenticationException
-    from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
-    def _wrapper(func: Callable[..., Any]):
+    def _wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
         client_ops_dict: dict[str, click.Option] = {}
         client_ops_keys: dict[str, list[str]] = {}
         for c_type in client_types:
@@ -442,7 +443,7 @@ def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: b
 
         @wraps(func)
         @add_params(*client_ops)
-        def _wrapped(*args: Any, **kwargs: Any):
+        def _wrapped(*args: Any, **kwargs: Any) -> Any:  # noqa: PLR0912
             ctx: click.Context | None = next((a for a in args if isinstance(a, click.Context)), None)
             es_client_args = {k: kwargs.pop(k, None) for k in client_ops_keys.get("elasticsearch", [])}
             #                                      shared args like cloud_id
