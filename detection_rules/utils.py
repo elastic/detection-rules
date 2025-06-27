@@ -55,7 +55,7 @@ def gopath() -> str | None:
 
     go_bin = shutil.which("go")
     if go_bin:
-        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()  # noqa: S603
+        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
         for line in output:
             if line.startswith("GOPATH="):
                 return line[len("GOPATH=") :].strip('"')
@@ -460,7 +460,7 @@ def make_git(*prefix_args: Any) -> Callable[..., str]:
     def git(*args: Any) -> str:
         arg_strs = [str(arg) for arg in args]
         full_args = [git_exe, *prefix_arg_strs, *arg_strs]
-        return subprocess.check_output(full_args, encoding="utf-8").rstrip()  # noqa: S603
+        return subprocess.check_output(full_args, encoding="utf-8").rstrip()
 
     return git
 

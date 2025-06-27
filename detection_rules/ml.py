@@ -127,7 +127,7 @@ class MachineLearningClient:
             results["script"][script] = self.es_client.delete_script(id=script)
 
         results["model"][self.model_id] = self.ml_client.delete_trained_model(model_id=self.model_id)
-        return results # type: ignore[reportUnknownVariableType]
+        return results  # type: ignore[reportUnknownVariableType]
 
     def setup(self) -> dict[str, Any]:
         """Setup machine learning bundle on a stack."""
