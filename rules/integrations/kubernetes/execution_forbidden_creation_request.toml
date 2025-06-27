@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2025/06/24"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/06/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts to create resources in Kubernetes clusters that are forbidden by the authorization policy. It
+specifically looks for creation requests that are denied with a "forbid" decision, indicating that the user or service
+account does not have the necessary permissions to perform the action. This activity is commonly associated with
+adversaries attempting to create resources in a Kubernetes environment without proper authorization, which can lead to
+unauthorized access, manipulation of cluster resources, lateral movement and/or privilege escalation.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Forbidden Creation Request"
+risk_score = 47
+rule_id = "ec81962e-4bc8-48e6-bfb0-545fc97d8f6a"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution"
+    ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "create" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
