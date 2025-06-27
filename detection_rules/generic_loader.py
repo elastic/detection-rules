@@ -4,26 +4,29 @@
 # 2.0.
 
 """Load generic toml formatted files for exceptions and actions."""
-from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Union
 
-import pytoml
+from collections.abc import Callable, Iterable, Iterator
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import pytoml  # type: ignore[reportMissingTypeStubs]
 
 from .action import TOMLAction, TOMLActionContents
 from .action_connector import TOMLActionConnector, TOMLActionConnectorContents
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
 from .rule_loader import dict_filter
-from .schemas import definitions
 
+if TYPE_CHECKING:
+    from .schemas import definitions
 
 RULES_CONFIG = parse_rules_config()
 
-GenericCollectionTypes = Union[TOMLAction, TOMLActionConnector, TOMLException]
-GenericCollectionContentTypes = Union[TOMLActionContents, TOMLActionConnectorContents, TOMLExceptionContents]
+GenericCollectionTypes = TOMLAction | TOMLActionConnector | TOMLException
+GenericCollectionContentTypes = TOMLActionContents | TOMLActionConnectorContents | TOMLExceptionContents
 
 
-def metadata_filter(**metadata) -> Callable[[GenericCollectionTypes], bool]:
+def metadata_filter(**metadata: Any) -> Callable[[GenericCollectionTypes], bool]:
     """Get a filter callback based off item metadata"""
     flt = dict_filter(metadata)
 
@@ -37,49 +40,49 @@ def metadata_filter(**metadata) -> Callable[[GenericCollectionTypes], bool]:
 class GenericCollection:
     """Generic collection for action and exception objects."""
 
-    items: list
+    items: list[GenericCollectionTypes]
     __default = None
 
-    def __init__(self, items: Optional[List[GenericCollectionTypes]] = None):
-        self.id_map: Dict[definitions.UUIDString, GenericCollectionTypes] = {}
-        self.file_map: Dict[Path, GenericCollectionTypes] = {}
-        self.name_map: Dict[definitions.RuleName, GenericCollectionTypes] = {}
-        self.items: List[GenericCollectionTypes] = []
-        self.errors: Dict[Path, Exception] = {}
+    def __init__(self, items: list[GenericCollectionTypes] | None = None) -> None:
+        self.id_map: dict[definitions.UUIDString, GenericCollectionTypes] = {}
+        self.file_map: dict[Path, GenericCollectionTypes] = {}
+        self.name_map: dict[definitions.RuleName, GenericCollectionTypes] = {}
+        self.items: list[GenericCollectionTypes] = []
+        self.errors: dict[Path, Exception] = {}
         self.frozen = False
 
-        self._toml_load_cache: Dict[Path, dict] = {}
+        self._toml_load_cache: dict[Path, dict[str, Any]] = {}
 
-        for items in (items or []):
-            self.add_item(items)
+        for item in items or []:
+            self.add_item(item)
 
     def __len__(self) -> int:
         """Get the total amount of exceptions in the collection."""
         return len(self.items)
 
-    def __iter__(self) -> Iterable[GenericCollectionTypes]:
+    def __iter__(self) -> Iterator[GenericCollectionTypes]:
         """Iterate over all items in the collection."""
         return iter(self.items)
 
     def __contains__(self, item: GenericCollectionTypes) -> bool:
         """Check if an item is in the map by comparing IDs."""
-        return item.id in self.id_map
+        return item.id in self.id_map  # type: ignore[reportAttributeAccessIssue]
 
-    def filter(self, cb: Callable[[TOMLException], bool]) -> 'GenericCollection':
+    def filter(self, cb: Callable[[TOMLException], bool]) -> "GenericCollection":
         """Retrieve a filtered collection of items."""
         filtered_collection = GenericCollection()
 
-        for item in filter(cb, self.items):
+        for item in filter(cb, self.items):  # type: ignore[reportCallIssue]
             filtered_collection.add_item(item)
 
         return filtered_collection
 
     @staticmethod
-    def deserialize_toml_string(contents: Union[bytes, str]) -> dict:
+    def deserialize_toml_string(contents: bytes | str) -> dict[str, Any]:
         """Deserialize a TOML string into a dictionary."""
-        return pytoml.loads(contents)
+        return pytoml.loads(contents)  # type: ignore[reportUnknownVariableType]
 
-    def _load_toml_file(self, path: Path) -> dict:
+    def _load_toml_file(self, path: Path) -> dict[str, Any]:
         """Load a TOML file into a dictionary."""
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
@@ -92,22 +95,25 @@ class GenericCollection:
             self._toml_load_cache[path] = toml_dict
             return toml_dict
 
-    def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
+    def _get_paths(self, directory: Path, recursive: bool = True) -> list[Path]:
         """Get all TOML files in a directory."""
-        return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
+        return sorted(directory.rglob("*.toml") if recursive else directory.glob("*.toml"))
 
     def _assert_new(self, item: GenericCollectionTypes) -> None:
         """Assert that the item is new and can be added to the collection."""
         file_map = self.file_map
         name_map = self.name_map
 
-        assert not self.frozen, f"Unable to add item {item.name} to a frozen collection"
-        assert item.name not in name_map, \
-            f"Rule Name {item.name} collides with {name_map[item.name].name}"
+        if self.frozen:
+            raise ValueError(f"Unable to add item {item.name} to a frozen collection")
+
+        if item.name in name_map:
+            raise ValueError(f"Rule Name {item.name} collides with {name_map[item.name].name}")
 
         if item.path is not None:
             item_path = item.path.resolve()
-            assert item_path not in file_map, f"Item file {item_path} already loaded"
+            if item_path in file_map:
+                raise ValueError(f"Item file {item_path} already loaded")
             file_map[item_path] = item
 
     def add_item(self, item: GenericCollectionTypes) -> None:
@@ -116,15 +122,19 @@ class GenericCollection:
         self.name_map[item.name] = item
         self.items.append(item)
 
-    def load_dict(self, obj: dict, path: Optional[Path] = None) -> GenericCollectionTypes:
+    def load_dict(self, obj: dict[str, Any], path: Path | None = None) -> GenericCollectionTypes:
         """Load a dictionary into the collection."""
-        if 'exceptions' in obj:
+        if "exceptions" in obj:
             contents = TOMLExceptionContents.from_dict(obj)
             item = TOMLException(path=path, contents=contents)
-        elif 'actions' in obj:
+        elif "actions" in obj:
             contents = TOMLActionContents.from_dict(obj)
+            if not path:
+                raise ValueError("No path value provided")
             item = TOMLAction(path=path, contents=contents)
-        elif 'action_connectors' in obj:
+        elif "action_connectors" in obj:
+            if not path:
+                raise ValueError("No path value provided")
             contents = TOMLActionConnectorContents.from_dict(obj)
             item = TOMLActionConnector(path=path, contents=contents)
         else:
@@ -140,11 +150,10 @@ class GenericCollection:
 
             # use the default generic loader as a cache.
             # if it already loaded the item, then we can just use it from that
-            if self.__default is not None and self is not self.__default:
-                if path in self.__default.file_map:
-                    item = self.__default.file_map[path]
-                    self.add_item(item)
-                    return item
+            if self.__default and self is not self.__default and path in self.__default.file_map:
+                item = self.__default.file_map[path]
+                self.add_item(item)
+                return item
 
             obj = self._load_toml_file(path)
             return self.load_dict(obj, path=path)
@@ -155,10 +164,13 @@ class GenericCollection:
     def load_files(self, paths: Iterable[Path]) -> None:
         """Load multiple files into the collection."""
         for path in paths:
-            self.load_file(path)
+            _ = self.load_file(path)
 
     def load_directory(
-        self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None
+        self,
+        directory: Path,
+        recursive: bool = True,
+        toml_filter: Callable[[dict[str, Any]], bool] | None = None,
     ) -> None:
         """Load all TOML files in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
@@ -168,7 +180,10 @@ class GenericCollection:
         self.load_files(paths)
 
     def load_directories(
-        self, directories: Iterable[Path], recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None
+        self,
+        directories: Iterable[Path],
+        recursive: bool = True,
+        toml_filter: Callable[[dict[str, Any]], bool] | None = None,
     ) -> None:
         """Load all TOML files in multiple directories."""
         for path in directories:
@@ -179,7 +194,7 @@ class GenericCollection:
         self.frozen = True
 
     @classmethod
-    def default(cls) -> 'GenericCollection':
+    def default(cls) -> "GenericCollection":
         """Return the default item collection, which retrieves from default config location."""
         if cls.__default is None:
             collection = GenericCollection()

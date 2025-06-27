@@ -3,17 +3,13 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-# coding=utf-8
 """Shell for detection-rules."""
-import sys
+
 from pathlib import Path
 
 import click
 
-assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
-
-
-from .main import root  # noqa: E402
+from .main import root
 
 CURR_DIR = Path(__file__).resolve().parent
 CLI_DIR = CURR_DIR.parent
@@ -26,7 +22,7 @@ BANNER = r"""
 """
 
 
-def main():
+def main() -> None:
     """CLI entry point."""
     click.echo(BANNER)
     root(prog_name="detection_rules")

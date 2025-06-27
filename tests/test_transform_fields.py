@@ -4,6 +4,7 @@
 # 2.0.
 
 """Test fields in TOML [transform]."""
+
 import copy
 import unittest
 from textwrap import dedent
@@ -22,9 +23,9 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.osquery_patterns = [
             """!{osquery{"label":"Osquery - Retrieve DNS Cache","query":"SELECT * FROM dns_cache"}}""",
-            """!{osquery{"label":"Osquery - Retrieve All Services","query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"}}""",  # noqa: E501
-            """!{osquery{"label":"Osquery - Retrieve Services Running on User Accounts","query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)"}}""",  # noqa: E501
-            """!{osquery{"label":"Retrieve Service Unisgned Executables with Virustotal Link","query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'"}}""",  # noqa: E501
+            """!{osquery{"label":"Osquery - Retrieve All Services","query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"}}""",
+            """!{osquery{"label":"Osquery - Retrieve Services Running on User Accounts","query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)"}}""",
+            """!{osquery{"label":"Retrieve Service Unisgned Executables with Virustotal Link","query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'"}}""",
         ]
 
     @staticmethod
@@ -45,7 +46,7 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
                 "license": "Elastic License v2",
                 "from": "now-9m",
                 "name": "Test Suspicious Print Spooler SPL File Created",
-                "note": 'Test note',
+                "note": "Test note",
                 "references": ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-and-got-CVE-2020-1337"],
                 "risk_score": 47,
                 "rule_id": "43716252-4a45-4694-aff0-5245b7b6c7cd",
@@ -85,13 +86,13 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
                 "language": "eql",
             },
         }
-        sample_rule = rc.load_dict(windows_rule)
-        return sample_rule
+        return rc.load_dict(windows_rule)
 
     def test_transform_guide_markdown_plugins(self) -> None:
         sample_rule = self.load_rule()
         rule_dict = sample_rule.contents.to_dict()
-        osquery_toml = dedent("""
+        osquery_toml = dedent(
+            """
         [transform]
         [[transform.osquery]]
         label = "Osquery - Retrieve DNS Cache"
@@ -108,9 +109,11 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
         [[transform.osquery]]
         label = "Retrieve Service Unisgned Executables with Virustotal Link"
         query = "SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'"
-        """.strip())  # noqa: E501
+        """.strip()
+        )
 
-        sample_note = dedent("""
+        sample_note = dedent(
+            """
                 ## Triage and analysis
 
                 ###  Investigating Unusual Process For a Windows Host
@@ -135,15 +138,16 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
                       - $osquery_2
                       - $osquery_3
                   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-                """.strip())  # noqa: E501
+                """.strip()
+        )
 
         transform = pytoml.loads(osquery_toml)
-        rule_dict['rule']['note'] = sample_note
+        rule_dict["rule"]["note"] = sample_note
         rule_dict.update(**transform)
 
         new_rule_contents = TOMLRuleContents.from_dict(rule_dict)
         new_rule = TOMLRule(path=sample_rule.path, contents=new_rule_contents)
-        rendered_note = new_rule.contents.to_api_format()['note']
+        rendered_note = new_rule.contents.to_api_format()["note"]
 
         for pattern in self.osquery_patterns:
             self.assertIn(pattern, rendered_note)
@@ -152,7 +156,7 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
         """Test the conversion function to ensure parsing is correct."""
         sample_rule = self.load_rule()
         rule_dict = sample_rule.contents.to_dict()
-        rule_dict['rule']['note'] = "$osquery_0"
+        rule_dict["rule"]["note"] = "$osquery_0"
 
         for pattern in self.osquery_patterns:
             transform = guide_plugin_convert_(contents=pattern)
@@ -160,6 +164,6 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
             rule_dict_copy.update(**transform)
             new_rule_contents = TOMLRuleContents.from_dict(rule_dict_copy)
             new_rule = TOMLRule(path=sample_rule.path, contents=new_rule_contents)
-            rendered_note = new_rule.contents.to_api_format()['note']
+            rendered_note = new_rule.contents.to_api_format()["note"]
 
             self.assertIn(pattern, rendered_note)
