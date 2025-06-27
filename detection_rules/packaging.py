@@ -194,10 +194,7 @@ class Package:
 
     def get_consolidated(self, as_api: bool = True) -> str:
         """Get a consolidated package of the rules in a single file."""
-        full_package = [
-            rule.contents.to_api_format() if as_api else rule.contents.to_dict()
-            for rule in self.rules
-        ]
+        full_package = [rule.contents.to_api_format() if as_api else rule.contents.to_dict() for rule in self.rules]
         return json.dumps(full_package, sort_keys=True)
 
     def save(self, verbose: bool = True) -> None:

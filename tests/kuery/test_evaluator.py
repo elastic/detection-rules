@@ -18,8 +18,8 @@ document = {
     "structured": [{"a": [{"b": 1}]}],
 }
 
-class EvaluatorTests(unittest.TestCase):
 
+class EvaluatorTests(unittest.TestCase):
     def evaluate(self, source_text):
         evaluator = kql.get_evaluator(source_text, optimize=False)
         return evaluator(document)

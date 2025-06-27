@@ -462,7 +462,7 @@ class GitChangeEntry:
             click.echo(subprocess.list2cmdline(command_line))
 
             if not dry_run:
-                _ = subprocess.check_call(command_line)  # noqa: S603
+                _ = subprocess.check_call(command_line)
 
         if self.status.startswith("R"):
             # renames are actually Delete (D) and Add (A)
@@ -480,7 +480,7 @@ class GitChangeEntry:
         """Read the file from disk or git."""
         if self.status == "D":
             # deleted files need to be recovered from git
-            return subprocess.check_output(["git", "show", f"{git_tree}:{self.path}"])  # noqa: S603, S607
+            return subprocess.check_output(["git", "show", f"{git_tree}:{self.path}"])  # noqa: S607
 
         return self.path.read_bytes()
 
@@ -744,7 +744,7 @@ def integrations_pr(  # noqa: PLR0913, PLR0915
         try:
             elastic_pkg_cmd = [str(Path(gopath, "bin", "elastic-package"))]
             elastic_pkg_cmd.extend(list(args))
-            _ = subprocess.check_call(elastic_pkg_cmd)  # noqa: S603
+            _ = subprocess.check_call(elastic_pkg_cmd)
         finally:
             os.chdir(str(prev))
 
