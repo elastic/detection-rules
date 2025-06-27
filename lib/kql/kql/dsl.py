@@ -80,7 +80,7 @@ class ToDsl(Walker):
         return lambda field: {"exists": {"field": field}}
 
     def _walk_wildcard(self, tree):
-        return lambda field: {"wildcard": {field: { "value": tree.value}}}
+        return lambda field: {"query_string": {"fields": [field], "query": tree.value}}
 
     def _walk_value(self, tree):
         return lambda field: {"match": {field: tree.value}}
