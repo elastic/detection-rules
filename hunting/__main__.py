@@ -23,13 +23,13 @@ from .utils import filter_elasticsearch_params, get_hunt_path, load_all_toml, lo
 
 
 @click.group()
-def hunting():
+def hunting() -> None:
     """Commands for managing hunting queries and converting TOML to Markdown."""
 
 
 @hunting.command("generate-markdown")
 @click.argument("path", required=False, type=Path)
-def generate_markdown(path: Path | None = None):
+def generate_markdown(path: Path | None = None) -> None:
     """Convert TOML hunting queries to Markdown format."""
     markdown_generator = MarkdownGenerator(HUNTING_DIR)
 
@@ -51,7 +51,7 @@ def generate_markdown(path: Path | None = None):
 
 
 @hunting.command("refresh-index")
-def refresh_index():
+def refresh_index() -> None:
     """Refresh the index.yml file from TOML files and then refresh the index.md file."""
     click.echo("Refreshing the index.yml and index.md files.")
     update_index_yml(HUNTING_DIR)
@@ -66,7 +66,7 @@ def refresh_index():
 @click.option("--sub-technique", type=str, default=None, help="Search by MITRE sub-technique ID (e.g., T1078.001)")
 @click.option("--data-source", type=str, default=None, help="Filter by data_source like 'aws', 'macos', or 'linux'")
 @click.option("--keyword", type=str, default=None, help="Search by keyword in name, description, and notes")
-def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str, keyword: str):
+def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str, keyword: str) -> None:
     """Search for queries based on MITRE tactic, technique, sub-technique, or data_source."""
 
     if not any([tactic, technique, sub_technique, data_source, keyword]):
@@ -115,7 +115,7 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
     help="Output format (toml or json).",
 )
 @click.option("--query-only", is_flag=True, help="Only display the query content.")
-def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
+def view_hunt(uuid: str, path: str, output_format: str, query_only: bool) -> None:
     """View a specific hunt by UUID or file path in the specified format (TOML or JSON)."""
 
     # Get the hunt path or error message
@@ -154,7 +154,7 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
     default="platform",
     help="Specify how to break down the summary: 'platform', 'integration', or 'language'.",
 )
-def hunt_summary(breakdown: str):
+def hunt_summary(breakdown: str) -> None:
     """
     Generate a summary of hunt queries, broken down by platform, integration, or language.
     """
@@ -201,7 +201,7 @@ def hunt_summary(breakdown: str):
 @click.option("--file-path", help="The file path of the hunting query to run.")
 @click.option("--all", "run_all", is_flag=True, help="Run all eligible queries in the file.")
 @click.option("--wait-time", "wait_time", default=180, help="Time to wait for query completion.")
-def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
+def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int) -> None:
     """Run a hunting query by UUID or file path. Only ES|QL queries are supported."""
 
     # Get the hunt path or error message

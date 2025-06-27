@@ -40,7 +40,7 @@ class RemoteConnector:
 
     MAX_RETRIES = 5
 
-    def __init__(self, parse_config: bool = False, **kwargs: Any):
+    def __init__(self, parse_config: bool = False, **kwargs: Any) -> None:
         es_args = ["cloud_id", "ignore_ssl_errors", "elasticsearch_url", "es_user", "es_password", "timeout"]
         kibana_args = ["cloud_id", "ignore_ssl_errors", "kibana_url", "api_key", "space"]
 
@@ -60,7 +60,7 @@ class RemoteConnector:
             except HTTPError:
                 self.kibana_client = None
 
-    def auth_es(
+    def auth_es(  # noqa: PLR0913
         self,
         *,
         cloud_id: str | None = None,
@@ -110,19 +110,19 @@ class RemoteConnector:
 class RemoteValidator(RemoteConnector):
     """Client class for remote validation."""
 
-    def __init__(self, parse_config: bool = False):
-        super(RemoteValidator, self).__init__(parse_config=parse_config)
+    def __init__(self, parse_config: bool = False) -> None:
+        super().__init__(parse_config=parse_config)
 
     @cached_property
     def get_validate_methods(self) -> list[str]:
         """Return all validate methods."""
         exempt = ("validate_rule", "validate_rules")
-        methods = [m for m in self.__dir__() if m.startswith("validate_") and m not in exempt]
-        return methods
+        return [m for m in self.__dir__() if m.startswith("validate_") and m not in exempt]
 
     def get_validate_method(self, name: str) -> Callable[..., Any]:
         """Return validate method by name."""
-        assert name in self.get_validate_methods, f"validate method {name} not found"
+        if name not in self.get_validate_methods:
+            raise ValueError(f"Validate method {name} not found")
         return getattr(self, name)
 
     @staticmethod
@@ -164,7 +164,7 @@ class RemoteValidator(RemoteConnector):
         """Validate a collection of rules via threads."""
         responses = {}
 
-        def request(c: TOMLRuleContents):
+        def request(c: TOMLRuleContents) -> None:
             try:
                 responses[c.data.rule_id] = self.validate_rule(c)
             except ValidationError as e:
@@ -194,8 +194,8 @@ class RemoteValidator(RemoteConnector):
             )
         except Exception as exc:
             if isinstance(exc, elasticsearch.BadRequestError):
-                raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}")
-            raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc
+                raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
+            raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
 
         return response.body
 
@@ -217,32 +217,32 @@ class RemoteValidator(RemoteConnector):
             response = self.es_client.eql.search(index=index, body=body, ignore_unavailable=True, filter=time_range)  # type: ignore[reportUnknownArgumentType]
         except Exception as exc:
             if isinstance(exc, elasticsearch.BadRequestError):
-                raise ValidationError(f"EQL query failed: {exc} for rule: {rule_id}, query: \n{query}")
-            raise Exception(f"EQL query failed for rule: {rule_id}, query: \n{query}") from exc
+                raise ValidationError(f"EQL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
+            raise Exception(f"EQL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
 
         return response.body
 
     @staticmethod
-    def validate_query(_, __: TOMLRuleContents) -> dict[str, str]:
+    def validate_query(_: Any, __: TOMLRuleContents) -> dict[str, str]:
         """Validate query for "query" rule types."""
         return {"results": "Unable to remote validate query rules"}
 
     @staticmethod
-    def validate_threshold(_, __: TOMLRuleContents) -> dict[str, str]:
+    def validate_threshold(_: Any, __: TOMLRuleContents) -> dict[str, str]:
         """Validate query for "threshold" rule types."""
         return {"results": "Unable to remote validate threshold rules"}
 
     @staticmethod
-    def validate_new_terms(_, __: TOMLRuleContents) -> dict[str, str]:
+    def validate_new_terms(_: Any, __: TOMLRuleContents) -> dict[str, str]:
         """Validate query for "new_terms" rule types."""
         return {"results": "Unable to remote validate new_terms rules"}
 
     @staticmethod
-    def validate_threat_match(_, __: TOMLRuleContents) -> dict[str, str]:
+    def validate_threat_match(_: Any, __: TOMLRuleContents) -> dict[str, str]:
         """Validate query for "threat_match" rule types."""
         return {"results": "Unable to remote validate threat_match rules"}
 
     @staticmethod
-    def validate_machine_learning(_, __: TOMLRuleContents) -> dict[str, str]:
+    def validate_machine_learning(_: Any, __: TOMLRuleContents) -> dict[str, str]:
         """Validate query for "machine_learning" rule types."""
         return {"results": "Unable to remote validate machine_learning rules"}

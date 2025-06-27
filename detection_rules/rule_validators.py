@@ -6,6 +6,7 @@
 """Validation logic for rules containing queries."""
 
 import re
+import typing
 from collections.abc import Callable
 from enum import Enum
 from functools import cached_property, wraps
@@ -44,51 +45,52 @@ class ExtendedTypeHint(Enum):
     IP = "ip"
 
     @classmethod
-    def primitives(cls):
+    def primitives(cls):  # noqa: ANN206
         """Get all primitive types."""
         return TypeHint.Boolean, TypeHint.Numeric, TypeHint.Null, TypeHint.String, ExtendedTypeHint.IP
 
-    def is_primitive(self):
+    def is_primitive(self) -> bool:
         """Check if a type is a primitive."""
         return self in self.primitives()
 
 
+@typing.no_type_check
 def custom_in_set(self: LarkToEQL, node: KvTree) -> NodeInfo:
     """Override and address the limitations of the eql in_set method."""
-    response = self.visit(node.child_trees)  # type: ignore
+    response = self.visit(node.child_trees)
     if not response:
         raise ValueError("Child trees are not provided")
 
-    outer, container = response  # type: ignore[reportUnknownVariableType]
+    outer, container = response
 
-    if not outer.validate_type(ExtendedTypeHint.primitives()):  # type: ignore
+    if not outer.validate_type(ExtendedTypeHint.primitives()):
         # can't compare non-primitives to sets
-        raise self._type_error(outer, ExtendedTypeHint.primitives())  # type: ignore
+        raise self._type_error(outer, ExtendedTypeHint.primit())
 
     # Check that everything inside the container has the same type as outside
     error_message = "Unable to compare {expected_type} to {actual_type}"
-    for inner in container:  # type: ignore[reportUnknownVariableType]
-        if not inner.validate_type(outer):  # type: ignore[reportUnknownMemberType]
-            raise self._type_error(inner, outer, error_message)  # type: ignore
+    for inner in container:
+        if not inner.validate_type(outer):
+            raise self._type_error(inner, outer, error_message)
 
-    if self._elasticsearch_syntax and hasattr(outer, "type_info"):  # type: ignore
+    if self._elasticsearch_syntax and hasattr(outer, "type_info"):
         # Check edge case of in_set and ip/string comparison
-        outer_type = outer.type_info  # type: ignore
-        if isinstance(self._schema, ecs.KqlSchema2Eql):  # type: ignore
-            type_hint = self._schema.kql_schema.get(str(outer.node), "unknown")  # type: ignore
-            if hasattr(self._schema, "type_mapping") and type_hint == "ip":  # type: ignore
-                outer.type_info = ExtendedTypeHint.IP  # type: ignore
-                for inner in container:  # type: ignore
-                    if not inner.validate_type(outer):  # type: ignore
-                        raise self._type_error(inner, outer, error_message)  # type: ignore
+        outer_type = outer.type_info
+        if isinstance(self._schema, ecs.KqlSchema2Eql):
+            type_hint = self._schema.kql_schema.get(str(outer.node), "unknown")
+            if hasattr(self._schema, "type_mapping") and type_hint == "ip":
+                outer.type_info = ExtendedTypeHint.IP
+                for inner in container:
+                    if not inner.validate_type(outer):
+                        raise self._type_error(inner, outer, error_message)
 
         # reset the type
-        outer.type_info = outer_type  # type: ignore
+        outer.type_info = outer_type
 
     # This will always evaluate to true/false, so it should be a boolean
-    term = ast.InSet(outer.node, [c.node for c in container])  # type: ignore
-    nullable = outer.nullable or any(c.nullable for c in container)  # type: ignore
-    return NodeInfo(term, TypeHint.Boolean, nullable=nullable, source=node)  # type: ignore
+    term = ast.InSet(outer.node, [c.node for c in container])
+    nullable = outer.nullable or any(c.nullable for c in container)
+    return NodeInfo(term, TypeHint.Boolean, nullable=nullable, source=node)
 
 
 def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -107,7 +109,7 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage]
+eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage] # noqa: SLF001
 
 
 class KQLValidator(QueryValidator):
@@ -119,7 +121,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethod]
-        return list(set(str(f) for f in self.ast if isinstance(f, kql.ast.Field)))  # type: ignore[reportUnknownVariableType]
+        return list({str(f) for f in self.ast if isinstance(f, kql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
     def auto_add_field(self, validation_checks_error: kql.errors.KqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
@@ -196,8 +198,9 @@ class KQLValidator(QueryValidator):
                     len(exc.caret.lstrip()),
                     trailer=trailer,
                 )
+        return None
 
-    def validate_integration(
+    def validate_integration(  # noqa: PLR0912
         self,
         data: QueryRuleData,
         meta: RuleMeta,
@@ -280,12 +283,12 @@ class KQLValidator(QueryValidator):
                     )
 
         # Check error fields against schemas of different packages or different integrations
-        for field, error_data in list(error_fields.items()):  # type: ignore
-            error_package, error_integration = (  # type: ignore
+        for field, error_data in list(error_fields.items()):  # type: ignore[reportUnknownArgumentType]
+            error_package, error_integration = (  # type: ignore[reportUnknownVariableType]
                 error_data["package"],
                 error_data["integration"],
             )
-            for package, integrations_or_schema in package_schemas.items():  # type: ignore
+            for package, integrations_or_schema in package_schemas.items():  # type: ignore[reportUnknownVariableType]
                 if error_integration is None:
                     # Compare against the schema directly if there's no integration
                     if error_package != package and field in integrations_or_schema:
@@ -293,8 +296,8 @@ class KQLValidator(QueryValidator):
                         break
                 else:
                     # Compare against integration schemas
-                    for integration, schema in integrations_or_schema.items():  # type: ignore
-                        check_alt_schema = error_package != package or (  # type: ignore
+                    for integration, schema in integrations_or_schema.items():  # type: ignore[reportUnknownMemberType]
+                        check_alt_schema = error_package != package or (  # type: ignore[reportUnknownVariableType]
                             error_package == package and error_integration != integration
                         )
                         if check_alt_schema and field in schema:
@@ -311,6 +314,7 @@ class KQLValidator(QueryValidator):
                 len(error_data["error"].caret.lstrip()),  # type: ignore[reportUnknownArgumentType]
                 error_data["trailer"],  # type: ignore[reportUnknownArgumentType]
             )
+        return None
 
 
 class EQLValidator(QueryValidator):
@@ -327,13 +331,13 @@ class EQLValidator(QueryValidator):
         """Return a list of fields of type text."""
         from kql.parser import elasticsearch_type_family  # type: ignore[reportMissingTypeStubs]
 
-        schema = eql_schema.kql_schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema  # type: ignore
+        schema = eql_schema.kql_schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
 
-        return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == "text"]  # type: ignore
+        return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == "text"]  # type: ignore[reportArgumentType]
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
-        return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))  # type: ignore[reportUnknownVariableType]
+        return list({str(f) for f in self.ast if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
     def auto_add_field(self, validation_checks_error: eql.errors.EqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
@@ -343,7 +347,7 @@ class EQLValidator(QueryValidator):
         field_type = ecs.get_all_flattened_schema().get(field_name)
         update_auto_generated_schema(index_or_dataview, field_name, field_type)
 
-    def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: PLR0912
         """Validate an EQL query while checking TOMLRule."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
@@ -439,8 +443,9 @@ class EQLValidator(QueryValidator):
                 )
                 if exc:
                     raise exc
+        return None
 
-    def validate_integration(
+    def validate_integration(  # noqa: PLR0912
         self,
         data: QueryRuleData,
         meta: RuleMeta,
@@ -524,8 +529,8 @@ class EQLValidator(QueryValidator):
                     return exc
 
         # Check error fields against schemas of different packages or different integrations
-        for field, error_data in list(error_fields.items()):  # type: ignore
-            error_package, error_integration = (  # type: ignore
+        for field, error_data in list(error_fields.items()):  # type: ignore[reportUnknownArgumentType]
+            error_package, error_integration = (  # type: ignore[reportUnknownVariableType]
                 error_data["package"],
                 error_data["integration"],
             )
@@ -537,7 +542,7 @@ class EQLValidator(QueryValidator):
                 else:
                     # Compare against integration schemas
                     for integration, schema in integrations_or_schema.items():
-                        check_alt_schema = (  # type: ignore
+                        check_alt_schema = (  # type: ignore[reportUnknownVariableType]
                             error_package != package or (error_package == package and error_integration != integration)
                         )
                         if check_alt_schema and field in schema:
@@ -545,13 +550,13 @@ class EQLValidator(QueryValidator):
 
         # raise the first error
         if error_fields:
-            _, data = next(iter(error_fields.items()))  # type: ignore
-            exc = data["error"]  # type: ignore
-            return exc  # type: ignore
+            _, data = next(iter(error_fields.items()))  # type: ignore[reportUnknownArgumentType]
+            return data["error"]  # type: ignore[reportIndexIssue]
+        return None
 
     def validate_query_with_schema(
         self,
-        data: "QueryRuleData",
+        _: "QueryRuleData",
         schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
         err_trailer: str,
         min_stack_version: str,
@@ -582,7 +587,7 @@ class EQLValidator(QueryValidator):
                 trailer=trailer,
             )
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(err_trailer)
             return exc  # type: ignore[reportReturnType]
 
@@ -602,7 +607,7 @@ class EQLValidator(QueryValidator):
             schema = ecs.get_schema(ecs_version)
 
             # return a list of rule type config field values and whether any are not in the schema
-            return (set_fields, any([f not in schema.keys() for f in set_fields]))
+            return (set_fields, any(f not in schema for f in set_fields))
         # if rule type fields are not set, return an empty list and False
         return [], False
 
@@ -611,14 +616,13 @@ class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
 
     @cached_property
-    def ast(self):  # type: ignore[reportIncompatibleMethodOverride]
+    def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         return None
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         """Return a list of unique fields in the query."""
         # return empty list for ES|QL rules until ast is available (friendlier than raising error)
-        # raise NotImplementedError('ES|QL query parsing not yet supported')
         return []
 
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -631,7 +635,7 @@ class ESQLValidator(QueryValidator):
         __: RuleMeta,
         ___: list[dict[str, Any]],
     ) -> ValidationError | None | ValueError:
-        # return self.validate(data, meta)
+        # Disabling self.validate(data, meta)
         pass
 
 

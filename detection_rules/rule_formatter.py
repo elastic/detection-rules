@@ -26,7 +26,7 @@ TRIPLE_DQ = DQ * 3
 
 
 @cached
-def get_preserved_fmt_fields():
+def get_preserved_fmt_fields() -> set[str]:
     from .rule import BaseRuleData
 
     preserved_keys: set[str] = set()
@@ -53,7 +53,7 @@ def nested_normalize(d: Any, skip_cleanup: bool = False) -> Any:
     if isinstance(d, dict):
         for k, v in d.items():  # type: ignore[reportUnknownVariableType]
             if k == "query":
-                # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
+                # the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
                 # do not normalize queries
                 d.update({k: v})  # type: ignore[reportUnknownMemberType]
             elif k in preserved_fields:
@@ -79,7 +79,7 @@ def wrap_text(v: str, block_indent: int = 0) -> list[str]:
     lines = [line + "\n" for line in lines]
     # If there is a single line that contains a quote, add a new blank line to trigger multiline formatting
     if len(lines) == 1 and '"' in lines[0]:
-        lines = lines + [""]
+        lines = [*lines, ""]
     return lines
 
 
@@ -88,7 +88,7 @@ def wrap_text_and_join(v: str, block_indent: int = 0) -> str:
     return "".join(lines)
 
 
-class NonformattedField(str):
+class NonformattedField(str):  # noqa: SLOT000
     """Non-formatting class."""
 
 
@@ -120,9 +120,9 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
     """Generate a pretty form of toml."""
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create the encoder but override some default functions."""
-        super(RuleTomlEncoder, self).__init__(*args, **kwargs)  # type: ignore[reportUnknownMemberType]
+        super().__init__(*args, **kwargs)  # type: ignore[reportUnknownMemberType]
         self._old_dump_str = toml.TomlEncoder().dump_funcs[str]
         self._old_dump_list = toml.TomlEncoder().dump_funcs[list]
         self.dump_funcs[str] = self.dump_str
@@ -147,13 +147,13 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
 
         if multiline:
             if raw:
-                return "".join([TRIPLE_DQ] + initial_newline + lines + [TRIPLE_DQ])
+                return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
             return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
         return self._old_dump_str(v)
 
-    def _dump_flat_list(self, v: Iterable[Any]):
+    def _dump_flat_list(self, v: Iterable[Any]) -> str:
         """A slightly tweaked version of original dump_list, removing trailing commas."""
         if not v:
             return "[]"
@@ -163,12 +163,11 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         retval = "[" + str(self.dump_value(v_list[0])) + ","
         for u in v_list[1:]:
             retval += " " + str(self.dump_value(u)) + ","
-        retval = retval.rstrip(",") + "]"
-        return retval
+        return retval.rstrip(",") + "]"
 
     def dump_list(self, v: Iterable[Any]) -> str:
         """Dump a list more cleanly."""
-        if all([isinstance(d, str) for d in v]) and sum(len(d) + 3 for d in v) > 100:
+        if all(isinstance(d, str) for d in v) and sum(len(d) + 3 for d in v) > 100:  # noqa: PLR2004
             dump: list[str] = []
             for item in v:
                 if len(item) > (120 - 4 - 3 - 3) and " " in item:
@@ -187,28 +186,28 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         return self._dump_flat_list(v)
 
 
-def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None):
+def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None) -> None:  # noqa: PLR0915
     """Write rule in TOML."""
 
     encoder = RuleTomlEncoder()
     contents = copy.deepcopy(rule_contents)
 
-    def order_rule(obj: Any):
+    def order_rule(obj: Any) -> Any:
         if isinstance(obj, dict):
             obj = OrderedDict(sorted(obj.items()))  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
             for k, v in obj.items():
-                if isinstance(v, dict) or isinstance(v, list):
+                if isinstance(v, dict | list):
                     obj[k] = order_rule(v)
 
         if isinstance(obj, list):
             for i, v in enumerate(obj):  # type: ignore[reportUnknownMemberType]
-                if isinstance(v, dict) or isinstance(v, list):
+                if isinstance(v, dict | list):
                     obj[i] = order_rule(v)
             obj = sorted(obj, key=lambda x: json.dumps(x))  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
 
         return obj
 
-    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]):
+    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]) -> None:  # noqa: PLR0912
         query = None
         threat_query = None
 
@@ -220,16 +219,12 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             query = contents["rule"].pop("query", "").strip()
 
             # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
-            # tags = contents['rule'].get("tags", [])
-            #
-            # if tags and isinstance(tags, list):
-            #     contents['rule']["tags"] = list(sorted(set(tags)))
             threat_query = contents["rule"].pop("threat_query", "").strip()
 
         top: OrderedDict[str, Any] = OrderedDict()
         bottom: OrderedDict[str, Any] = OrderedDict()
 
-        for k in sorted(list(_contents)):
+        for k in sorted(_contents):
             v = _contents.pop(k)
 
             if k == "actions":
@@ -268,7 +263,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             if isinstance(v, dict):
                 bottom[k] = OrderedDict(sorted(v.items()))  # type: ignore[reportUnknownArgumentType]
             elif isinstance(v, list):
-                if any([isinstance(value, (dict, list)) for value in v]):  # type: ignore[reportUnknownArgumentType]
+                if any(isinstance(value, (dict | list)) for value in v):  # type: ignore[reportUnknownArgumentType]
                     bottom[k] = v
                 else:
                     top[k] = v

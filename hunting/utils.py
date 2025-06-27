@@ -23,7 +23,7 @@ def get_hunt_path(uuid: str, file_path: str) -> tuple[Path | None, str | None]:
     if uuid:
         # Load the index and find the hunt by UUID
         index_data = load_index_file()
-        for _, hunts in index_data.items():
+        for hunts in index_data.values():
             if uuid in hunts:
                 hunt_data = hunts[uuid]
                 # Combine the relative path from the index with the HUNTING_DIR
@@ -48,10 +48,8 @@ def load_index_file() -> dict[str, Any]:
         click.echo(f"No index.yml found at {index_file}.")
         return {}
 
-    with open(index_file) as f:
-        hunting_index = yaml.safe_load(f)
-
-    return hunting_index
+    with index_file.open() as f:
+        return yaml.safe_load(f)
 
 
 def load_toml(source: Path | str) -> Hunt:
@@ -78,19 +76,19 @@ def load_all_toml(base_path: Path) -> list[tuple[Hunt, Path]]:
     return hunts
 
 
-def save_index_file(base_path: Path, directories: dict[str, Any]):
+def save_index_file(base_path: Path, directories: dict[str, Any]) -> None:
     """Save the updated index.yml file."""
     index_file = base_path / "index.yml"
-    with open(index_file, "w") as f:
+    with index_file.open("w") as f:
         yaml.safe_dump(directories, f, default_flow_style=False, sort_keys=False)
     print(f"Index YAML updated at: {index_file}")
 
 
-def validate_link(link: str):
+def validate_link(link: str) -> None:
     """Validate and return the link."""
     http = urllib3.PoolManager()
     response = http.request("GET", link)
-    if response.status != 200:
+    if response.status != 200:  # noqa: PLR2004
         raise ValueError(f"Invalid link: {link}")
 
 

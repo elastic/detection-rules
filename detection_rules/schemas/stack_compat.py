@@ -8,7 +8,7 @@ from typing import Any
 
 from semver import Version
 
-from ..misc import cached
+from detection_rules.misc import cached
 
 
 @cached

@@ -48,10 +48,7 @@ class BaseRuleTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        global RULE_LOADER_FAIL, RULE_LOADER_FAIL_MSG
-
-        # too noisy; refactor
-        # os.environ["DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE"] = "1"
+        global RULE_LOADER_FAIL, RULE_LOADER_FAIL_MSG  # noqa: PLW0603
 
         if not RULE_LOADER_FAIL:
             try:
@@ -61,7 +58,7 @@ class BaseRuleTest(unittest.TestCase):
                 cls.all_rules = rc.filter(production_filter)
                 cls.bbr = rc_bbr.rules
                 cls.deprecated_rules: DeprecatedCollection = rc.deprecated
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
 
@@ -73,7 +70,7 @@ class BaseRuleTest(unittest.TestCase):
         return f"{rule.id} - {rule.name}{trailer or ''}"
 
     def setUp(self) -> None:
-        global RULE_LOADER_FAIL, RULE_LOADER_FAIL_MSG, RULE_LOADER_FAIL_RAISED
+        global RULE_LOADER_FAIL_RAISED  # noqa: PLW0603
 
         if RULE_LOADER_FAIL:
             # limit the loader failure to just one run

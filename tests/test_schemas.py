@@ -281,7 +281,7 @@ class TestVersionLockSchema(unittest.TestCase):
     def test_version_lock_no_previous(self):
         """Pass field validation on version lock without nested previous fields"""
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
-        VersionLockFile.from_dict(dict(data=version_lock_contents))
+        VersionLockFile.from_dict({"data": version_lock_contents})
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_version_lock_has_nested_previous(self):
@@ -290,7 +290,7 @@ class TestVersionLockSchema(unittest.TestCase):
         with self.assertRaises(ValidationError):
             previous = version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]
             version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]["previous"] = previous
-            VersionLockFile.from_dict(dict(data=version_lock_contents))
+            VersionLockFile.from_dict({"data": version_lock_contents})
 
 
 class TestVersions(unittest.TestCase):

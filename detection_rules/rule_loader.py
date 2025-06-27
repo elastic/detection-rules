@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
@@ -25,8 +25,12 @@ from . import utils
 from .config import parse_rules_config
 from .ghwrap import GithubClient
 from .rule import DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
-from .schemas import definitions
 from .utils import cached, get_path
+
+if TYPE_CHECKING:
+    from .schemas import definitions
+    from .version_lock import VersionLock
+
 
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
@@ -58,8 +62,8 @@ def dict_filter(_obj: dict[str, Any] | None = None, **criteria: Any) -> Callable
     """
     criteria.update(_obj or {})
     checkers = [
-        # FIXME: v might not be hashable
-        (path_getter(k), set(v if isinstance(v, (list, set, tuple)) else (v,)))  # type: ignore[reportUnknownArgumentType]
+        # What if v is not be hashable?
+        (path_getter(k), set(v if isinstance(v, (list | set | tuple)) else (v,)))  # type: ignore[reportUnknownArgumentType]
         for k, v in criteria.items()
     ]
 
@@ -68,8 +72,8 @@ def dict_filter(_obj: dict[str, Any] | None = None, **criteria: Any) -> Callable
             target_values = getter(obj)
             target_values = (  # type: ignore[reportUnknownVariableType]
                 set(target_values)  # type: ignore[reportUnknownVariableType]
-                if isinstance(target_values, (list, set, tuple))
-                else set((target_values,))
+                if isinstance(target_values, (list | set | tuple))
+                else {target_values}
             )
 
             return bool(expected.intersection(target_values))  # type: ignore[reportUnknownArgumentType]
@@ -109,7 +113,8 @@ def load_locks_from_tag(
         exists_args.append(remote)
     exists_args.append(f"refs/tags/{tag}")
 
-    assert git(*exists_args), f"tag: {tag} does not exist in {remote or 'local'}"
+    if not git(*exists_args):
+        raise ValueError(f"tag: {tag} does not exist in {remote or 'local'}")
 
     fetch_tags = ["fetch"]
     if remote:
@@ -137,14 +142,14 @@ def load_locks_from_tag(
 def update_metadata_from_file(rule_path: Path, fields_to_update: dict[str, Any]) -> dict[str, Any]:
     """Update metadata fields for a rule with local contents."""
 
-    contents: dict[str, Any] = dict()
+    contents: dict[str, Any] = {}
     if not rule_path.exists():
         return contents
 
     rule_contents = RuleCollection().load_file(rule_path).contents
 
     if not isinstance(rule_contents, TOMLRuleContents):
-        raise ValueError("TOML rule expected")
+        raise TypeError("TOML rule expected")
 
     local_metadata = rule_contents.metadata.to_dict()
     if local_metadata:
@@ -161,7 +166,7 @@ class BaseCollection[T]:
 
     rules: list[T]
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Get the total amount of rules in the collection."""
         return len(self.rules)
 
@@ -179,7 +184,7 @@ class DeprecatedCollection(BaseCollection[DeprecatedRule]):
     name_map: dict[str, DeprecatedRule] = field(default_factory=dict)  # type: ignore[reportUnknownVariableType]
     rules: list[DeprecatedRule] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
 
-    def __contains__(self, rule: DeprecatedRule):
+    def __contains__(self, rule: DeprecatedRule) -> bool:
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
@@ -199,7 +204,7 @@ class RawRuleCollection(BaseCollection[DictRule]):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: list[DictRule] | None = None, ext_patterns: list[str] | None = None):
+    def __init__(self, rules: list[DictRule] | None = None, ext_patterns: list[str] | None = None) -> None:
         """Create a new raw rule collection, with optional file ext pattern override."""
         # ndjson is unsupported since it breaks the contract of 1 rule per file, so rules should be manually broken out
         # first
@@ -215,7 +220,7 @@ class RawRuleCollection(BaseCollection[DictRule]):
         for rule in rules or []:
             self.add_rule(rule)
 
-    def __contains__(self, rule: DictRule):
+    def __contains__(self, rule: DictRule) -> bool:
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
@@ -255,24 +260,28 @@ class RawRuleCollection(BaseCollection[DictRule]):
             paths.extend(sorted(directory.rglob(pattern) if recursive else directory.glob(pattern)))
         return paths
 
-    def _assert_new(self, rule: DictRule):
+    def _assert_new(self, rule: DictRule) -> None:
         """Assert that a rule is new and can be added to the collection."""
         id_map = self.id_map
         file_map = self.file_map
         name_map = self.name_map
 
-        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}"
-        assert rule.name not in name_map, (
-            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}"
-        )
+        if self.frozen:
+            raise ValueError(f"Unable to add rule {rule.name} {rule.id} to a frozen collection")
+
+        if rule.id in id_map:
+            raise ValueError(f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}")
+
+        if rule.name in name_map:
+            raise ValueError(f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}")
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
-            assert rule_path not in file_map, f"Rule file {rule_path} already loaded"
+            if rule_path in file_map:
+                raise ValueError(f"Rule file {rule_path} already loaded")
             file_map[rule_path] = rule
 
-    def add_rule(self, rule: DictRule):
+    def add_rule(self, rule: DictRule) -> None:
         """Add a rule to the collection."""
         self._assert_new(rule)
         self.id_map[rule.id] = rule
@@ -291,11 +300,10 @@ class RawRuleCollection(BaseCollection[DictRule]):
             path = path.resolve()
             # use the default rule loader as a cache.
             # if it already loaded the rule, then we can just use it from that
-            if self.__default is not None and self is not self.__default:
-                if path in self.__default.file_map:
-                    rule = self.__default.file_map[path]
-                    self.add_rule(rule)
-                    return rule
+            if self.__default and self is not self.__default and path in self.__default.file_map:
+                rule = self.__default.file_map[path]
+                self.add_rule(rule)
+                return rule
 
             obj = self._load_rule_file(path)
             return self.load_dict(obj, path=path)
@@ -303,12 +311,17 @@ class RawRuleCollection(BaseCollection[DictRule]):
             print(f"Error loading rule in {path}")
             raise
 
-    def load_files(self, paths: Iterable[Path]):
+    def load_files(self, paths: Iterable[Path]) -> None:
         """Load multiple files into the collection."""
         for path in paths:
             _ = self.load_file(path)
 
-    def load_directory(self, directory: Path, recursive: bool = True, obj_filter: Callable[..., bool] | None = None):
+    def load_directory(
+        self,
+        directory: Path,
+        recursive: bool = True,
+        obj_filter: Callable[..., bool] | None = None,
+    ) -> None:
         """Load all rules in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
@@ -321,12 +334,12 @@ class RawRuleCollection(BaseCollection[DictRule]):
         directories: Iterable[Path],
         recursive: bool = True,
         obj_filter: Callable[..., bool] | None = None,
-    ):
+    ) -> None:
         """Load all rules in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
 
-    def freeze(self):
+    def freeze(self) -> None:
         """Freeze the rule collection and make it immutable going forward."""
         self.frozen = True
 
@@ -360,9 +373,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: list[TOMLRule] | None = None):
-        from .version_lock import VersionLock
-
+    def __init__(self, rules: list[TOMLRule] | None = None) -> None:
         self.id_map: dict[definitions.UUIDString, TOMLRule] = {}
         self.file_map: dict[Path, TOMLRule] = {}
         self.name_map: dict[definitions.RuleName, TOMLRule] = {}
@@ -377,7 +388,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
         for rule in rules or []:
             self.add_rule(rule)
 
-    def __contains__(self, rule: TOMLRule):
+    def __contains__(self, rule: TOMLRule) -> bool:
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
@@ -409,7 +420,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
     def _get_paths(self, directory: Path, recursive: bool = True) -> list[Path]:
         return sorted(directory.rglob("*.toml") if recursive else directory.glob("*.toml"))
 
-    def _assert_new(self, rule: TOMLRule | DeprecatedRule, is_deprecated: bool = False):
+    def _assert_new(self, rule: TOMLRule | DeprecatedRule, is_deprecated: bool = False) -> None:
         if is_deprecated:
             id_map = self.deprecated.id_map
             file_map = self.deprecated.file_map
@@ -422,28 +433,31 @@ class RuleCollection(BaseCollection[TOMLRule]):
         if not rule.id:
             raise ValueError("Rule has no ID")
 
-        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in id_map, f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}"
+        if self.frozen:
+            raise ValueError(f"Unable to add rule {rule.name} {rule.id} to a frozen collection")
+
+        if rule.id in id_map:
+            raise ValueError(f"Rule ID {rule.id} for {rule.name} collides with rule {id_map[rule.id].name}")
 
         if not rule.name:
             raise ValueError("Rule has no name")
 
-        assert rule.name not in name_map, (
-            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}"
-        )
+        if rule.name in name_map:
+            raise ValueError(f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map[rule.name].id}")
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
-            assert rule_path not in file_map, f"Rule file {rule_path} already loaded"
+            if rule_path in file_map:
+                raise ValueError(f"Rule file {rule_path} already loaded")
             file_map[rule_path] = rule  # type: ignore[reportArgumentType]
 
-    def add_rule(self, rule: TOMLRule):
+    def add_rule(self, rule: TOMLRule) -> None:
         self._assert_new(rule)
         self.id_map[rule.id] = rule
         self.name_map[rule.name] = rule
         self.rules.append(rule)
 
-    def add_deprecated_rule(self, rule: DeprecatedRule):
+    def add_deprecated_rule(self, rule: DeprecatedRule) -> None:
         self._assert_new(rule, is_deprecated=True)
 
         if not rule.id:
@@ -495,31 +509,31 @@ class RuleCollection(BaseCollection[TOMLRule]):
             print(f"Error loading rule in {path}")
             raise
 
-    def load_git_tag(self, branch: str, remote: str, skip_query_validation: bool = False):
+    def load_git_tag(self, branch: str, remote: str, skip_query_validation: bool = False) -> None:
         """Load rules from a Git branch."""
         from .version_lock import VersionLock, add_rule_types_to_lock
 
         git = utils.make_git()
         paths: list[str] = []
         for rules_dir in DEFAULT_PREBUILT_RULES_DIRS:
-            rules_dir = rules_dir.relative_to(get_path(["."]))
-            git_output = git("ls-tree", "-r", "--name-only", branch, rules_dir)
+            rdir = rules_dir.relative_to(get_path(["."]))
+            git_output = git("ls-tree", "-r", "--name-only", branch, rdir)
             paths.extend(git_output.splitlines())
 
         rule_contents: list[tuple[dict[str, Any], Path]] = []
         rule_map: dict[str, Any] = {}
         for path in paths:
-            path = Path(path)
-            if path.suffix != ".toml":
+            ppath = Path(path)
+            if ppath.suffix != ".toml":
                 continue
 
-            contents = git("show", f"{branch}:{path}")
+            contents = git("show", f"{branch}:{ppath}")
             toml_dict = self.deserialize_toml_string(contents)
 
             if skip_query_validation:
                 toml_dict["metadata"]["query_schema_validation"] = False
 
-            rule_contents.append((toml_dict, path))
+            rule_contents.append((toml_dict, ppath))
             rule_map[toml_dict["rule"]["rule_id"]] = toml_dict
 
         commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
@@ -552,7 +566,7 @@ class RuleCollection(BaseCollection[TOMLRule]):
         directory: Path,
         recursive: bool = True,
         obj_filter: Callable[..., bool] | None = None,
-    ):
+    ) -> None:
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
             paths = [path for path in paths if obj_filter(self._load_toml_file(path))]
@@ -564,11 +578,11 @@ class RuleCollection(BaseCollection[TOMLRule]):
         directories: Iterable[Path],
         recursive: bool = True,
         obj_filter: Callable[..., bool] | None = None,
-    ):
+    ) -> None:
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
 
-    def freeze(self):
+    def freeze(self) -> None:
         """Freeze the rule collection and make it immutable going forward."""
         self.frozen = True
 
@@ -599,19 +613,22 @@ class RuleCollection(BaseCollection[TOMLRule]):
         self, other: "RuleCollection"
     ) -> tuple[dict[str, TOMLRule], dict[str, TOMLRule], dict[str, DeprecatedRule]]:
         """Get the changes between two sets of rules."""
-        assert self._version_lock, "RuleCollection._version_lock must be set for self"
-        assert other._version_lock, "RuleCollection._version_lock must be set for other"
+        if not self._version_lock:
+            raise ValueError("RuleCollection._version_lock must be set for self")
+
+        if not other._version_lock:  # noqa: SLF001
+            raise ValueError("RuleCollection._version_lock must be set for other")
 
         # we cannot trust the assumption that either of the versions or deprecated files were pre-locked, which means we
         # have to perform additional checks beyond what is done in manage_versions
-        changed_rules: dict[str, TOMLRule] = dict()
-        new_rules: dict[str, TOMLRule] = dict()
-        newly_deprecated: dict[str, DeprecatedRule] = dict()
+        changed_rules: dict[str, TOMLRule] = {}
+        new_rules: dict[str, TOMLRule] = {}
+        newly_deprecated: dict[str, DeprecatedRule] = {}
 
         pre_versions_hash = utils.dict_hash(self._version_lock.version_lock.to_dict())
-        post_versions_hash = utils.dict_hash(other._version_lock.version_lock.to_dict())
+        post_versions_hash = utils.dict_hash(other._version_lock.version_lock.to_dict())  # noqa: SLF001
         pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock.to_dict())
-        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock.to_dict())
+        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock.to_dict())  # noqa: SLF001
 
         if pre_versions_hash == post_versions_hash and pre_deprecated_hash == post_deprecated_hash:
             return changed_rules, new_rules, newly_deprecated
@@ -647,7 +664,7 @@ def load_github_pr_rules(
     github = GithubClient(token=token)
     repo = github.client.get_repo(repo_name)
     labels_set = set(labels or [])
-    open_prs = [r for r in repo.get_pulls() if not labels_set.difference(set(lbl.name for lbl in r.get_labels()))]
+    open_prs = [r for r in repo.get_pulls() if not labels_set.difference({lbl.name for lbl in r.get_labels()})]
 
     new_rules: list[TOMLRule] = []
     modified_rules: list[TOMLRule] = []
@@ -659,9 +676,9 @@ def load_github_pr_rules(
     if verbose:
         click.echo("Downloading rules from GitHub PRs")
 
-    def download_worker(pr_info: tuple[PullRequest, File]):
+    def download_worker(pr_info: tuple[PullRequest, File]) -> None:
         pull, rule_file = pr_info
-        response = requests.get(rule_file.raw_url)
+        response = requests.get(rule_file.raw_url, timeout=10)
         try:
             raw_rule = pytoml.loads(response.text)  # type: ignore[reportUnknownVariableType]
             contents = TOMLRuleContents.from_dict(raw_rule)  # type: ignore[reportUnknownArgumentType]
@@ -673,7 +690,7 @@ def load_github_pr_rules(
             else:
                 new_rules.append(rule)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             name = Path(rule_file.filename).name
             errors.setdefault(name, []).append(str(e))
 

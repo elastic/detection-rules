@@ -7,8 +7,8 @@
 
 from dataclasses import dataclass, field
 
-from ..mixins import MarshmallowDataclassMixin
-from .definitions import ConditionSemVer, SemVer
+from detection_rules.mixins import MarshmallowDataclassMixin
+from detection_rules.schemas.definitions import ConditionSemVer, SemVer
 
 
 @dataclass

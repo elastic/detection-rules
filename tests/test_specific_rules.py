@@ -45,7 +45,7 @@ class TestEndpointQuery(BaseRuleTest):
                 continue
 
             ast = rule.contents.data.ast
-            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
+            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field | eql.ast.Field))]
 
             err_msg = f"{self.rule_str(rule)} missing required field for endpoint rule"
             if "host.os.type" not in fields:
@@ -55,11 +55,6 @@ class TestEndpointQuery(BaseRuleTest):
                         self.assertIn("host.os.type", fields, err_msg)
                 else:
                     self.assertIn("host.os.type", fields, err_msg)
-
-            # going to bypass this for now
-            # if rule.path.parent.name == 'linux':
-            #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
-            #     self.assertIn('host.os.platform', fields, err_msg)
 
 
 class TestNewTerms(BaseRuleTest):
@@ -136,12 +131,10 @@ class TestNewTerms(BaseRuleTest):
                         )
                         if latest_tag_compat_ver:
                             integration_schema = integration_schemas[tag][latest_tag_compat_ver]
-                            for policy_template in integration_schema.keys():
+                            for policy_template in integration_schema:
                                 schema.update(**integration_schemas[tag][latest_tag_compat_ver][policy_template])
                 for new_terms_field in rule.contents.data.new_terms.value:
-                    assert new_terms_field in schema.keys(), (
-                        f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-                    )
+                    assert new_terms_field in schema, f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
 
     @unittest.skipIf(
         PACKAGE_STACK_VERSION < Version.parse("8.4.0"), "Test only applicable to 8.4+ stacks for new terms feature."
@@ -197,19 +190,3 @@ class TestESQLRules(BaseRuleTest):
         expectation.match_expr = message
         with expectation:
             rc.load_dict(production_rule)
-
-    def test_esql_queries(self):
-        """Test ESQL queries."""
-        # test_cases = [
-        #     # invalid queries
-        #     ('from .ds-logs-endpoint.events.process-default-* | wheres process.name like "Microsoft*"',
-        #      pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
-        #     ('from .ds-logs-endpoint.events.process-default-* | where process.names like "Microsoft*"',
-        #      pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
-        #
-        #     # valid queries
-        #     ('from .ds-logs-endpoint.events.process-default-* | where process.name like "Microsoft*"',
-        #      does_not_raise(), None),
-        # ]
-        # for esql_query, expectation, message in test_cases:
-        #     self.run_esql_test(esql_query, expectation, message)

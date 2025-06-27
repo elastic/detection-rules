@@ -8,7 +8,6 @@
 import base64
 import contextlib
 import functools
-import glob
 import gzip
 import hashlib
 import io
@@ -39,8 +38,9 @@ INTEGRATION_RULE_DIR = ROOT_DIR / "rules" / "integrations"
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
-        if isinstance(o, (date, datetime)):
+        if isinstance(o, (date | datetime)):
             return o.isoformat()
+        return None
 
 
 marshmallow_schemas = {}
@@ -55,10 +55,11 @@ def gopath() -> str | None:
 
     go_bin = shutil.which("go")
     if go_bin:
-        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
+        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()  # noqa: S603
         for line in output:
             if line.startswith("GOPATH="):
                 return line[len("GOPATH=") :].strip('"')
+    return None
 
 
 def dict_hash(obj: dict[Any, Any]) -> str:
@@ -81,7 +82,7 @@ def ensure_list_of_strings(value: str | list[str]) -> list[str]:
                 pass
         # If it's not a JSON list, split by commas if present
         # Else return a list with the original string
-        return list(map(lambda x: x.strip().strip('"'), value.split(",")))
+        return [x.strip().strip('"') for x in value.split(",")]
     return [str(v) for v in value]
 
 
@@ -106,15 +107,15 @@ def get_etc_path(paths: list[str]) -> Path:
     return ETC_DIR.joinpath(*paths)
 
 
-def get_etc_glob_path(patterns: list[str]) -> list[str]:
+def get_etc_glob_path(patterns: list[str]) -> Iterator[Path]:
     """Load a file from the detection_rules/etc/ folder."""
-    pattern = os.path.join(*patterns)
-    return glob.glob(str(ETC_DIR / pattern))
+    pattern = os.path.join(*patterns)  # noqa: PTH118
+    return ETC_DIR.glob(pattern)
 
 
 def get_etc_file(name: str, mode: str = "r") -> str:
     """Load a file from the detection_rules/etc/ folder."""
-    with open(get_etc_path([name]), mode) as f:
+    with get_etc_path([name]).open(mode) as f:
         return f.read()
 
 
@@ -123,19 +124,18 @@ def load_etc_dump(paths: list[str]) -> Any:
     return eql.utils.load_dump(str(get_etc_path(paths)))  # type: ignore[reportUnknownVariableType]
 
 
-def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = True, indent: int = 2):
+def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = True, indent: int = 2) -> None:
     """Save a json/yml/toml file from the detection_rules/etc/ folder."""
-    path_joined = str(get_etc_path(path))
-    _, ext = os.path.splitext(path_joined)
+    path_joined = get_etc_path(path)
 
-    if ext == ".json":
-        with open(path_joined, "w") as f:
+    if path_joined.suffix == ".json":
+        with path_joined.open("w") as f:
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent)
     else:
-        return eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
+        eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
 
 
-def set_all_validation_bypass(env_value: bool = False):
+def set_all_validation_bypass(env_value: bool = False) -> None:
     """Set all validation bypass environment variables."""
     os.environ["DR_BYPASS_NOTE_VALIDATION_AND_PARSE"] = str(env_value)
     os.environ["DR_BYPASS_BBR_LOOKBACK_VALIDATION"] = str(env_value)
@@ -143,7 +143,7 @@ def set_all_validation_bypass(env_value: bool = False):
     os.environ["DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION"] = str(env_value)
 
 
-def set_nested_value(obj: dict[str, Any], compound_key: str, value: Any):
+def set_nested_value(obj: dict[str, Any], compound_key: str, value: Any) -> None:
     """Set a nested value in a obj."""
     keys = compound_key.split(".")
     for key in keys[:-1]:
@@ -155,17 +155,13 @@ def gzip_compress(contents: str) -> bytes:
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:
-        if isinstance(contents, bytes):
-            encoded = contents
-        else:
-            encoded = contents.encode("utf8")
-
+        encoded = contents if isinstance(contents, bytes) else contents.encode("utf8")
         _ = f.write(encoded)
 
     return gz_file.getvalue()
 
 
-def read_gzip(path: str | Path):
+def read_gzip(path: str | Path) -> str:
     with gzip.GzipFile(str(path), mode="r") as gz:
         return gz.read().decode("utf8")
 
@@ -182,7 +178,7 @@ def unzip(contents: bytes) -> Iterator[zipfile.ZipFile]:
         archive.close()
 
 
-def unzip_and_save(contents: bytes, path: str, member: str | None = None, verbose: bool = True):
+def unzip_and_save(contents: bytes, path: str, member: str | None = None, verbose: bool = True) -> None:
     """Save unzipped from raw zipped contents."""
     with unzip(contents) as archive:
         if member:
@@ -229,11 +225,11 @@ def event_sort(
             return t
 
         parts = t.split(".")
-        if len(parts) == 2:
+        if len(parts) == 2:  # noqa: PLR2004
             # Remove trailing "Z" from microseconds part
             micro_seconds = parts[1].rstrip("Z")
 
-            if len(micro_seconds) > 6:
+            if len(micro_seconds) > 6:  # noqa: PLR2004
                 # If the microseconds part has more than 6 digits
                 # Convert the microseconds part to a float and round to 6 decimal places
                 rounded_micro_seconds = round(float(f"0.{micro_seconds}"), 6)
@@ -250,7 +246,7 @@ def event_sort(
         t = round_microseconds(event[timestamp])
 
         # Return the timestamp as a datetime object for comparison
-        return datetime.strptime(t, date_format)
+        return datetime.strptime(t, date_format)  # noqa: DTZ007
 
     return sorted(events, key=_event_sort, reverse=not order_asc)
 
@@ -264,7 +260,7 @@ def convert_time_span(span: str) -> int:
 
 def unix_time_to_formatted(timestamp: float | str) -> str:
     """Converts unix time in seconds or milliseconds to the default format."""
-    if isinstance(timestamp, (int, float)):
+    if isinstance(timestamp, (int | float)):
         if timestamp > 2**32:
             timestamp = round(timestamp / 1000, 3)
 
@@ -276,7 +272,7 @@ def normalize_timing_and_sort(
     events: list[dict[str, Any]],
     timestamp: str = "@timestamp",
     order_asc: bool = True,
-):
+) -> list[Any]:
     """Normalize timestamp formats and sort events."""
     for event in events:
         _timestamp = event[timestamp]
@@ -291,7 +287,7 @@ def freeze(obj: Any) -> Any:
     if not isinstance(obj, type) and is_dataclass(obj):
         obj = astuple(obj)  # type: ignore[reportUnknownVariableType]
 
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, (list | tuple)):
         return tuple(freeze(o) for o in obj)  # type: ignore[reportUnknownVariableType]
     if isinstance(obj, dict):
         items = obj.items()  # type: ignore[reportUnknownVariableType]
@@ -302,7 +298,7 @@ def freeze(obj: Any) -> Any:
 _cache: dict[int, dict[tuple[Any, Any], Any]] = {}
 
 
-# FIXME: should be replaced with `functools.cache`
+# Should be replaced with `functools.cache`
 # https://docs.python.org/3/library/functools.html#functools.cache
 def cached(f: Callable[..., Any]) -> Callable[..., Any]:
     """Helper function to memoize functions."""
@@ -318,14 +314,14 @@ def cached(f: Callable[..., Any]) -> Callable[..., Any]:
 
         return _cache[func_key][cache_key]
 
-    def clear():
+    def clear() -> None:
         _ = _cache.pop(func_key, None)
 
     wrapped.clear = clear  # type: ignore[reportAttributeAccessIssue]
     return wrapped
 
 
-def clear_caches():
+def clear_caches() -> None:
     _cache.clear()
 
 
@@ -340,7 +336,7 @@ def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = "
 
 def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
     """Load a rule file from multiple formats."""
-    _, extension = os.path.splitext(rule_file)
+    extension = rule_file.suffix
     raw_text = rule_file.read_text()
 
     if extension in (".ndjson", ".jsonl"):
@@ -368,12 +364,12 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
     raise ValueError(f"Expected a list or dictionary in {rule_file}")
 
 
-def load_json_from_branch(repo: Repository, file_path: str, branch: str):
+def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict[str, Any]:
     """Load JSON file from a specific branch."""
     content_files = repo.get_contents(file_path, ref=branch)
 
     if isinstance(content_files, list):
-        raise ValueError("Multiple files found")
+        raise ValueError("Receive a list instead of a single value")  # noqa: TRY004
 
     content_file = content_files
     content = content_file.decoded_content
@@ -384,9 +380,9 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str):
 def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, int, int]]:
     """Compare versions of two lock version file JSON objects."""
     changes: list[tuple[str, str, int, int]] = []
-    for key in base_json:
+    for key, base_val in base_json.items():
         if key in branch_json:
-            base_version = base_json[key].get("version")
+            base_version = base_val.get("version")
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
@@ -422,12 +418,10 @@ def check_version_lock_double_bumps(
         branch_json = load_json_from_branch(repo, file_path, branch)
 
     changes = compare_versions(base_json, branch_json)
-    double_bumps = check_double_bumps(changes)
-
-    return double_bumps
+    return check_double_bumps(changes)
 
 
-def format_command_options(ctx: click.Context):
+def format_command_options(ctx: click.Context) -> str:
     """Echo options for a click command."""
     formatter = ctx.make_formatter()
     opts: list[tuple[str, str]] = []
@@ -452,7 +446,7 @@ def make_git(*prefix_args: Any) -> Callable[..., str]:
     prefix_arg_strs = [str(arg) for arg in prefix_args]
 
     if "-C" not in prefix_arg_strs:
-        prefix_arg_strs = ["-C", str(ROOT_DIR)] + prefix_arg_strs
+        prefix_arg_strs = ["-C", str(ROOT_DIR), *prefix_arg_strs]
 
     if not git_exe:
         click.secho("Unable to find git", err=True, fg="red")
@@ -465,8 +459,8 @@ def make_git(*prefix_args: Any) -> Callable[..., str]:
 
     def git(*args: Any) -> str:
         arg_strs = [str(arg) for arg in args]
-        full_args = [git_exe] + prefix_arg_strs + arg_strs
-        return subprocess.check_output(full_args, encoding="utf-8").rstrip()
+        full_args = [git_exe, *prefix_arg_strs, *arg_strs]
+        return subprocess.check_output(full_args, encoding="utf-8").rstrip()  # noqa: S603
 
     return git
 
@@ -480,7 +474,7 @@ def git(*args: Any, **kwargs: Any) -> str | int:
 FuncT = Callable[..., Any]
 
 
-def add_params(*params: Any):
+def add_params(*params: Any) -> Callable[[FuncT], FuncT]:
     """Add parameters to a click command."""
 
     def decorator(f: FuncT) -> FuncT:
@@ -495,7 +489,7 @@ def add_params(*params: Any):
 class Ndjson(list[dict[str, Any]]):
     """Wrapper for ndjson data."""
 
-    def to_string(self, sort_keys: bool = False):
+    def to_string(self, sort_keys: bool = False) -> str:
         """Format contents list to ndjson string."""
         return "\n".join(json.dumps(c, sort_keys=sort_keys) for c in self) + "\n"
 
@@ -505,12 +499,12 @@ class Ndjson(list[dict[str, Any]]):
         contents = [json.loads(line, **kwargs) for line in ndjson_string.strip().splitlines()]
         return Ndjson(contents)
 
-    def dump(self, filename: Path, sort_keys: bool = False):
+    def dump(self, filename: Path, sort_keys: bool = False) -> None:
         """Save contents to an ndjson file."""
         _ = filename.write_text(self.to_string(sort_keys=sort_keys))
 
     @classmethod
-    def load(cls, filename: Path, **kwargs: Any):
+    def load(cls, filename: Path, **kwargs: Any) -> "Ndjson":
         """Load content from an ndjson file."""
         return cls.from_string(filename.read_text(), **kwargs)
 

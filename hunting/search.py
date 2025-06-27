@@ -15,14 +15,14 @@ from .utils import load_all_toml, load_index_file
 
 
 class QueryIndex:
-    def __init__(self, base_path: Path):
+    def __init__(self, base_path: Path) -> None:
         """Initialize with the base path and load the index."""
         self.base_path = base_path
         self.hunting_index = load_index_file()
         self.mitre_technique_ids: set[str] = set()
         self.reverse_tactics_map = {v: k for k, v in tactics_map.items()}
 
-    def _process_mitre_filter(self, mitre_filter: tuple[str, ...]):
+    def _process_mitre_filter(self, mitre_filter: tuple[str, ...]) -> None:
         """Process the MITRE filter to gather all matching techniques."""
         for filter_item in mitre_filter:
             if filter_item in self.reverse_tactics_map:
@@ -30,7 +30,7 @@ class QueryIndex:
             elif filter_item in technique_lookup:
                 self._process_technique_id(filter_item)
 
-    def _process_tactic_id(self, filter_item: str):
+    def _process_tactic_id(self, filter_item: str) -> None:
         """Helper method to process a tactic ID."""
         tactic_name = self.reverse_tactics_map[filter_item]
         click.echo(f"Found tactic ID {filter_item} (Tactic Name: {tactic_name}). Searching for associated techniques.")
@@ -40,7 +40,7 @@ class QueryIndex:
             if any(tactic_name.lower().replace(" ", "-") == phase["phase_name"] for phase in kill_chain_phases):
                 self.mitre_technique_ids.add(tech_id)
 
-    def _process_technique_id(self, filter_item: str):
+    def _process_technique_id(self, filter_item: str) -> None:
         """Helper method to process a technique or sub-technique ID."""
         self.mitre_technique_ids.add(filter_item)
         if "." not in filter_item:
@@ -144,20 +144,19 @@ class QueryIndex:
 
         # Step 1: Check files first by their 'integration' field
         for hunt_content, file_path in hunting_content:
-            if data_source in hunt_content.integration:
-                if hunt_content.uuid not in seen_uuids:
-                    # Prepare the result with full hunt content fields
-                    matches = hunt_content.__dict__.copy()
-                    matches["mitre"] = hunt_content.mitre
-                    matches["data_source"] = hunt_content.integration
-                    matches["uuid"] = hunt_content.uuid
-                    matches["path"] = file_path
-                    results.append(matches)
-                    seen_uuids.add(hunt_content.uuid)
+            if data_source in hunt_content.integration and hunt_content.uuid not in seen_uuids:
+                # Prepare the result with full hunt content fields
+                matches = hunt_content.__dict__.copy()
+                matches["mitre"] = hunt_content.mitre
+                matches["data_source"] = hunt_content.integration
+                matches["uuid"] = hunt_content.uuid
+                matches["path"] = file_path
+                results.append(matches)
+                seen_uuids.add(hunt_content.uuid)
 
         # Step 2: Check the index for generic data sources (e.g., 'aws', 'linux')
         if data_source in self.hunting_index:
-            for query_uuid, _ in self.hunting_index[data_source].items():
+            for query_uuid in self.hunting_index[data_source]:
                 if query_uuid not in seen_uuids:
                     # Find corresponding TOML content for this query
                     h = next(((hunt, path) for hunt, path in hunting_content if hunt.uuid == query_uuid), None)
