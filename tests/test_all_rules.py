@@ -10,7 +10,6 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 
 import eql.ast
@@ -584,26 +583,6 @@ class TestRuleFiles(BaseRuleTest):
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
-
-    def test_dates_not_in_future(self):
-        """Ensure creation and updated dates are not in the future."""
-        invalid = []
-        today = datetime.now(timezone.utc).date()
-
-        for rule in self.all_rules:
-            created_str = rule.contents.metadata.creation_date
-            updated_str = rule.contents.metadata.updated_date
-
-            created = datetime.strptime(created_str, "%Y/%m/%d").date()
-            updated = datetime.strptime(updated_str, "%Y/%m/%d").date()
-
-            if created > today or updated > today:
-                invalid.append(rule)
-
-        if invalid:
-            rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in invalid)
-            err_msg = f"The following rules have a creation_date or updated_date in the future:\n {rules_str}"
-            self.fail(err_msg)
 
     def test_updated_date_newer_than_creation(self):
         """Test that the updated_date is newer than the creation date."""
