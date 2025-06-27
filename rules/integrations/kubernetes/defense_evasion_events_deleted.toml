@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2025/06/27"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/06/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the deletion of Kubernetes events, which can indicate an attempt to cover up malicious
+activity or misconfigurations. Adversaries may delete events to remove traces of their actions, making it
+harder for defenders to investigate and respond to incidents.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Events Deleted"
+risk_score = 21
+rule_id = "33c27b4e-8ec6-406f-b8e5-345dc024aa97"
+severity = "low"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution"
+    ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "delete" and
+kubernetes.audit.objectRef.resource == "events" and kubernetes.audit.stage == "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
