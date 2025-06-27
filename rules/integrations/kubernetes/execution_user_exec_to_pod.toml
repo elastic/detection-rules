@@ -2,7 +2,7 @@
 creation_date = "2022/05/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +22,8 @@ false_positives = [
     connected to the terminal: kubectl exec -i -t cassandra -- sh
     """,
 ]
-index = ["logs-kubernetes.*"]
-language = "kuery"
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Kubernetes User Exec into Pod"
 note = """## Triage and analysis
@@ -73,27 +73,22 @@ rule_id = "14de811c-d60f-11ec-9fd7-f661ea17fbce"
 severity = "medium"
 tags = ["Data Source: Kubernetes", "Tactic: Execution", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "eql"
 query = '''
-event.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.verb:"create"
-  and kubernetes.audit.objectRef.resource:"pods"
-  and kubernetes.audit.objectRef.subresource:"exec"
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and
+kubernetes.audit.verb in ("get", "create") and kubernetes.audit.objectRef.subresource == "exec" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
