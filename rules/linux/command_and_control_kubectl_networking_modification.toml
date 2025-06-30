@@ -1,25 +1,29 @@
 [metadata]
-creation_date = "2025/06/17"
-integration = ["endpoint"]
+creation_date = "2025/06/19"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2025/06/19"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a process accesses Kubernetes service account secrets. Kubernetes service
-account secrets are files that contain sensitive information used by applications running in Kubernetes
-clusters to authenticate and authorize access to the cluster. These secrets are typically mounted into
-pods at runtime, allowing applications to access them securely. Unauthorized access to these secrets
-can lead to privilege escalation, lateral movement and unauthorized actions within the cluster.
+This rule detects potential kubectl network configuration modification activity by monitoring for process events
+where the kubectl command is executed with arguments that suggest an attempt to modify network configurations in
+Kubernetes. This could indicate an adversary trying to manipulate network settings for malicious purposes, such as
+establishing unauthorized access or exfiltrating data.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
-name = "Kubernetes Service Account Secret Access"
-risk_score = 47
-rule_id = "ce73954b-a0a4-4f05-b67b-294c500dac77"
+name = "Kubectl Network Configuration Modification"
+risk_score = 21
+rule_id = "877cc04a-3320-411d-bbe9-53266fa5e107"
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -45,32 +49,32 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "Domain: Container",
     "Domain: Kubernetes",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Credential Access",
-    "Tactic: Discovery",
+    "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  process.command_line like (
-    "*/run/secrets/kubernetes.io/serviceaccount*",
-    "*/var/run/secrets/kubernetes.io/serviceaccount*",
-    "*/secrets/kubernetes.io/serviceaccount*"
-  ) or (
-    process.working_directory like (
-      "/run/secrets/kubernetes.io/serviceaccount",
-      "/var/run/secrets/kubernetes.io/serviceaccount",
-      "/secrets/kubernetes.io/serviceaccount"
-    ) and
-    process.args in ("ca.crt", "token", "namespace")
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name == "kubectl" and (
+  process.args == "port-forward" and process.command_line like "*:*" or
+  process.args in ("proxy", "expose")
+) and (
+  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+  (
+    process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
+    process.parent.name like (".*", "*.sh")
   )
 )
 '''
@@ -79,29 +83,16 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1552"
-name = "Unsecured Credentials"
-reference = "https://attack.mitre.org/techniques/T1552/"
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
 
 [[rule.threat.technique]]
-id = "T1528"
-name = "Steal Application Access Token"
-reference = "https://attack.mitre.org/techniques/T1528/"
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
 
 [rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1613"
-name = "Container and Resource Discovery"
-reference = "https://attack.mitre.org/techniques/T1613/"
-
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

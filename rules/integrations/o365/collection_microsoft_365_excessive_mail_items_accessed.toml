@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2025/06/17"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/06/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an excessive number of Microsoft 365 mailbox items accessed by a user either via aggregated counts or
+throttling. Microsoft audits mailbox access via the MailItemsAccessed event, which is triggered when a user accesses
+mailbox items. If more than 1000 mailbox items are accessed within a 24-hour period, it is then throttled. Excessive
+mailbox access may indicate an adversary attempting to exfiltrate sensitive information or perform reconnaissance on a
+target's mailbox. This rule detects both the throttled and unthrottled events with a high threshold.
+"""
+false_positives = [
+    """
+    Legitimate users may access a large number of mailbox items in a short period, especially in environments with high
+    email volume or during data migrations. If this is expected behavior, consider adjusting the rule or adding
+    exceptions for specific users or groups.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Excessive Microsoft 365 Mailbox Items Accessed"
+note = """## Triage and analysis
+
+### Investigating Excessive Microsoft 365 Mailbox Items Accessed
+
+Identifies an excessive number of Microsoft 365 mailbox items accessed by a user either via aggregated counts or throttling. Microsoft audits mailbox access via the MailItemsAccessed event, which is triggered when a user accesses mailbox items. If more than 1000 mailbox items are accessed within a 24-hour period, it is then throttled. Excessive mailbox access may indicate an adversary attempting to exfiltrate sensitive information or perform reconnaissance on a target's mailbox. This rule detects both the throttled and unthrottled events with a high threshold.
+
+### Possible investigation steps
+- Review `host.name` to identify the tenant where the mailbox access occurred.
+- Review `o365.audit.UserId` or `o365.audit.MailboxOwnerUPN` to identify the user associated with the mailbox access.
+- Examine `o365.audit.ExternalAccess` to determine if the mailbox access was performed by an external user or application.
+- Check the geolocation data to identify the location from which the mailbox access occurred. Is this an expected location for the user?
+- Check `o365.audit.ClientAppId` to identify the application used for mailbox access. Look for any unusual or unexpected applications but be aware that some legitimate applications may also trigger this rule if OAuth phishing was used.
+- Review `o365.audit.Folders.Path` and `o365.audit.Folders.FolderItems.Id` to identify the specific folders and items accessed within the mailbox. Look for any sensitive or high-value folders that may indicate targeted access.
+- For specific items accessed, examine `o365.audit.Folders.FolderItems.Id` to gather more context on the accessed mailbox items.
+- User types can be identified by checking `o365.audit.UserType`. Review if the mailbox of the user is a member, admin or delegate.
+- If Entra ID logs are available, checking the risk status via `azure.signinlogs.properties.risk_state` and `azure.signinlogs.properties.risk_level` can provide additional context on the user's risk status during the mailbox access.
+
+### False positive analysis
+- Legitimate users may access a large number of mailbox items in a short period, especially in environments with high email volume or during data migrations. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users or groups.
+- Automated processes or scripts that access mailbox items may also trigger this rule. If these processes are legitimate and necessary, consider adding exceptions for the specific applications or users involved.
+- Users with high email activity, such as helpdesk or support roles, may trigger this rule due to their job responsibilities. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users or groups.
+
+### Response and remediation
+- Investigate the user account associated with the excessive mailbox access to determine if it has been compromised or if the activity is expected behavior.
+- If the mailbox access is confirmed to be suspicious or unauthorized, take immediate action to revoke the access token and prevent further access.
+- Disable the user account temporarily to prevent any potential compromise or unauthorized access.
+- Review the user's recent sign-in activity and access patterns to identify any potential compromise or unauthorized access.
+- If the user account is compromised, initiate a password reset and enforce multi-factor authentication (MFA) for the user.
+- Review the conditional access policies in place to ensure they are sufficient to prevent unauthorized access to sensitive resources.
+- Examine how the mailbox access was performed. If it was done via a third-party application, review the permissions granted to that application and consider revoking them if they are not necessary.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts#use-mailitemsaccessed-audit-records-for-forensic-investigations",
+    "https://www.microsoft.com/en-us/security/blog/2025/05/27/new-russia-affiliated-actor-void-blizzard-targets-critical-sectors-for-espionage/",
+]
+risk_score = 47
+rule_id = "7fc95782-4bd1-11f0-9838-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Email",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "o365.audit" and
+    event.provider: "Exchange" and
+    event.action: "MailItemsAccessed" and
+    event.code: "ExchangeItemAggregated" and
+    (
+        (
+            o365.audit.OperationProperties.Name: "IsThrottled" and
+            o365.audit.OperationProperties.Value: "True"
+        ) or o365.audit.OperationCount >= 100
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+[[rule.threat.technique.subtechnique]]
+id = "T1114.002"
+name = "Remote Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "user.name",
+    "user.email",
+    "user.domain",
+    "event.id",
+    "event.action",
+    "event.outcome",
+    "event.provider",
+    "source.ip",
+    "related.ip",
+    "related.user",
+    "o365.audit.ClientAppId",
+    "o365.audit.AppId",
+    "o365.audit.AppAccessContext.UniqueTokenId",
+    "o365.audit.OperationCount",
+    "o365.audit.MailboxOwnerUPN",
+    "o365.audit.MailboxOwnerSid",
+    "o365.audit.MailboxGuid",
+    "o365.audit.UserKey",
+    "o365.audit.LogonUserSid",
+    "o365.audit.TokenTenantId",
+    "o365.audit.OriginatingServer",
+    "o365.audit.ClientInfoString",
+    "o365.audit.CreationTime",
+    "o365.audit.ResultStatus",
+    "source.geo.country_iso_code",
+    "source.geo.country_name",
+    "source.geo.continent_name",
+    "source.geo.location",
+    "cloud.account.id",
+    "cloud.provider",
+    "cloud.region",
+    "cloud.service.name",
+]
+
