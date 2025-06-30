@@ -181,7 +181,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
             continue
 
         # these are set at package release time depending on the version strategy
-        if name not in ("version", "revision") and not BYPASS_VERSION_LOCK:
+        if name in ("version", "revision") and not BYPASS_VERSION_LOCK:
             continue
 
         if required_only and name not in required_fields:
