@@ -7,12 +7,12 @@ updated_date = "2025/06/18"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects unusual request responses in Kubernetes audit logs through the
-use of the "new_terms" rule type. In production environments, default API requests
-are typically made by system components or trusted users, which are expected to
-have a consistent user agent and allowed response annotations. By monitoring
-for anomalies in the username and response annotations, this rule helps identify
-potential unauthorized access or misconfigurations in the Kubernetes environment.
+This rule detects unusual request responses in Kubernetes audit logs through the use of the
+"new_terms" rule type. In production environments, default API requests are typically made by
+system components or trusted users, who are expected to have a consistent user agent and
+allowed response annotations. By monitoring for anomalies in the username and response
+annotations, this rule helps identify potential unauthorized access or misconfigurations
+in the Kubernetes environment.
 """
 index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
@@ -31,7 +31,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and not user_agent.original:""
+host.os.type:"linux" and event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete"
 '''
 
 [[rule.threat]]
@@ -44,7 +44,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username"]
+value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
