@@ -33,9 +33,9 @@ class ExceptionMeta(MarshmallowDataclassMixin):
     updated_date: definitions.Date
 
     # Optional fields
-    deprecation_date: definitions.Date | None
-    comments: str | None
-    maturity: definitions.Maturity | None
+    deprecation_date: definitions.Date | None = None
+    comments: str | None = None
+    maturity: definitions.Maturity | None = None
 
 
 @dataclass(frozen=True)
@@ -70,9 +70,9 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
         id: str
         type: definitions.EsDataTypes
 
-    list_vals: ListObject | None
     operator: definitions.ExceptionEntryOperator
-    value: str | None | list[str]
+    list_vals: ListObject | None = None
+    value: str | None | list[str] = None
 
     @validates_schema
     def validate_entry(self, data: dict[str, Any], **_: Any) -> None:
