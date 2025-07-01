@@ -21,8 +21,6 @@ from .action_connector import (
     parse_action_connector_results_from_api,
 )
 from .cli_utils import multi_collection
-from .action_connector import (TOMLActionConnectorContents,
-                               parse_action_connector_results_from_api, build_action_connector_objects)
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
 from .generic_loader import GenericCollection, GenericCollectionTypes
@@ -161,12 +159,9 @@ def kibana_import_rules(  # noqa: PLR0915
                 )
                 click.echo()
 
-    def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: dict) -> GenericCollectionTypes:
+    def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
         """Check if the item matches any of the rule IDs in the provided set."""
-        return any(
-            rule_id in rule_ids
-            for rule_id in item.contents.metadata.get("rule_ids", [])
-        )
+        return any(rule_id in rule_ids for rule_id in item.contents.metadata.get("rule_ids", []))
 
     def _process_imported_items(
         imported_items_list: list[list[dict[str, Any]]],
