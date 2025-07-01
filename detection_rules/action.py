@@ -23,12 +23,12 @@ class ActionMeta(MarshmallowDataclassMixin):
     updated_date: definitions.Date
 
     # Optional fields
-    deprecation_date: definitions.Date | None
-    comments: str | None
-    maturity: definitions.Maturity | None
+    deprecation_date: definitions.Date | None = None
+    comments: str | None = None
+    maturity: definitions.Maturity | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Action(MarshmallowDataclassMixin):
     """Data object for rule Action."""
 
@@ -42,9 +42,9 @@ class Action(MarshmallowDataclassMixin):
     group: str
     params: ActionParams
 
-    id: str | None
-    frequency: dict[str, Any] | None
-    alerts_filter: dict[str, Any] | None
+    id: str | None = None
+    frequency: dict[str, Any] | None = None
+    alerts_filter: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

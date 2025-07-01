@@ -31,21 +31,21 @@ class ActionConnectorMeta(MarshmallowDataclassMixin):
     updated_date: definitions.Date
 
     # Optional fields
-    deprecation_date: definitions.Date | None
-    comments: str | None
-    maturity: definitions.Maturity | None
+    deprecation_date: definitions.Date | None = None
+    comments: str | None = None
+    maturity: definitions.Maturity | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class ActionConnector(MarshmallowDataclassMixin):
     """Data object for rule Action Connector."""
 
     id: str
     attributes: dict[str, Any]
-    frequency: dict[str, Any] | None
-    managed: bool | None
-    type: str | None
-    references: list[Any] | None
+    frequency: dict[str, Any] | None = None
+    managed: bool | None = None
+    type: str | None = None
+    references: list[Any] | None = None
 
 
 @dataclass(frozen=True)
