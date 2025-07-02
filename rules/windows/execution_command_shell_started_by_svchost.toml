@@ -125,13 +125,33 @@ query = '''
 host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and
 process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and
 
-  not process.command_line : (
-        "\"cmd.exe\" /C sc control hptpsmarthealthservice 211",
-        "\"C:\\WINDOWS\\system32\\cmd.exe\" /d /c C:\\WINDOWS\\system32\\hpatchmonTask.cmd",
-        "\"cmd.exe\" /d /c C:\\WINDOWS\\system32\\hpatchmonTask.cmd"
-  ) and
-  not process.args : "*SysVol*WindowsDefenderATPOnboardingScript.cmd*"
+  not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211"
 '''
+
+
+[[rule.filters]]
+
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*SysVol*WindowsDefenderATPOnboardingScript.cmd*"
+
+[[rule.filters]]
+
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "\"cmd.exe\" /d /c C:\\\\???????\\\\system32\\\\hpatchmonTask.cmd"
+
+[[rule.filters]]
+
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "\"C:\\\\???????\\\\system32\\\\cmd.exe\" /d /c C:\\\\???????\\\\system32\\\\hpatchmonTask.cmd"
 
 
 [[rule.filters]]
@@ -164,6 +184,7 @@ case_insensitive = true
 value = """
 cmd /C ".\\inetsrv\\iissetup.exe /keygen "
 """
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
