@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -124,7 +124,13 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and
 process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and
-not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211"
+
+  not process.command_line : (
+        "\"cmd.exe\" /C sc control hptpsmarthealthservice 211",
+        "\"C:\\WINDOWS\\system32\\cmd.exe\" /d /c C:\\WINDOWS\\system32\\hpatchmonTask.cmd",
+        "\"cmd.exe\" /d /c C:\\WINDOWS\\system32\\hpatchmonTask.cmd"
+  ) and
+  not process.args : "*SysVol*WindowsDefenderATPOnboardingScript.cmd*"
 '''
 
 
