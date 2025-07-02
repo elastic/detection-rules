@@ -21,7 +21,7 @@ from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gz
 
 
 def _decompress_and_save_schema(url: str, release_name: str) -> None:
-    print(f"Downloading beats {release_name}")
+    print(f"Downloading beats {release_name}", url)
     response = requests.get(url, timeout=30)
 
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
@@ -34,25 +34,24 @@ def _decompress_and_save_schema(url: str, release_name: str) -> None:
         for name in archive.namelist():
             path = Path(name)
             if path.name in ("fields.yml", "fields.common.yml", "config.yml"):
-                contents = archive.read(name)
-
                 # chop off the base directory name
                 key = name[len(base_directory) :]
 
                 if key.startswith("x-pack"):
                     key = key[len("x-pack") + 1 :]
 
-                try:
-                    decoded = yaml.safe_load(contents)
-                except yaml.YAMLError as e:
-                    print(f"Error loading {name}")
-                    raise ValueError(f"Error loading {name}") from e
-
                 # create a hierarchical structure
                 branch = fs
                 directory, base_name = os.path.split(key)
                 for limb in directory.split(os.path.sep):
                     branch = branch.setdefault("folders", {}).setdefault(limb, {})
+
+                contents = archive.read(name)
+                try:
+                    decoded = yaml.safe_load(contents)
+                except yaml.YAMLError:
+                    print(f"Error loading {name}, no a valid YAML")
+                    decoded = None
 
                 branch.setdefault("files", {})[base_name] = decoded
 
