@@ -50,7 +50,7 @@ def _decompress_and_save_schema(url: str, release_name: str) -> None:
                 try:
                     decoded = yaml.safe_load(contents)
                 except yaml.YAMLError:
-                    print(f"Error loading {name}, no a valid YAML")
+                    print(f"Error loading {name}, not a valid YAML")
                     decoded = None
 
                 branch.setdefault("files", {})[base_name] = decoded
