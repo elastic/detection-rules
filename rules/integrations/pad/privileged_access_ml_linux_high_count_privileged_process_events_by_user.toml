@@ -2,57 +2,21 @@
 creation_date = "2025/02/18"
 integration = ["pad", "endpoint", "sysmon_linux"]
 maturity = "production"
-updated_date = "2025/02/18"
-min_stack_version = "8.18.0"
-min_stack_comments = "New PAD integration only available starting at 8.18.0."
+updated_date = "2025/07/02"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job has detected an increase in the execution of privileged commands by a user, suggesting potential privileged access activity. 
-This may indicate an attempt by the user to gain unauthorized access to sensitive or restricted parts of the system.
+A machine learning job has detected an increase in the execution of privileged commands by a user, suggesting potential
+privileged access activity. This may indicate an attempt by the user to gain unauthorized access to sensitive or
+restricted parts of the system.
 """
 from = "now-3h"
 interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "pad_linux_high_count_privileged_process_events_by_user"
 name = "Spike in Privileged Command Execution by a User"
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/pad"
-]
-risk_score = 21
-rule_id = "bd1eadf6-3ac6-4e66-91aa-4a1e6711915f"
-setup = """## Setup
-
-The rule requires the Privileged Access Detection integration assets to be installed, as well as Linux logs collected by integrations such as Elastic Defend and Sysmon Linux.
-
-### Privileged Access Detection Setup
-The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
-
-#### Prerequisite Requirements:
-- Fleet is required for Privileged Access Detection.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-- Linux events collected by [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) or [Sysmon Linux](https://docs.elastic.co/en/integrations/sysmon_linux) integration.
-- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-- To add Sysmon Linux integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
-
-#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
-- Go to the Kibana homepage. Under Management, click Integrations.
-- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
-- Follow the instructions under the **Installation** section.
-- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
-"""
-severity = "low"
-tags = [
-    "Use Case: Privileged Access Detection",
-    "Rule Type: ML",
-    "Rule Type: Machine Learning",
-    "Tactic: Privilege Escalation",
-    "Resources: Investigation Guide"
-]
-type = "machine_learning"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -88,6 +52,41 @@ Machine learning models are employed to monitor and analyze user behavior, speci
 - Notify the security team and relevant stakeholders about the incident, providing details of the detected anomaly and actions taken so far.
 - Implement additional monitoring on the affected systems and user accounts to detect any further suspicious activities or attempts to regain unauthorized access.
 - Review and update access controls and permissions to ensure that users have the minimum necessary privileges, reducing the risk of privilege escalation in the future."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "bd1eadf6-3ac6-4e66-91aa-4a1e6711915f"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Linux logs collected by integrations such as Elastic Defend and Sysmon Linux.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Linux events collected by [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) or [Sysmon Linux](https://docs.elastic.co/en/integrations/sysmon_linux) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add Sysmon Linux integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -95,7 +94,9 @@ id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

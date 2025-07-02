@@ -313,9 +313,21 @@ def migrate_to_8_18(version: Version, api_contents: dict[str, Any]) -> dict[str,
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.19")
+def migrate_to_8_19(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
+    """Default migration for 8.19."""
+    return strip_additional_properties(version, api_contents)
+
+
 @migrate("9.0")
 def migrate_to_9_0(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 9.0."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("9.1")
+def migrate_to_9_1(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
+    """Default migration for 9.1."""
     return strip_additional_properties(version, api_contents)
 
 
