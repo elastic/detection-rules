@@ -2,7 +2,7 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -82,6 +82,7 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : ("esensor.exe", "elastic-endpoint.exe") and
   process.parent.executable != null and
+  process.args != null and
   /* add FPs here */
   not process.parent.executable : (
         "?:\\Program Files\\Elastic\\*",
@@ -94,6 +95,7 @@ process where host.os.type == "windows" and event.type == "start" and
     process.parent.executable : (
         "?:\\Windows\\System32\\cmd.exe",
         "?:\\Windows\\System32\\SecurityHealthHost.exe",
+        "?:\\Windows\\System32\\SecurityHealth\\*\\SecurityHealthHost.exe",
         "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     ) and
     process.args : (
@@ -101,7 +103,7 @@ process where host.os.type == "windows" and event.type == "start" and
         "top", "run",
         "*help", "status",
         "upgrade", "/launch",
-        "/enable"
+        "/enable", "/av"
     )
   )
 '''
