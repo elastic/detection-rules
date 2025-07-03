@@ -387,7 +387,9 @@ def get_elasticsearch_client(  # noqa: PLR0913
 
 def get_kibana_client(
     *,
-    api_key: str,
+    api_key: str | None = None,
+    kibana_user: str | None = None,
+    kibana_password: str | None = None,
     cloud_id: str | None = None,
     kibana_url: str | None = None,
     space: str | None = None,
@@ -399,7 +401,16 @@ def get_kibana_client(
         raise_client_error("Missing required --cloud-id or --kibana-url")
 
     verify = not ignore_ssl_errors
-    return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+    return Kibana(
+        cloud_id=cloud_id,
+        kibana_url=kibana_url,
+        api_key=api_key,
+        username=kibana_user,
+        password=kibana_password,
+        space=space,
+        verify=verify,
+        **kwargs,
+    )
 
 
 client_options = {
@@ -407,6 +418,8 @@ client_options = {
         "kibana_url": click.Option(["--kibana-url"], default=getdefault("kibana_url")),
         "cloud_id": click.Option(["--cloud-id"], default=getdefault("cloud_id"), help="ID of the cloud instance."),
         "api_key": click.Option(["--api-key"], default=getdefault("api_key")),
+        "kibana_user": click.Option(["--kibana-user", "-ku"], default=getdefault("kibana_user")),
+        "kibana_password": click.Option(["--kibana-password", "-kp"], default=getdefault("kibana_password")),
         "space": click.Option(["--space"], default=None, help="Kibana space"),
         "ignore_ssl_errors": click.Option(["--ignore-ssl-errors"], default=getdefault("ignore_ssl_errors")),
     },

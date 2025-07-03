@@ -32,7 +32,7 @@ Currently supported arguments:
 #### Using environment variables
 
 Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will be parsed in commands which expect it.
-EX: `DR_USER=joe`
+EX: `DR_ES_USER=joe`
 
 
 Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
@@ -149,6 +149,8 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
+  --kibana-user TEXT
+  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
   -h, --help                Show this message and exit.
@@ -177,6 +179,8 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
+  --kibana-user TEXT
+  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -237,6 +241,8 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
+  --kibana-user TEXT
+  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -445,6 +451,8 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
+  --kibana-user TEXT
+  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -479,6 +487,8 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
+  --kibana-user TEXT
+  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 

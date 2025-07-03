@@ -21,7 +21,17 @@ _context = threading.local()
 class Kibana:
     """Wrapper around the Kibana SIEM APIs."""
 
-    def __init__(self, cloud_id=None, kibana_url=None, api_key=None, verify=True, elasticsearch=None, space=None):
+    def __init__(
+        self,
+        cloud_id=None,
+        kibana_url=None,
+        api_key=None,
+        username=None,
+        password=None,
+        verify=True,
+        elasticsearch=None,
+        space=None,
+    ):
         """"Open a session to the platform."""
         self.authenticated = False
 
@@ -35,6 +45,9 @@ class Kibana:
                     "Authorization": f"ApiKey {api_key}",
                 }
             )
+        elif username and password:
+            self.session.auth = (username, password)
+            self.session.headers.update({"kbn-xsrf": "true"})
 
         self.verify = verify
 
@@ -65,11 +78,12 @@ class Kibana:
         self.elasticsearch = elasticsearch
 
         if not self.elasticsearch and self.elastic_url:
-            self.elasticsearch = Elasticsearch(
-                hosts=[self.elastic_url],
-                api_key=api_key,
-                verify_certs=self.verify,
-            )
+            es_kwargs = {"verify_certs": self.verify}
+            if api_key:
+                es_kwargs["api_key"] = api_key
+            elif username and password:
+                es_kwargs["basic_auth"] = (username, password)
+            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], **es_kwargs)
             self.elasticsearch.info()
 
         if not verify:
