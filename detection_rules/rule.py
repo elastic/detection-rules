@@ -935,7 +935,7 @@ class ESQLRuleData(QueryRuleData):
         query_lower = data["query"].lower()
 
         # Combine both patterns using an OR operator and compile the regex
-        # The first part matches the metadata fields in the from clause by allowing one or 
+        # The first part matches the metadata fields in the from clause by allowing one or
         # multiple indices and any order of the metadata fields
         # The second part matches the stats command with the by clause
         combined_pattern = re.compile(
@@ -943,7 +943,7 @@ class ESQLRuleData(QueryRuleData):
             r"(_id,\s*_version,\s*_index|_id,\s*_index,\s*_version|_version,\s*_id,\s*_index|"
             r"_version,\s*_index,\s*_id|_index,\s*_id,\s*_version|_index,\s*_version,\s*_id))"
             r"|(\bstats\b.*?\bby\b)",
-            re.DOTALL
+            re.DOTALL,
         )
 
         # Ensure that non-aggregate queries have metadata
@@ -959,8 +959,7 @@ class ESQLRuleData(QueryRuleData):
         keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
         if not keep_pattern.search(query_lower):
             raise ValidationError(
-                f"Rule: {data['name']} does not contain a 'keep' command ->"
-                f" Add a 'keep' command to the query."
+                f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
 
 
