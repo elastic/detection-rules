@@ -1,57 +1,22 @@
 [metadata]
 creation_date = "2025/02/18"
-integration = ["pad","okta"]
+integration = ["pad", "okta"]
 maturity = "production"
-updated_date = "2025/02/18"
-min_stack_version = "8.18.0"
-min_stack_comments = "New PAD integration only available starting at 8.18.0."
+updated_date = "2025/07/02"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job has identified a user performing privileged operations in Okta from an uncommon source IP, indicating potential privileged access activity.
-This could suggest an account compromise, misuse of administrative privileges, or an attacker leveraging a new network location to escalate privileges.
+A machine learning job has identified a user performing privileged operations in Okta from an uncommon source IP,
+indicating potential privileged access activity. This could suggest an account compromise, misuse of administrative
+privileges, or an attacker leveraging a new network location to escalate privileges.
 """
 from = "now-1h"
 interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "pad_okta_rare_source_ip_by_user"
 name = "Unusual Source IP for Okta Privileged Operations Detected"
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/pad"
-]
-risk_score = 21
-rule_id = "fbb10f1e-77cb-42f9-994e-5da17fc3fc15"
-setup = """## Setup
-
-The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
-
-### Privileged Access Detection Setup
-The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
-
-#### Prerequisite Requirements:
-- Fleet is required for Privileged Access Detection.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
-- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
-
-#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
-- Go to the Kibana homepage. Under Management, click Integrations.
-- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
-- Follow the instructions under the **Installation** section.
-- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
-"""
-severity = "low"
-tags = [
-    "Use Case: Privileged Access Detection",
-    "Rule Type: ML",
-    "Rule Type: Machine Learning",
-    "Tactic: Privilege Escalation",
-    "Resources: Investigation Guide"
-]
-type = "machine_learning"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -87,6 +52,40 @@ Okta is a widely used identity management service that controls access to applic
 - Review and update access logs to ensure all unusual IP addresses are flagged and monitored for any future access attempts.
 - Implement network-based restrictions to block the identified unusual IP address from accessing the Okta environment.
 - Conduct a post-incident analysis to identify the root cause and update security policies and procedures to prevent similar incidents in the future."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "fbb10f1e-77cb-42f9-994e-5da17fc3fc15"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -94,7 +93,9 @@ id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

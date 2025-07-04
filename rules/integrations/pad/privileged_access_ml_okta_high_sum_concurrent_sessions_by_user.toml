@@ -1,58 +1,24 @@
 [metadata]
 creation_date = "2025/02/18"
-integration = ["pad","okta"]
+integration = ["pad", "okta"]
 maturity = "production"
-updated_date = "2025/02/18"
-min_stack_version = "8.18.0"
-min_stack_comments = "New PAD integration only available starting at 8.18.0."
+updated_date = "2025/07/02"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job has detected an unusually high number of active concurrent sessions initiated by a user, indicating potential privileged access activity.
-A sudden surge in concurrent active sessions by a user may indicate an attempt to abuse valid credentials for privilege escalation or maintain persistence.
-Adversaries might be leveraging multiple sessions to execute privileged operations, evade detection, or perform unauthorized actions across different systems.
+A machine learning job has detected an unusually high number of active concurrent sessions initiated by a user,
+indicating potential privileged access activity. A sudden surge in concurrent active sessions by a user may indicate an
+attempt to abuse valid credentials for privilege escalation or maintain persistence. Adversaries might be leveraging
+multiple sessions to execute privileged operations, evade detection, or perform unauthorized actions across different
+systems.
 """
 from = "now-3h"
 interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "pad_okta_high_sum_concurrent_sessions_by_user"
 name = "Unusual Spike in Concurrent Active Sessions by a User"
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/pad"
-]
-risk_score = 21
-rule_id = "a300dea6-e228-40e1-9123-a339e207378b"
-setup = """## Setup
-
-The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
-
-### Privileged Access Detection Setup
-The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
-
-#### Prerequisite Requirements:
-- Fleet is required for Privileged Access Detection.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
-- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
-
-#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
-- Go to the Kibana homepage. Under Management, click Integrations.
-- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
-- Follow the instructions under the **Installation** section.
-- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
-"""
-severity = "low"
-tags = [
-    "Use Case: Privileged Access Detection",
-    "Rule Type: ML",
-    "Rule Type: Machine Learning",
-    "Tactic: Privilege Escalation",
-    "Resources: Investigation Guide"
-]
-type = "machine_learning"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -87,6 +53,40 @@ The detection of unusual spikes in concurrent active sessions leverages machine 
 - Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures or incident response actions.
 - Implement additional monitoring on the affected systems and user accounts to detect any further suspicious activity or attempts to regain access.
 - Review and update access controls and permissions to ensure that only authorized users have the necessary privileges, reducing the risk of future privilege escalation attempts."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "a300dea6-e228-40e1-9123-a339e207378b"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -99,7 +99,9 @@ id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
