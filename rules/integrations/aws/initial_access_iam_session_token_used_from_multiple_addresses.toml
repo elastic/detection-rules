@@ -1,22 +1,27 @@
 [metadata]
 creation_date = "2025/04/11"
 integration = ["aws"]
-min_stack_version = "8.17.0"
-min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
 maturity = "production"
-updated_date = "2025/05/29"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies potentially suspicious activity by detecting instances where a single IAM user's temporary session token is accessed from multiple IP addresses within a short time frame. Such behavior may suggest that an adversary has compromised temporary credentials and is utilizing them from various locations.
-To enhance detection accuracy and minimize false positives, the rule incorporates criteria that evaluate unique IP addresses, user agents, cities, and networks. These additional checks help distinguish between legitimate distributed access patterns and potential credential misuse.
-Detected activities are classified into different types based on the combination of unique indicators, with each classification assigned a fidelity score reflecting the likelihood of malicious behavior. High fidelity scores are given to patterns most indicative of threats, such as multiple unique IPs, networks, cities, and user agents. Medium and low fidelity scores correspond to less severe patterns, enabling security teams to effectively prioritize alerts.
+This rule identifies potentially suspicious activity by detecting instances where a single IAM user's temporary session
+token is accessed from multiple IP addresses within a short time frame. Such behavior may suggest that an adversary has
+compromised temporary credentials and is utilizing them from various locations. To enhance detection accuracy and
+minimize false positives, the rule incorporates criteria that evaluate unique IP addresses, user agents, cities, and
+networks. These additional checks help distinguish between legitimate distributed access patterns and potential
+credential misuse. Detected activities are classified into different types based on the combination of unique
+indicators, with each classification assigned a fidelity score reflecting the likelihood of malicious behavior. High
+fidelity scores are given to patterns most indicative of threats, such as multiple unique IPs, networks, cities, and
+user agents. Medium and low fidelity scores correspond to less severe patterns, enabling security teams to effectively
+prioritize alerts.
 """
 false_positives = [
     """
-    Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to appear from multiple IPs. 
-    Review the geolocation, network context, and user agent patterns to rule out benign use.
+    Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to
+    appear from multiple IPs. Review the geolocation, network context, and user agent patterns to rule out benign use.
     """,
 ]
 from = "now-32m"
