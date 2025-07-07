@@ -2,9 +2,7 @@
 creation_date = "2024/10/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/15"
-min_stack_version = "8.15.0"
-min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -20,27 +18,6 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Successful Application SSO from Rare Unknown Client Device"
-references = ["https://trust.okta.com/security-advisories/okta-classic-application-sign-on-policy-bypass-2024/"]
-risk_score = 47
-rule_id = "1502a836-84b2-11ef-b026-f661ea17fbcc"
-severity = "medium"
-tags = [
-    "Domain: SaaS",
-    "Data Source: Okta",
-    "Use Case: Threat Detection",
-    "Use Case: Identity and Access Audit",
-    "Tactic: Initial Access",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.dataset: "okta.system"
-    and event.action: "user.authentication.sso"
-    and event.outcome: "success"
-    and okta.client.device: ("Unknown" or "unknown")
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -76,6 +53,27 @@ Single sign-on (SSO) streamlines user access across applications by using a sing
 - Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
 - Review and update Okta's device recognition policies to improve detection of unknown or rare devices, reducing the risk of similar incidents.
 - Monitor for any further suspicious SSO activities from unknown devices and escalate to the incident response team if additional alerts are triggered."""
+references = ["https://trust.okta.com/security-advisories/okta-classic-application-sign-on-policy-bypass-2024/"]
+risk_score = 47
+rule_id = "1502a836-84b2-11ef-b026-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: SaaS",
+    "Data Source: Okta",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "okta.system"
+    and event.action: "user.authentication.sso"
+    and event.outcome: "success"
+    and okta.client.device: ("Unknown" or "unknown")
+'''
 
 
 [[rule.threat]]
@@ -97,3 +95,5 @@ value = ["client.user.name", "okta.client.user_agent.raw_user_agent"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
