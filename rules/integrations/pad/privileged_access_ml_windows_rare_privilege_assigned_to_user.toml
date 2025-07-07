@@ -2,57 +2,21 @@
 creation_date = "2025/02/18"
 integration = ["pad", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/02/18"
-min_stack_version = "8.18.0"
-min_stack_comments = "New PAD integration only available starting at 8.18.0."
+updated_date = "2025/07/02"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job has identified a user leveraging an uncommon privilege type for privileged operations, indicating potential privileged access activity.
-This indicates that a user is performing operations requiring elevated privileges but is using a privilege type that is not typically seen in their baseline logs.
+A machine learning job has identified a user leveraging an uncommon privilege type for privileged operations, indicating
+potential privileged access activity. This indicates that a user is performing operations requiring elevated privileges
+but is using a privilege type that is not typically seen in their baseline logs.
 """
 from = "now-1h"
 interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "pad_windows_rare_privilege_assigned_to_user"
 name = "Unusual Privilege Type assigned to a User"
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/pad"
-]
-risk_score = 21
-rule_id = "27569131-560e-441e-b556-0b9180af3332"
-setup = """## Setup
-
-The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
-
-### Privileged Access Detection Setup
-The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
-
-#### Prerequisite Requirements:
-- Fleet is required for Privileged Access Detection.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
-- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
-
-#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
-- Go to the Kibana homepage. Under Management, click Integrations.
-- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
-- Follow the instructions under the **Installation** section.
-- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
-"""
-severity = "low"
-tags = [
-    "Use Case: Privileged Access Detection",
-    "Rule Type: ML",
-    "Rule Type: Machine Learning",
-    "Tactic: Privilege Escalation",
-    "Resources: Investigation Guide"
-]
-type = "machine_learning"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -88,6 +52,41 @@ In modern IT environments, privilege management is crucial for maintaining secur
 - Implement additional monitoring on the affected user account and similar accounts to detect any further suspicious activities or privilege misuse.
 - Update and reinforce access control policies to prevent similar privilege escalation attempts, ensuring that privilege assignments are regularly reviewed and validated.
 - Document the incident details, response actions taken, and lessons learned to improve future incident response and privilege management processes."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "27569131-560e-441e-b556-0b9180af3332"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -100,7 +99,9 @@ id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
