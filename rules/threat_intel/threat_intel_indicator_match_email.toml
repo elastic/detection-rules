@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2025/04/11"
+maturity = "production"
+updated_date = "2025/04/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule is triggered when an email indicator from the Threat Intel Filebeat module or integrations matches an event
+containing email-related data, such as logs from email security gateways or email service providers.
+"""
+from = "now-65m"
+index = ["filebeat-*", "logs-*"]
+interval = "1h"
+language = "kuery"
+license = "Elastic License v2"
+name = "Threat Intel Email Indicator Match"
+note = """## Triage and analysis
+
+### Investigating Threat Intel Email Indicator Match Match
+
+Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash, with an entry of a file hash stored within the Threat Intel integrations index.
+
+Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
+
+This rule is triggered when an email indicator from the Threat Intel Filebeat module or integrations matches an event containing email-related data, such as logs from email security gateways or email service providers.
+
+#### Possible investigation steps
+
+- Investigate the email indicator, which can be found in the threat.indicator.matched.atomic field:
+  - Determine the nature of the email-based threat (phishing, spam, BEC, malware attachment, etc.).
+  - Check the reputation of the email address, domain, and IP in threat intel platforms such as VirusTotal, AbuseIPDB, Cisco Talos, and others.
+  - Perform a WHOIS lookup on the sending domain to gather registration info and potential abuse contacts.
+  - Review historical context: Has this email indicator been observed in other events or associated with known campaigns?
+- If the event is potentially phishing or BEC-related:
+  - Contact the recipient to gather additional context (did they interact with the email, click links, open attachments, reply, etc.).
+  - Review the email headers and content to identify spoofing tactics, display name impersonation, or suspicious links/domains.
+  - Analyze the email body and any attachments for signs of malicious intent or social engineering techniques.
+  - Extract and investigate any embedded links, attachments, or payloads for further IOCs.
+- Check logs from email security gateways and mail servers for:
+  - Additional recipients or similar messages sent in the same timeframe.
+  - Delivery status and any filtering or quarantine actions taken.
+
+### False Positive Analysis
+
+- False positives may occur when email indicators match legitimate communications.
+- Some threat intelligence feeds may mistakenly include benign or internal email addresses, domains, or sender infrastructure (e.g., noreply@yourdomain.com, legitimate SaaS providers, or shared mail services). Always validate indicators before taking enforcement actions.
+- Review the context of the match: Consider whether the sender domain or address is part of a known legitimate service, commonly used internally, or associated with a partner/vendor.
+- Blocking or alerting based on common email domains or infrastructure (e.g., mail gateways, newsletters, cloud-based platforms) without proper validation can lead to disruptions in communication.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If a user interacted with the malicious email (clicked a link, opened an attachment, replied, etc.), isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary email filters and segmentation to prevent further delivery or spread.
+  - Stop suspicious processes associated with any attachments or payloads.
+  - Immediately block the identified indicators of compromise (IoCs), including sender addresses, domains, URLs, and file hashes.
+  - Inspect affected systems for additional backdoors, such as reverse shells, droppers, or tunneling tools that could enable reinfection or remote access.
+- Consider reporting the sender address or domain for abuse using WHOIS or relevant abuse reporting services.
+- Remove and block malicious artifacts identified during triage, including phishing emails, attachments, and URLs.
+- Run a full antimalware scan. This may reveal additional artifacts, persistence mechanisms, or malware components on the system.
+- Determine the initial vector abused by the attacker—e.g., bypassed email filters, spoofed domain, etc.—and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html",
+    "https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html",
+    "https://www.elastic.co/security/tip",
+]
+risk_score = 73
+rule_id = "fcf18de8-ad7d-4d01-b3f7-a11d5b3883af"
+setup = """## Setup
+
+This rule needs threat intelligence indicators to work.
+Threat intelligence indicators can be collected using an [Elastic Agent integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#agent-ti-integration),
+the [Threat Intel module](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#ti-mod-integration),
+or a [custom integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#custom-ti-integration).
+
+More information can be found [here](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html).
+"""
+severity = "high"
+tags = ["Rule Type: Threat Match", "Resources: Investigation Guide"]
+threat_index = ["filebeat-*", "logs-ti_*"]
+threat_indicator_path = "threat.indicator"
+threat_language = "kuery"
+threat_query = """
+@timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and threat.indicator.email.address:* and not
+labels.is_ioc_transform_source:"true"
+"""
+timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
+timeline_title = "Generic Threat Match Timeline"
+timestamp_override = "event.ingested"
+type = "threat_match"
+
+query = '''
+email.from.address:* or email.sender.address:* or email.reply_to.address:* or email.to.address:*
+'''
+
+
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+disabled = false
+key = "event.category"
+negate = false
+type = "phrase"
+[rule.threat_filters.meta.params]
+query = "threat"
+[rule.threat_filters.query.match_phrase]
+"event.category" = "threat"
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+disabled = false
+key = "event.kind"
+negate = false
+type = "phrase"
+[rule.threat_filters.meta.params]
+query = "enrichment"
+[rule.threat_filters.query.match_phrase]
+"event.kind" = "enrichment"
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+disabled = false
+key = "event.type"
+negate = false
+type = "phrase"
+[rule.threat_filters.meta.params]
+query = "indicator"
+[rule.threat_filters.query.match_phrase]
+"event.type" = "indicator"
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+type = "mapping"
+field = "email.from.address"
+value = "threat.indicator.email.address"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+type = "mapping"
+field = "email.to.address"
+value = "threat.indicator.email.address"
+
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+type = "mapping"
+field = "email.sender.address"
+value = "threat.indicator.email.address"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+type = "mapping"
+field = "email.reply_to.address"
+value = "threat.indicator.email.address"

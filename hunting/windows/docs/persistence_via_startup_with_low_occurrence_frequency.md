@@ -14,7 +14,7 @@
 ## Query
 
 ```sql
-from logs-endpoint.events.file-*, logs-windows.sysmon_operational-default-*
+from logs-endpoint.events.file-*, logs-windows.sysmon_operational-*
 | where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "file" and event.action in ("creation", "FileCreate") and
   file.path rlike """(C:\\Users\\.+\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\.+*|C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\.+)"""
