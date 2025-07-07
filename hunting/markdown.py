@@ -4,21 +4,24 @@
 # 2.0.
 
 from pathlib import Path
+
 import click
+
 from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP, Hunt
 from .utils import load_index_file, load_toml, save_index_file, validate_link
 
 
 class MarkdownGenerator:
     """Class to generate or update Markdown documentation from TOML or YAML files."""
-    def __init__(self, base_path: Path):
+
+    def __init__(self, base_path: Path) -> None:
         """Initialize with the base path and load the hunting index."""
         self.base_path = base_path
         self.hunting_index = load_index_file()
 
     def process_file(self, file_path: Path) -> None:
         """Process a single TOML file and generate its Markdown representation."""
-        if not file_path.is_file() or file_path.suffix != '.toml':
+        if not file_path.is_file() or file_path.suffix != ".toml":
             raise ValueError(f"The provided path is not a valid TOML file: {file_path}")
 
         click.echo(f"Processing specific TOML file: {file_path}")
@@ -83,7 +86,7 @@ class MarkdownGenerator:
 
     def save_markdown(self, markdown_path: Path, content: str) -> None:
         """Save the Markdown content to a file."""
-        markdown_path.write_text(content, encoding="utf-8")
+        _ = markdown_path.write_text(content, encoding="utf-8")
         click.echo(f"Markdown generated: {markdown_path}")
 
     def update_or_add_entry(self, hunt_config: Hunt, toml_path: Path) -> None:
@@ -92,9 +95,9 @@ class MarkdownGenerator:
         uuid = hunt_config.uuid
 
         entry = {
-            'name': hunt_config.name,
-            'path': f"./{toml_path.relative_to(self.base_path).as_posix()}",
-            'mitre': hunt_config.mitre
+            "name": hunt_config.name,
+            "path": f"./{toml_path.resolve().relative_to(self.base_path).as_posix()}",
+            "mitre": hunt_config.mitre,
         }
 
         if folder_name not in self.hunting_index:
@@ -112,16 +115,16 @@ class MarkdownGenerator:
 
     def generate_integration_links(self, integrations: list[str]) -> list[str]:
         """Generate integration links for the documentation."""
-        base_url = 'https://docs.elastic.co/integrations'
-        generated = []
+        base_url = "https://docs.elastic.co/integrations"
+        generated: list[str] = []
         for integration in integrations:
             if integration in STATIC_INTEGRATION_LINK_MAP:
                 link_str = STATIC_INTEGRATION_LINK_MAP[integration]
             else:
-                link_str = integration.replace('.', '/')
-            link = f'{base_url}/{link_str}'
+                link_str = integration.replace(".", "/")
+            link = f"{base_url}/{link_str}"
             validate_link(link)
-            generated.append(f'[{integration}]({link})')
+            generated.append(f"[{integration}]({link})")
         return generated
 
     def update_index_md(self) -> None:
@@ -135,10 +138,10 @@ class MarkdownGenerator:
 
         for folder, files in sorted(self.hunting_index.items()):
             index_content += f"\n\n## {folder}\n"
-            for file_info in sorted(files.values(), key=lambda x: x['name']):
-                md_path = file_info['path'].replace('queries', 'docs').replace('.toml', '.md')
+            for file_info in sorted(files.values(), key=lambda x: x["name"]):
+                md_path = file_info["path"].replace("queries", "docs").replace(".toml", ".md")
                 index_content += f"- [{file_info['name']}]({md_path}) (ES|QL)\n"
 
         index_md_path = self.base_path / "index.md"
-        index_md_path.write_text(index_content, encoding="utf-8")
+        _ = index_md_path.write_text(index_content, encoding="utf-8")
         click.echo(f"Index Markdown updated at: {index_md_path}")

@@ -2,7 +2,7 @@
 creation_date = "2022/11/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/03"
 
 [rule]
 author = ["Elastic"]
@@ -90,7 +90,12 @@ registry where host.os.type == "windows" and event.type == "change" and
     "HKLM\\*\\LocalAccountTokenFilterPolicy",
     "\\REGISTRY\\MACHINE\\*\\LocalAccountTokenFilterPolicy",
     "MACHINE\\*\\LocalAccountTokenFilterPolicy"
-  ) and registry.data.strings : ("1", "0x00000001")
+  ) and registry.data.strings : ("1", "0x00000001") and
+  not process.executable : (
+    /* Intune */
+    "C:\\Windows\\system32\\deviceenroller.exe",
+    "C:\\Windows\\system32\\omadmclient.exe"
+  )
 '''
 
 

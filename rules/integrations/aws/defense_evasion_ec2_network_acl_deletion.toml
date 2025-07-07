@@ -2,24 +2,21 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/06/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of an Amazon Elastic Compute Cloud (EC2) network access control list (ACL) or one of its
-ingress/egress entries.
+Identifies the deletion of an Amazon Elastic Compute Cloud (EC2) network access control list (ACL) or one of its ingress/egress entries.
 """
 false_positives = [
     """
-    Network ACL's may be deleted by a network administrator. Verify whether the user identity, user agent, and/or
-    hostname should be making changes in your environment. Network ACL deletions by unfamiliar users or hosts should be
-    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Network ACL's may be deleted by a network administrator. Verify whether the user identity, user agent, and/or hostname should be making changes in your environment. Network ACL deletions by unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
+interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Network Access Control List Deletion"
@@ -75,6 +72,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
     "Use Case: Network Security Monitoring",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
@@ -85,7 +83,22 @@ type = "query"
 query = '''
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(DeleteNetworkAcl or DeleteNetworkAclEntry) and event.outcome:success
 '''
-
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -94,10 +107,9 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.001"
-name = "Disable or Modify Tools"
-reference = "https://attack.mitre.org/techniques/T1562/001/"
-
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 
 [rule.threat.tactic]
