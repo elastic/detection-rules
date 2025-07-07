@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/06/10"
+updated_date = "2025/07/07"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,41 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential PowerShell Obfuscation via Special Character Overuse"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscation via Special Character Overuse
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell's flexibility to obfuscate scripts, using excessive special characters to evade detection. The detection rule identifies scripts with high special character density, indicating potential obfuscation, by analyzing script length and character patterns, thus aiding in uncovering malicious activities.
+
+### Possible investigation steps
+
+- Review the dedup_space_script_block field to understand the script's structure and identify any suspicious patterns or keywords that might indicate obfuscation techniques.
+- Analyze the replaced_with_fire field to assess the density and distribution of special characters, which can provide insights into the obfuscation methods used.
+- Examine the file.path and host.name fields to determine the origin and context of the script execution, which can help identify if the script was run on a critical system or by a privileged user.
+- Check the user.id and agent.id fields to verify the identity of the user or agent executing the script, which can help assess if the activity aligns with expected behavior or if it might be unauthorized.
+- Correlate the powershell.file.script_block_id with other logs or alerts to identify if similar scripts have been executed elsewhere in the environment, indicating a broader attack pattern.
+
+### False positive analysis
+
+- Scripts with legitimate use of special characters for formatting or encoding may trigger false positives. Review the script's purpose and context to determine if the use of special characters is justified.
+- Automated scripts that heavily rely on string manipulation or dynamic content generation might be flagged. Consider adding exceptions for known scripts or trusted sources to reduce unnecessary alerts.
+- PowerShell scripts used in development or testing environments often contain high special character density. Implement environment-based exclusions to prevent these from being flagged in non-production settings.
+- Scripts utilizing SecureString or other security-related encoding methods may appear obfuscated. Verify the script's origin and purpose, and whitelist these methods if they are part of standard security practices.
+- Regularly update the detection rule to refine the pattern matching and reduce false positives by incorporating feedback from security analysts and system administrators.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent lateral movement and further execution of potentially malicious scripts.
+- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activity.
+- Conduct a thorough review of the script block text and associated metadata to understand the intent and potential impact of the obfuscated script.
+- Remove any unauthorized or malicious scripts from the affected system to prevent re-execution.
+- Restore the system from a known good backup if the script has caused significant changes or damage to the system.
+- Update endpoint protection and intrusion detection systems to recognize and block similar obfuscation techniques in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+"""
 risk_score = 21
 rule_id = "6ddb6c33-00ce-4acd-832a-24b251512023"
 setup = """## Setup
@@ -42,6 +77,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
