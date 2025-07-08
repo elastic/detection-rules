@@ -1,0 +1,201 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies separate OAuth authorization flows in Microsoft Entra ID where the same user principal and session ID are
+observed across multiple IP addresses within a 5-minute window. These flows involve the Microsoft Authentication Broker
+(MAB) as the client application and the Device Registration Service (DRS) as the target resource. This pattern is highly
+indicative of OAuth phishing activity, where an adversary crafts a legitimate Microsoft login URL to trick a user into
+completing authentication and sharing the resulting authorization code, which is then exchanged for an access and
+refresh token by the attacker.
+"""
+false_positives = [
+    """
+    Legitimate device registrations using Microsoft Authentication Broker may occur during corporate enrollment
+    scenarios or bulk provisioning, but it is uncommon for multiple source IPs to register the same identity across
+    Microsoft Graph, Device Registration Service (DRS), and Azure Active Directory (AAD) in a short time span.
+    """,
+]
+from = "now-61m"
+interval = "60m"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious Microsoft OAuth Flow via Auth Broker to DRS"
+note = """## Triage and analysis
+
+### Investigating Suspicious Microsoft OAuth Flow via Auth Broker to DRS
+
+This rule identifies potential OAuth phishing behavior in Microsoft Entra ID where two OAuth authorization flows are observed in quick succession, sharing the same user principal and session ID but originating from different IP addresses. The client application is the Microsoft Authentication Broker, and the target resource is the Device Registration Service (DRS). This pattern is indicative of adversaries attempting to phish targets for OAuth sessions by tricking users into authenticating through a crafted URL, which then allows the attacker to obtain an authorization code and exchange it for access and refresh tokens.
+
+### Possible Investigation Steps:
+
+- `target`: The user principal name targeted by the authentication broker. Investigate whether this user has recently registered a device, signed in from new IPs, or had password resets or MFA changes.
+- `session_id`: Used to correlate all events in the OAuth flow. All sign-ins in the alert share the same session, suggesting shared or hijacked state.
+- `unique_token_id`: Lists tokens generated in the flow. If multiple IDs exist in the same session, this indicates token issuance from different locations.
+- `source_ip`, `city_name`, `country_name`, `region_name`: Review the IPs and geolocations involved. A mismatch in geographic origin within minutes can signal adversary involvement.
+- `user_agent`: Conflicting user agents (e.g., `python-requests` and `Chrome`) suggest one leg of the session was scripted or automated.
+- `os`: If multiple operating systems are observed in the same short session (e.g., macOS and Windows), this may suggest activity from different environments.
+- `incoming_token_type`: Look for values like `"none"` or `"refreshToken"` that can indicate abnormal or re-authenticated activity.
+- `token_session_status`: A value of `"unbound"` means the issued token is not tied to a device or CAE session, making it reusable from another IP.
+- `conditional_access_status`: If this is `"notApplied"`, it may indicate that expected access policies were not enforced.
+- `auth_count`: Number of events in the session. More than one indicates the session was reused within the time window.
+- `target_time_window`: Use this to pivot into raw sign-in logs to review the exact sequence and timing of the activity.
+- Search `azure.auditlogs` for any device join or registration activity around the `target_time_window`.
+- Review `azure.identityprotection` logs for anonymized IPs, impossible travel, or token replay alerts.
+- Search for other activity from the same IPs across all users to identify horizontal movement.
+
+### False Positive Analysis
+
+- A legitimate device join from a user switching networks (e.g., mobile hotspot to Wi-Fi) could explain multi-IP usage.
+- Some identity management agents or EDR tools may use MAB for background device registration flows.
+- Developers or IT administrators may access DRS across environments when testing.
+
+### Response and Remediation
+
+- If confirmed unauthorized, revoke all refresh tokens for the user and disable any suspicious registered devices.
+- Notify the user and verify if the authentication or device join was expected.
+- Review Conditional Access policies for the Microsoft Authentication Broker (`29d9ed98-a469-4536-ade2-f981bc1d605e`) to ensure enforcement of MFA and device trust.
+- Consider restricting token-based reauthentication from anonymized infrastructure or unusual user agents.
+- Continue monitoring for follow-on activity, such as privilege escalation, token misuse, or lateral movement.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 73
+rule_id = "375132c6-25d5-11f0-8745-f661ea17fbcd"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Microsoft Entra ID Sign-In Logs integration be enabled and configured to collect sign-in logs. In Entra ID, sign-in logs must be enabled and streaming to the Event Hub used for the Azure integration.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs* metadata _id, _version, _index
+
+// Filter for Microsoft Entra ID sign-in logs
+| WHERE event.dataset == "azure.signinlogs"
+    AND event.outcome == "success"
+    AND azure.signinlogs.properties.user_type == "Member"
+    AND azure.signinlogs.identity IS NOT NULL
+    AND azure.signinlogs.properties.user_principal_name IS NOT NULL
+    AND source.address IS NOT NULL
+
+    // Filter for MAB as client (app_id) and DRS as resource (resource_id)
+    AND azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e" // MAB
+    AND azure.signinlogs.properties.resource_id  == "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" // DRS
+
+// Normalize timestamps into 30-minute detection windows
+| EVAL target_time_window = DATE_TRUNC(30 minutes, @timestamp)
+
+// Tag browser-based requests and extract session ID
+| EVAL
+    session_id = azure.signinlogs.properties.session_id,
+    is_browser = CASE(
+        TO_LOWER(azure.signinlogs.properties.device_detail.browser) RLIKE "(chrome|firefox|edge|safari).*", 1, 0
+    )
+
+| STATS
+    // user & session identity
+    user_display_name = VALUES(azure.signinlogs.properties.user_display_name),
+    user_principal_name = VALUES(azure.signinlogs.properties.user_principal_name),
+    session_id = VALUES(azure.signinlogs.properties.session_id),
+    unique_token_id = VALUES(azure.signinlogs.properties.unique_token_identifier),
+
+    // geolocation
+    city_name = VALUES(source.geo.city_name),
+    country_name = VALUES(source.geo.country_name),
+    region_name = VALUES(source.geo.region_name),
+    source_ip = VALUES(source.address),
+    ip_count = COUNT_DISTINCT(source.address),
+    autonomous_system = VALUES(source.`as`.organization.name),
+
+    // authentication context
+    auth_protocol = VALUES(azure.signinlogs.properties.authentication_protocol),
+    auth_requirement = VALUES(azure.signinlogs.properties.authentication_requirement),
+    is_interactive = VALUES(azure.signinlogs.properties.is_interactive),
+
+    // token & app context
+    token_type = VALUES(azure.signinlogs.properties.incoming_token_type),
+    token_session_status = VALUES(azure.signinlogs.properties.token_protection_status_details.sign_in_session_status),
+    session_id_count = COUNT_DISTINCT(session_id),
+    client_app_display_name = VALUES(azure.signinlogs.properties.app_display_name),
+    client_app_ids = VALUES(azure.signinlogs.properties.app_id),
+    target_resource_ids = VALUES(azure.signinlogs.properties.resource_id),
+    target_resource_display_name = VALUES(azure.signinlogs.properties.resource_display_name),
+
+    // tenant details
+    app_owner_tenant_id = VALUES(azure.signinlogs.properties.app_owner_tenant_id),
+    resource_owner_tenant_id = VALUES(azure.signinlogs.properties.resource_owner_tenant_id),
+
+    // conditional access & risk signals
+    conditional_access_status = VALUES(azure.signinlogs.properties.conditional_access_status),
+    risk_state = VALUES(azure.signinlogs.properties.risk_state),
+    risk_level_aggregated = VALUES(azure.signinlogs.properties.risk_level_aggregated),
+
+    // user agent & device
+    browser = VALUES(azure.signinlogs.properties.device_detail.browser),
+    os = VALUES(azure.signinlogs.properties.device_detail.operating_system),
+    user_agent = VALUES(user_agent.original),
+    has_browser = MAX(is_browser),
+
+    auth_count = COUNT(*)
+BY
+    target_time_window,
+    azure.signinlogs.properties.user_principal_name,
+    session_id
+
+| KEEP
+    target_time_window, user_display_name, user_principal_name, session_id, unique_token_id,
+    city_name, country_name, region_name, source_ip, ip_count, autonomous_system,
+    auth_protocol, auth_requirement, is_interactive,
+    token_type, token_session_status, session_id_count, client_app_display_name,
+    client_app_ids, target_resource_ids, target_resource_display_name,
+    app_owner_tenant_id, resource_owner_tenant_id,
+    conditional_access_status, risk_state, risk_level_aggregated,
+    browser, os, user_agent, has_browser, auth_count
+
+| WHERE
+    ip_count >= 2 AND
+    session_id_count == 1 AND
+    has_browser >= 1 AND
+    auth_count >= 2
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

@@ -1,0 +1,80 @@
+[metadata]
+creation_date = "2025/06/24"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts to create resources in Kubernetes clusters that are forbidden by the authorization policy. It
+specifically looks for creation requests that are denied with a "forbid" decision, indicating that the user or service
+account does not have the necessary permissions to perform the action. This activity is commonly associated with
+adversaries attempting to create resources in a Kubernetes environment without proper authorization, which can lead to
+unauthorized access, manipulation of cluster resources, lateral movement and/or privilege escalation.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Forbidden Creation Request"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Forbidden Creation Request
+
+Kubernetes, a container orchestration platform, manages applications across clusters. It uses authorization policies to control resource creation. Adversaries may exploit misconfigurations or attempt unauthorized resource creation to gain access or escalate privileges. The detection rule identifies denied creation requests, signaling potential unauthorized attempts, by analyzing audit logs for forbidden decisions, aiding in threat detection and response.
+
+### Possible investigation steps
+
+- Review the audit logs to identify the user or service account associated with the forbidden creation request by examining the `kubernetes.audit.user.username` field.
+- Check the `kubernetes.audit.objectRef.resource` field to determine which specific resource type the unauthorized creation attempt was targeting.
+- Investigate the `kubernetes.audit.sourceIPs` field to trace the source IP address of the request, which may help identify the origin of the unauthorized attempt.
+- Analyze the `kubernetes.audit.annotations.authorization_k8s_io/reason` field, if available, to understand why the request was forbidden, providing insights into potential misconfigurations or policy violations.
+- Cross-reference the user or service account with existing role bindings and cluster role bindings to verify if there are any misconfigurations or missing permissions that could have led to the forbidden request.
+- Review recent changes in the cluster's authorization policies or role assignments that might have inadvertently affected permissions, leading to the denied request.
+- Consider correlating this event with other security alerts or logs to identify patterns or repeated unauthorized attempts, which could indicate a broader attack strategy.
+
+### False positive analysis
+
+- Service accounts with limited permissions may trigger false positives when attempting to create resources they are not authorized for. Review service account roles and permissions to ensure they align with intended access levels.
+- Automated processes or scripts that attempt resource creation without proper permissions can result in false positives. Identify and adjust these processes to ensure they operate within their designated permissions.
+- Developers testing new configurations or deployments might inadvertently cause forbidden creation requests. Implement a separate testing environment with appropriate permissions to minimize false positives in production.
+- Changes in authorization policies can lead to temporary false positives as users adjust to new permissions. Communicate policy changes effectively and provide guidance on necessary adjustments to avoid unnecessary alerts.
+- Regularly scheduled tasks or cron jobs that attempt resource creation without updated permissions can trigger false positives. Review and update these tasks to ensure they have the necessary access rights.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access or resource manipulation. This can be done by restricting network access or applying stricter firewall rules temporarily.
+- Identify and revoke any unauthorized or suspicious service accounts or user credentials that attempted the forbidden creation request. Ensure that these accounts are disabled or have their permissions reduced to prevent further misuse.
+- Review and update the Kubernetes Role-Based Access Control (RBAC) policies to ensure that only authorized users and service accounts have the necessary permissions to create resources. This includes verifying that least privilege principles are applied.
+- Conduct a thorough audit of recent Kubernetes audit logs to identify any other unauthorized access attempts or suspicious activities that may have occurred around the same time as the detected alert.
+- Escalate the incident to the security operations team for further investigation and to determine if there is a broader security incident or breach. Provide them with all relevant logs and findings.
+- Implement additional monitoring and alerting for similar unauthorized creation attempts in the future. This can include setting up alerts for any "forbid" decisions in the audit logs to ensure rapid detection and response.
+- Consider deploying additional security tools or services, such as intrusion detection systems or anomaly detection solutions, to enhance the security posture of the Kubernetes environment and prevent similar threats.
+"""
+risk_score = 47
+rule_id = "ec81962e-4bc8-48e6-bfb0-545fc97d8f6a"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide"
+    ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "create" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
