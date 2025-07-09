@@ -8,6 +8,8 @@ This repository hosts the Elastic Security detection rules and the supporting co
 - `rules/` and `rules_building_block/` – rule definitions in TOML format.
 - `hunting/` – threat hunting queries with its own lightweight CLI.
 - `tests/` – unit tests for the rule loader and CLI utilities.
+- `docs*/` - folders containing documentation for the repository
+- `docs-logs/` - a folder containing markdown files on old feature or bug fix implementations such that they can be looked up later.
 
 ## CLI Quickstart
 - Always start with an active environment `source env/detection-rules-build/bin/activate`. The dependencies are already installed via `make deps`.
@@ -52,15 +54,18 @@ python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules
 ```
 - Similar export rules... Check the help of the commands for more details.
 
-### Genereal Information
+## Genereal Information
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
 from the repository. For linting use ruff, e.g:
 - `python -m ruff check --exit-non-zero-on-fix`
 
 Never commit any secrets or sensitive information like environment variables!
 
-When developing new CLI features, look under `detection_rules/` for the relevant
-command group or utility functions. Additional summaries of subfolders are
-provided in their respective `AGENTS.md` files.
+
+## Documentation
+
+When developing new CLI features or fixes, always look at the `AGENTS.md` files for general information on the repository and its structure. Also take a look at the `docs*/` folders for more detailed documentation. Especially interesting is also the `docs-logs/` folder which contains markdown files on old feature or bug fix implementations which are sometimes super useful when implementing similar features or fixes to already know where to look for or how to approach a task.
 
 One always active task which should not be neglected is to keep the `AGENTS.md` files up to date. If you encounter issues when using functions or the cli and found a fix on how to use it, please directly document it. Basically for every issue you encounter or where you have to iterate to figure out the correct approach, just document it. The main goal of the AGENTS.md files is to reduce the time it takes to contribute to this repository and reduce the iterations needed to figure out nice workflows or how things work and are structured or how to approach new tasks. So document issues and solutions which you come across your way. This will help you and others to not run into the same issues again and again.
+
+The second always active task is to create or update a markdown file in the `docs-logs/` folder for every feature or bug fix you implement. A focus is here to include information on the program flow you implemented or investigated and the files that are relevant for the feature or bug fix. This way you can look up the implementation later on and do not have to figure out everything again. Also it helps others to understand the implementation and how it works, so they can build on top of it or fix issues in the future.
