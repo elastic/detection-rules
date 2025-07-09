@@ -223,8 +223,12 @@ def kibana_import_rules(  # noqa: PLR0915
 @click.option(
     "--rule-name",
     "-rn",
+    multiple=True,
     required=False,
-    help="Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)",
+    help=(
+        "Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards). "
+        "May be specified multiple times."
+    ),
 )
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
@@ -258,7 +262,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     exceptions_directory: Path | None,
     default_author: str,
     rule_id: list[str] | None = None,
-    rule_name: str | None = None,
+    rule_name: list[str] | None = None,
     export_action_connectors: bool = False,
     export_exceptions: bool = False,
     skip_errors: bool = False,
@@ -280,8 +284,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
         if rule_name:
-            found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")  # type: ignore[reportUnknownMemberType]
-            rule_id = [r["rule_id"] for r in found]  # type: ignore[reportUnknownVariableType]
+            found_ids: list[str] = []
+            for name in rule_name:
+                found = RuleResource.find(filter=f"alert.attributes.name:{name}")  # type: ignore[reportUnknownMemberType]
+                found_ids.extend([r["rule_id"] for r in found])  # type: ignore[reportUnknownVariableType]
+            rule_id = list(dict.fromkeys(found_ids))
         query = (
             export_query
             if not custom_rules_only
