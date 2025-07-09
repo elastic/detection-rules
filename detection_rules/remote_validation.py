@@ -86,7 +86,7 @@ class RemoteConnector:
         )
         return self.es_client
 
-    def auth_kibana(
+    def auth_kibana(  # noqa: PLR0913
         self,
         *,
         api_key: str | None = None,

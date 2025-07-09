@@ -385,7 +385,7 @@ def get_elasticsearch_client(  # noqa: PLR0913
         return client
 
 
-def get_kibana_client(
+def get_kibana_client(   # noqa: PLR0913
     *,
     api_key: str | None = None,
     kibana_user: str | None = None,
