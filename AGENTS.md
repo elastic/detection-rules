@@ -12,21 +12,21 @@ This repository hosts the Elastic Security detection rules and the supporting co
 - `docs-logs/` - a folder containing markdown files on old feature or bug fix implementations such that they can be looked up later.
 
 ## CLI Quickstart
+When implementing or fixing CLI features, follow these steps and always test your new CLI features by using the workflow described below!
 - Always start with an active environment `source env/detection-rules-build/bin/activate`. The dependencies are already installed via `make deps`.
 - The CLI entry point is `python -m detection_rules` which runs `detection_rules.__main__:main`.
 - Commands are implemented with the [click](https://click.palletsprojects.com/) framework in `detection_rules/main.py` and related modules.
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
-- You can access a test instance to validate implementations like this
+- Always first access this test instance to validate connection if your task is to implement or fix CLI features
 ```sh
-# List the env vars, you should have DR_KIBANA_URL and DR_API_KEY set
-env
-
 # test connection to Kibana
+# DR_KIBANA_URL and DR_API_KEY are already set in the environment, so you can directly use them
 python -m detection_rules kibana search-alerts
+# the result doesnt matter as long as you do not get an error
 ```
-- You can even test it by importing and exporting rules, which is highly recommended for CLI feature implementations. But to avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
+-  Once you implemented or fixed CLI features test those. An example is given here on how to test a simple import and export. To avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
 ```sh
-# create a new space with some unique name, where you adjust the numbers
+# create a new space with some unique name, where you adjust the number to some random 4 digit number
 export SPACE=test-6371
 
 curl -X POST "$DR_KIBANA_URL/api/spaces/space" \
@@ -40,19 +40,23 @@ curl -X POST "$DR_KIBANA_URL/api/spaces/space" \
   "description": "Temporary test space"
 }'
 
-# Later delete again
+# Later delete again after you are done with all tests
 curl -X DELETE "$DR_KIBANA_URL/api/spaces/space/$SPACE" \
   -H "kbn-xsrf: true" \
   -H "Authorization: ApiKey $DR_API_KEY"
 ```
-- One way to test a rule import would be to use this e.g.:
+- One way to test a rule import or export would be to use this e.g.:
 ```sh
 # test rule import
 export CUSTOM_RULES_DIR=./rules-test
 python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
     --overwrite --overwrite-action-connectors --overwrite-exceptions
+
+# test rule export
+python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
+    -acd $CUSTOM_RULES_DIR/action_connectors -ed $CUSTOM_RULES_DIR/exceptions \
+    -da SOC --export-action-connectors --export-exceptions --strip-version
 ```
-- Similar export rules... Check the help of the commands for more details.
 
 ## Genereal Information
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
@@ -70,7 +74,7 @@ When developing new CLI features or fixes, always look at the `AGENTS.md` files 
 
 One always active task which should not be neglected is to keep the `AGENTS.md` files up to date. If you encounter issues when using functions or the cli and found a fix on how to use it, please directly document it. Basically for every issue you encounter or where you have to iterate to figure out the correct approach, just document it. The main goal of the AGENTS.md files is to reduce the time it takes to contribute to this repository and reduce the iterations needed to figure out nice workflows or how things work and are structured or how to approach new tasks. So document issues and solutions which you come across your way. This will help you and others to not run into the same issues again and again.
 
-The second always active task is to create or update a markdown file in the `docs-logs/` folder for every feature or bug fix you implement. A focus is here to include information on the program flow you implemented or investigated and the files that are relevant for the feature or bug fix. This way you can look up the implementation later on and do not have to figure out everything again. Also it helps others to understand the implementation and how it works, so they can build on top of it or fix issues in the future.
+The second always active task is to create or update a markdown file in the `docs-logs/` folder for every feature or bug fix you implement. A focus is here to include always two things. 1. A description of the feature or bug fix, what it does, how it works and why it is needed. 2. A detailed description of the implementation, how you implemented it, what you learned, what you had to look up and where you found the information and which relevant files in this repo you changed or are needed to understand the implementation. This way you can look up the implementation later on and do not have to figure out everything again. Also it helps others to understand the implementation and how it works, so they can build on top of it or fix issues in the future.
 
 ## Issues
 List issues you have:
