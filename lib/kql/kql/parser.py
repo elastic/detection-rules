@@ -357,7 +357,7 @@ class KqlParser(BaseKqlParser):
             if len(value.replace("*", "")) == 0:
                 return Exists()
 
-            if field_type is not None and field_type not in ("keyword", "wildcard"):
+            if field_type is not None and field_type not in ("keyword", "wildcard", "flattened"):
                 raise self.error(tree, "Unable to perform wildcard on field {field} of {type}",
                                  field=field_name, type=field_type)
 
