@@ -10,36 +10,29 @@ This repository hosts the Elastic Security detection rules and the supporting co
 - `tests/` – unit tests for the rule loader and CLI utilities.
 
 ## CLI Quickstart
+- Always start with an active environment `source env/detection-rules-build/bin/activate`. The dependencies are already installed via `make deps`.
 - The CLI entry point is `python -m detection_rules` which runs `detection_rules.__main__:main`.
 - Commands are implemented with the [click](https://click.palletsprojects.com/) framework in `detection_rules/main.py` and related modules.
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
+- You can access a test instance to validate implementations like this
+```bash
+export DR_KIBANA_URL=$KIBANA_URL
+export DR_API_KEY=$API_KEY
 
-## Development Notes
-- Install dependencies via `make` or with `pip install .[dev] && pip install lib/kibana lib/kql`.
-- Unit tests run with `python -m detection_rules test` or `make test`.
-- Style is checked with `pre-commit` hooks configured in `.pre-commit-config.yaml`.
+# test connection to Kibana
+python -m detection_rules kibana search-alerts
+```
+- Then feel free to test commands by importing exporting rules etc. BUT try to avoid unnecessary long executions like importing all rules from this repository! For tests create a seperate rule folder and copy single rules there or only import single rule files etc. For export its best to export to a custom rule folder to be able to easily check the results.
 
-### CLI Usage Guidelines
+### Genereal Information
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
-from the repository. Only invoke:
+from the repository. For linting use ruff, e.g:
+- `python -m ruff check --exit-non-zero-on-fix`
 
-- `python -m flake8 tests detection_rules --ignore D203,N815 --max-line-length 120` to lint new code.
-- `bandit -r detection_rules -s B101,B603,B404,B607` for a security scan.
-- CLI commands necessary to verify new features, such as running a command you
-just implemented.
-
-The CLI environment is already available. Launch `python -m detection_rules --help`
-to explore commands.
-
-### Using the Test Environment
-The test instance credentials are provided via environment variables:
-`KIBANA_URL`, `ELASTIC_URL`, `USERNAME`, `PASSWORD` and `API_KEY`. Export these
-as `DR_KIBANA_URL`, `DR_ELASTICSEARCH_URL`, `DR_USER`, `DR_PASSWORD` and
-`DR_API_KEY` to allow the CLI to automatically authenticate. Alternatively you
-can create a `.detection-rules-cfg.json` (or `.yaml`) file with the same keys, or
-pass them directly as command arguments. Do **not** commit the config file or
-secrets.
+Never commit any secrets or sensitive information like environment variables!
 
 When developing new CLI features, look under `detection_rules/` for the relevant
 command group or utility functions. Additional summaries of subfolders are
 provided in their respective `AGENTS.md` files.
+
+One always active task which should not be neglected is to keep the `AGENTS.md` files up to date. If you encounter issues when using functions or the cli and found a fix on how to use it, please directly document it. Basically for every issue you encounter or where you have to iterate to figure out the correct approach, just document it. The main goal of the AGENTS.md files is to reduce the time it takes to contribute to this repository and reduce the iterations needed to figure out nice workflows or how things work and are structured or how to approach new tasks. So document issues and solutions which you come across your way. This will help you and others to not run into the same issues again and again.
