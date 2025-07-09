@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2025/07/08"
+integration = []
+maturity = "development"
+updated_date = "2025/07/08"
+
+[rule]
+actions = []
+author = ["SOC"]
+description = "One of the Windows Eventlogs has been cleared."
+enabled = false
+false_positives = [
+    "Rollout of log collection agents (the setup routine often includes a reset of the local Eventlog)",
+    "System provisioning (system reset before the golden image creation)",
+]
+from = "now-540s"
+interval = "5m"
+language = "esql"
+license = ""
+max_signals = 100
+name = "Test01 - Windows Event Log Cleared"
+references = []
+related_integrations = []
+required_fields = []
+risk_score = 50
+risk_score_mapping = []
+rule_id = "de7a3fda-0ef5-e8a0-ad54-f8e1fd2d1dbf"
+setup = ""
+severity = "medium"
+severity_mapping = []
+tags = []
+to = "now"
+type = "esql"
+
+query = '''
+from logs-system.*, logs-windows.* metadata _id,_index,_version |
+where event.code in ("104","517","1102") |
+KEEP *
+'''
+
+
+[[rule.exceptions_list]]
+id = "c7e4c6ea-2e60-4d2c-ab5f-d85f336c23e4"
+list_id = "44774e87-c816-f5a8-cecd-8da57ba0d9ed"
+namespace_type = "single"
+type = "detection"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+subtechnique = []
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["host.name"]
+missing_fields_strategy = "suppress"
+
+[rule.meta]
+from = "4m"
+kibana_siem_app_url = ""
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

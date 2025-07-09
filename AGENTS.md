@@ -15,14 +15,20 @@ This repository hosts the Elastic Security detection rules and the supporting co
 - Commands are implemented with the [click](https://click.palletsprojects.com/) framework in `detection_rules/main.py` and related modules.
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
 - You can access a test instance to validate implementations like this
-```bash
+```sh
 export DR_KIBANA_URL=$KIBANA_URL
 export DR_API_KEY=$API_KEY
 
 # test connection to Kibana
 python -m detection_rules kibana search-alerts
 ```
-- Then feel free to test commands by importing exporting rules etc. BUT try to avoid unnecessary long executions like importing all rules from this repository! For tests create a seperate rule folder and copy single rules there or only import single rule files etc. For export its best to export to a custom rule folder to be able to easily check the results.
+- You can even test it by importing and exporting rules. But to avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. One way to test a rule import would be to use this e.g.:
+```sh
+# test rule import
+export CUSTOM_RULES_DIR=./rules-test
+python -m detection_rules import-rules -d $CUSTOM_RULES_DIR/rules \
+    --overwrite --overwrite-action-connectors --overwrite-exceptions
+```
 
 ### Genereal Information
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
