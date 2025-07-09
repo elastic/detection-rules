@@ -18,8 +18,8 @@ This repository hosts the Elastic Security detection rules and the supporting co
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
 - You can access a test instance to validate implementations like this
 ```sh
-export DR_KIBANA_URL=$KIBANA_URL
-export DR_API_KEY=$API_KEY
+# List the env vars, you should have DR_KIBANA_URL and DR_API_KEY set
+env
 
 # test connection to Kibana
 python -m detection_rules kibana search-alerts
@@ -61,6 +61,8 @@ from the repository. For linting use ruff, e.g:
 
 Never commit any secrets or sensitive information like environment variables!
 
+## Network Restrictions
+The container has limited outbound network access. It is not possible to install packages via pip and you cannot access the remote github repo on your own. All needed dependencies are already installed. If you miss something, adjust this readme and not it down in the issues block below.
 
 ## Documentation
 
@@ -69,3 +71,6 @@ When developing new CLI features or fixes, always look at the `AGENTS.md` files 
 One always active task which should not be neglected is to keep the `AGENTS.md` files up to date. If you encounter issues when using functions or the cli and found a fix on how to use it, please directly document it. Basically for every issue you encounter or where you have to iterate to figure out the correct approach, just document it. The main goal of the AGENTS.md files is to reduce the time it takes to contribute to this repository and reduce the iterations needed to figure out nice workflows or how things work and are structured or how to approach new tasks. So document issues and solutions which you come across your way. This will help you and others to not run into the same issues again and again.
 
 The second always active task is to create or update a markdown file in the `docs-logs/` folder for every feature or bug fix you implement. A focus is here to include information on the program flow you implemented or investigated and the files that are relevant for the feature or bug fix. This way you can look up the implementation later on and do not have to figure out everything again. Also it helps others to understand the implementation and how it works, so they can build on top of it or fix issues in the future.
+
+## Issues
+List issues you have:
