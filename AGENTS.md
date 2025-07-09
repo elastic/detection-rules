@@ -22,13 +22,35 @@ export DR_API_KEY=$API_KEY
 # test connection to Kibana
 python -m detection_rules kibana search-alerts
 ```
-- You can even test it by importing and exporting rules. But to avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. One way to test a rule import would be to use this e.g.:
+- You can even test it by importing and exporting rules, which is highly recommended for CLI feature implementations. But to avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
+```sh
+# create a new space with some unique name, where you adjust the numbers
+export SPACE=test-6371
+
+curl -X POST "$DR_KIBANA_URL/api/spaces/space" \
+  -H "kbn-xsrf: true" \
+  -H "Authorization: ApiKey $DR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '
+{
+  "id": "'"$SPACE"'", 
+  "name": "'"$SPACE"'", 
+  "description": "Temporary test space"
+}'
+
+# Later delete again
+curl -X DELETE "$DR_KIBANA_URL/api/spaces/space/$SPACE" \
+  -H "kbn-xsrf: true" \
+  -H "Authorization: ApiKey $DR_API_KEY"
+```
+- One way to test a rule import would be to use this e.g.:
 ```sh
 # test rule import
 export CUSTOM_RULES_DIR=./rules-test
-python -m detection_rules import-rules -d $CUSTOM_RULES_DIR/rules \
+python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
     --overwrite --overwrite-action-connectors --overwrite-exceptions
 ```
+- Similar export rules... Check the help of the commands for more details.
 
 ### Genereal Information
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
