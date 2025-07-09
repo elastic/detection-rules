@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2025/06/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or modification of sensitive Kubernetes configuration files on Linux systems. These files
+include Kubernetes manifests, PKI files, and configuration files that are critical for the operation of Kubernetes clusters.
+Monitoring these files helps identify potential unauthorized changes or misconfigurations that could lead to security
+vulnerabilities in Kubernetes environments. Attackers may attempt to modify these files to gain persistence or to
+deploy malicious containers within the Kubernetes cluster.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Sensitive Configuration File Activity"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Sensitive Configuration File Activity
+
+Kubernetes relies on configuration files to manage cluster operations, including manifests and PKI files. These files are crucial for defining the desired state and security of the cluster. Adversaries may exploit these files to gain persistence or deploy unauthorized containers. The detection rule monitors for unauthorized changes to these files, excluding legitimate processes, to identify potential security threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path that triggered the alert, focusing on paths like "/etc/kubernetes/manifests/*", "/etc/kubernetes/pki/*", or "/etc/kubernetes/*.conf".
+- Check the process that attempted to modify the file by examining the process name and compare it against the list of excluded legitimate processes ("kubeadm", "kubelet", "dpkg", "sed") to determine if it is suspicious.
+- Investigate the user account associated with the process that made the change to assess if the account has the necessary permissions and if it has been compromised.
+- Analyze recent activity on the host to identify any other unusual or unauthorized actions that might correlate with the file modification, such as unexpected network connections or process executions.
+- Review the history of changes to the affected file to determine if there have been other unauthorized modifications or if this is an isolated incident.
+- Consult Kubernetes audit logs, if available, to gather additional context on the actions performed around the time of the alert, focusing on any anomalies or unauthorized access attempts.
+
+### False positive analysis
+
+- Routine updates or maintenance activities by system administrators can trigger alerts. To manage this, consider excluding processes or users known to perform regular maintenance from the rule.
+- Automated scripts or configuration management tools like Ansible or Puppet may modify configuration files as part of their normal operation. Identify these tools and add them to the exclusion list to prevent unnecessary alerts.
+- Scheduled backups or system snapshots might access or modify configuration files. Ensure that these processes are recognized and excluded if they are part of a regular, non-threatening operation.
+- Legitimate software updates or patches may alter configuration files. Monitor update schedules and exclude these processes during known update windows to reduce false positives.
+- Custom scripts developed in-house for cluster management might not be recognized by default. Review these scripts and add them to the exclusion list if they are verified as safe and necessary for operations.
+
+### Response and remediation
+
+- Immediately isolate the affected node or container to prevent further unauthorized access or changes to the Kubernetes configuration files.
+- Review the modified configuration files to identify unauthorized changes and revert them to their last known good state using backups or version control systems.
+- Conduct a thorough investigation to identify the source of the unauthorized changes, focusing on process names and user accounts involved in the modification.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or nodes have been compromised.
+- Implement additional access controls and monitoring on the affected systems to prevent recurrence, such as restricting write permissions to sensitive directories and files.
+- Update and patch the Kubernetes environment and related components to address any vulnerabilities that may have been exploited.
+- Enhance detection capabilities by ensuring that alerts are configured to notify the security team of any future unauthorized changes to critical Kubernetes configuration files.
+"""
+risk_score = 47
+rule_id = "0fe2290a-2664-4c9c-8263-b88904f12f0d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Kubernetes",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and file.path like (
+  "/etc/kubernetes/manifests/*",
+  "/etc/kubernetes/pki/*",
+  "/etc/kubernetes/*.conf"
+) and not process.name in ("kubeadm", "kubelet", "dpkg", "sed")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.005"
+name = "Container Service"
+reference = "https://attack.mitre.org/techniques/T1543/005/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.007"
+name = "Container Orchestration Job"
+reference = "https://attack.mitre.org/techniques/T1053/007/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
