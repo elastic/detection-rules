@@ -47,9 +47,18 @@ def boolean(**kwargs):
 
     elif boolean_type == "must_not" and len(children) == 1:
         # must_not: [{bool: {must: x}}] -> {must_not: x}
+        # optimize can only occur with one term
+        # e.g. the following would not be valid
+        # must_not: [{bool: {must: x} and {bool: {must: y} }] -> {must_not: x} {must_not: y}
         child = children[0]
-        if list(child) == ["bool"] and list(child["bool"]) in (["filter"], ["must"]):
-            negated, = child["bool"].values()
+        is_bool = list(child) == ["bool"]
+        bool_keys = list(child.get("bool", {}))
+        has_valid_keys = bool_keys in (["filter"], ["must"])
+        has_single_filter = len(child.get("bool", {}).get("filter", [])) == 1
+        has_single_must = len(child.get("bool", {}).get("must", [])) == 1
+
+        if is_bool and has_valid_keys and (has_single_filter or has_single_must):
+            (negated,) = child["bool"].values()
             dsl = {"must_not": negated}
         else:
             dsl = {"must_not": children}
@@ -65,7 +74,6 @@ def boolean(**kwargs):
 
 
 class ToDsl(Walker):
-
     def _walk_default(self, node, *args, **kwargs):
         raise KqlCompileError("Unable to convert {}".format(node))
 
