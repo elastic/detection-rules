@@ -2,9 +2,7 @@
 creation_date = "2025/05/01"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/05/01"
-min_stack_version = "8.17.0"
-min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,8 @@ Identifies sign-ins on behalf of a principal user to the Microsoft Graph API fro
 Authentication Broker or Visual Studio Code application. This behavior may indicate an adversary using a phished OAuth
 refresh token.
 """
-from = "now-1h"
+from = "now-60m"
+interval = "59m"
 language = "esql"
 license = "Elastic License v2"
 name = "Suspicious Microsoft 365 UserLoggedIn via OAuth Code"
@@ -56,7 +55,10 @@ The Office 365 Logs Fleet integration, Filebeat module, or similarly structured 
 severity = "high"
 tags = [
     "Domain: Cloud",
+    "Domain: Email",
+    "Domain: Identity",
     "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
@@ -66,9 +68,16 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-o365.audit-default*
+from logs-o365.audit-*
 | WHERE event.dataset == "o365.audit" and event.action == "UserLoggedIn" and
-  source.ip is not null and o365.audit.UserId is not null and o365.audit.ApplicationId is not null and o365.audit.UserType in ("0", "2", "3", "10") and 
+
+  // ensure source, application and user are not null
+  source.ip is not null and
+  o365.audit.UserId is not null and
+  o365.audit.ApplicationId is not null and
+
+  // filter for user principals that are not service accounts
+  o365.audit.UserType in ("0", "2", "3", "10") and
 
   // filter for successful logon to Microsoft Graph and from the Microsoft Authentication Broker or Visual Studio Code
   o365.audit.ApplicationId in ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") and
@@ -78,13 +87,22 @@ from logs-o365.audit-default*
 | keep @timestamp, o365.audit.UserId, source.ip, o365.audit.ApplicationId, o365.audit.ObjectId, o365.audit.ExtendedProperties.RequestType, source.as.organization.name, o365.audit.ExtendedProperties.ResultStatusDetail
 
 // case statements to track which are OAuth2 authorization request via redirect and which are related to OAuth2 code to token conversion
-| eval oauth_authorize = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect", o365.audit.UserId, null), oauth_token = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Token", o365.audit.UserId, null)
+| eval
+  oauth_authorize = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect", o365.audit.UserId, null),
+  oauth_token = case(o365.audit.ExtendedProperties.RequestType == "OAuth2:Token", o365.audit.UserId, null)
 
 // split time to 30 minutes intervals
 | eval target_time_window = DATE_TRUNC(30 minutes, @timestamp)
 
 // aggregate by principal, applicationId, objectId and time window
-| stats unique_ips = COUNT_DISTINCT(source.ip), source_ips = VALUES(source.ip), appIds = VALUES(o365.audit.ApplicationId), asn = values(`source.as.organization.name`), is_oauth_token = COUNT_DISTINCT(oauth_token), is_oauth_authorize = COUNT_DISTINCT(oauth_authorize) by o365.audit.UserId, target_time_window, o365.audit.ApplicationId, o365.audit.ObjectId
+| stats
+  unique_ips = COUNT_DISTINCT(source.ip),
+  source_ips = VALUES(source.ip),
+  appIds = VALUES(o365.audit.ApplicationId),
+  asn = values(`source.as.organization.name`),
+  is_oauth_token = COUNT_DISTINCT(oauth_token),
+  is_oauth_authorize = COUNT_DISTINCT(oauth_authorize)
+by o365.audit.UserId, target_time_window, o365.audit.ApplicationId, o365.audit.ObjectId
 
 // filter for cases where the same appId is used by the same principal user to access the same object and from multiple addresses via OAuth2 token
 | where unique_ips >= 2 and is_oauth_authorize > 0 and is_oauth_token > 0
@@ -108,3 +126,4 @@ reference = "https://attack.mitre.org/techniques/T1550/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

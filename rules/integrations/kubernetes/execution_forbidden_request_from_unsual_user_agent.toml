@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2025/06/17"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a forbidden request is made from an unusual user agent in a Kubernetes environment.
+Adversary tooling may use non-standard or unexpected user agents to interact with the Kubernetes API, which
+can indicate an attempt to evade detection or blend in with legitimate traffic. In combination with a forbidden
+request, this behavior can suggest an adversary is attempting to exploit vulnerabilities or misconfigurations
+in the Kubernetes cluster.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Forbidden Request from Unusual User Agent in Kubernetes"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Forbidden Request from Unusual User Agent in Kubernetes
+
+Kubernetes, a container orchestration platform, manages applications across clusters. It uses APIs for communication, which can be targeted by adversaries using atypical user agents to mask malicious activities. These agents may attempt unauthorized actions, exploiting vulnerabilities. The detection rule identifies such anomalies by flagging forbidden requests from non-standard user agents, indicating potential threats.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the source IP address and user associated with the forbidden request. This can help determine if the request originated from a known or unknown entity.
+- Analyze the user agent string in the audit logs to understand its origin and purpose. Cross-reference it with known legitimate user agents to assess its legitimacy.
+- Check for any recent changes or deployments in the Kubernetes environment that might have introduced new user agents or configurations, potentially leading to the forbidden request.
+- Investigate the specific resource or API endpoint that was targeted by the forbidden request to understand what the adversary might have been attempting to access or exploit.
+- Correlate the event with other security logs and alerts to identify any patterns or additional suspicious activities that might indicate a broader attack or reconnaissance effort.
+- Assess the current security posture and configurations of the Kubernetes cluster to identify any vulnerabilities or misconfigurations that could be exploited by adversaries using unusual user agents.
+
+### False positive analysis
+
+- Legitimate internal tools or scripts may use non-standard user agents that are not included in the exclusion list. Review and identify these tools, then update the exclusion list to prevent them from being flagged.
+- Automated processes or third-party integrations might use unique user agents that trigger the rule. Verify these processes and consider adding their user agents to the exclusion list if they are deemed safe.
+- Development or testing environments often use custom user agents for API interactions. Ensure these environments are accounted for by excluding their user agents to avoid unnecessary alerts.
+- Regularly review and update the exclusion list to reflect changes in legitimate user agents used within your organization, ensuring that only truly unusual and potentially malicious agents are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes node or cluster to prevent further unauthorized access or potential lateral movement by the adversary.
+- Revoke any suspicious or unauthorized credentials or tokens that may have been used in the forbidden request to ensure they cannot be reused.
+- Conduct a thorough review of the Kubernetes audit logs to identify any additional unauthorized or suspicious activities that may have occurred around the time of the alert.
+- Patch any identified vulnerabilities or misconfigurations in the Kubernetes environment that may have been exploited, ensuring all components are up to date with the latest security patches.
+- Implement stricter access controls and user agent validation to prevent non-standard user agents from interacting with the Kubernetes API unless explicitly allowed.
+- Escalate the incident to the security operations team for further investigation and to determine if additional containment or remediation actions are necessary.
+- Enhance monitoring and alerting for similar activities by tuning detection systems to recognize patterns associated with this type of threat, ensuring rapid response to future incidents.
+"""
+risk_score = 47
+rule_id = "4b77d382-b78e-4aae-85a0-8841b80e4fc4"
+severity = "medium"
+tags = ["Data Source: Kubernetes", "Tactic: Execution", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid" and
+not user_agent.original like~ (
+  "/", "karpenter", "csi-secrets-store/*", "elastic-agent/*", "agentbeat/*", "insights-operator*", "oc/*", "cloud-defend/*",
+  "OpenAPI-Generator/*", "local-storage-operator/*", "falcon-client/*", "nginx-ingress-controller/*", "config-translator/*",
+  "kwatch/*", "PrometheusOperator/*", "kube*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
