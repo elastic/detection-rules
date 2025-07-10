@@ -47,7 +47,9 @@ def boolean(**kwargs):
 
     elif boolean_type == "must_not" and len(children) == 1:
         # must_not: [{bool: {must: x}}] -> {must_not: x}
-        # optimize a must not array with bool must or filter to a negated response
+        # optimize can only occur with one term
+        # e.g. the following would not be valid
+        # must_not: [{bool: {must: x} and {bool: {must: y} }] -> {must_not: x} {must_not: y}
         child = children[0]
         is_bool = list(child) == ["bool"]
         bool_keys = list(child.get("bool", {}))
