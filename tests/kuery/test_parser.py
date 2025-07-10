@@ -85,3 +85,21 @@ class ParserTests(unittest.TestCase):
 
         with self.assertRaises(kql.KqlParseError):
             kql.parse("@time > 5", schema=schema)
+
+    def test_optimization(self):
+        query = 'host.name: test-* and not (destination.ip : "127.0.0.53" and destination.ip : "169.254.169.254")'
+        dsl_str = str(kql.to_dsl(query))
+
+        bad_case = (
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "'must_not': [{'match': {'destination.ip': '127.0.0.53'}}, "
+            "{'match': {'destination.ip': '169.254.169.254'}}]}}"
+        )
+        self.assertNotEqual(dsl_str, bad_case, "DSL string matches the bad case, optimization failed.")
+
+        good_case = (
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "'must_not': [{'bool': {'filter': [{'match': {'destination.ip': '127.0.0.53'}}, "
+            "{'match': {'destination.ip': '169.254.169.254'}}]}}]}}"
+        )
+        self.assertEqual(dsl_str, good_case, "DSL string does not match the good case, optimization failed.")
