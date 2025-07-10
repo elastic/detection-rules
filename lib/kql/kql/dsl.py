@@ -58,7 +58,7 @@ def boolean(**kwargs):
         has_single_must = len(child.get("bool", {}).get("must", [])) == 1
 
         if is_bool and has_valid_keys and (has_single_filter or has_single_must):
-            negated, = child["bool"].values()
+            (negated,) = child["bool"].values()
             dsl = {"must_not": negated}
         else:
             dsl = {"must_not": children}
@@ -74,7 +74,6 @@ def boolean(**kwargs):
 
 
 class ToDsl(Walker):
-
     def _walk_default(self, node, *args, **kwargs):
         raise KqlCompileError("Unable to convert {}".format(node))
 
