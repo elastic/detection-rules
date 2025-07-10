@@ -76,7 +76,7 @@ class TestKQLtoDSL(unittest.TestCase):
 
         self.validate(
             "not (field:value and field2:value2)",
-            {"must_not": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]},
+            {"must_not": [{"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}}]},
         )
 
     def test_optimizations(self):
