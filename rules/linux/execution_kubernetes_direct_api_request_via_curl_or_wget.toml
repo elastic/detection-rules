@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2025/06/23"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of curl or wget commands that directly access Kubernetes API endpoints,
+which may indicate an attempt to interact with Kubernetes resources in a potentially unauthorized manner. This
+technique is often used by adversaries to gather information about the Kubernetes environment, such as secrets,
+config maps, and other sensitive data, without using the official Kubernetes client tools such as "kubectl".
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Direct API Request via Curl or Wget"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Direct API Request via Curl or Wget
+
+Kubernetes API endpoints are crucial for managing cluster resources. Adversaries may exploit tools like curl or wget to directly query these endpoints, bypassing standard clients like kubectl, to extract sensitive data such as secrets or config maps. The detection rule identifies such unauthorized access attempts by monitoring command executions that target specific API paths, flagging potential security threats.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of curl or wget, focusing on the process.name and process.args fields to understand the exact command used and the specific Kubernetes API endpoint targeted.
+- Check the user context under which the curl or wget command was executed, including user ID and group ID, to determine if the action was performed by a legitimate user or an unauthorized entity.
+- Investigate the source IP address and host information to identify the origin of the request and assess whether it aligns with expected network activity within the Kubernetes environment.
+- Examine recent authentication and authorization logs for any anomalies or failed attempts that might indicate unauthorized access attempts to the Kubernetes API.
+- Correlate the alert with other security events or logs from the same timeframe to identify any related suspicious activities, such as unusual network traffic or access patterns.
+- Assess the potential impact by reviewing the specific Kubernetes resources targeted, such as secrets or config maps, to determine if sensitive data might have been exposed or compromised.
+
+### False positive analysis
+
+- Routine monitoring scripts or health checks that use curl or wget to verify the availability of Kubernetes API endpoints may trigger this rule. To manage this, identify and whitelist the specific scripts or IP addresses that are known to perform these checks regularly.
+- Automated backup processes that access Kubernetes secrets or config maps using curl or wget could be flagged. Exclude these processes by specifying their unique command patterns or execution contexts in the detection rule.
+- Developers or administrators using curl or wget for legitimate troubleshooting or testing purposes might inadvertently trigger the rule. Implement user-based exceptions for known and trusted personnel who require such access for their roles.
+- Integration tools or CI/CD pipelines that interact with Kubernetes APIs using curl or wget for deployment or configuration tasks may cause false positives. Create exceptions for these tools by identifying their process names or execution environments.
+- Security scanners or vulnerability assessment tools that probe Kubernetes API endpoints as part of their scanning routines can be mistaken for unauthorized access attempts. Whitelist these tools by their known signatures or execution patterns to prevent false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access to Kubernetes API endpoints.
+- Revoke any potentially compromised credentials or tokens that may have been used in the unauthorized API requests.
+- Conduct a thorough review of Kubernetes audit logs to identify the scope of the unauthorized access and determine if any sensitive data was exfiltrated.
+- Reset and rotate all secrets and config maps that may have been accessed during the incident to ensure they are no longer valid.
+- Implement network segmentation and access controls to restrict direct access to Kubernetes API endpoints, ensuring only authorized clients can communicate with the API.
+- Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures or incident response actions.
+- Enhance monitoring and alerting for similar unauthorized access attempts by integrating additional threat intelligence and refining detection capabilities.
+"""
+risk_score = 47
+rule_id = "b53f1d73-150d-484d-8f02-222abeb5d5fa"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "Domain: Kubernetes",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "executed", "process_started") and
+process.name in ("curl", "wget") and process.args like~ (
+  "*http*//*/apis/authorization.k8s.io/*",
+  "*http*//*/apis/rbac.authorization.k8s.io/*",
+  "*http*//*/api/v1/secrets*",
+  "*http*//*/api/v1/namespaces/*/secrets*",
+  "*http*//*/api/v1/configmaps*",
+  "*http*//*/api/v1/pods*",
+  "*http*//*/apis/apps/v1/deployments*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
