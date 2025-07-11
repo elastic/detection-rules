@@ -108,3 +108,5 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(kql.KqlParseError):
             kql.lark_parse('"Test-ServiceDaclPermission" or"Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermission" or "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermission" \nor "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermission" or\n "Update-ExeFunctions"')

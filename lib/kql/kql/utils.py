@@ -19,6 +19,12 @@ def check_whitespace(token_positions: List, token: str, lines: List[str]) -> Non
         line = lines[line_num - 1]
         start = column - 1
         end = column + len(token) - 1
+
+        # Handle cases where token starts at the beginning of the line and is followed by whitespace
+        if start == 0 and (end < len(line) and re.match(r"\s", line[end])):
+            continue
+
+        # Check for whitespace around the token
         if (
             start > 0
             and (end < len(line) and re.match(r"\s", line[end]) or end == len(line))
