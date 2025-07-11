@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2025/03/24"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an Microsoft 365 illicit consent grant request on-behalf-of a registered Entra ID application. Adversaries
+may create and register an application in Microsoft Entra ID for the purpose of requesting user consent to access
+resources in Microsoft 365. This is accomplished by tricking a user into granting consent to the application, typically
+via a pre-made phishing URL. This establishes an OAuth grant that allows the malicious client applocation to access
+resources in Microsoft 365 on-behalf-of the user.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-o365**"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 Illicit Consent Grant via Registered Application"
+note = """## Triage and analysis
+
+### Investigating Microsoft 365 Illicit Consent Grant via Registered Application
+
+Adversaries may register a malicious application in Microsoft Entra ID and trick users into granting excessive permissions via OAuth consent. These apps can access sensitive Microsoft 365 data—such as mail, profiles, and files—on behalf of the user once consent is granted. This activity is often initiated through spearphishing campaigns that direct the user to a pre-crafted OAuth consent URL.
+
+This rule identifies a new consent grant to an application using Microsoft 365 audit logs. Additionally, this is a New Terms rule that will only trigger if the user and client ID have not been seen doing this activity in the last 14 days.
+
+#### Possible investigation steps
+
+- **Review the app in Entra ID**:
+  - Go to **Enterprise Applications** in the Azure portal.
+  - Search for the `AppId` or name from `o365.audit.ObjectId`.
+  - Review granted API permissions and whether admin consent was required.
+  - Check the `Publisher` and `Verified` status.
+
+- **Assess the user who granted consent**:
+  - Investigate `o365.audit.UserId` (e.g., `terrance.dejesus@...`) for signs of phishing or account compromise.
+  - Check if the user was targeted in recent phishing simulations or campaigns.
+  - Review the user’s sign-in logs for suspicious geolocation, IP, or device changes.
+
+- **Determine scope and risk**:
+  - Use the `ConsentContext_IsAdminConsent` and `ConsentContext_OnBehalfOfAll` flags to assess privilege level.
+  - If `offline_access` or `Mail.Read` was granted, consider potential data exposure.
+  - Cross-reference affected `Target` objects with known business-critical assets or data owners.
+
+- **Correlate additional telemetry**:
+  - Review logs from Defender for Cloud Apps (MCAS), Microsoft Purview, or other DLP tooling for unusual access patterns.
+  - Search for `AppId` across your tenant to determine how widely it's used.
+
+### False positive analysis
+
+- Not all consent grants are malicious. Verify if the app is business-approved, listed in your app catalog, or commonly used by users in that role or department.
+- Consent reasons like `WindowsAzureActiveDirectoryIntegratedApp` could relate to integrated services, though these still require verification.
+
+### Response and remediation
+
+- **If the app is confirmed malicious**:
+  - Revoke OAuth consent using the [Microsoft Graph API](https://learn.microsoft.com/en-us/graph/api/oauth2permissiongrant-delete).
+  - Remove any related service principals from Entra ID.
+  - Block the app via the Conditional Access "Grant" control or Defender for Cloud Apps policies.
+  - Revoke refresh tokens and require reauthentication for affected users.
+  - Notify end-users and IT of the potential exposure.
+  - Activate your phishing or OAuth abuse response playbook.
+
+- **Prevent future misuse**:
+  - Enable the [Admin consent workflow](https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/configure-admin-consent-workflow) to restrict user-granted consent.
+  - Audit and reduce overprivileged applications in your environment.
+  - Consider using Defender for Cloud Apps OAuth app governance.
+
+"""
+references = [
+    "https://www.wiz.io/blog/midnight-blizzard-microsoft-breach-analysis-and-best-practices",
+    "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/detect-and-remediate-illicit-consent-grants?view=o365-worldwide",
+    "https://www.cloud-architekt.net/detection-and-mitigation-consent-grant-attacks-azuread/",
+    "https://docs.microsoft.com/en-us/defender-cloud-apps/investigate-risky-oauth#how-to-detect-risky-oauth-apps",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+]
+risk_score = 47
+rule_id = "0c3c80de-08c2-11f0-bd11-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "o365.audit"
+  and o365.audit.Actor.Type: 5
+  and event.action: "Consent to application."
+  and event.outcome: "success"
+  and o365.audit.Target.Type: (0 or 2 or 3 or 9 or 10)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "o365.audit.UserId",
+    "o365.audit.ObjectId",
+    "o365.audit.Actor.Type",
+    "o365.audit.Target.Type",
+    "o365.audit.ModifiedProperties.ConsentAction_Reason.NewValue",
+    "o365.audit.ExtendedProperties.additionalDetails",
+    "cloud.region"
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId", "o365.audit.ObjectId"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

@@ -2,9 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/02/21"
-min_stack_version = "8.14.0"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -18,39 +16,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "A scheduled task was created"
-references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
-risk_score = 21
-rule_id = "92a6faf5-78ec-4e25-bea1-73bacc9b59d9"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-iam where event.action == "scheduled-task-created" and
-
- /* excluding tasks created by the computer account */
- not user.name : "*$" and
-
- /* TaskContent is not parsed, exclude by full taskname noisy ones */
- not winlog.event_data.TaskName : (
-              "\\CreateExplorerShellUnelevatedTask",
-              "\\Hewlett-Packard\\HPDeviceCheck",
-              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker",
-              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker_backup",
-              "\\Hewlett-Packard\\HP Web Products Detection",
-              "\\Microsoft\\VisualStudio\\Updates\\BackgroundDownload",
-              "\\OneDrive Standalone Update Task-S-1-5-21*",
-              "\\OneDrive Standalone Update Task-S-1-12-1-*"
- )
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -84,6 +49,39 @@ Scheduled tasks in Windows automate routine tasks, enhancing efficiency. However
 - Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
 - Monitor the system and network for any signs of re-infection or further unauthorized scheduled task creation.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
+risk_score = 21
+rule_id = "92a6faf5-78ec-4e25-bea1-73bacc9b59d9"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "scheduled-task-created" and
+
+ /* excluding tasks created by the computer account */
+ not user.name : "*$" and
+
+ /* TaskContent is not parsed, exclude by full taskname noisy ones */
+ not winlog.event_data.TaskName : (
+              "\\CreateExplorerShellUnelevatedTask",
+              "\\Hewlett-Packard\\HPDeviceCheck",
+              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker",
+              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker_backup",
+              "\\Hewlett-Packard\\HP Web Products Detection",
+              "\\Microsoft\\VisualStudio\\Updates\\BackgroundDownload",
+              "\\OneDrive Standalone Update Task-S-1-5-21*",
+              "\\OneDrive Standalone Update Task-S-1-12-1-*"
+ )
+'''
 
 
 [[rule.threat]]

@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2025/04/15"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that use concatenated strings within dynamic command invocation (&() or .()) as a form of
+obfuscation. These methods are designed to evade static analysis and bypass security protections such as the Antimalware
+Scan Interface (AMSI).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Concatenated Dynamic Command Invocation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscation via Concatenated Dynamic Command Invocation
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its capabilities by obfuscating commands to evade detection, often using concatenated strings in dynamic invocations. This detection rule identifies such obfuscation by analyzing script patterns, specifically looking for concatenated strings within dynamic command invocations, which are indicative of attempts to bypass security measures like AMSI. By counting these patterns, the rule effectively flags suspicious scripts, aiding in the identification of potential threats.
+
+### Possible investigation steps
+
+- Review the `powershell.file.script_block_text` field to understand the content and purpose of the script, focusing on the concatenated strings and dynamic command invocations.
+- Check the `host.name` and `user.id` fields to identify the machine and user account associated with the execution of the suspicious script, which can help determine if the activity is expected or anomalous.
+- Analyze the `file.path` field to locate the script's source or storage location, which may provide additional context or indicate if the script is part of a known application or process.
+- Investigate the `powershell.file.script_block_id` and `powershell.sequence` fields to trace the execution sequence and correlate it with other related PowerShell activities, which might reveal a broader pattern of behavior.
+- Assess the `agent.id` field to determine the specific endpoint agent involved, which can assist in further endpoint-specific investigations or actions.
+
+### False positive analysis
+
+- Scripts with legitimate concatenated strings for dynamic command execution may trigger the rule. Review the script context to determine if the concatenation serves a valid administrative purpose.
+- Automated scripts from trusted sources that use concatenation for modularity or readability might be flagged. Consider adding these scripts to an allowlist if they are verified as safe.
+- Development or testing environments where PowerShell scripts are frequently modified and tested could generate false positives. Implement exceptions for known development hosts or user accounts.
+- Security tools or monitoring solutions that use PowerShell for legitimate operations may inadvertently match the pattern. Identify these tools and exclude their operations from the rule.
+- Regularly review and update the exclusion list to ensure it reflects the current environment and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further execution of potentially malicious scripts and limit lateral movement within the network.
+- Terminate any suspicious PowerShell processes identified by the alert to halt the execution of obfuscated commands.
+- Conduct a thorough review of the script block text and associated script block ID to understand the intent and potential impact of the obfuscated commands.
+- Remove any unauthorized or malicious scripts from the affected system and ensure that all legitimate scripts are verified and signed.
+- Restore the affected system from a known good backup if any malicious activity is confirmed, ensuring that all data integrity checks are performed.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems have been compromised.
+- Update endpoint protection and monitoring tools to enhance detection capabilities for similar obfuscation techniques, leveraging insights from the MITRE ATT&CK framework.
+"""
+risk_score = 21
+rule_id = "083383af-b9a4-42b7-a463-29c40efe7797"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-windows.powershell_operational* metadata _id, _version, _index
+| WHERE event.code == "4104" and powershell.file.script_block_text LIKE "*+*"
+
+// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """[.&]\(\s*(['"][A-Za-z0-9.-]+['"]\s*\+\s*)+['"][A-Za-z0-9.-]+['"]\s*\)""", "🔥")
+
+// Count how many patterns were detected by calculating the number of 🔥 characters inserted
+| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+
+// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+| WHERE count >= 1
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/04/25"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of SSH options that may indicate tunneling or port forwarding on Linux systems. This behavior
+is commonly associated with malicious activity, such as establishing a port forward, proxy or an encrypted tunnel to
+exfiltrate data. 
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Linux Tunneling and/or Port Forwarding via SSH Option"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Linux Tunneling and/or Port Forwarding via SSH Option
+
+SSH is a secure protocol used for encrypted communication over networks, often employed for remote administration. Adversaries exploit SSH options like port forwarding to create tunnels, facilitating covert data exfiltration or unauthorized access. The detection rule identifies suspicious SSH commands indicative of tunneling by monitoring specific SSH options, helping to flag potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the process command line details to identify the specific SSH options used, such as ProxyCommand, LocalForward, RemoteForward, DynamicForward, Tunnel, GatewayPorts, ExitOnForwardFailure, or ProxyJump, to understand the nature of the potential tunneling or port forwarding.
+- Examine the user account associated with the SSH process to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Check the source and destination IP addresses involved in the SSH connection to identify any unusual or unauthorized endpoints that may indicate malicious activity.
+- Investigate the timing and frequency of the SSH connections to assess whether they coincide with known business operations or if they suggest unauthorized access patterns.
+- Correlate the event with other security logs or alerts from the same host or network segment to identify any additional indicators of compromise or related suspicious activities.
+
+### False positive analysis
+
+- Legitimate administrative tasks using SSH options like ProxyCommand or LocalForward can trigger the rule. To manage this, create exceptions for known administrative scripts or users frequently using these options for valid purposes.
+- Automated backup or synchronization processes that use SSH tunneling for secure data transfer may be flagged. Identify these processes and exclude them by specifying the associated process names or user accounts.
+- Development or testing environments where developers use SSH tunneling for accessing remote services might cause alerts. Implement exceptions for specific IP addresses or user groups associated with these environments.
+- Monitoring or logging tools that utilize SSH for secure data collection can be mistaken for malicious activity. Whitelist these tools by their process names or command-line patterns to prevent false positives.
+- Internal network services that rely on SSH port forwarding for legitimate communication should be reviewed and excluded based on their known behavior and usage patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious SSH sessions identified by the detection rule to halt potential tunneling or port forwarding activities.
+- Conduct a thorough review of SSH configuration files and logs on the affected system to identify unauthorized changes or access patterns.
+- Reset credentials for any accounts that were used in the suspicious SSH activity to prevent further unauthorized access.
+- Implement network segmentation to limit SSH access to only necessary systems and services, reducing the risk of lateral movement.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are compromised.
+- Enhance monitoring and logging of SSH activities across the network to detect similar threats in the future, ensuring alerts are promptly reviewed and acted upon.
+"""
+references = [
+    "https://blog.bitsadmin.com/living-off-the-foreign-land-windows-as-offensive-platform",
+    "https://book.hacktricks.xyz/generic-methodologies-and-resources/tunneling-and-port-forwarding",
+]
+risk_score = 21
+rule_id = "ef395dff-be12-4a6e-8919-d87d627c2174"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name in ("ssh", "sshd") and process.args == "-o" and
+process.command_line like~ (
+  "*ProxyCommand*", "*LocalForward*", "*RemoteForward*", "*DynamicForward*", "*Tunnel*", "*GatewayPorts*",
+  "*ExitOnForwardFailure*", "*ProxyCommand*", "*ProxyJump*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

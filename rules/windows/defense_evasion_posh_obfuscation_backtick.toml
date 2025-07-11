@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2025/04/15"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that use invalid escape sequences as a form of obfuscation. This technique introduces
+backticks (`) between characters in a way that does not correspond to valid PowerShell escape sequences, breaking up
+strings and bypassing pattern-based detections while preserving execution logic. This is designed to evade static
+analysis and bypass security protections such as the Antimalware Scan Interface (AMSI).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Invalid Escape Sequences"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscation via Invalid Escape Sequences
+
+PowerShell, a powerful scripting language in Windows environments, can be exploited by adversaries using obfuscation techniques to evade detection. By inserting invalid escape sequences, attackers can obscure malicious scripts, bypassing static analysis and security tools like AMSI. The detection rule identifies such obfuscation by analyzing script patterns, specifically targeting unusual backtick usage, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the `powershell.file.script_block_text` field to understand the context and content of the script block that triggered the alert. Look for patterns of invalid escape sequences and assess whether they appear intentionally obfuscated.
+- Examine the `file.name` and `file.path` fields to determine the origin and location of the script. This can help identify whether the script is part of a legitimate application or potentially malicious.
+- Check the `host.name` and `agent.id` fields to identify the affected system and the agent responsible for logging the event. This information is crucial for understanding the scope of the potential threat.
+- Analyze the `user.id` field to ascertain which user executed the script. This can provide insights into whether the user has a history of executing suspicious scripts or if their account may be compromised.
+- Investigate the `powershell.file.script_block_id` and `powershell.sequence` fields to trace the execution sequence and correlate it with other related script blocks, which may reveal additional obfuscation or malicious activity.
+- Assess the `count` field to evaluate the extent of obfuscation detected. A higher count may indicate more aggressive obfuscation techniques, warranting further scrutiny.
+
+### False positive analysis
+
+- Scripts from Visual Studio Code's PowerShell extension may trigger false positives due to its shell integration. To handle this, exclude scripts containing the pattern "$([char]0x1b)]633" from detection.
+- PowerShell modules with names starting with "TSS_" may be flagged incorrectly. Exclude these by adding a condition to ignore files matching the pattern "TSS_*.psm1".
+- Legitimate scripts that use backticks for formatting or other non-obfuscation purposes might be detected. Review such scripts and, if verified as safe, add them to an exception list based on their script block ID or file path.
+- Regularly update the exclusion list to reflect changes in legitimate script usage patterns, ensuring that new false positives are addressed promptly.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent lateral movement and further execution of potentially malicious scripts. Disconnect the host from the network and disable remote access.
+
+- Analyze the script block text and file path to identify the source and nature of the obfuscated script. Determine if the script is part of a larger attack or if other systems are affected.
+
+- Remove or quarantine the identified malicious script and any associated files from the host. Ensure that all remnants of the obfuscated code are eliminated to prevent re-execution.
+
+- Conduct a thorough scan of the host using updated antivirus and antimalware tools to detect and remove any additional threats or indicators of compromise.
+
+- Review and update PowerShell execution policies and security settings to restrict the execution of scripts with invalid escape sequences. Implement stricter controls to prevent similar obfuscation techniques.
+
+- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further investigation and monitoring. Provide detailed logs and findings to assist in understanding the scope and impact of the threat.
+
+- Implement enhanced logging and monitoring for PowerShell activities across the network to detect and respond to similar obfuscation attempts promptly. Use the identified patterns to refine detection capabilities.
+"""
+risk_score = 21
+rule_id = "64f17c52-6c6e-479e-ba72-236f3df18f3d"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-windows.powershell_operational* metadata _id, _version, _index
+| WHERE event.code == "4104" and powershell.file.script_block_text LIKE "*`*"
+
+// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
+
+// Count how many patterns were detected by calculating the number of 🔥 characters inserted
+| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+
+// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.name, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+| WHERE count >= 10
+
+// Filter FPs, and due to the behavior of the LIKE operator, allow null values
+| WHERE (file.name NOT LIKE "TSS_*.psm1" or file.name IS NULL)
+
+| WHERE
+    // VSCode Shell integration
+    NOT powershell.file.script_block_text LIKE "*$([char]0x1b)]633*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

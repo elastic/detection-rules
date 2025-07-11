@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "okta"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified an unusual spike in Okta group application assignment change events, indicating
+potential privileged access activity. Threat actors might be assigning applications to groups to escalate access,
+maintain persistence, or facilitate lateral movement within an organization’s environment.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_spike_in_group_application_assignment_changes"
+name = "Spike in Group Application Assignment Change Events"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Group Application Assignment Change Events
+
+In modern environments, identity and access management systems like Okta manage user access to applications. Adversaries may exploit these systems by altering group application assignments to gain unauthorized access or escalate privileges. The detection rule leverages machine learning to identify unusual spikes in these changes, signaling potential misuse and enabling timely investigation of privilege escalation activities.
+
+### Possible investigation steps
+
+- Review the specific group application assignment change events that triggered the alert to identify which groups and applications were involved.
+- Analyze the timeline of the changes to determine if there is a pattern or specific time frame when the spike occurred.
+- Investigate the user accounts associated with the changes to assess if they have a history of suspicious activity or if they belong to high-risk roles.
+- Check for any recent changes in group membership or application access policies that could explain the spike in assignment changes.
+- Correlate the events with other security alerts or logs to identify any concurrent suspicious activities, such as failed login attempts or unusual access patterns.
+- Consult with the IT or security team to verify if there were any legitimate administrative activities or changes that could have caused the spike.
+
+### False positive analysis
+
+- Routine administrative changes in group application assignments can trigger false positives. Regularly review and document these changes to differentiate them from suspicious activities.
+- Automated processes or scripts that frequently update group assignments may cause spikes. Identify and whitelist these processes to prevent unnecessary alerts.
+- Organizational restructuring or onboarding/offboarding activities can lead to increased group assignment changes. Temporarily adjust the detection thresholds or exclude these events during known periods of high activity.
+- Changes related to application updates or migrations might be flagged. Coordinate with IT teams to schedule these changes and exclude them from monitoring during the update window.
+- Frequent changes by trusted users or administrators can be excluded by creating exceptions for specific user accounts or roles, ensuring that only unexpected changes trigger alerts.
+
+### Response and remediation
+
+- Immediately isolate affected user accounts and groups to prevent further unauthorized access or privilege escalation.
+- Revert any unauthorized group application assignments to their previous state to mitigate potential misuse.
+- Conduct a thorough review of recent changes in group application assignments to identify any additional unauthorized modifications.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems or accounts have been compromised.
+- Implement additional monitoring on the affected accounts and groups to detect any further suspicious activity.
+- Review and update access controls and group assignment policies to prevent similar unauthorized changes in the future.
+- Coordinate with the IT and security teams to ensure that all affected systems and applications are patched and secured against known vulnerabilities."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "3278313c-d6cd-4d49-aa24-644e1da6623c"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

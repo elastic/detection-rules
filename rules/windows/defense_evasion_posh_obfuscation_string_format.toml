@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2025/04/03"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that use string reordering and runtime reconstruction techniques as a form of obfuscation.
+These methods are designed to evade static analysis and bypass security protections such as the Antimalware Scan
+Interface (AMSI).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via String Reordering"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscation via String Reordering
+
+PowerShell, a powerful scripting language in Windows environments, can be exploited by adversaries using obfuscation techniques like string reordering to evade detection. This involves rearranging strings and reconstructing them at runtime, bypassing static analysis and security measures. The detection rule identifies scripts with excessive length and specific patterns, flagging those with multiple occurrences of string format expressions, which are indicative of obfuscation attempts. By filtering out known benign patterns, it reduces false positives, focusing on genuine threats.
+
+### Possible investigation steps
+
+- Review the script block text by examining the powershell.file.script_block_text field to understand the nature of the obfuscation and identify any potentially malicious commands or patterns.
+- Check the file.path and file.name fields to determine the origin and context of the script, which can provide insights into whether the script is part of a legitimate application or a potential threat.
+- Investigate the host.name and user.id fields to identify the affected system and user, which can help in assessing the potential impact and scope of the incident.
+- Analyze the powershell.file.script_block_id and powershell.sequence fields to trace the execution sequence and history of the script, which may reveal additional suspicious activities or related scripts.
+- Correlate the alert with other security events or logs from the same host or user to identify any patterns or additional indicators of compromise that may suggest a broader attack campaign.
+
+### False positive analysis
+
+- Scripts related to the Icinga Framework may trigger false positives due to their use of string formatting. To handle this, ensure that the file name "framework_cache.psm1" is excluded from the detection rule.
+- PowerShell scripts that include specific sentinel patterns, such as "sentinelbreakpoints" or paths like ":::::\\windows\\sentinel", combined with variables like "$local:Bypassed" or "origPSExecutionPolicyPreference", are known to be benign. These should be excluded to reduce noise.
+- Regularly review and update the exclusion list to include any new benign patterns that are identified over time, ensuring the rule remains effective without generating unnecessary alerts.
+- Consider implementing a whitelist of known safe scripts or script authors to further minimize false positives, especially in environments with frequent legitimate use of complex PowerShell scripts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potentially malicious scripts.
+- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious activity.
+- Conduct a thorough review of the PowerShell script block text flagged by the alert to understand the intent and potential impact of the obfuscated script.
+- Remove any malicious scripts or files identified during the investigation from the affected system to prevent re-execution.
+- Restore the system from a known good backup if the script has caused significant changes or damage to the system.
+- Update and strengthen endpoint protection measures, ensuring that AMSI and other security tools are fully operational and configured to detect similar obfuscation techniques.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "e903ce9a-5ce6-4246-bb14-75ed3ec2edf5"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-windows.powershell_operational* metadata _id, _version, _index
+| WHERE event.code == "4104"
+
+// Look for scripts with more than 500 chars that contain a related keyword
+| EVAL script_len = LENGTH(powershell.file.script_block_text)
+| WHERE script_len > 500
+| WHERE powershell.file.script_block_text LIKE "*{0}*"
+
+// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """((\{\d+\}){2,}["']\s?-f|::Format[^\{]+(\{\d+\}){2,})""", "🔥")
+
+// Count how many patterns were detected by calculating the number of 🔥 characters inserted
+| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+
+// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+| WHERE count > 3
+
+// Exclude Noisy Patterns
+
+// Icinga Framework
+| WHERE (file.name NOT LIKE "framework_cache.psm1" or file.name IS NULL)
+| WHERE NOT
+    // https://wtfbins.wtf/17
+    (
+        (powershell.file.script_block_text LIKE "*sentinelbreakpoints*" OR
+         powershell.file.script_block_text LIKE "*:::::\\\\windows\\\\sentinel*")
+        AND
+        (powershell.file.script_block_text LIKE "*$local:Bypassed*" OR
+        powershell.file.script_block_text LIKE "*origPSExecutionPolicyPreference*")
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

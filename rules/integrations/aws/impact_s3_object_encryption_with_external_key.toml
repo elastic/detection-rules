@@ -2,18 +2,20 @@
 creation_date = "2024/07/02"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
-min_stack_version = "8.13.0"
-updated_date = "2025/02/03"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies `CopyObject` events within an S3 bucket using an AWS KMS key from an external account for encryption. Adversaries with access to a misconfigured S3 bucket and the proper permissions may encrypt objects with an external KMS key to deny their victims access to their own data.
+Identifies `CopyObject` events within an S3 bucket using an AWS KMS key from an external account for encryption.
+Adversaries with access to a misconfigured S3 bucket and the proper permissions may encrypt objects with an external KMS
+key to deny their victims access to their own data.
 """
 false_positives = [
     """
-    Administrators within an AWS Organization structure may legitimately encrypt bucket objects with a key from an account different from the target bucket. Ensure that this behavior is not part of a legitimate operation before taking action.
+    Administrators within an AWS Organization structure may legitimately encrypt bucket objects with a key from an
+    account different from the target bucket. Ensure that this behavior is not part of a legitimate operation before
+    taking action.
     """,
 ]
 from = "now-9m"
@@ -21,13 +23,12 @@ language = "esql"
 license = "Elastic License v2"
 name = "AWS S3 Object Encryption Using External KMS Key"
 note = """
-
 ## Triage and analysis
 
 ### Investigating AWS S3 Object Encryption Using External KMS Key
 
 This rule detects the use of an external AWS KMS key to encrypt objects within an S3 bucket. Adversaries with access to a misconfigured S3 bucket may use an external key to copy objects within a bucket and deny victims the ability to access their own data.
-This rule uses [ES|QL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule) to look for use of the `CopyObject` operation where the target bucket's `cloud.account.id` is different from the `key.account.id` dissected from the AWS KMS key used for encryption.
+This rule uses [ESQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule) to look for use of the `CopyObject` operation where the target bucket's `cloud.account.id` is different from the `key.account.id` dissected from the AWS KMS key used for encryption.
 
 #### Possible Investigation Steps:
 
@@ -100,6 +101,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 // keep relevant fields
 | keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, target.bucketName, key.account.id, keyId, target.objectName
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

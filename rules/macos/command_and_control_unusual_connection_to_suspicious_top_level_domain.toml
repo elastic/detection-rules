@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2025/03/25"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the unusual occurrence of outbound network connections to suspicious top level domains. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Network Connection to Suspicious Top Level Domain"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Network Connection to Suspicious Top Level Domain
+
+In macOS environments, network connections are essential for communication and data exchange. Adversaries exploit this by connecting to suspicious top-level domains (TLDs) for command and control activities. The detection rule identifies unusual outbound connections to these TLDs, signaling potential threats. By monitoring specific domains, it helps detect and mitigate malicious activities early.
+
+### Possible investigation steps
+
+- Review the destination domain involved in the alert to determine if it is associated with known malicious activities or if it has been flagged in threat intelligence databases.
+- Analyze the network traffic details related to the connection, including the source IP address and the volume of data transferred, to assess the nature and intent of the communication.
+- Check the host system's recent activity logs for any unusual processes or applications that initiated the network connection, focusing on the event.type "start" to identify the triggering process.
+- Investigate the user account associated with the host to determine if there have been any unauthorized access attempts or anomalies in user behavior.
+- Correlate the alert with other security events or alerts from the same host or network segment to identify potential patterns or coordinated activities.
+- Consult with threat intelligence sources or security forums to gather additional context on the specific top-level domain and its potential use in command and control operations.
+
+### False positive analysis
+
+- Legitimate business domains may use TLDs like .online or .store for marketing purposes. Review the domain's reputation and business context before marking it as a threat.
+- Personal or small business websites might use TLDs such as .fun or .life. Verify the domain ownership and usage to determine if it is a false positive.
+- Some educational or community projects might use TLDs like .club or .space. Check the domain's content and purpose to assess its legitimacy.
+- Exclude known safe domains by adding them to an allowlist in your monitoring tool to prevent repeated false positives.
+- Regularly update the allowlist based on user feedback and network behavior analysis to ensure it remains accurate and effective.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS device from the network to prevent further communication with the suspicious domain.
+- Conduct a thorough review of the network logs to identify any additional devices that may have communicated with the same suspicious domains and isolate them if necessary.
+- Use endpoint security tools to perform a full malware scan on the affected device to identify and remove any malicious software.
+- Reset credentials and review access permissions for any accounts that were active on the affected device to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
+- Implement network-level blocking of the identified suspicious domains to prevent future connections from any device within the network.
+- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to enhance detection and blocking of similar threats in the future.
+"""
+risk_score = 47
+rule_id = "ffa676dc-09b0-11f0-94ba-b66272739ecb"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category : "network" and host.os.type : "macos" and event.type : "start" and
+destination.domain : (*.team or *.lol or *.kr or *.ke or *.nu or *.space or 
+                          *.capital or *.in or *.cfd or *.online or *.ru or 
+                          *.info or *.top or *.buzz or *.xyz or *.rest or 
+                          *.ml or *.cf or *.gq or *.ga or *.onion or 
+                          *.network or *.monster or *.marketing or *.cyou or 
+                          *.quest or *.cc or *.bar or *.click or *.cam or 
+                          *.surf or *.tk or *.shop or *.club or *.icu or 
+                          *.pw or *.ws or *.hair or *.mom or 
+                          *.beauty or *.boats or *.fun or *.life or 
+                          *.store)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "destination.domain"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

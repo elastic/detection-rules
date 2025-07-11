@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2020/09/01"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a modification to a conditional access policy (CAP) in Microsoft Entra ID. Adversaries may modify existing CAPs to loosen access controls and maintain persistence in the environment with a compromised identity or entity.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Conditional Access Policy (CAP) Modified"
+note = """## Triage and analysis
+
+## Investigation Guide: Microsoft Entra ID Conditional Access Policy (CAP) Modified
+
+Azure Conditional Access Policies (CAPs) are critical for enforcing secure access requirements such as multi-factor authentication (MFA), restricting specific users or groups, and managing sign-in conditions. Modifying these policies can be a technique for weakening an organization’s defenses and maintaining persistence after initial access.
+
+This rule detects a successful update to a Conditional Access Policy in Microsoft Entra ID (formerly Azure AD).
+
+### Possible Investigation Steps
+
+- **Identify the user who modified the policy:**
+  - Check the value of `azure.auditlogs.properties.initiated_by.user.userPrincipalName` to determine the identity that made the change.
+  - Investigate their recent activity to determine if this change was expected or authorized.
+
+- **Review the modified policy name:**
+  - Look at `azure.auditlogs.properties.target_resources.*.display_name` to find the name of the affected policy.
+  - Determine whether this policy is related to critical controls (e.g., requiring MFA for admins).
+
+- **Analyze the policy change:**
+  - Compare the `old_value` and `new_value` fields under `azure.auditlogs.properties.target_resources.*.modified_properties.*`.
+  - Look for security-reducing changes, such as:
+    - Removing users/groups from enforcement.
+    - Disabling MFA or risk-based conditions.
+    - Introducing exclusions that reduce the policy’s coverage.
+
+- **Correlate with other activity:**
+  - Pivot on `azure.auditlogs.properties.activity_datetime` to identify if any suspicious sign-ins occurred after the policy was modified.
+  - Check for related authentication logs, particularly from the same IP address (`azure.auditlogs.properties.initiated_by.user.ipAddress`).
+
+- **Assess the user's legitimacy:**
+  - Review the initiator’s Azure role, group memberships, and whether their account was recently elevated or compromised.
+  - Investigate whether this user has a history of modifying policies or if this is anomalous.
+
+### Validation & False Positive Considerations
+
+- **Authorized administrative changes:** Some organizations routinely update CAPs as part of policy tuning or role-based access reviews.
+- **Security reviews or automation:** Scripts, CI/CD processes, or third-party compliance tools may programmatically update CAPs.
+- **Employee lifecycle events:** Policy changes during employee onboarding/offboarding may include updates to access policies.
+
+If any of these cases apply and align with the activity's context, consider tuning the rule or adding exceptions for expected patterns.
+
+### Response & Remediation
+
+- Revert unauthorized or insecure changes to the Conditional Access Policy immediately.
+- Temporarily increase monitoring of CAP modifications and sign-in attempts.
+- Lock or reset the credentials of the user account that made the change if compromise is suspected.
+- Conduct a broader access review of conditional access policies and privileged user activity.
+- Implement stricter change management and alerting around CAP changes.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview",
+    "https://www.rezonate.io/blog/microsoft-entra-id-the-complete-guide-to-conditional-access-policies/"
+]
+risk_score = 47
+rule_id = "bc48bba7-4a23-4232-b551-eca3ca1e3f20"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Configuration Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.auditlogs"
+    and event.action:"Update conditional access policy"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

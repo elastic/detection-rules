@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2025/04/25"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of files named release_agent or notify_on_release, which are
+commonly associated with the abuse of Linux cgroup release mechanisms. In Docker or containerized
+environments, this behavior may indicate an attempt to exploit privilege escalation vulnerabilities
+such as CVE-2022-0492, where attackers use the release_agent feature to execute code on the host
+from within a container.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Docker Release File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Docker Release File Creation
+
+In Linux, cgroups manage resources for processes, and the release_agent file can execute scripts when a cgroup is released. In containerized environments like Docker, adversaries may exploit this to escalate privileges, executing code on the host. The detection rule identifies the creation of files like release_agent, signaling potential misuse of cgroup release mechanisms for privilege escalation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file creation event occurred on a Linux host, as specified by the query field host.os.type == "linux".
+- Identify the specific file name created, either release_agent or notify_on_release, to understand the potential method of exploitation.
+- Investigate the process that created the file by examining process logs or using process monitoring tools to determine if it was initiated by a legitimate application or a suspicious process.
+- Check for any recent container activity on the host, such as new container deployments or changes, to identify potential sources of the file creation.
+- Analyze user activity logs to determine if any unauthorized or unusual user actions correlate with the file creation event.
+- Look for any additional indicators of compromise or related alerts on the host that might suggest a broader attack or exploitation attempt.
+- Assess the system for any signs of privilege escalation or unauthorized access to determine if the release_agent or notify_on_release file creation was part of a successful attack.
+
+### False positive analysis
+
+- System administrators or automated scripts may create release_agent or notify_on_release files for legitimate resource management tasks in containerized environments.
+- Regularly scheduled maintenance scripts might trigger the rule if they involve creating or modifying cgroup release files as part of their operations.
+- Developers testing container features might inadvertently create these files during the development process.
+- To handle these false positives, users can create exceptions for known scripts or processes that routinely create these files by whitelisting their specific paths or process names.
+- Implement monitoring to differentiate between expected and unexpected file creation events, focusing on unusual patterns or contexts that deviate from normal operations.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further exploitation or lateral movement. This can be done by stopping the container or disconnecting it from the network.
+- Investigate the container's logs and processes to identify any unauthorized or suspicious activity that may have occurred as a result of the release_agent or notify_on_release file creation.
+- Remove any unauthorized files or scripts that were executed as a result of the cgroup release mechanism exploitation. Ensure that the release_agent and notify_on_release files are deleted if they were created maliciously.
+- Patch the host system and all containers to address known vulnerabilities such as CVE-2022-0492. Ensure that all security updates are applied to prevent similar exploits.
+- Review and tighten the security configurations of Docker and the host system, including setting appropriate cgroup permissions and limiting container capabilities to the minimum necessary.
+- Monitor for any further attempts to exploit cgroup release mechanisms by setting up alerts for the creation of release_agent and notify_on_release files.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems may have been affected or if there is a broader security incident underway.
+"""
+references = ["https://sysdig.com/blog/detecting-mitigating-cve-2022-0492-sysdig/"]
+risk_score = 21
+rule_id = "4d4cda2b-9aad-4702-a0a2-75952bd6a77c"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and file.name in ("release_agent", "notify_on_release")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

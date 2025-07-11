@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of unusual commands via a descendant process of exim4. Attackers may use descendant
+processes of exim4 to evade detection and establish persistence or execute post-exploitation commands on a target system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Exim4 Child Process"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Exim4 Child Process
+
+Exim4 is a widely used mail transfer agent on Linux systems, responsible for routing and delivering email. Adversaries may exploit Exim4 by spawning unexpected child processes to execute malicious commands, thereby evading detection and maintaining persistence. The detection rule identifies suspicious child processes initiated by Exim4, excluding known legitimate processes, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific unusual child process name and command line arguments that were executed under the parent process exim4.
+- Examine the process tree to understand the hierarchy and context of the spawned process, including any sibling or child processes that may indicate further malicious activity.
+- Check the user account associated with the exim4 process to determine if it aligns with expected usage patterns or if it might be compromised.
+- Investigate the source and destination of any network connections initiated by the unusual child process to identify potential data exfiltration or command and control activity.
+- Analyze system logs around the time of the alert to identify any related events or anomalies that could provide additional context or evidence of compromise.
+- Correlate the findings with other alerts or incidents in the environment to determine if this activity is part of a broader attack campaign.
+
+### False positive analysis
+
+- Development tools like cmake, gcc, and cppcheck may trigger false positives if they are used in environments where Exim4 is installed. To mitigate this, ensure these tools are included in the exclusion list if they are part of regular development activities.
+- System maintenance scripts that utilize commands such as readlink, grep, and stat might be flagged. Review these scripts and add them to the exclusion list if they are verified as part of routine system operations.
+- Automated deployment or configuration management tools that invoke systemctl or update-exim4.conf can be mistaken for suspicious activity. Confirm these processes are legitimate and add them to the exclusion list to prevent unnecessary alerts.
+- If Exim4 is used in conjunction with SSH services, processes like sshd may appear as child processes. Verify the legitimacy of these connections and exclude them if they are part of expected behavior.
+- Regularly review and update the exclusion list to reflect changes in system operations or new legitimate processes that may arise, ensuring the rule remains effective without generating excessive false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious child processes of Exim4 that are not recognized as legitimate, using process management tools like `kill` or `pkill`.
+- Conduct a thorough review of the Exim4 configuration files and scripts to identify unauthorized modifications or additions, and restore them from a known good backup if necessary.
+- Scan the system for additional indicators of compromise, such as unauthorized user accounts or scheduled tasks, and remove any malicious artifacts found.
+- Apply security patches and updates to Exim4 and the operating system to mitigate known vulnerabilities that could be exploited by attackers.
+- Monitor the system for any recurrence of unusual Exim4 child processes and adjust logging and alerting to capture detailed information for further analysis.
+- Escalate the incident to the security operations team for a comprehensive investigation and to determine if other systems in the network may be affected.
+"""
+references = [
+  "https://www.qualys.com/2021/05/04/21nails/21nails.txt",
+  "https://blog.qualys.com/vulnerabilities-threat-research/2021/05/04/21nails-multiple-vulnerabilities-in-exim-mail-server"
+]
+risk_score = 21
+rule_id = "6eb862bb-013d-4d4f-a14b-341433ca1a1f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.type:start and event.action:exec and process.parent.name:exim4 and
+not process.name:(
+  exim4 or start-stop-daemon or run-parts or systemctl or update-exim4.conf or install or plymouth or
+  readlink or grep or stat or cmake or gcc or cppcheck or sort or sshd
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

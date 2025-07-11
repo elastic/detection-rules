@@ -2,9 +2,7 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/02/21"
-min_stack_version = "8.14.0"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -26,52 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Endpoint Security Parent Process"
-risk_score = 47
-rule_id = "b41a13c6-ba45-4bab-a534-df53d0cfed6a"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : ("esensor.exe", "elastic-endpoint.exe") and
-  process.parent.executable != null and
-  /* add FPs here */
-  not process.parent.executable : (
-        "?:\\Program Files\\Elastic\\*",
-        "?:\\Windows\\System32\\services.exe",
-        "?:\\Windows\\System32\\WerFault*.exe",
-        "?:\\Windows\\System32\\wermgr.exe",
-        "?:\\Windows\\explorer.exe"
-  ) and
-  not (
-    process.parent.executable : (
-        "?:\\Windows\\System32\\cmd.exe",
-        "?:\\Windows\\System32\\SecurityHealthHost.exe",
-        "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
-    ) and
-    process.args : (
-        "test", "version",
-        "top", "run",
-        "*help", "status",
-        "upgrade", "/launch",
-        "/enable"
-    )
-  )
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -107,6 +59,54 @@ Endpoint security solutions, like Elastic and Microsoft Defender, monitor and pr
 - Update endpoint security solutions and apply any available patches to address vulnerabilities that may have been exploited by the adversary.
 - Monitor the network and systems for any signs of re-infection or similar suspicious activities, using enhanced logging and alerting based on the identified threat indicators.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems may be affected."""
+risk_score = 47
+rule_id = "b41a13c6-ba45-4bab-a534-df53d0cfed6a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("esensor.exe", "elastic-endpoint.exe") and
+  process.parent.executable != null and
+  process.args != null and
+  /* add FPs here */
+  not process.parent.executable : (
+        "?:\\Program Files\\Elastic\\*",
+        "?:\\Windows\\System32\\services.exe",
+        "?:\\Windows\\System32\\WerFault*.exe",
+        "?:\\Windows\\System32\\wermgr.exe",
+        "?:\\Windows\\explorer.exe"
+  ) and
+  not (
+    process.parent.executable : (
+        "?:\\Windows\\System32\\cmd.exe",
+        "?:\\Windows\\System32\\SecurityHealthHost.exe",
+        "?:\\Windows\\System32\\SecurityHealth\\*\\SecurityHealthHost.exe",
+        "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    ) and
+    process.args : (
+        "test", "version",
+        "top", "run",
+        "*help", "status",
+        "upgrade", "/launch",
+        "/enable", "/av"
+    )
+  )
+'''
 
 
 [[rule.threat]]
@@ -117,7 +117,7 @@ name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
-name = "Match Legitimate Name or Location"
+name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 

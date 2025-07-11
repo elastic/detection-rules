@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user leveraging an uncommon privilege type for privileged operations, indicating
+potential privileged access activity. This indicates that a user is performing operations requiring elevated privileges
+but is using a privilege type that is not typically seen in their baseline logs.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_rare_privilege_assigned_to_user"
+name = "Unusual Privilege Type assigned to a User"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Privilege Type assigned to a User
+
+In modern IT environments, privilege management is crucial for maintaining security. Adversaries may exploit uncommon privilege types to perform unauthorized actions, bypassing standard detection. The detection rule leverages machine learning to identify deviations from normal privilege usage patterns, flagging potential privilege escalation attempts. By analyzing user behavior against established baselines, it helps detect and mitigate unauthorized access risks.
+
+### Possible investigation steps
+
+- Review the user's recent activity logs to identify any unusual or unauthorized actions associated with the uncommon privilege type.
+- Cross-reference the identified privilege type with the user's role and responsibilities to determine if the usage is justified or anomalous.
+- Check for any recent changes in the user's account settings or privilege assignments that could explain the deviation from the baseline.
+- Investigate any recent system or application changes that might have introduced new privilege types or altered existing ones.
+- Consult with the user's manager or relevant department to verify if there was a legitimate need for the unusual privilege type usage.
+- Analyze the timeline of events leading up to the alert to identify any potential indicators of compromise or privilege escalation attempts.
+
+### False positive analysis
+
+- Users with multiple roles may trigger false positives if they occasionally use privileges associated with less common roles. Regularly review and update role-based access controls to ensure they reflect current responsibilities.
+- Temporary project assignments can lead to unusual privilege usage. Implement a process to document and approve temporary privilege changes, and exclude these documented cases from triggering alerts.
+- System administrators or IT staff might use uncommon privileges during maintenance or troubleshooting. Establish a whitelist for known maintenance activities and exclude these from the detection rule.
+- Automated scripts or applications that require elevated privileges might be flagged. Ensure these scripts are registered and their privilege usage is documented, then exclude them from the rule.
+- New employees or contractors may initially use privileges that seem unusual. Monitor their activity closely during the onboarding period and adjust baselines as their normal usage patterns become clear.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized access or privilege escalation. This can be done by disabling the account or changing its credentials.
+- Review and revoke any unusual or unnecessary privileges assigned to the user account to ensure it aligns with their normal operational requirements.
+- Conduct a thorough audit of recent activities performed by the user account to identify any unauthorized actions or data access that may have occurred.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and to ensure coordinated response efforts.
+- Implement additional monitoring on the affected user account and similar accounts to detect any further suspicious activities or privilege misuse.
+- Update and reinforce access control policies to prevent similar privilege escalation attempts, ensuring that privilege assignments are regularly reviewed and validated.
+- Document the incident details, response actions taken, and lessons learned to improve future incident response and privilege management processes."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "27569131-560e-441e-b556-0b9180af3332"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

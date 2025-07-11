@@ -2,6 +2,7 @@
 ### detection-rules
 #################
 
+APP_NAME := detection-rules
 VENV := ./env/detection-rules-build
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
@@ -26,7 +27,7 @@ deps: $(VENV)
 	$(PIP) install lib/kql
 
 .PHONY: hunting-deps
-deps: $(VENV)
+hunting-deps: $(VENV)
 	@echo "Installing all dependencies..."
 	$(PIP) install .[hunting]
 
@@ -42,7 +43,9 @@ license-check: $(VENV) deps
 .PHONY: lint
 lint: $(VENV) deps
 	@echo "LINTING"
-	$(PYTHON) -m flake8 tests detection_rules --ignore D203,N815 --max-line-length 120
+	$(PYTHON) -m ruff check --exit-non-zero-on-fix
+	$(PYTHON) -m ruff format --check
+	$(PYTHON) -m pyright
 
 .PHONY: test
 test: $(VENV) lint pytest
@@ -58,13 +61,13 @@ test-remote-cli: $(VENV) deps
 	@./detection_rules/etc/test_remote_cli.bash
 
 .PHONY: test-hunting-cli
-test-remote-cli: $(VENV) hunting-deps
+test-hunting-cli: $(VENV) hunting-deps
 	@echo "Executing test_hunting_cli script..."
 	@./detection_rules/etc/test_hunting_cli.bash
 
 .PHONY: release
 release: deps
-	@echo "RELEASE: $(app_name)"
+	@echo "RELEASE: $(APP_NAME)"
 	$(PYTHON) -m detection_rules dev build-release --generate-navigator
 	rm -rf dist
 	mkdir dist

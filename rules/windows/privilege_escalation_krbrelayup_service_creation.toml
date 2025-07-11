@@ -2,9 +2,7 @@
 creation_date = "2022/04/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/02/21"
-min_stack_version = "8.14.0"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+updated_date = "2025/06/19"
 
 [rule]
 author = ["Elastic"]
@@ -18,43 +16,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Creation via Local Kerberos Authentication"
-references = [
-    "https://github.com/Dec0ne/KrbRelayUp",
-    "https://googleprojectzero.blogspot.com/2021/10/using-kerberos-for-authentication-relay.html",
-    "https://github.com/cube0x0/KrbRelay",
-    "https://gist.github.com/tyranid/c24cfd1bd141d14d4925043ee7e03c82",
-]
-risk_score = 73
-rule_id = "e4e31051-ee01-4307-a6ee-b21b186958f4"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Credential Access",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Active Directory",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-
-query = '''
-sequence by winlog.computer_name with maxspan=5m
- [authentication where
-
-  /* event 4624 need to be logged */
-  event.action == "logged-in" and event.outcome == "success" and
-
-  /* authenticate locally using relayed kerberos Ticket */
-  winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and
-  cidrmatch(source.ip, "127.0.0.0/8", "::1") and source.port > 0] by winlog.event_data.TargetLogonId
-
-  [any where
-   /* event 4697 need to be logged */
-   event.action : "service-installed"] by winlog.event_data.SubjectLogonId
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -88,6 +49,42 @@ Kerberos is a network authentication protocol designed to provide strong authent
 - Apply patches and updates to the affected system and any other systems in the network to address known vulnerabilities that could be exploited in similar attacks.
 - Implement network segmentation to limit the ability of attackers to move laterally within the network, reducing the risk of privilege escalation.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
+references = [
+    "https://github.com/Dec0ne/KrbRelayUp",
+    "https://googleprojectzero.blogspot.com/2021/10/using-kerberos-for-authentication-relay.html",
+    "https://github.com/cube0x0/KrbRelay",
+    "https://gist.github.com/tyranid/c24cfd1bd141d14d4925043ee7e03c82",
+]
+risk_score = 73
+rule_id = "e4e31051-ee01-4307-a6ee-b21b186958f4"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Credential Access",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by winlog.computer_name with maxspan=5m
+ [authentication where
+
+  /* event 4624 need to be logged */
+  event.action == "logged-in" and event.outcome == "success" and winlog.event_data.ElevatedToken == "%%1843" and process.pid == 0 and 
+
+  /* authenticate locally using relayed kerberos Ticket */
+  winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and cidrmatch(source.ip, "127.0.0.0/8", "::1")] by winlog.event_data.TargetLogonId
+
+  [any where
+   /* event 4697 need to be logged */
+   event.action : "service-installed"] by winlog.event_data.SubjectLogonId
+'''
 
 
 [[rule.threat]]

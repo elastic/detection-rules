@@ -59,9 +59,7 @@ class TestEQLInSet(BaseRuleTest):
         with self.assertRaisesRegex(ValueError, expected_error_message):
             rc.load_dict(eql_rule)
         # Change to appropriate destination.address field
-        eql_rule["rule"][
-            "query"
-        ] = """
+        eql_rule["rule"]["query"] = """
         sequence by host.id, process.entity_id with maxspan = 10s
         [network where destination.address in ("192.168.1.1", "::1")]
         """
