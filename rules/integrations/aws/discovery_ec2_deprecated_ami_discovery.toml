@@ -2,7 +2,7 @@
 creation_date = "2024/12/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/06/10"
+updated_date = "2025/07/09"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,7 @@ This rule detects when a user queries AWS for deprecated Amazon Machine Images (
    - Analyze the `user_agent.original` field to determine the client or tool used (e.g., AWS CLI, SDK).
 
 3. **Validate the Query Context**:
-   - Inspect the `aws.cloudtrail.flattened.request_parameters` field 
+   - Inspect the `aws.cloudtrail.request_parameters` field 
    - Determine if the request is part of legitimate activity, such as:
      - Security assessments or vulnerability scans.
      - Maintenance or testing of legacy systems.
@@ -109,7 +109,6 @@ event.dataset: "aws.cloudtrail"
     and event.action: "DescribeImages"
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.includeDeprecated: "true"
-    and aws.cloudtrail.flattened.request_parameters.ownersSet.items.owner: *
 '''
 [rule.investigation_fields]
 field_names = [

@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/06/25"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic"]
@@ -29,8 +29,8 @@ This rule detects the execution of commands or scripts on EC2 instances using AW
 #### Possible Investigation Steps
 
 - **Identify the Target Instance**:
-  - **Instance ID**: Review the `aws.cloudtrail.flattened.request_parameters.instanceIds` field to identify which EC2 instances were targeted by this command. Confirm if these instances are expected to be managed through SSM.
-  - **Document Used**: Check the `aws.cloudtrail.flattened.request_parameters.documentName` field, which specifies the document or script being executed. Commands such as `RunShellScript` or `RunPowerShellScript` can indicate interactive sessions or script-based interactions.
+  - **Instance ID**: Review the `aws.cloudtrail.request_parameters` field to identify which EC2 instances were targeted by this command. Confirm if these instances are expected to be managed through SSM.
+  - **Document Used**: Check the `aws.cloudtrail.request_parameters` field, which specifies the name of the document or script being executed. Commands such as `RunShellScript` or `RunPowerShellScript` can indicate interactive sessions or script-based interactions.
 
 - **Review User Context**:
   - **User Identity**: Inspect the `aws.cloudtrail.user_identity.arn` field to determine the user or role executing the `SendCommand`. If this user is not typically involved in EC2 or SSM interactions, this could indicate unauthorized access.
