@@ -9,6 +9,7 @@ from lark import Token  # noqa: F401
 from lark import Tree
 
 from typing import List
+from kql.errors import KqlParseError
 
 
 def check_whitespace(token_positions: List, token: str, lines: List[str]) -> None:
@@ -25,7 +26,14 @@ def check_whitespace(token_positions: List, token: str, lines: List[str]) -> Non
         ):
             continue
         else:
-            raise ValueError(f"Missing whitespace around '{token}' token", line)
+            raise KqlParseError(
+                error_msg=f"Missing whitespace around '{token}' token",
+                line=line_num,
+                column=column,
+                source=line,
+                width=len(token),
+                trailer=None
+            )
 
 
 def collect_token_positions(tree: Tree, token: str) -> List:
