@@ -940,8 +940,7 @@ class ESQLRuleData(QueryRuleData):
         # The second part matches the stats command with the by clause
         combined_pattern = re.compile(
             r"(from\s+(?:\S+\s*,\s*)*\S+\s+metadata\s+"
-            r"(_id,\s*_version,\s*_index|_id,\s*_index,\s*_version|_version,\s*_id,\s*_index|"
-            r"_version,\s*_index,\s*_id|_index,\s*_id,\s*_version|_index,\s*_version,\s*_id))"
+            r"(?:_id|_version|_index)(?:,\s*(?:_id|_version|_index)){2})"
             r"|(\bstats\b.*?\bby\b)",
             re.DOTALL,
         )
