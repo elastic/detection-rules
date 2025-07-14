@@ -13,7 +13,8 @@ This repository hosts the Elastic Security detection rules and the supporting co
 
 ## CLI Quickstart
 When implementing or fixing CLI features, follow these steps and always test your new CLI features by using the workflow described below!
-- Always start with an active environment `source env/detection-rules-build/bin/activate`. The dependencies are already installed via `make deps`.
+- Install the dependencies with `make deps > /tmp/deps.log 2>&1` and check the log file `/tmp/deps.log` for any errors. If you encounter issues, please document them in the `Issues` section below.
+- Always start with an active environment `source env/detection-rules-build/bin/activate`.
 - The CLI entry point is `python -m detection_rules` which runs `detection_rules.__main__:main`.
 - Commands are implemented with the [click](https://click.palletsprojects.com/) framework in `detection_rules/main.py` and related modules.
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
