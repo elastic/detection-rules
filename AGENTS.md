@@ -26,6 +26,9 @@ python -m detection_rules kibana search-alerts
 ```
 -  Once you implemented or fixed CLI features test those. An example is given here on how to test a simple import and export. To avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
 ```sh
+# IMPORTANT: If you changed lib/* files, you need to install the new version of the package
+pip install --upgrade --force-reinstall --no-deps lib/kibana # or whatever package you changed
+
 # create a new space with some unique name, where you adjust the number to some random 4 digit number
 export SPACE=test-6371
 
