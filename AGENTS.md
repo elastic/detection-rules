@@ -80,4 +80,7 @@ One always active task which should not be neglected is to keep the `AGENTS.md` 
 The second always active task is to create or update a markdown file in the `docs-logs/` folder for every feature or bug fix you implement. A focus is here to include always two things. 1. A description of the feature or bug fix, what it does, how it works and why it is needed. 2. A detailed description of the implementation, how you implemented it, what you learned, what you had to look up and where you found the information and which relevant files in this repo you changed or are needed to understand the implementation. This way you can look up the implementation later on and do not have to figure out everything again. Also it helps others to understand the implementation and how it works, so they can build on top of it or fix issues in the future.
 
 ## Issues
-List issues here. Might be empty if none are known.
+List issues here.
+- Currently no known issues.
+
+---
