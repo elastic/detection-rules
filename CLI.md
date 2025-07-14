@@ -25,9 +25,11 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_user (kibana and es)
-* *_password (kibana and es)
+* es_user 
+* es_password
 * api_key
+
+Authenticating to Kibana is only available using api_key.
 
 #### Using environment variables
 

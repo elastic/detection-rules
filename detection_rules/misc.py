@@ -127,7 +127,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
     if name == "rule_id":
         default = str(uuid.uuid4())
 
-    if len(enum) == 1 and is_required and field_type != "array":
+    if len(enum) == 1 and is_required and field_type not in ("array", ["array"]):
         return enum[0]
 
     def _check_type(_val: Any) -> bool:  # noqa: PLR0911
@@ -163,7 +163,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             name=name,
             default=f' [{default}] ("n/a" to leave blank) ' if default else "",
             required=" (required) " if is_required else "",
-            multi=" (multi, comma separated) " if field_type == "array" else "",
+            multi=(" (multi, comma separated) " if field_type in ("array", ["array"]) else ""),
         ).strip()
         + ": "
     )
@@ -179,7 +179,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
                 continue
             return None
 
-        if field_type == "array":
+        if field_type in ("array", ["array"]):
             result_list = result.split(",")
 
             if not (min_item < len(result_list) < max_items):
