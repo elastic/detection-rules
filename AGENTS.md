@@ -13,8 +13,7 @@ This repository hosts the Elastic Security detection rules and the supporting co
 
 ## CLI Quickstart
 When implementing or fixing CLI features, follow these steps and always test your new CLI features by using the workflow described below!
-- Install the dependencies with `make deps > /tmp/deps.log 2>&1` and check the log file `/tmp/deps.log` for any errors. If you encounter issues, please document them in the `Issues` section below.
-- Always start with an active environment `source env/detection-rules-build/bin/activate`.
+- Always start with an active environment `source env/detection-rules-build/bin/activate`. The dependencies are already installed via `make deps`. If you encounter issues using the environment, directly document it here in the section "Issues" below.
 - The CLI entry point is `python -m detection_rules` which runs `detection_rules.__main__:main`.
 - Commands are implemented with the [click](https://click.palletsprojects.com/) framework in `detection_rules/main.py` and related modules.
 - Run `python -m detection_rules --help` to view the available commands. Each subcommand also accepts `--help`.
@@ -70,7 +69,7 @@ from the repository. For linting use ruff, e.g:
 Never commit any secrets or sensitive information like environment variables!
 
 ## Network Restrictions
-The container has limited outbound network access. It is not possible to install packages via pip and you cannot access the remote github repo on your own. All needed dependencies are already installed. If you miss something, adjust this readme and not it down in the issues block below.
+The container has limited outbound network access. You cannot access the remote github repo on your own. If you miss something, adjust this AGENTS file and write it down in the issues block below.
 
 ## Documentation
 
