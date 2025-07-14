@@ -77,6 +77,8 @@ Some notes:
 * To turn on automatic schema generation for non-ecs fields via custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. This will generate a schema file in the specified location that will be used to add entries for each field and index combination that is not already in a known schema. This will also automatically add it to your stack-schema-map.yaml file when using a custom rules directory and config.
 * For Kibana action items, currently these are included in the rule toml files themselves. At a later date, we may allow for bulk editing of rule action items through separate action toml files. The action_dir config key is left available for this later implementation. For now to bulk update, use the bulk actions add rule actions UI in Kibana.
 * To on bulk disable elastic validation for optional fields, use the following line `bypass_optional_elastic_validation: True`.
+* To omit version fields when exporting rules, set `strip_version: True` or use the `--strip-version` flag. This only strips the
+  `version` and `revision` fields from exported rule TOML files and does not impact the version lock strategy.
 
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
@@ -139,6 +141,13 @@ RULES_CONFIG.stack_schema_map
 
 ### Version Strategy Warning
 
+- `bypass_version_lock` determines whether rule versions are managed through the
+  version lock file. When set to `True`, versions from Kibana or rule TOML files
+  are respected and the lock file is ignored. When `False` (default) version and
+  revision fields from Kibana or the TOML are skipped, and the lock file
+  controls versioning.
+- Note that `strip_version` simply removes the `version` and `revision` fields from
+exported rules and does not change this version lock behaviour.
 - General (`bypass_version_lock = False`)
   - Default
   - Versions from Kibana or the TOML file are ignored
