@@ -113,7 +113,6 @@ def build_integrations_manifest(
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
-    saved_integration_schemas = {}
 
     # Check if the file already exists and handle accordingly
     if overwrite and SCHEMA_FILE_PATH.exists():
@@ -139,7 +138,7 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
         print(f"processing {package}")
         final_integration_schemas.setdefault(package, {})  # type: ignore[reportUnknownMemberType]
         for version, manifest in versions.items():
-            if package in saved_integration_schemas and version in saved_integration_schemas[package]:
+            if package in final_integration_schemas and version in final_integration_schemas[package]:
                 continue
 
             # Download the zip file
