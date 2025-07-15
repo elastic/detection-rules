@@ -113,7 +113,6 @@ def build_integrations_manifest(
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
-
     # Check if the file already exists and handle accordingly
     if overwrite and SCHEMA_FILE_PATH.exists():
         SCHEMA_FILE_PATH.unlink()
