@@ -2,7 +2,7 @@
 creation_date = "2023/11/18"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -80,16 +80,25 @@ type = "esql"
 query = '''
 FROM logs-okta*
 | WHERE
-    event.dataset == "okta.system"
-    AND (event.action RLIKE "user\\.authentication(.*)" OR event.action == "user.session.start")
-    AND okta.security_context.is_proxy != true and okta.actor.id != "unknown"
-    AND event.outcome == "success"
-| KEEP event.action, okta.security_context.is_proxy, okta.actor.id, event.outcome, client.geo.country_name, okta.actor.alternate_id
+    event.dataset == "okta.system" AND
+    (event.action RLIKE "user\\.authentication(.*)" OR event.action == "user.session.start") AND
+    okta.security_context.is_proxy != true AND
+    okta.actor.id != "unknown" AND
+    event.outcome == "success"
+| KEEP
+    event.action,
+    okta.security_context.is_proxy,
+    okta.actor.id,
+    okta.actor.alternate_id,
+    event.outcome,
+    client.geo.country_name
 | STATS
-    geo_auth_counts = COUNT_DISTINCT(client.geo.country_name)
+    esql.client.geo.country_name.count_distinct = COUNT_DISTINCT(client.geo.country_name)
     BY okta.actor.id, okta.actor.alternate_id
 | WHERE
-    geo_auth_counts >= 2
+    esql.client.geo.country_name.count_distinct >= 2
+| SORT
+    esql.client.geo.country_name.count_distinct DESC
 '''
 
 
