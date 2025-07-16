@@ -64,14 +64,14 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | EVAL esql.powershell.file.script_block_text.replace = REPLACE(powershell.file.script_block_text, """[^0-9A-Za-z\s#=-]""", "🔥")
 
 // Count the occurrence of special chars and their proportion to the total chars in the script
-| EVAL esql.character.special.length = esql.powershell.file.script_block_text.length - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
-| EVAL esql.character.special.ratio = esql.character.special.length::double / esql.powershell.file.script_block_text.length::double
+| EVAL esql.powershell.file.script_block_text.character.count = esql.powershell.file.script_block_text.length - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL esql.powershell.file.script_block_text.character.ratio = esql.powershell.file.script_block_text.character.count::double / esql.powershell.file.script_block_text.length::double
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    esql.character.special.length,
+    esql.powershell.file.script_block_text.character.count,
     esql.powershell.file.script_block_text.length,
-    esql.character.special.ratio,
+    esql.powershell.file.script_block_text.character.ratio,
     esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
@@ -85,7 +85,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for scripts with a 25%+ proportion of special chars
-| WHERE esql.character.special.ratio > 0.25
+| WHERE esql.powershell.file.script_block_text.character.ratio > 0.25
 '''
 
 
