@@ -2,7 +2,7 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -81,26 +81,29 @@ type = "esql"
 
 query = '''
 FROM logs-o365.audit-*
-| WHERE @timestamp > now() - 14 day
 | WHERE
-    event.dataset == "o365.audit" and
-
-    // filter on files downloaded from OneDrive
-    event.provider == "OneDrive" and
-    event.action == "FileDownloaded" and
-
-    // filter on OAuth authentication which encompasses device code workflow
-    o365.audit.AuthenticationType == "OAuth"
-    and event.outcome == "success"
-// bucket authentication attempts by 1 minute
-| EVAL target_time_window = DATE_TRUNC(1 minutes, @timestamp)
-| KEEP target_time_window, o365.audit.UserId, file.name, source.ip
-
-// aggregate on unique file names and download attempts
-| STATS unique_file_count = count_distinct(file.name), download_attempt_count = count(*) BY target_time_window, o365.audit.UserId, source.ip
-
-// adjustable range for "excessive" unique files that were downloaded
-| WHERE unique_file_count >= 25
+    @timestamp > NOW() - 14d AND
+    event.dataset == "o365.audit" AND
+    event.provider == "OneDrive" AND
+    event.action == "FileDownloaded" AND
+    o365.audit.AuthenticationType == "OAuth" AND
+    event.outcome == "success"
+| EVAL
+    esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+| KEEP
+    esql.time_window.date_trunc,
+    o365.audit.UserId,
+    file.name,
+    source.ip
+| STATS
+    esql.file.name.count_distinct = COUNT_DISTINCT(file.name),
+    esql.event.count = COUNT(*)
+  BY
+    esql.time_window.date_trunc,
+    o365.audit.UserId,
+    source.ip
+| WHERE
+    esql.file.name.count_distinct >= 25
 '''
 
 
