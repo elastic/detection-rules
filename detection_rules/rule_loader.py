@@ -139,14 +139,20 @@ def load_locks_from_tag(
     return commit_hash, version, deprecated
 
 
-def update_metadata_from_file(rule_path: Path, fields_to_update: dict[str, Any]) -> dict[str, Any]:
-    """Update metadata fields for a rule with local contents."""
+def update_metadata_from_file(
+    fields_to_update: dict[str, Any], rule_path: Path | None = None, local_contents: TOMLRuleContents | None = None
+) -> dict[str, Any]:
+    """Update metadata fields for a rule with local contents or provided contents."""
 
     contents: dict[str, Any] = {}
-    if not rule_path.exists():
-        return contents
+    if not rule_path and not local_contents:
+        raise ValueError("Either 'rule_path' or 'local_contents' must be provided.")
 
-    rule_contents = RuleCollection().load_file(rule_path).contents
+    rule_contents = None
+    if rule_path:
+        if not rule_path.exists():
+            return contents
+        rule_contents = local_contents or RuleCollection().load_file(rule_path).contents
 
     if not isinstance(rule_contents, TOMLRuleContents):
         raise TypeError("TOML rule expected")

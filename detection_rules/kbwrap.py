@@ -250,6 +250,12 @@ def kibana_import_rules(  # noqa: PLR0915
         '"alert.attributes.tags: \\"test\\"" to filter for rules that have the tag "test"'
     ),
 )
+@click.option(
+    "--load-rule-loading",
+    "-lr",
+    is_flag=True,
+    help="Enable arbitrary rule loading from the rules directory (Can be very slow!)",
+)
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
@@ -268,6 +274,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     local_updated_date: bool = False,
     custom_rules_only: bool = False,
     export_query: str | None = None,
+    load_rule_loading: bool = False,
 ) -> list[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
@@ -276,6 +283,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     # Only allow one of rule_id or rule_name
     if rule_name and rule_id:
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
+
+    rules = None
+    if load_rule_loading:
+        rules = RuleCollection.default()
 
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
@@ -358,10 +369,16 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             tactic_name = first_tactic if not no_tactic_filename else None  # type: ignore[reportUnknownMemberType]
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=tactic_name)  # type: ignore[reportUnknownMemberType]
 
+            local_contents = None
             save_path = directory / f"{rule_name}"
+            if rules and params.get("rule_id") in rules.id_map:
+                save_path = rules.id_map[params["rule_id"]].path
+                local_contents = rules.id_map[params["rule_id"]].contents
             params.update(
                 update_metadata_from_file(
-                    save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
+                    {"creation_date": local_creation_date, "updated_date": local_updated_date},
+                    save_path,
+                    local_contents,
                 )
             )
             contents = TOMLRuleContents.from_rule_resource(**params)  # type: ignore[reportArgumentType]
