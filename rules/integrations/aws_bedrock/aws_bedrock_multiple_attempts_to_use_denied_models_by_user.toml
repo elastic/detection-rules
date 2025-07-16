@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/05/02"
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -76,12 +76,31 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws_bedrock.invocation-*
+FROM logs-aws_bedrock.invocation-*
+
+// Filter for access denied errors from GenAI responses
 | where gen_ai.response.error_code == "AccessDeniedException"
-| keep user.id, gen_ai.request.model.id, cloud.account.id, gen_ai.response.error_code
-| stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
-| where total_denials > 3
-| sort total_denials desc
+
+// Keep ECS and response fields
+| keep
+  user.id,
+  gen_ai.request.model.id,
+  cloud.account.id,
+  gen_ai.response.error_code
+
+// Count total denials per user/model/account
+| stats
+    esql.ml.response.access_denied.count = COUNT(*)
+  by
+    user.id,
+    gen_ai.request.model.id,
+    cloud.account.id
+
+// Filter for users with repeated denials
+| where esql.ml.response.access_denied.count > 3
+
+// Sort by volume of denials
+| sort esql.ml.response.access_denied.count desc
 '''
 
 
