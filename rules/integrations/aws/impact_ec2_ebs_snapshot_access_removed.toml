@@ -2,7 +2,7 @@
 creation_date = "2024/06/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/02"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -34,7 +34,7 @@ Restricting snapshot access may help adversaries cover their tracks by making it
 - **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
 - **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
 - **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities. In particular, use the `snapshotId` to see if this snapshot was shared with an unauthorized account.
-- **Review UserID**: Check the `userId` field to identify which user's permissions were removed. Verify if this account should be authorized to access the data or if the access removal is expected. 
+- **Review UserID**: Check the `userId` field to identify which user's permissions were removed. Verify if this account should be authorized to access the data or if the access removal is expected.
 
 ### False Positive Analysis:
 
@@ -75,11 +75,32 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
-| where operationType == "remove"
-| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId, source.address
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+
+// Filter for successful snapshot modifications
+| where
+  event.provider == "ec2.amazonaws.com"
+  and event.action == "ModifySnapshotAttribute"
+  and event.outcome == "success"
+
+// Dissect parameters to extract key fields
+| dissect aws.cloudtrail.request_parameters
+    "{%{?snapshotId}=%{esql.snapshot.id},%{?attributeType}=%{esql.attribute_type},%{?createVolumePermission}={%{esql.operation_type}={%{?items}=[{%{?userId}=%{esql.user.id}}]}}}"
+
+// Match on snapshot permission **removal**
+| where esql.operation_type == "remove"
+
+// Keep ECS and derived fields
+| keep
+  @timestamp,
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  event.action,
+  esql.snapshot.id,
+  esql.attribute_type,
+  esql.operation_type,
+  esql.user.id,
+  source.address
 '''
 
 
