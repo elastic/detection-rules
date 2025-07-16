@@ -210,6 +210,7 @@ class RulesConfig:
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
     strip_version: bool = False
+    strip_dates: bool = False
 
     def __post_init__(self) -> None:
         """Perform post validation on packages.yaml file."""
@@ -331,6 +332,9 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
     # strip_version
     contents["strip_version"] = loaded.get("strip_version", False)
+
+    # strip_dates
+    contents["strip_dates"] = loaded.get("strip_dates", False)
 
     # return the config
     try:

@@ -87,7 +87,7 @@ def root(ctx: click.Context, debug: bool) -> None:
 def create_rule(path: Path, config: Path, required_only: bool, rule_type: str):  # noqa: ANN201
     """Create a detection rule."""
     contents: dict[str, Any] = load_rule_contents(config, single_only=True)[0] if config else {}
-    return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
+    return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, strip_dates=False, **contents)
 
 
 @root.command("generate-rules-index")
@@ -155,6 +155,7 @@ def generate_rules_index(
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
+@click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from imported rules")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
@@ -169,6 +170,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     skip_errors: bool,
     default_author: str,
     strip_none_values: bool,
+    strip_dates: bool,
     local_creation_date: bool,
     local_updated_date: bool,
 ) -> None:
@@ -230,6 +232,10 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             )
         )
 
+        if strip_dates:
+            contents.pop("creation_date", None)
+            contents.pop("updated_date", None)
+
         output = rule_prompt(
             rule_path,
             required_only=required_only,
@@ -238,6 +244,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             additional_required=additional,
             skip_errors=skip_errors,
             strip_none_values=strip_none_values,
+            strip_dates=strip_dates,
             **contents,
         )
         # If output is not a TOMLRule

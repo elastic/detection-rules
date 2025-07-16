@@ -104,6 +104,7 @@ Options:
   -ske, --skip-errors             Skip rule import errors
   -da, --default-author TEXT      Default author for rules missing one
   -snv, --strip-none-values       Strip None values from the rule
+  -sd, --strip-dates              Strip creation and updated date fields from imported rules
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -h, --help                      Show this message and exit.
@@ -512,6 +513,7 @@ Options:
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
+  -sd, --strip-dates              Strip creation and updated date fields from exported rules
   -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule

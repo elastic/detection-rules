@@ -635,9 +635,11 @@ class TestRuleMetadata(BaseRuleTest):
         invalid = []
 
         for rule in self.all_rules:
-            created = rule.contents.metadata.creation_date.split("/")
-            updated = rule.contents.metadata.updated_date.split("/")
-            if updated < created:
+            created = rule.contents.metadata.creation_date
+            updated = rule.contents.metadata.updated_date
+            if not created or not updated:
+                continue
+            if updated.split("/") < created.split("/"):
                 invalid.append(rule)
 
         if invalid:
