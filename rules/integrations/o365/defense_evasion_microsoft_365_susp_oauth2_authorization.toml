@@ -104,6 +104,14 @@ FROM logs-o365.audit-*
     esql.time_window.date_trunc,
     o365.audit.ApplicationId,
     o365.audit.ObjectId
+| KEEP
+    esql.time_window.date_trunc,
+    esql.source.ip.values,
+    esql.source.ip.count_distinct,
+    esql.o365.audit.ApplicationId.values,
+    esql.source.`as`.organization.name.values,
+    esql.oauth.token.count_distinct,
+    esql.oauth.authorize.count_distinct
 | WHERE
     esql.source.ip.count_distinct >= 2 AND
     esql.oauth.token.count_distinct > 0 AND
