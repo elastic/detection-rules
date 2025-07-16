@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2025/02/25"
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -71,11 +71,23 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-azure_openai.logs-*
-| where azure.open_ai.properties.response_length == 0 and azure.open_ai.result_signature == "200" and azure.open_ai.operation_name == "ChatCompletions_Create"
-| keep azure.open_ai.properties.request_length, azure.open_ai.result_signature, cloud.account.id, azure.resource.name
-| stats count = count() by azure.resource.name
-| where count >= 10
-| sort count desc
+FROM logs-azure_openai.logs-*
+| WHERE
+    azure.open_ai.properties.response_length == 0 AND
+    azure.open_ai.result_signature == "200" AND
+    azure.open_ai.operation_name == "ChatCompletions_Create"
+| KEEP
+    azure.open_ai.properties.request_length,
+    azure.open_ai.result_signature,
+    cloud.account.id,
+    azure.resource.name
+| STATS
+    esql.event.count = COUNT(*)
+  BY
+    azure.resource.name
+| WHERE
+    esql.event.count >= 10
+| SORT
+    esql.event.count DESC
 '''
 
