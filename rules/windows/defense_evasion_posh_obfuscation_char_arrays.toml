@@ -101,12 +101,12 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 )
 
 // Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL esql.powershell.file.script_block_text.replace.length = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL esql.powershell.file.script_block_text.character.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    esql.character.count,
-    esql.powershell.file.script_block_text.replace.length,
+    esql.powershell.file.script_block_text.character.count,
+    esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -119,7 +119,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Final filter on match count
-| WHERE esql.character.count >= 1
+| WHERE esql.powershell.file.script_block_text.character.count >= 1
 '''
 
 
