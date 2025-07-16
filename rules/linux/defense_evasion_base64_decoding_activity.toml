@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -94,23 +94,65 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-endpoint.events.process-*
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.args, process.command_line, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.command_line like "*-*d*") or
-  (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
-  (process.name like "python*" and
-    (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
-    (process.args == "-c" and process.command_line like "*base64*" and process.command_line like "*b64decode*")
-  ) or
-  (process.name like "perl*" and process.command_line like "*decode_base64*") or
-  (process.name like "ruby*" and process.args == "-e" and process.command_line like "*Base64.decode64*")
-)
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.name, process.command_line
-| where agent_count == 1 and cc < 15
-| sort cc asc
-| limit 100
+FROM logs-endpoint.events.process-*
+| WHERE
+    @timestamp > NOW() - 1h AND
+    host.os.type == "linux" AND
+    event.type == "start" AND
+    event.action == "exec" AND (
+        (
+            process.name IN ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") AND
+            process.command_line LIKE "*-*d*"
+        ) OR
+        (
+            process.name == "openssl" AND
+            process.args == "enc" AND
+            process.args IN ("-d", "-base64", "-a")
+        ) OR
+        (
+            process.name RLIKE "^python.*" AND (
+                (
+                    process.args == "base64" AND
+                    process.args IN ("-d", "-u", "-t")
+                ) OR
+                (
+                    process.args == "-c" AND
+                    process.command_line LIKE "*base64*" AND
+                    process.command_line LIKE "*b64decode*"
+                )
+            )
+        ) OR
+        (
+            process.name RLIKE "^perl.*" AND
+            process.command_line LIKE "*decode_base64*"
+        ) OR
+        (
+            process.name RLIKE "^ruby.*" AND
+            process.args == "-e" AND
+            process.command_line LIKE "*Base64.decode64*"
+        )
+    )
+| KEEP
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.args,
+    process.command_line,
+    agent.id,
+    host.name
+| STATS
+    esql.event.count = COUNT(),
+    esql.agent.id.count_distinct = COUNT_DISTINCT(agent.id),
+    esql.host.name.values = VALUES(host.name),
+    esql.agent.id.values = VALUES(agent.id)
+    BY process.name, process.command_line
+| WHERE
+    esql.agent.id.count_distinct == 1 AND
+    esql.event.count < 15
+| SORT esql.event.count ASC
+| LIMIT 100
 '''
 
 
