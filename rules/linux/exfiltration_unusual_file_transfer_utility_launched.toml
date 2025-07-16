@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -93,15 +93,25 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-endpoint.events.process-*
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, process.command_line, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-  process.name in ("scp", "ftp", "sftp", "vsftpd", "sftp-server", "rsync")
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable, process.parent.executable, process.command_line
-| where agent_count == 1 and cc < 5
-| sort cc asc
-| limit 100
+FROM logs-endpoint.events.process-*
+| KEEP @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, process.command_line, agent.id, host.name
+| WHERE
+    @timestamp > NOW() - 1 HOURS AND
+    host.os.type == "linux" AND
+    event.type == "start" AND
+    event.action == "exec" AND
+    process.name IN ("scp", "ftp", "sftp", "vsftpd", "sftp-server", "rsync")
+| STATS
+    esql.event.count = COUNT(),
+    esql.agent.id.count_distinct = COUNT_DISTINCT(agent.id),
+    host.name.values = VALUES(host.name),
+    agent.id.values = VALUES(agent.id)
+  BY process.executable, process.parent.executable, process.command_line
+| WHERE
+    esql.agent.id.count_distinct == 1 AND
+    esql.event.count < 5
+| SORT esql.event.count ASC
+| LIMIT 100
 '''
 
 
