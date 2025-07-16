@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -78,21 +78,47 @@ type = "esql"
 
 query = '''
 FROM logs-*, .alerts-security.*
-// query runs every 1 hour looking for activities occured during last 8 hours to match on disparate events
+// query runs every 1 hour looking for activities occurred during last 8 hours to match on disparate events
 | where @timestamp > NOW() - 8 hours
 // filter for Azure or M365 sign-in and External Alerts with source.ip not null
-| where TO_IP(source.ip) is not null and (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts") and
-// exclude private IP ranges
-  not CIDR_MATCH(TO_IP(source.ip), "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+| where TO_IP(source.ip) is not null
+  and (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts")
+  and not CIDR_MATCH(
+    TO_IP(source.ip),
+    "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+    "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+    "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4",
+    "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24",
+    "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+  )
+
+// capture relevant raw fields
 | keep source.ip, event.action, event.outcome, event.dataset, kibana.alert.rule.name, event.category
-// split alerts to 3 buckets -  M365 mail access, azure sign-in and network related external alerts like NGFW and IDS
-| eval mail_access_src_ip = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", TO_IP(source.ip), null),
-  azure_src_ip = case(event.dataset == "azure.signinlogs" and event.outcome == "success", TO_IP(source.ip), null),
-  network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
-// aggregated alerts count by bucket and by source.ip
-| stats total_alerts = count(*), is_mail_access = COUNT_DISTINCT(mail_access_src_ip), is_azure = COUNT_DISTINCT(azure_src_ip), unique_dataset = COUNT_DISTINCT(event.dataset),is_network_alert = COUNT_DISTINCT(network_alert_src_ip), datasets = VALUES(event.dataset), rules = VALUES(kibana.alert.rule.name), cat = VALUES(event.category) by source_ip = TO_IP(source.ip)
-// filter for cases where there is a successful sign-in to azure or m365 mail and the source.ip is reported by a network external alert.
-| where is_network_alert  > 0 and unique_dataset >= 2 and (is_mail_access > 0 or is_azure > 0) and total_alerts <= 100
+
+// classify each source IP based on alert type
+| eval
+  esql.source.ip.mail_access.case = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", TO_IP(source.ip), null),
+  esql.source.ip.azure_signin.case = case(event.dataset == "azure.signinlogs" and event.outcome == "success", TO_IP(source.ip), null),
+  esql.source.ip.network_alert.case = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
+
+// aggregate by source IP
+| stats
+    esql.source.ip.alerts.count = count(*),
+    esql.source.ip.mail_access.case.count_distinct = COUNT_DISTINCT(esql.source.ip.mail_access.case),
+    esql.source.ip.azure_signin.case.count_distinct = COUNT_DISTINCT(esql.source.ip.azure_signin.case),
+    esql.source.ip.network_alert.case.count_distinct = COUNT_DISTINCT(esql.source.ip.network_alert.case),
+    esql.event.dataset.count_distinct = COUNT_DISTINCT(event.dataset),
+    esql.event.dataset.values = VALUES(event.dataset),
+    esql.kibana.alert.rule.name.values = VALUES(kibana.alert.rule.name),
+    esql.event.category.values = VALUES(event.category)
+  by esql.source.ip = TO_IP(source.ip)
+
+// correlation condition
+| where
+  esql.source.ip.network_alert.case.count_distinct > 0
+  and esql.event.dataset.count_distinct >= 2
+  and (esql.source.ip.mail_access.case.count_distinct > 0 or esql.source.ip.azure_signin.case.count_distinct > 0)
+  and esql.source.ip.alerts.count <= 100
 '''
 
 
