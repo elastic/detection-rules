@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2025/02/25"
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -76,13 +76,24 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-azure_openai.logs-*
-// truncate the timestamp to a 1-minute window
-| eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
-| where azure.open_ai.operation_name == "ChatCompletions_Create"
-| keep azure.open_ai.properties.request_length, azure.resource.name, cloud.account.id,target_time_window
-| stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by target_time_window, azure.resource.name
-| where count >= 10 and avg_request_size >= 5000
-| sort count desc
+FROM logs-azure_openai.logs-*
+| EVAL
+    esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+| WHERE azure.open_ai.operation_name == "ChatCompletions_Create"
+| KEEP
+    azure.open_ai.properties.request_length,
+    azure.resource.name,
+    cloud.account.id,
+    esql.time_window.date_trunc
+| STATS
+    esql.event.count = COUNT(*),
+    esql.azure.open_ai.properties.request_length.avg = AVG(azure.open_ai.properties.request_length)
+  BY
+    esql.time_window.date_trunc,
+    azure.resource.name
+| WHERE
+    esql.event.count >= 10 AND
+    esql.azure.open_ai.properties.request_length.avg >= 5000
+| SORT esql.event.count DESC
 '''
 
