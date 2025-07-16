@@ -103,14 +103,14 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 )
 
 // Count 🔥 and calculate its proportion of the script
-| EVAL esql.character.special.length = esql.powershell.file.script_block_text.length - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
-| EVAL esql.character.special.ratio = esql.character.special.length::double / esql.powershell.file.script_block_text.length::double
+| EVAL esql.powershell.file.script_block_text.count = esql.powershell.file.script_block_text.length - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL esql.powershell.file.script_block_text.ratio = esql.powershell.file.script_block_text.count::double / esql.powershell.file.script_block_text.length::double
 
 // Retain fields for context or alert generation
 | KEEP
-    esql.character.special.length,
+    esql.powershell.file.script_block_text.count,
     esql.powershell.file.script_block_text.length,
-    esql.character.special.ratio,
+    esql.powershell.file.script_block_text.ratio,
     esql.powershell.file.script_block_text.replace,
     esql.powershell.file.script_block_text.replace.length,
     powershell.file.script_block_text,
@@ -125,7 +125,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for high-ratio suspicious formatting scripts
-| WHERE esql.character.special.ratio > 0.75
+| WHERE esql.powershell.file.script_block_text.ratio > 0.75
 '''
 
 
