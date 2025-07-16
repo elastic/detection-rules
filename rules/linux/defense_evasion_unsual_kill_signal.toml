@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2025/07/16"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2025/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of unusual kill signals, specifically kill signals in the range of 32-64, which
+are not commonly used in standard operations. Rootkits may leverage these signals to conduct certain actions,
+such as manipulating processes in unexpected ways, potentially escalating privileges or evading detection. 
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Kill Signal"
+references = [
+    "https://github.com/m0nad/Diamorphine/blob/master/diamorphine.c#L302",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
+risk_score = 47
+rule_id = "cf307a5a-d503-44a4-8158-db196d99c9df"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-a always,exit -F arch=b64 -S kill
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and auditd.data.syscall == "kill" and auditd.data.a1 in (
+  "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", "30",
+  "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", "40",
+  "41", "42", "43", "44", "45", "46", "47")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
