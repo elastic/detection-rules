@@ -106,10 +106,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Extract policy name and user name from request parameters
 | dissect aws.cloudtrail.request_parameters
-    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{esql.policy.name},%{?userName}=%{esql.target.user.name}}"
+    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{esql.aws.cloudtrail.request_parameters.policy.name},%{?userName}=%{esql.aws.cloudtrail.request_parameters.target.user.name}}"
 
 // Filter for AdministratorAccess policy
-| where esql.policy.name == "AdministratorAccess"
+| where esql.aws.cloudtrail.request_parameters.policy.name == "AdministratorAccess"
 
 // Keep ECS and parsed fields
 | keep
@@ -118,8 +118,8 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
     event.provider,
     event.action,
     event.outcome,
-    esql.policy.name,
-    esql.target.user.name,
+    esql.aws.cloudtrail.request_parameters.policy.name,
+    esql.aws.cloudtrail.request_parameters.target.user.name,
     aws.cloudtrail.request_parameters,
     aws.cloudtrail.user_identity.arn,
     related.user,

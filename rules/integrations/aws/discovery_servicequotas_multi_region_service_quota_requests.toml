@@ -47,18 +47,18 @@ FROM logs-aws.cloudtrail-*
 | eval esql.time_window.date_trunc = DATE_TRUNC(30 seconds, @timestamp)
 
 // dissect request parameters to extract service and quota code
-| dissect aws.cloudtrail.request_parameters "{%{?esql.service_code.key}=%{esql.service_code}, %{?quota_code_key}=%{esql.quota_code}}"
+| dissect aws.cloudtrail.request_parameters "{%{?esql.aws.cloudtrail.request_parameters.service_code.key}=%{esql.aws.cloudtrail.request_parameters.service_code}, %{?quota_code_key}=%{esql.aws.cloudtrail.request_parameters.quota_code}}"
 
 // filter for EC2 service quota L-1216C47A (vCPU on-demand instances)
-| where esql.service_code == "ec2" and esql.quota_code == "L-1216C47A"
+| where esql.aws.cloudtrail.request_parameters.service_code == "ec2" and esql.aws.cloudtrail.request_parameters.quota_code == "L-1216C47A"
 
 // keep only the relevant fields
 | keep
     esql.time_window.date_trunc,
     aws.cloudtrail.user_identity.arn,
     cloud.region,
-    esql.service_code,
-    esql.quota_code
+    esql.aws.cloudtrail.request_parameters.service_code,
+    esql.aws.cloudtrail.request_parameters.quota_code
 
 // count the number of unique regions and total API calls within the time window
 | stats

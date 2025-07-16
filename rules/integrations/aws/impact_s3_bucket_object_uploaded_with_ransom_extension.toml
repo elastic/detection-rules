@@ -91,18 +91,18 @@ FROM logs-aws.cloudtrail-*
   and event.outcome == "success"
 
 // extract object key from API request parameters
-| dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{esql.object.key}}"
+| dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{esql.aws.cloudtrail.request_parameters.object.key}}"
 
 // regex match against common ransomware naming patterns
 | where
-  esql.object.key rlike "(.*)(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)(.*)"
-  and not esql.object.key rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
+  esql.aws.cloudtrail.request_parameters.object.key rlike "(.*)(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)(.*)"
+  and not esql.aws.cloudtrail.request_parameters.object.key rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
 
 // keep relevant ECS and derived fields
 | keep
   tls.client.server_name,
   aws.cloudtrail.user_identity.arn,
-  esql.object.key
+  esql.aws.cloudtrail.request_parameters.object.key
 
 // aggregate by server name, actor, and object key
 | stats
@@ -110,7 +110,7 @@ FROM logs-aws.cloudtrail-*
   by
     tls.client.server_name,
     aws.cloudtrail.user_identity.arn,
-    esql.object.key
+    esql.aws.cloudtrail.request_parameters.object.key
 
 // filter for rare single uploads (likely test/detonation)
 | where esql.event.count == 1
