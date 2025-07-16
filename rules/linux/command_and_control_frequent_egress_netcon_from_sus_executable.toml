@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -93,32 +93,52 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-endpoint.events.network-*
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, destination.ip, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
-     (
-       process.executable like "/tmp/*" or
-       process.executable like "/var/tmp/*" or
-       process.executable like "/dev/shm/*"
-     ) or
-     (process.name like ".*")
-) and not (
-     CIDR_MATCH(
-       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
-       "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
-       "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1",
-       "FE80::/10", "FF00::/8"
-     ) or
-     process.executable like "/nix/store/*" or
-     process.executable like "/tmp/newroot/*" or
-     process.executable like "/tmp/.mount*" or
-     process.executable like "/tmp/go-build*"
-   )
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable
-| where agent_count == 1 and cc > 15
-| sort cc asc
-| limit 100
+FROM logs-endpoint.events.network-*
+| WHERE
+    @timestamp > NOW() - 1h AND
+    host.os.type == "linux" AND
+    event.type == "start" AND
+    event.action == "connection_attempted" AND
+    (
+        process.executable LIKE "/tmp/*" OR
+        process.executable LIKE "/var/tmp/*" OR
+        process.executable LIKE "/dev/shm/*" OR
+        process.name RLIKE ".*"
+    ) AND NOT (
+        CIDR_MATCH(destination.ip,
+            "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+            "192.0.0.0/24", "192.0.0.29/32", "192.0.0.8/32", "192.0.0.9/32",
+            "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+            "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+            "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15",
+            "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+        ) OR
+        process.executable LIKE "/nix/store/*" OR
+        process.executable LIKE "/tmp/newroot/*" OR
+        process.executable LIKE "/tmp/.mount*" OR
+        process.executable LIKE "/tmp/go-build*"
+    )
+| KEEP
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.executable,
+    destination.ip,
+    agent.id,
+    host.name
+| STATS
+    esql.event.count = COUNT(),
+    esql.agent.id.count_distinct = COUNT_DISTINCT(agent.id),
+    esql.host.name.values = VALUES(host.name),
+    esql.agent.id.values = VALUES(agent.id)
+    BY process.executable
+| WHERE
+    esql.agent.id.count_distinct == 1 AND
+    esql.event.count > 15
+| SORT esql.event.count ASC
+| LIMIT 100
 '''
 
 
