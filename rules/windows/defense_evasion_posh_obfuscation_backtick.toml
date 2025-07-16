@@ -100,11 +100,11 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | EVAL esql.script_block_text.replace = REPLACE(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
 
 // Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL esql.script_block_text.replace.length = LENGTH(esql.script_block_text.replace) - LENGTH(REPLACE(esql.script_block_text.replace, "🔥", ""))
+| EVAL esql.script_block_text.character.count = LENGTH(esql.script_block_text.replace) - LENGTH(REPLACE(esql.script_block_text.replace, "🔥", ""))
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    esql.script_block_text.replace.length,
+    esql.script_block_text.character.count,
     esql.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
@@ -118,7 +118,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     agent.id,
     user.id
 
-| WHERE esql.script_block_text.replace.length >= 10
+| WHERE esql.script_block_text.character.count >= 10
 
 // Filter FPs, and due to the behavior of the LIKE operator, allow null values
 | WHERE (file.name NOT LIKE "TSS_*.psm1" OR file.name IS NULL)
