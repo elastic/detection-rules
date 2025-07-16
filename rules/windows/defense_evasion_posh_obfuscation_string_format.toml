@@ -101,11 +101,11 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 )
 
 // Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL esql.powershell.script_block_text.format.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL esql.powershell.script_block_text.character.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    esql.powershell.script_block_text.format.count,
+    esql.powershell.script_block_text.character.count,
     esql.powershell.file.script_block_text.length,
     esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
@@ -121,7 +121,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for scripts with more than 3 suspicious format patterns
-| WHERE esql.powershell.script_block_text.format.count > 3
+| WHERE esql.powershell.script_block_text.character.count > 3
 
 // Exclude Noisy Patterns
 
