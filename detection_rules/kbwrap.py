@@ -254,7 +254,7 @@ def kibana_import_rules(  # noqa: PLR0915
     "--load-rule-loading",
     "-lr",
     is_flag=True,
-    help="Enable arbitrary rule loading from the rules directory (Can be very slow!)",
+    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
 )
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915

@@ -161,7 +161,7 @@ def generate_rules_index(
     "--load-rule-loading",
     "-lr",
     is_flag=True,
-    help="Enable arbitrary rule loading from the rules directory (Can be very slow!)",
+    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
 )
 def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     input_file: tuple[Path, ...] | None,
