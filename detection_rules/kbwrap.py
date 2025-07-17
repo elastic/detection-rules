@@ -371,9 +371,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
             local_contents = None
             save_path = directory / f"{rule_name}"
-            if rules and params.get("rule_id") in rules.id_map:
-                save_path = rules.id_map[params["rule_id"]].path
-                local_contents = rules.id_map[params["rule_id"]].contents
+
+            rule = params.get("rule")
+            if rules and rule and rule.get("rule_id") in rules.id_map:
+                save_path = rules.id_map[rule["rule_id"]].path
+                local_contents = rules.id_map[rule["rule_id"]].contents
             params.update(
                 update_metadata_from_file(
                     {"creation_date": local_creation_date, "updated_date": local_updated_date},
