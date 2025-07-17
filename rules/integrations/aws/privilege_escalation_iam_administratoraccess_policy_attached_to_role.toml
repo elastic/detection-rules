@@ -109,7 +109,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
     "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{esql.aws.cloudtrail.request_parameters.policy.name},%{?roleName}=%{esql.aws.cloudtrail.request_parameters.role.name}}"
 
 // Filter for AdministratorAccess policy attachment
-| where esql.policy.name == "AdministratorAccess"
+| where esql.aws.cloudtrail.request_parameters.policy.name == "AdministratorAccess"
 
 // Keep relevant ECS and dynamic fields
 | keep
