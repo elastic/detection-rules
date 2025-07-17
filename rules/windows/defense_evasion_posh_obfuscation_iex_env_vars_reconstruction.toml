@@ -87,24 +87,24 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | WHERE event.code == "4104"
 
 // Evaluate the length of the script block
-| EVAL esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
-| WHERE esql.powershell.file.script_block_text.length > 500
+| EVAL Esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
+| WHERE Esql.powershell.file.script_block_text.length > 500
 
 // Replace obfuscated dynamic string construction with 🔥 to count obfuscation attempts
-| EVAL esql.powershell.file.script_block_text.replace = REPLACE(
+| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(
     powershell.file.script_block_text,
     """(?i)(\$(?:\w+|\w+\:\w+)\[\d++\]\+\$(?:\w+|\w+\:\w+)\[\d++\]\+['"]x['"]|\$(?:\w+\:\w+)\[\d++,\d++,\d++\]|\.name\[\d++,\d++,\d++\])""",
     "🔥"
 )
 
 // Count how many 🔥 were inserted
-| EVAL esql.powershell.file.script_block_text.character.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell.file.script_block_text.character.count = LENGTH(Esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
 
 // Keep relevant context fields
 | KEEP
-    esql.powershell.file.script_block_text.character.count,
-    esql.powershell.file.script_block_text.length,
-    esql.powershell.file.script_block_text.replace,
+    Esql.powershell.file.script_block_text.character.count,
+    Esql.powershell.file.script_block_text.length,
+    Esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -117,7 +117,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for meaningful pattern matches
-| WHERE esql.powershell.file.script_block_text.character.count >= 1
+| WHERE Esql.powershell.file.script_block_text.character.count >= 1
 '''
 
 

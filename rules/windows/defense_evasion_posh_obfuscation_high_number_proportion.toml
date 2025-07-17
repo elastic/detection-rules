@@ -87,22 +87,22 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | WHERE event.code == "4104"
 
 // Measure script length
-| EVAL esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
-| WHERE esql.powershell.file.script_block_text.length > 1000
+| EVAL Esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
+| WHERE Esql.powershell.file.script_block_text.length > 1000
 
 // Replace digits with 🔥 for numeric pattern density analysis
-| EVAL esql.powershell.file.script_block_text.replace = REPLACE(powershell.file.script_block_text, """[0-9]""", "🔥")
+| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(powershell.file.script_block_text, """[0-9]""", "🔥")
 
 // Count numeric characters and calculate proportion of total
-| EVAL esql.powershell.file.script_block_text.character.count = esql.powershell.file.script_block_text.length - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
-| EVAL esql.powershell.file.script_block_text.character.ratio = esql.powershell.file.script_block_text.character.count::double / esql.powershell.file.script_block_text.length::double
+| EVAL Esql.powershell.file.script_block_text.character.count = Esql.powershell.file.script_block_text.length - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell.file.script_block_text.character.ratio = Esql.powershell.file.script_block_text.character.count::double / Esql.powershell.file.script_block_text.length::double
 
 // Retain relevant fields for investigation
 | KEEP
-    esql.powershell.file.script_block_text.character.count,
-    esql.powershell.file.script_block_text.character.ratio,
-    esql.powershell.file.script_block_text.length,
-    esql.powershell.file.script_block_text.replace,
+    Esql.powershell.file.script_block_text.character.count,
+    Esql.powershell.file.script_block_text.character.ratio,
+    Esql.powershell.file.script_block_text.length,
+    Esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -115,7 +115,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for suspiciously high numeric content
-| WHERE esql.powershell.file.script_block_text.character.ratio > 0.30
+| WHERE Esql.powershell.file.script_block_text.character.ratio > 0.30
 
 // Exclude noisy patterns such as 64-character hashes
 | WHERE NOT powershell.file.script_block_text RLIKE """.*\"[a-fA-F0-9]{64}\"\,.*"""

@@ -91,25 +91,25 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | WHERE event.code == "4104"
 
 // Look for scripts with more than 500 chars that contain a related keyword
-| EVAL esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
-| WHERE esql.powershell.file.script_block_text.length > 500
+| EVAL Esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
+| WHERE Esql.powershell.file.script_block_text.length > 500
 
 // Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL esql.powershell.file.script_block_text.replace = REPLACE(
+| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(
     powershell.file.script_block_text,
     """\$\w+\[\-\s?1\.\.""",
     "🔥"
 )
 
 // Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL esql.powershell.file.script_block_text.character.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell.file.script_block_text.character.count = LENGTH(Esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    esql.powershell.file.script_block_text.character.count,
-    esql.powershell.file.script_block_text.length,
-    esql.powershell.file.script_block_text.replace,
+    Esql.powershell.file.script_block_text.character.count,
+    Esql.powershell.file.script_block_text.length,
+    Esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -122,7 +122,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for patterns found at least once
-| WHERE esql.powershell.file.script_block_text.character.count >= 1
+| WHERE Esql.powershell.file.script_block_text.character.count >= 1
 
 // FP Patterns
 | WHERE NOT powershell.file.script_block_text LIKE "*GENESIS-5654*"

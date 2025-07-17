@@ -86,29 +86,29 @@ FROM logs-aws_bedrock.invocation-*
 | where gen_ai.policy.action == "BLOCKED"
 
 // Count number of policy matches per request (multi-valued)
-| eval esql.ml.policy.violations.mv_count = MV_COUNT(gen_ai.policy.name)
+| eval Esql.ml.policy.violations.mv_count = MV_COUNT(gen_ai.policy.name)
 
 // Filter for requests with more than one policy match
-| where esql.ml.policy.violations.mv_count > 1
+| where Esql.ml.policy.violations.mv_count > 1
 
 // Keep relevant fields
 | keep
   gen_ai.policy.action,
-  esql.ml.policy.violations.mv_count,
+  Esql.ml.policy.violations.mv_count,
   user.id,
   gen_ai.request.model.id,
   cloud.account.id
 
 // Aggregate requests with multiple violations
 | stats
-    esql.ml.policy.violations.total_unique_requests.count = COUNT(*)
+    Esql.ml.policy.violations.total_unique_requests.count = COUNT(*)
   by
-    esql.ml.policy.violations.mv_count,
+    Esql.ml.policy.violations.mv_count,
     user.id,
     gen_ai.request.model.id,
     cloud.account.id
 
 // Sort by number of unique requests
-| sort esql.ml.policy.violations.total_unique_requests.count desc
+| sort Esql.ml.policy.violations.total_unique_requests.count desc
 '''
 

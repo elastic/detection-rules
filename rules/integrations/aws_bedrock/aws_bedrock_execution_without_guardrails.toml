@@ -82,7 +82,7 @@ query = '''
 FROM logs-aws_bedrock.invocation-*
 
 // Create 1-minute time buckets
-| eval esql.time_window.date_trunc = DATE_TRUNC(1 minute, @timestamp)
+| eval Esql.time_window.date_trunc = DATE_TRUNC(1 minute, @timestamp)
 
 // Filter for invocations without guardrails
 | where gen_ai.guardrail_id IS NULL and user.id IS NOT NULL
@@ -90,19 +90,19 @@ FROM logs-aws_bedrock.invocation-*
 // Keep only relevant fields
 | keep
   @timestamp,
-  esql.time_window.date_trunc,
+  Esql.time_window.date_trunc,
   gen_ai.guardrail_id,
   user.id
 
 // Count number of unsafe invocations per user
 | stats
-    esql.ml.invocations.no_guardrails.count = COUNT()
+    Esql.ml.invocations.no_guardrails.count = COUNT()
   by user.id
 
 // Filter for suspicious volume
-| where esql.ml.invocations.no_guardrails.count > 5
+| where Esql.ml.invocations.no_guardrails.count > 5
 
 // Sort descending
-| sort esql.ml.invocations.no_guardrails.count desc
+| sort Esql.ml.invocations.no_guardrails.count desc
 '''
 

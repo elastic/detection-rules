@@ -79,43 +79,43 @@ FROM logs-o365.audit-*
     o365.audit.ApplicationId IN ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") AND
     o365.audit.ObjectId IN ("00000003-0000-0000-c000-000000000000")
 | EVAL
-    esql.o365.audit.ExtendedProperties.RequestType = o365.audit.ExtendedProperties.RequestType,
-    esql.o365.audit.ExtendedProperties.ResultStatusDetail = o365.audit.ExtendedProperties.ResultStatusDetail,
-    esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
-    esql.oauth.authorize.user_id.case = CASE(
-        esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" AND esql.o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
+    Esql.o365.audit.ExtendedProperties.RequestType = o365.audit.ExtendedProperties.RequestType,
+    Esql.o365.audit.ExtendedProperties.ResultStatusDetail = o365.audit.ExtendedProperties.ResultStatusDetail,
+    Esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
+    Esql.oauth.authorize.user_id.case = CASE(
+        Esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" AND Esql.o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
         o365.audit.UserId,
         null
     ),
-    esql.oauth.token.user_id.case = CASE(
-        esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
+    Esql.oauth.token.user_id.case = CASE(
+        Esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
         o365.audit.UserId,
         null
     )
 | STATS
-    esql.source.ip.count_distinct = COUNT_DISTINCT(source.ip),
-    esql.source.ip.values = VALUES(source.ip),
-    esql.o365.audit.ApplicationId.values = VALUES(o365.audit.ApplicationId),
-    esql.source.`as`.organization.name.values = VALUES(source.`as`.organization.name),
-    esql.oauth.token.count_distinct = COUNT_DISTINCT(esql.oauth.token.user_id.case),
-    esql.oauth.authorize.count_distinct = COUNT_DISTINCT(esql.oauth.authorize.user_id.case)
+    Esql.source.ip.count_distinct = COUNT_DISTINCT(source.ip),
+    Esql.source.ip.values = VALUES(source.ip),
+    Esql.o365.audit.ApplicationId.values = VALUES(o365.audit.ApplicationId),
+    Esql.source.`as`.organization.name.values = VALUES(source.`as`.organization.name),
+    Esql.oauth.token.count_distinct = COUNT_DISTINCT(Esql.oauth.token.user_id.case),
+    Esql.oauth.authorize.count_distinct = COUNT_DISTINCT(Esql.oauth.authorize.user_id.case)
   BY
     o365.audit.UserId,
-    esql.time_window.date_trunc,
+    Esql.time_window.date_trunc,
     o365.audit.ApplicationId,
     o365.audit.ObjectId
 | KEEP
-    esql.time_window.date_trunc,
-    esql.source.ip.values,
-    esql.source.ip.count_distinct,
-    esql.o365.audit.ApplicationId.values,
-    esql.source.`as`.organization.name.values,
-    esql.oauth.token.count_distinct,
-    esql.oauth.authorize.count_distinct
+    Esql.time_window.date_trunc,
+    Esql.source.ip.values,
+    Esql.source.ip.count_distinct,
+    Esql.o365.audit.ApplicationId.values,
+    Esql.source.`as`.organization.name.values,
+    Esql.oauth.token.count_distinct,
+    Esql.oauth.authorize.count_distinct
 | WHERE
-    esql.source.ip.count_distinct >= 2 AND
-    esql.oauth.token.count_distinct > 0 AND
-    esql.oauth.authorize.count_distinct > 0
+    Esql.source.ip.count_distinct >= 2 AND
+    Esql.oauth.token.count_distinct > 0 AND
+    Esql.oauth.authorize.count_distinct > 0
 '''
 
 

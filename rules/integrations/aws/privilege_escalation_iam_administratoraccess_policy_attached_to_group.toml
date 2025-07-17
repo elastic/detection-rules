@@ -107,10 +107,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Extract policy and group details from request parameters
 | dissect aws.cloudtrail.request_parameters
-    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{esql.aws.cloudtrail.request_parameters.policy.name},%{?groupName}=%{esql.aws.cloudtrail.request_parameters.group.name}}"
+    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{Esql.aws.cloudtrail.request_parameters.policy.name},%{?groupName}=%{Esql.aws.cloudtrail.request_parameters.group.name}}"
 
 // Filter for attachment of AdministratorAccess policy
-| where esql.aws.cloudtrail.request_parameters.policy.name == "AdministratorAccess"
+| where Esql.aws.cloudtrail.request_parameters.policy.name == "AdministratorAccess"
 
 // Keep ECS and derived fields
 | keep
@@ -118,8 +118,8 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   event.provider,
   event.action,
   event.outcome,
-  esql.aws.cloudtrail.request_parameters.policy.name,
-  esql.aws.cloudtrail.request_parameters.group.name
+  Esql.aws.cloudtrail.request_parameters.policy.name,
+  Esql.aws.cloudtrail.request_parameters.group.name
 '''
 
 

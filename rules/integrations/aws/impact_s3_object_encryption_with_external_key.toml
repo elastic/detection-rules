@@ -94,10 +94,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // dissect request parameters to extract KMS key info and target object info
 | dissect aws.cloudtrail.request_parameters
-    "{%{?bucketName}=%{esql.aws.cloudtrail.request_parameters.target.bucket.name},%{?x-amz-server-side-encryption-aws-kms-key-id}=%{?arn}:%{?aws}:%{?kms}:%{?region}:%{esql.aws.cloudtrail.request_parameters.kms.key.account.id}:%{?key}/%{esql.aws.cloudtrail.request_parameters.kms.key.id},%{?Host}=%{?tls.client.server.name},%{?x-amz-server-side-encryption}=%{?server_side_encryption},%{?x-amz-copy-source}=%{?bucket.object.name},%{?key}=%{esql.aws.cloudtrail.request_parameters.target.object.key}}"
+    "{%{?bucketName}=%{Esql.aws.cloudtrail.request_parameters.target.bucket.name},%{?x-amz-server-side-encryption-aws-kms-key-id}=%{?arn}:%{?aws}:%{?kms}:%{?region}:%{Esql.aws.cloudtrail.request_parameters.kms.key.account.id}:%{?key}/%{Esql.aws.cloudtrail.request_parameters.kms.key.id},%{?Host}=%{?tls.client.server.name},%{?x-amz-server-side-encryption}=%{?server_side_encryption},%{?x-amz-copy-source}=%{?bucket.object.name},%{?key}=%{Esql.aws.cloudtrail.request_parameters.target.object.key}}"
 
 // detect cross-account key usage
-| where cloud.account.id != esql.aws.cloudtrail.request_parameters.kms.key.account.id
+| where cloud.account.id != Esql.aws.cloudtrail.request_parameters.kms.key.account.id
 
 // keep ECS and dissected fields
 | keep
@@ -105,10 +105,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   aws.cloudtrail.user_identity.arn,
   cloud.account.id,
   event.action,
-  esql.aws.cloudtrail.request_parameters.target.bucket.name,
-  esql.aws.cloudtrail.request_parameters.kms.key.account.id,
-  esql.aws.cloudtrail.request_parameters.kms.key.id,
-  esql.aws.cloudtrail.request_parameters.target.object.key
+  Esql.aws.cloudtrail.request_parameters.target.bucket.name,
+  Esql.aws.cloudtrail.request_parameters.kms.key.account.id,
+  Esql.aws.cloudtrail.request_parameters.kms.key.id,
+  Esql.aws.cloudtrail.request_parameters.target.object.key
 '''
 
 

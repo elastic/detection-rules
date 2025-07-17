@@ -88,19 +88,19 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 
 // Replace suspicious method string constructions with 🔥 for entropy-style detection
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL esql.powershell.file.script_block_text.replace = REPLACE(
+| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(
     powershell.file.script_block_text,
     """[.&]\(\s*(['"][A-Za-z0-9.-]+['"]\s*\+\s*)+['"][A-Za-z0-9.-]+['"]\s*\)""",
     "🔥"
 )
 
 // Count how many patterns were detected based on 🔥 characters
-| EVAL esql.powershell.file.script_block_text.character.count = LENGTH(esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell.file.script_block_text.character.count = LENGTH(Esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
 
 // Keep relevant context fields for triage
 | KEEP
-    esql.powershell.file.script_block_text.character.count,
-    esql.powershell.file.script_block_text.replace,
+    Esql.powershell.file.script_block_text.character.count,
+    Esql.powershell.file.script_block_text.replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -113,7 +113,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Alert if suspicious pattern is present
-| WHERE esql.powershell.file.script_block_text.character.count >= 1
+| WHERE Esql.powershell.file.script_block_text.character.count >= 1
 '''
 
 

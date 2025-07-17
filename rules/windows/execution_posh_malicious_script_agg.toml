@@ -113,21 +113,21 @@ FROM .alerts-security.* METADATA _id
 | WHERE kibana.alert.rule.name LIKE "*PowerShell*"
 
 // As alerts don't have non-ECS fields, parse the script block ID using GROK
-| GROK message "ScriptBlock ID: (?<esql.message.powershell.file.script_block_id>.+)"
-| WHERE esql.message.powershell.file.script_block_id IS NOT NULL
+| GROK message "ScriptBlock ID: (?<Esql.message.powershell.file.script_block_id>.+)"
+| WHERE Esql.message.powershell.file.script_block_id IS NOT NULL
 
 // Keep relevant fields for further processing
-| KEEP kibana.alert.rule.name, esql.message.powershell.file.script_block_id, _id
+| KEEP kibana.alert.rule.name, Esql.message.powershell.file.script_block_id, _id
 
 // Count distinct alerts and filter for matches above the threshold
 | STATS
-    esql.kibana.alert.rule.name.count_distinct = COUNT_DISTINCT(kibana.alert.rule.name),
-    esql.kibana.alert.rule.name.values = VALUES(kibana.alert.rule.name),
-    esql._id.values = VALUES(_id)
-  BY esql.message.powershell.file.script_block_id
+    Esql.kibana.alert.rule.name.count_distinct = COUNT_DISTINCT(kibana.alert.rule.name),
+    Esql.kibana.alert.rule.name.values = VALUES(kibana.alert.rule.name),
+    Esql._id.values = VALUES(_id)
+  BY Esql.message.powershell.file.script_block_id
 
 // Apply detection threshold
-| WHERE esql.kibana.alert.rule.name.count_distinct >= 5
+| WHERE Esql.kibana.alert.rule.name.count_distinct >= 5
 '''
 
 

@@ -90,17 +90,17 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count total denials per user/model/account
 | stats
-    esql.ml.response.access_denied.count = COUNT(*)
+    Esql.ml.response.access_denied.count = COUNT(*)
   by
     user.id,
     gen_ai.request.model.id,
     cloud.account.id
 
 // Filter for users with repeated denials
-| where esql.ml.response.access_denied.count > 3
+| where Esql.ml.response.access_denied.count > 3
 
 // Sort by volume of denials
-| sort esql.ml.response.access_denied.count desc
+| sort Esql.ml.response.access_denied.count desc
 '''
 
 

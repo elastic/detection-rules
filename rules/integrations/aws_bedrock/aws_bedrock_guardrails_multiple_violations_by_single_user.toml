@@ -93,16 +93,16 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count violations by user, model, and account
 | stats
-    esql.ml.violations.count = COUNT(*)
+    Esql.ml.violations.count = COUNT(*)
   by
     user.id,
     gen_ai.request.model.id,
     cloud.account.id
 
 // Filter for repeated violations
-| where esql.ml.violations.count > 1
+| where Esql.ml.violations.count > 1
 
 // Sort descending by violation volume
-| sort esql.ml.violations.count desc
+| sort Esql.ml.violations.count desc
 '''
 

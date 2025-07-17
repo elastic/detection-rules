@@ -89,28 +89,28 @@ FROM logs-aws_bedrock.invocation-*
 
 // Aggregate usage metrics
 | stats
-    esql.ml.usage.prompt_tokens.max = MAX(gen_ai.usage.prompt_tokens),
-    esql.ml.invocations.total.count = COUNT(*),
-    esql.ml.usage.completion_tokens.avg = AVG(gen_ai.usage.completion_tokens)
+    Esql.ml.usage.prompt_tokens.max = MAX(gen_ai.usage.prompt_tokens),
+    Esql.ml.invocations.total.count = COUNT(*),
+    Esql.ml.usage.completion_tokens.avg = AVG(gen_ai.usage.completion_tokens)
   by
     user.id
 
 // Filter for suspicious usage patterns
 | where
-  esql.ml.usage.prompt_tokens.max > 5000
-  and esql.ml.invocations.total.count > 10
-  and esql.ml.usage.completion_tokens.avg > 500
+  Esql.ml.usage.prompt_tokens.max > 5000
+  and Esql.ml.invocations.total.count > 10
+  and Esql.ml.usage.completion_tokens.avg > 500
 
 // Calculate a custom risk factor
-| eval esql.ml.risk.score =
-    (esql.ml.usage.prompt_tokens.max / 1000) *
-    esql.ml.invocations.total.count *
-    (esql.ml.usage.completion_tokens.avg / 500)
+| eval Esql.ml.risk.score =
+    (Esql.ml.usage.prompt_tokens.max / 1000) *
+    Esql.ml.invocations.total.count *
+    (Esql.ml.usage.completion_tokens.avg / 500)
 
 // Filter on risk score
-| where esql.ml.risk.score > 10
+| where Esql.ml.risk.score > 10
 
 // Sort high risk users to top
-| sort esql.ml.risk.score desc
+| sort Esql.ml.risk.score desc
 '''
 

@@ -93,13 +93,13 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
 
 // Extract fields from request parameters
 | dissect aws.cloudtrail.request_parameters
-    "%{{?bucket.name.key}=%{esql.aws.cloudtrail.request_parameters.bucket.name}, %{?host.key}=%{esql.aws.cloudtrail.request_parameters.host}, %{?bucket.object.location.key}=%{esql.aws.cloudtrail.request_parameters.bucket.object.location}}"
+    "%{{?bucket.name.key}=%{Esql.aws.cloudtrail.request_parameters.bucket.name}, %{?host.key}=%{Esql.aws.cloudtrail.request_parameters.host}, %{?bucket.object.location.key}=%{Esql.aws.cloudtrail.request_parameters.bucket.object.location}}"
 
 // Extract file name portion from full object path
-| dissect esql.aws.cloudtrail.request_parameters.object.location "%{}static/js/%{esql.aws.cloudtrail.request_parameters.object.key}"
+| dissect Esql.aws.cloudtrail.request_parameters.object.location "%{}static/js/%{Esql.aws.cloudtrail.request_parameters.object.key}"
 
 // Match on JavaScript files
-| where ENDS_WITH(esql.aws.cloudtrail.request_parameters.object.key, ".js")
+| where ENDS_WITH(Esql.aws.cloudtrail.request_parameters.object.key, ".js")
 
 // Retain relevant ECS and dissected fields
 | keep
@@ -107,8 +107,8 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
     aws.cloudtrail.user_identity.access_key_id,
     aws.cloudtrail.user_identity.type,
     aws.cloudtrail.request_parameters,
-    esql.aws.cloudtrail.request_parameters.bucket.name,
-    esql.aws.cloudtrail.request_parameters.object.key,
+    Esql.aws.cloudtrail.request_parameters.bucket.name,
+    Esql.aws.cloudtrail.request_parameters.object.key,
     user_agent.original,
     source.ip,
     event.action,

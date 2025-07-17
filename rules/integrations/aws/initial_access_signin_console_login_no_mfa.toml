@@ -78,10 +78,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Extract mobile version and MFA usage
 | dissect aws.cloudtrail.additional_eventdata
-    "{%{?mobile_version_key}=%{esql.device.version}, %{?mfa_used_key}=%{esql.auth.mfa.used}}"
+    "{%{?mobile_version_key}=%{Esql.device.version}, %{?mfa_used_key}=%{Esql.auth.mfa.used}}"
 
 // Only keep events where MFA was not used
-| where esql.auth.mfa.used == "No"
+| where Esql.auth.mfa.used == "No"
 
 // Keep relevant ECS and dissected fields
 | keep
@@ -89,8 +89,8 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
     event.action,
     aws.cloudtrail.event_type,
     aws.cloudtrail.user_identity.type,
-    esql.device.version,
-    esql.auth.mfa.used
+    Esql.device.version,
+    Esql.auth.mfa.used
 '''
 
 

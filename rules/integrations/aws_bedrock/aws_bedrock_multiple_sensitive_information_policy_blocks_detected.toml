@@ -94,13 +94,13 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count how many times each user triggered a sensitive info block
 | stats
-    esql.ml.policy.blocked.sensitive_info.count = COUNT()
+    Esql.ml.policy.blocked.sensitive_info.count = COUNT()
   by user.id
 
 // Filter for users with more than 5 violations
-| where esql.ml.policy.blocked.sensitive_info.count > 5
+| where Esql.ml.policy.blocked.sensitive_info.count > 5
 
 // Sort highest to lowest
-| sort esql.ml.policy.blocked.sensitive_info.count desc
+| sort Esql.ml.policy.blocked.sensitive_info.count desc
 '''
 

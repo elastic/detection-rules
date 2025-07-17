@@ -97,28 +97,28 @@ FROM logs-*, .alerts-security.*
 
 // classify each source IP based on alert type
 | eval
-  esql.source.ip.mail_access.case = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", TO_IP(source.ip), null),
-  esql.source.ip.azure_signin.case = case(event.dataset == "azure.signinlogs" and event.outcome == "success", TO_IP(source.ip), null),
-  esql.source.ip.network_alert.case = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
+  Esql.source.ip.mail_access.case = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", TO_IP(source.ip), null),
+  Esql.source.ip.azure_signin.case = case(event.dataset == "azure.signinlogs" and event.outcome == "success", TO_IP(source.ip), null),
+  Esql.source.ip.network_alert.case = case(kibana.alert.rule.name == "External Alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), TO_IP(source.ip), null)
 
 // aggregate by source IP
 | stats
-    esql.source.ip.alerts.count = count(*),
-    esql.source.ip.mail_access.case.count_distinct = COUNT_DISTINCT(esql.source.ip.mail_access.case),
-    esql.source.ip.azure_signin.case.count_distinct = COUNT_DISTINCT(esql.source.ip.azure_signin.case),
-    esql.source.ip.network_alert.case.count_distinct = COUNT_DISTINCT(esql.source.ip.network_alert.case),
-    esql.event.dataset.count_distinct = COUNT_DISTINCT(event.dataset),
-    esql.event.dataset.values = VALUES(event.dataset),
-    esql.kibana.alert.rule.name.values = VALUES(kibana.alert.rule.name),
-    esql.event.category.values = VALUES(event.category)
-  by esql.source.ip = TO_IP(source.ip)
+    Esql.source.ip.alerts.count = count(*),
+    Esql.source.ip.mail_access.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.mail_access.case),
+    Esql.source.ip.azure_signin.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.azure_signin.case),
+    Esql.source.ip.network_alert.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.network_alert.case),
+    Esql.event.dataset.count_distinct = COUNT_DISTINCT(event.dataset),
+    Esql.event.dataset.values = VALUES(event.dataset),
+    Esql.kibana.alert.rule.name.values = VALUES(kibana.alert.rule.name),
+    Esql.event.category.values = VALUES(event.category)
+  by Esql.source.ip = TO_IP(source.ip)
 
 // correlation condition
 | where
-  esql.source.ip.network_alert.case.count_distinct > 0
-  and esql.event.dataset.count_distinct >= 2
-  and (esql.source.ip.mail_access.case.count_distinct > 0 or esql.source.ip.azure_signin.case.count_distinct > 0)
-  and esql.source.ip.alerts.count <= 100
+  Esql.source.ip.network_alert.case.count_distinct > 0
+  and Esql.event.dataset.count_distinct >= 2
+  and (Esql.source.ip.mail_access.case.count_distinct > 0 or Esql.source.ip.azure_signin.case.count_distinct > 0)
+  and Esql.source.ip.alerts.count <= 100
 '''
 
 

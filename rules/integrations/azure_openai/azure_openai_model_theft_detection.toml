@@ -85,15 +85,15 @@ FROM logs-azure_openai.logs-*
     azure.resource.name,
     azure.open_ai.properties.response_length
 | STATS
-    esql.event.count = COUNT(*),
-    esql.azure.open_ai.properties.response_length.max = MAX(azure.open_ai.properties.response_length)
+    Esql.event.count = COUNT(*),
+    Esql.azure.open_ai.properties.response_length.max = MAX(azure.open_ai.properties.response_length)
   BY
     azure.resource.group,
     azure.resource.name
 | WHERE
-    esql.event.count >= 100 OR
-    esql.azure.open_ai.properties.response_length.max >= 1000000
+    Esql.event.count >= 100 OR
+    Esql.azure.open_ai.properties.response_length.max >= 1000000
 | SORT
-    esql.event.count DESC
+    Esql.event.count DESC
 '''
 

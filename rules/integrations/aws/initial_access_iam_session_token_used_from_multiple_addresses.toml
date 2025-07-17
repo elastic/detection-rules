@@ -99,78 +99,78 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
   )
 
 | EVAL
-  esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
-  esql.user.id = aws.cloudtrail.user_identity.arn,
-  esql.user.access_key_id = aws.cloudtrail.user_identity.access_key_id,
-  esql.source.ip = source.ip,
-  esql.user_agent.original = user_agent.original,
-  esql.source.ip_string = TO_STRING(source.ip),
-  esql.source.ip_user_agent_pair = CONCAT(esql.source.ip_string, " - ", user_agent.original),
-  esql.source.ip_city_pair = CONCAT(esql.source.ip_string, " - ", source.geo.city_name),
-  esql.source.geo.city_name = source.geo.city_name,
-  esql.event.timestamp = @timestamp,
-  esql.source.network.org_name = `source.as.organization.name`
+  Esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
+  Esql.user.id = aws.cloudtrail.user_identity.arn,
+  Esql.user.access_key_id = aws.cloudtrail.user_identity.access_key_id,
+  Esql.source.ip = source.ip,
+  Esql.user_agent.original = user_agent.original,
+  Esql.source.ip_string = TO_STRING(source.ip),
+  Esql.source.ip_user_agent_pair = CONCAT(Esql.source.ip_string, " - ", user_agent.original),
+  Esql.source.ip_city_pair = CONCAT(Esql.source.ip_string, " - ", source.geo.city_name),
+  Esql.source.geo.city_name = source.geo.city_name,
+  Esql.event.timestamp = @timestamp,
+  Esql.source.network.org_name = `source.as.organization.name`
 
 | STATS
-  esql.event.action.values = VALUES(event.action),
-  esql.event.provider.values = VALUES(event.provider),
-  esql.user.access_key_id.values = VALUES(esql.user.access_key_id),
-  esql.user.id.values = VALUES(esql.user.id),
-  esql.source.ip.values = VALUES(esql.source.ip),
-  esql.user_agent.original.values = VALUES(esql.user_agent.original),
-  esql.source.ip_user_agent_pair.values = VALUES(esql.source.ip_user_agent_pair),
-  esql.source.geo.city_name.values = VALUES(esql.source.geo.city_name),
-  esql.source.ip_city_pair.values = VALUES(esql.source.ip_city_pair),
-  esql.source.network.org_name.values = VALUES(esql.source.network.org_name),
-  esql.source.ip.count_distinct = COUNT_DISTINCT(esql.source.ip),
-  esql.user_agent.original.count_distinct = COUNT_DISTINCT(esql.user_agent.original),
-  esql.source.geo.city_name.count_distinct = COUNT_DISTINCT(esql.source.geo.city_name),
-  esql.source.network.org_name.count_distinct = COUNT_DISTINCT(esql.source.network.org_name),
-  esql.timestamp.first_seen = MIN(esql.event.timestamp),
-  esql.timestamp.last_seen = MAX(esql.event.timestamp),
-  esql.event.count = COUNT()
-  BY esql.time_window.date_trunc, esql.user.access_key_id
+  Esql.event.action.values = VALUES(event.action),
+  Esql.event.provider.values = VALUES(event.provider),
+  Esql.user.access_key_id.values = VALUES(Esql.user.access_key_id),
+  Esql.user.id.values = VALUES(Esql.user.id),
+  Esql.source.ip.values = VALUES(Esql.source.ip),
+  Esql.user_agent.original.values = VALUES(Esql.user_agent.original),
+  Esql.source.ip_user_agent_pair.values = VALUES(Esql.source.ip_user_agent_pair),
+  Esql.source.geo.city_name.values = VALUES(Esql.source.geo.city_name),
+  Esql.source.ip_city_pair.values = VALUES(Esql.source.ip_city_pair),
+  Esql.source.network.org_name.values = VALUES(Esql.source.network.org_name),
+  Esql.source.ip.count_distinct = COUNT_DISTINCT(Esql.source.ip),
+  Esql.user_agent.original.count_distinct = COUNT_DISTINCT(Esql.user_agent.original),
+  Esql.source.geo.city_name.count_distinct = COUNT_DISTINCT(Esql.source.geo.city_name),
+  Esql.source.network.org_name.count_distinct = COUNT_DISTINCT(Esql.source.network.org_name),
+  Esql.timestamp.first_seen = MIN(Esql.event.timestamp),
+  Esql.timestamp.last_seen = MAX(Esql.event.timestamp),
+  Esql.event.count = COUNT()
+  BY Esql.time_window.date_trunc, Esql.user.access_key_id
 
 | EVAL
-  esql.activity.type = CASE(
-    esql.source.ip.count_distinct >= 2 AND esql.source.network.org_name.count_distinct >= 2 AND esql.source.geo.city_name.count_distinct >= 2 AND esql.user_agent.original.count_distinct >= 2, "multiple_ip_network_city_user_agent",
-    esql.source.ip.count_distinct >= 2 AND esql.source.network.org_name.count_distinct >= 2 AND esql.source.geo.city_name.count_distinct >= 2, "multiple_ip_network_city",
-    esql.source.ip.count_distinct >= 2 AND esql.source.geo.city_name.count_distinct >= 2, "multiple_ip_and_city",
-    esql.source.ip.count_distinct >= 2 AND esql.source.network.org_name.count_distinct >= 2, "multiple_ip_and_network",
-    esql.source.ip.count_distinct >= 2 AND esql.user_agent.original.count_distinct >= 2, "multiple_ip_and_user_agent",
+  Esql.activity.type = CASE(
+    Esql.source.ip.count_distinct >= 2 AND Esql.source.network.org_name.count_distinct >= 2 AND Esql.source.geo.city_name.count_distinct >= 2 AND Esql.user_agent.original.count_distinct >= 2, "multiple_ip_network_city_user_agent",
+    Esql.source.ip.count_distinct >= 2 AND Esql.source.network.org_name.count_distinct >= 2 AND Esql.source.geo.city_name.count_distinct >= 2, "multiple_ip_network_city",
+    Esql.source.ip.count_distinct >= 2 AND Esql.source.geo.city_name.count_distinct >= 2, "multiple_ip_and_city",
+    Esql.source.ip.count_distinct >= 2 AND Esql.source.network.org_name.count_distinct >= 2, "multiple_ip_and_network",
+    Esql.source.ip.count_distinct >= 2 AND Esql.user_agent.original.count_distinct >= 2, "multiple_ip_and_user_agent",
     "normal_activity"
   ),
-  esql.activity.fidelity_score = CASE(
-    esql.activity.type == "multiple_ip_network_city_user_agent", "high",
-    esql.activity.type == "multiple_ip_network_city", "high",
-    esql.activity.type == "multiple_ip_and_city", "medium",
-    esql.activity.type == "multiple_ip_and_network", "medium",
-    esql.activity.type == "multiple_ip_and_user_agent", "low"
+  Esql.activity.fidelity_score = CASE(
+    Esql.activity.type == "multiple_ip_network_city_user_agent", "high",
+    Esql.activity.type == "multiple_ip_network_city", "high",
+    Esql.activity.type == "multiple_ip_and_city", "medium",
+    Esql.activity.type == "multiple_ip_and_network", "medium",
+    Esql.activity.type == "multiple_ip_and_user_agent", "low"
   )
 
 | KEEP
-  esql.time_window.date_trunc,
-  esql.activity.type,
-  esql.activity.fidelity_score,
-  esql.event.count,
-  esql.timestamp.first_seen,
-  esql.timestamp.last_seen,
-  esql.user.id.values,
-  esql.user.access_key_id.values,
-  esql.event.action.values,
-  esql.event.provider.values,
-  esql.source.ip.values,
-  esql.user_agent.original.values,
-  esql.source.ip_user_agent_pair.values,
-  esql.source.geo.city_name.values,
-  esql.source.ip_city_pair.values,
-  esql.source.network.org_name.values,
-  esql.source.ip.count_distinct,
-  esql.user_agent.original.count_distinct,
-  esql.source.geo.city_name.count_distinct,
-  esql.source.network.org_name.count_distinct
+  Esql.time_window.date_trunc,
+  Esql.activity.type,
+  Esql.activity.fidelity_score,
+  Esql.event.count,
+  Esql.timestamp.first_seen,
+  Esql.timestamp.last_seen,
+  Esql.user.id.values,
+  Esql.user.access_key_id.values,
+  Esql.event.action.values,
+  Esql.event.provider.values,
+  Esql.source.ip.values,
+  Esql.user_agent.original.values,
+  Esql.source.ip_user_agent_pair.values,
+  Esql.source.geo.city_name.values,
+  Esql.source.ip_city_pair.values,
+  Esql.source.network.org_name.values,
+  Esql.source.ip.count_distinct,
+  Esql.user_agent.original.count_distinct,
+  Esql.source.geo.city_name.count_distinct,
+  Esql.source.network.org_name.count_distinct
 
-| WHERE esql.activity.type != "normal_activity"
+| WHERE Esql.activity.type != "normal_activity"
 '''
 
 

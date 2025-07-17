@@ -85,7 +85,7 @@ query = '''
 FROM logs-aws_bedrock.invocation-*
 
 // Truncate timestamp to 1-minute window
-| eval esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+| eval Esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
 
 // Filter for validation exceptions in responses
 | where gen_ai.response.error_code == "ValidationException"
@@ -96,18 +96,18 @@ FROM logs-aws_bedrock.invocation-*
   gen_ai.request.model.id,
   cloud.account.id,
   gen_ai.response.error_code,
-  esql.time_window.date_trunc
+  Esql.time_window.date_trunc
 
 // Count number of denials by user/account/time window
 | stats
-    esql.ml.response.validation_error.count = COUNT(*)
+    Esql.ml.response.validation_error.count = COUNT(*)
   by
-    esql.time_window.date_trunc,
+    Esql.time_window.date_trunc,
     user.id,
     cloud.account.id
 
 // Filter for excessive errors
-| where esql.ml.response.validation_error.count > 3
+| where Esql.ml.response.validation_error.count > 3
 
 '''
 

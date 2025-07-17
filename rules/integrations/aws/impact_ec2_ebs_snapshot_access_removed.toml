@@ -85,10 +85,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Dissect parameters to extract key fields
 | dissect aws.cloudtrail.request_parameters
-    "{%{?snapshotId}=%{esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{esql.aws.cloudtrail.request_parameters.attribute.type},%{?createVolumePermission}={%{esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
+    "{%{?snapshotId}=%{Esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{Esql.aws.cloudtrail.request_parameters.attribute.type},%{?createVolumePermission}={%{Esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{Esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
 
 // Match on snapshot permission **removal**
-| where esql.aws.cloudtrail.request_parameters.operation.type == "remove"
+| where Esql.aws.cloudtrail.request_parameters.operation.type == "remove"
 
 // Keep ECS and derived fields
 | keep
@@ -96,10 +96,10 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   aws.cloudtrail.user_identity.arn,
   cloud.account.id,
   event.action,
-  esql.aws.cloudtrail.request_parameters.snapshot.id,
-  esql.aws.cloudtrail.request_parameters.attribute.type,
-  esql.aws.cloudtrail.request_parameters.operation.type,
-  esql.aws.cloudtrail.request_parameters.user.id,
+  Esql.aws.cloudtrail.request_parameters.snapshot.id,
+  Esql.aws.cloudtrail.request_parameters.attribute.type,
+  Esql.aws.cloudtrail.request_parameters.operation.type,
+  Esql.aws.cloudtrail.request_parameters.user.id,
   source.address
 '''
 
