@@ -2,24 +2,19 @@
 creation_date = "2025/01/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when AWS S3 objects stored in a bucket are encrypted using Server-Side Encryption with Customer-Provided Keys
-(SSE-C). Adversaries with compromised AWS credentials can encrypt objects in an S3 bucket using their own encryption
-keys, rendering the objects unreadable or recoverable without the key. This can be used as a form of ransomware to
-extort the bucket owner for the decryption key. This is a [New
-Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that flags when
-this behavior is observed for the first time in the last 14 days by the user ARN and target bucket name.
+Identifies when AWS S3 objects stored in a bucket are encrypted using Server-Side Encryption with Customer-Provided Keys (SSE-C). Adversaries with compromised AWS credentials can encrypt objects in an S3 bucket using their own encryption keys, rendering the objects unreadable or recoverable without the key. This can be used as a form of ransomware to extort the bucket owner for the decryption key. This is a New Terms rule that flags when this behavior is observed for the first time user and target bucket name.
 """
 false_positives = [
     """
     Legitimate use of Server-Side Encryption with Customer-Provided Keys (SSE-C) to encrypt objects in an S3 bucket.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -37,11 +32,11 @@ This rule identifies the use of Server-Side Encryption with Customer-Provided Ke
    - Review the `aws.cloudtrail.user_identity.access_key_id` to identify the access key used. This could be a compromised key.
 
 2. **Examine the Targeted Resources**:
-   - Check `aws.cloudtrail.flattened.request_parameters.bucketName` to identify the bucket involved.
-   - Analyze the object key from `aws.cloudtrail.flattened.request_parameters.key`.
+   - Check `aws.cloudtrail.request_parameters` to identify the bucket involved.
+   - Analyze the object key from `aws.cloudtrail.request_parameters`.
 
 3. **Evaluate Encryption Behavior**:
-   - Confirm the encryption details in `aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm` and `aws.cloudtrail.flattened.additional_eventdata.SSEApplied`.
+   - Confirm the encryption details in `aws.cloudtrail.request_parameters` and `aws.cloudtrail.additional_eventdata`.
    - Note if `SSEApplied` is `SSE-C`, which confirms encryption using a customer-provided key.
 
 4. **Correlate with Recent Events**:
@@ -105,7 +100,6 @@ event.dataset: "aws.cloudtrail"
     and event.action: "PutObject"
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm: "AES256"
-    and aws.cloudtrail.flattened.additional_eventdata.SSEApplied: "SSE_C"
 '''
 
 
@@ -125,25 +119,23 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "event.action",
-    "event.outcome",
+    "source.ip",
+    "user_agent.original",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "aws.cloudtrail.flattened.request_parameters.bucketName",
-    "aws.cloudtrail.flattened.request_parameters.key",
-    "aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm",
-    "aws.cloudtrail.flattened.additional_eventdata.SSEApplied",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.additional_eventdata",
     "aws.cloudtrail.response_elements",
-    "source.ip",
-    "user_agent.original",
     "cloud.region",
     "cloud.account.id",
 ]
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn", "aws.cloudtrail.flattened.request_parameters.bucketName"]
+value = ["cloud.account.id", "user.name", "tls.client.server_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

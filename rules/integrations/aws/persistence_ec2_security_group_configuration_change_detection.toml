@@ -2,23 +2,19 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies a change to an AWS Security Group Configuration. A security group is like a virtual firewall, and modifying
-configurations may allow unauthorized access. Threat actors may abuse this to establish persistence, exfiltrate data, or
-pivot in an AWS environment.
+Identifies a change to an AWS Security Group Configuration. A security group is like a virtual firewall, and modifying configurations may allow unauthorized access. Threat actors may abuse this to establish persistence, exfiltrate data, or pivot in an AWS environment.
 """
 false_positives = [
     """
-    A security group may be created by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Security group creations by unfamiliar users or hosts
-    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    A security group may be created by a system or network administrator. Verify whether the user identity, user agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -30,44 +26,13 @@ note = """## Triage and analysis
 
 ### Investigating AWS EC2 Security Group Configuration Change
 
-AWS EC2 Security Groups act as virtual firewalls, controlling inbound and outbound traffic to instances. Adversaries may exploit changes in these configurations to gain unauthorized access, maintain persistence, or exfiltrate data. The detection rule monitors successful modifications to security group settings, such as rule changes or new group creation, to identify potential security breaches and unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs for the specific event.dataset "aws.cloudtrail" to identify the exact changes made to the security group configuration.
-- Examine the event.provider "ec2.amazonaws.com" and event.action fields to determine the type of action performed, such as "AuthorizeSecurityGroupEgress" or "ModifySecurityGroupRules", to understand the nature of the change.
-- Check the event.outcome field to confirm the success of the action and correlate it with any suspicious activity or unauthorized access attempts.
-- Investigate the IAM user or role associated with the change to verify if the action aligns with their typical behavior and permissions.
-- Analyze the timing and context of the change to see if it coincides with any other unusual activities or alerts in the AWS environment.
-- Assess the impact of the security group change on the overall security posture, including potential exposure of sensitive resources or data.
-- If necessary, consult with the responsible team or individual to validate the legitimacy of the change and ensure it was authorized.
-
-### False positive analysis
-
-- Routine administrative changes to security groups by authorized personnel can trigger alerts. To manage this, maintain a list of known IP addresses and users who regularly perform these tasks and create exceptions for their activities.
-- Automated scripts or tools used for infrastructure management may frequently modify security group settings. Identify these tools and exclude their actions from triggering alerts by using their specific identifiers or tags.
-- Scheduled updates or deployments that involve security group modifications can result in false positives. Document these schedules and adjust the monitoring rules to account for these expected changes during specific time windows.
-- Changes made by cloud service providers as part of their maintenance or updates might be flagged. Verify these changes through official communication from the provider and consider excluding them if they are part of standard operations.
-
-### Response and remediation
-
-- Immediately isolate the affected EC2 instances by removing them from the compromised security group to prevent further unauthorized access.
-- Revert any unauthorized changes to the security group configurations by restoring them to their last known good state using AWS CloudTrail logs for reference.
-- Conduct a thorough review of IAM roles and permissions associated with the affected security groups to ensure that only authorized personnel have the ability to modify security group settings.
-- Implement additional monitoring and alerting for any future changes to security group configurations, focusing on the specific actions identified in the detection rule.
-- Escalate the incident to the security operations team for further investigation and to determine if there are any broader implications or related threats within the AWS environment.
-- Review and update the AWS security group policies to enforce stricter rules and minimize the attack surface, ensuring that only necessary ports and protocols are allowed.
-- Conduct a post-incident analysis to identify the root cause and implement measures to prevent similar incidents, such as enhancing logging and monitoring capabilities or applying stricter access controls.
-
-### Investigating AWS EC2 Security Group Configuration Change
-
 This rule identifies any changes to an AWS Security Group, which functions as a virtual firewall controlling inbound and outbound traffic for resources like EC2 instances. Modifications to a security group configuration could expose critical assets to unauthorized access. Threat actors may exploit such changes to establish persistence, exfiltrate data, or pivot within an AWS environment.
 
 #### Possible Investigation Steps
 
 1. **Identify the Modified Security Group**:
-   - **Security Group ID**: Check the `aws.cloudtrail.flattened.request_parameters.groupId` field to identify the specific security group affected.
-   - **Rule Changes**: Review `aws.cloudtrail.flattened.response_elements.securityGroupRuleSet` to determine the new rules or configurations, including any added or removed IP ranges, protocol changes, and port specifications.
+   - **Security Group ID**: Check the `aws.cloudtrail.request_parameters` field to identify the specific security group affected.
+   - **Rule Changes**: Review `aws.cloudtrail.response_elements` to determine the new rules or configurations, including any added or removed IP ranges, protocol changes, and port specifications.
 
 2. **Review User Context**:
    - **User Identity**: Inspect the `aws.cloudtrail.user_identity.arn` field to determine which user or role made the modification. Verify if this is an authorized administrator or a potentially compromised account.
@@ -124,31 +89,31 @@ type = "query"
 
 query = '''
 event.dataset: "aws.cloudtrail"
-    and event.provider: "ec2.amazonaws.com"
-    and event.action:(
+    and event.provider: "ec2.amazonaws.com"  and event.outcome: "success"
+    and (event.action:(
+            "AuthorizeSecurityGroupIngress" or
             "AuthorizeSecurityGroupEgress" or
             "CreateSecurityGroup" or
-            "ModifyInstanceAttribute" or
             "ModifySecurityGroupRules" or
             "RevokeSecurityGroupEgress" or
-            "RevokeSecurityGroupIngress")
-    and event.outcome: "success"
+            "RevokeSecurityGroupIngress") or 
+            (event.action: "ModifyInstanceAttribute" and aws.cloudtrail.flattened.request_parameters.groupSet.items.groupId:*))
 '''
 
 [rule.investigation_fields]
 field_names = [
    "@timestamp",
    "user.name",
+   "user_agent.original",
+   "source.ip",
    "aws.cloudtrail.user_identity.arn",
    "aws.cloudtrail.user_identity.type",
-   "user_agent.original",
-   "aws.cloudtrail.flattened.request_parameters.instanceId",
+   "aws.cloudtrail.user_identity.access_key_id",
    "event.action",
    "event.outcome",
+   "cloud.account.id",
    "cloud.region",
-   "event.provider",
-   "aws.cloudtrail.request_parameters",
-   "aws.cloudtrail.response_elements"
+   "aws.cloudtrail.request_parameters"
 ]
 
 
