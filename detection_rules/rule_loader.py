@@ -148,14 +148,15 @@ def update_metadata_from_file(
     if not rule_path and not local_contents:
         raise ValueError("Either 'rule_path' or 'local_contents' must be provided.")
 
-    rule_contents = None
-    if rule_path:
+    # If local_contents is provided, always prefer it vs loading from rule_path
+    rule_contents = None or local_contents
+    if rule_path and not rule_contents:
         if not rule_path.exists():
             return contents
-        rule_contents = local_contents or RuleCollection().load_file(rule_path).contents
+        rule_contents = RuleCollection().load_file(rule_path).contents
 
     if not isinstance(rule_contents, TOMLRuleContents):
-        raise TypeError("TOML rule expected")
+        raise TypeError("TOMLRuleContents expected")
 
     local_metadata = rule_contents.metadata.to_dict()
     if local_metadata:
