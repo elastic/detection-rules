@@ -2,7 +2,7 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/06/02"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -80,11 +80,32 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
-| where operationType == "add" and cloud.account.id != userId
-| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId, source.address
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+| where
+  event.provider == "ec2.amazonaws.com"
+  and event.action == "ModifySnapshotAttribute"
+  and event.outcome == "success"
+
+// Extract snapshotId, attribute type, operation type, and userId
+| dissect aws.cloudtrail.request_parameters
+  "{%{?snapshotId}=%{Esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{Esql.attribute.type},%{?createVolumePermission}={%{Esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{Esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
+
+// Check for snapshot permission added for another AWS account
+| where
+  Esql.aws.cloudtrail.request_parameters.operation.type == "add"
+  and cloud.account.id != Esql.aws.cloudtrail.request_parameters.user.id
+
+// Keep ECS and derived fields
+| keep
+  @timestamp,
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  event.action,
+  Esql.aws.cloudtrail.request_parameters.snapshot.id,
+  Esql.aws.cloudtrail.request_parameters.attribute.type,
+  Esql.aws.cloudtrail.request_parameters.operation.type,
+  Esql.aws.cloudtrail.request_parameters.user.id,
+  source.ip
 '''
 
 
