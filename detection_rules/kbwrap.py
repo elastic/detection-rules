@@ -383,7 +383,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             if rules and input_rule_id and input_rule_id in rules.id_map:
                 save_path = rules.id_map[input_rule_id].path
                 local_contents = rules.id_map[input_rule_id].contents
-                local_contents = rules.id_map[input_rule_id].contents
             params.update(
                 update_metadata_from_file(
                     {"creation_date": local_creation_date, "updated_date": local_updated_date},
