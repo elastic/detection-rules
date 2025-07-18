@@ -223,12 +223,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             raise ValueError(f"Invalid rule file, please ensure the rule has a name field: {contents}")
 
         local_contents = None
-        rule_path = Path(
-            os.path.join(str(save_directory) if save_directory else RULES_DIRS[0], base_path)  # noqa: PTH118
-        )
-        if rules and contents.get("rule_id") in rules.id_map:
-            rule_path = rules.id_map[contents["rule_id"]].path
-            local_contents = rules.id_map[contents["rule_id"]].contents
+        rule_base_path = Path(save_directory or RULES_DIRS[0])
+        rule_path = rule_base_path / base_path
+        rule_id = contents.get("rule_id") 
+        if rules and rule_id in rules.id_map:
+            rule_path = rules.id_map[rule_id].path
+            local_contents = rules.id_map[rule_id].contents
 
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
