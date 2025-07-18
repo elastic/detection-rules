@@ -225,7 +225,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         local_contents = None
         rule_base_path = Path(save_directory or RULES_DIRS[0])
         rule_path = rule_base_path / base_path
-        rule_id = contents.get("rule_id") 
+        rule_id = contents.get("rule_id")
         if rules and rule_id in rules.id_map:
             rule_path = rules.id_map[rule_id].path
             local_contents = rules.id_map[rule_id].contents

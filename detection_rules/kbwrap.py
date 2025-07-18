@@ -8,7 +8,7 @@
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import kql  # type: ignore[reportMissingTypeStubs]
@@ -28,6 +28,7 @@ from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RuleCollection, update_metadata_from_file
+from .schemas import definitions  # noqa: TC001
 from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -372,10 +373,17 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             local_contents = None
             save_path = directory / f"{rule_name}"
 
-            rule = params.get("rule")
-            if rules and rule and rule.get("rule_id") in rules.id_map:
-                save_path = rules.id_map[rule["rule_id"]].path
-                local_contents = rules.id_map[rule["rule_id"]].contents
+            # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
+            local_rule: dict[str, Any] = params.get("rule", {})
+            input_rule_id: str | None = None
+
+            if local_rule:
+                input_rule_id = cast("definitions.UUIDString", local_rule.get("rule_id"))
+
+            if rules and input_rule_id and input_rule_id in rules.id_map:
+                save_path = rules.id_map[input_rule_id].path
+                local_contents = rules.id_map[input_rule_id].contents
+                local_contents = rules.id_map[input_rule_id].contents
             params.update(
                 update_metadata_from_file(
                     {"creation_date": local_creation_date, "updated_date": local_updated_date},
