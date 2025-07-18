@@ -59,12 +59,12 @@ type = "query"
 query = '''
 FROM logs-azure.auditlogs-*
 | WHERE event.action == "Authentication Methods Policy Update"
-| EVAL clean_new = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
-| EVAL clean_old = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
-| DISSECT clean_new "%{}discoveryUrl\":\"%{new_oidc_discovery}\"}%{}"
-| DISSECT clean_old "%{}discoveryUrl\":\"%{old_oidc_discovery}\"}%{}"
-| WHERE new_oidc_discovery IS NOT NULL and old_oidc_discovery IS NOT NULL
-| WHERE new_oidc_discovery != old_oidc_discovery
+| EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.new_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
+| EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.old_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
+| DISSECT Esql.azure.auditlogs.properties.target_resources.modified_properties.new_value.replace "%{}discoveryUrl\":\"%{Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new}\"}%{}"
+| DISSECT Esql.azure.auditlogs.properties.target_resources.modified_properties.old_value.replace "%{}discoveryUrl\":\"%{Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old}\"}%{}"
+| WHERE Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new IS NOT NULL and Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old IS NOT NULL
+| WHERE Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new != Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old
 | KEEP
     @timestamp,
     event.action,
@@ -79,8 +79,8 @@ FROM logs-azure.auditlogs-*
     source.geo.city_name,
     source.geo.region_name,
     source.geo.country_name,
-    new_oidc_discovery,
-    old_oidc_discovery
+    Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new,
+    Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old
 '''
 
 
