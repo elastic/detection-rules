@@ -103,7 +103,7 @@ FROM logs-*, .alerts-security.*
 
 // aggregate by source IP
 | stats
-    Esql.source.ip.alerts.count = count(*),
+    Esql.event.count = count(*),
     Esql.source.ip.mail_access.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.mail_access.case),
     Esql.source.ip.azure_signin.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.azure_signin.case),
     Esql.source.ip.network_alert.case.count_distinct = COUNT_DISTINCT(Esql.source.ip.network_alert.case),
@@ -118,7 +118,7 @@ FROM logs-*, .alerts-security.*
   Esql.source.ip.network_alert.case.count_distinct > 0
   and Esql.event.dataset.count_distinct >= 2
   and (Esql.source.ip.mail_access.case.count_distinct > 0 or Esql.source.ip.azure_signin.case.count_distinct > 0)
-  and Esql.source.ip.alerts.count <= 100
+  and Esql.event.count <= 100
 '''
 
 

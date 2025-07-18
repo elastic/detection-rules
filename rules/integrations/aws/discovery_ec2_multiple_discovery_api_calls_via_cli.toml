@@ -118,8 +118,8 @@ FROM logs-aws.cloudtrail*
 )
 
 // extract owner, identity type, and actor from the ARN
-| dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql.owner}:%{Esql.identity.type}/%{Esql.user.roles}"
-| where STARTS_WITH(Esql.user.roles, "AWSServiceRoleForConfig") != true
+| dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql.aws.cloudtrail.user_identity.arn.owner}:%{Esql.aws.cloudtrail.user_identity.arn.type}/%{Esql.aws.cloudtrail.user_identity.arn.roles}"
+| where STARTS_WITH(Esql.aws.cloudtrail.user_identity.arn.roles, "AWSServiceRoleForConfig") != true
 
 // keep relevant fields (preserving ECS fields and computed time window)
 | keep @timestamp, Esql.time_window.date_trunc, event.action, aws.cloudtrail.user_identity.arn

@@ -79,16 +79,14 @@ FROM logs-o365.audit-*
     o365.audit.ApplicationId IN ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") AND
     o365.audit.ObjectId IN ("00000003-0000-0000-c000-000000000000")
 | EVAL
-    Esql.o365.audit.ExtendedProperties.RequestType = o365.audit.ExtendedProperties.RequestType,
-    Esql.o365.audit.ExtendedProperties.ResultStatusDetail = o365.audit.ExtendedProperties.ResultStatusDetail,
     Esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
     Esql.oauth.authorize.user_id.case = CASE(
-        Esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" AND Esql.o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
+        o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" AND o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
         o365.audit.UserId,
         null
     ),
     Esql.oauth.token.user_id.case = CASE(
-        Esql.o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
+        o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
         o365.audit.UserId,
         null
     )

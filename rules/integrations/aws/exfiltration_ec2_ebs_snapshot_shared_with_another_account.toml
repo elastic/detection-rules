@@ -88,7 +88,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Extract snapshotId, attribute type, operation type, and userId
 | dissect aws.cloudtrail.request_parameters
-  "{%{?snapshotId}=%{Esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{Esql.attribute.type},%{?createVolumePermission}={%{Esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{Esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
+  "{%{?snapshotId}=%{Esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{Esql.aws.cloudtrail.request_parameters.attribute.type},%{?createVolumePermission}={%{Esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{Esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
 
 // Check for snapshot permission added for another AWS account
 | where
