@@ -7,7 +7,9 @@ updated_date = "2025/07/14"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an external authentication method (EAM) is added or modified in Entra ID. EAM may allow adversaries to bypass multi-factor authentication (MFA) requirements, potentially leading to unauthorized access to user accounts and sensitive resources by using bring-your-own IdP (BYOIDP) methods.
+Identifies when an external authentication method (EAM) is added or modified in Entra ID. EAM may allow adversaries to
+bypass multi-factor authentication (MFA) requirements, potentially leading to unauthorized access to user accounts and
+sensitive resources by using bring-your-own IdP (BYOIDP) methods.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.graphactivitylogs-*"]
@@ -61,7 +63,7 @@ tags = [
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 event.dataset: azure.graphactivitylogs and
@@ -77,15 +79,23 @@ framework = "MITRE ATT&CK"
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1556.009"
 name = "Conditional Access Policies"
 reference = "https://attack.mitre.org/techniques/T1556/009/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.graphactivitylogs.properties.user_principal_object_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
 
