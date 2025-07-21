@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2025/07/21"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/07/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of spinstall0.aspx, which indicates successful exploitation of CVE-2025-53770, a vulnerability
+in SharePoint that enables remote code execution.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Sharepoint ToolShell (CVE-2025-53770) Exploitation"
+note = """## Triage and analysis
+
+### Investigating Potential Sharepoint ToolShell (CVE-2025-53770) Exploitation
+
+### Possible investigation steps
+
+- Retrieve and review the related file contents for web shell signs.
+- Review process creation events with `w3wp.exe` as parent to identify suspicious execution of PowerShell or command shell processes.
+- Navigate to your sharepoint server `{{BaseURL}}/_layouts/15/spinstall0.aspx` or `{{BaseURL}}/_layouts/16/spinstall0.aspx` and confirm whether the page exists. [ref](https://github.com/projectdiscovery/nuclei-templates/blob/main/http/vulnerabilities/backdoor/sharepoint-toolshell-backdoor.yaml)
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Thoroughly investigate affected SharePoint servers and adjacent systems for signs of compromise and persistence mechanisms.
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Apply the [latest security updates provided by Microsoft](https://msrc.microsoft.com/blog/2025/07/customer-guidance-for-sharepoint-vulnerability-cve-2025-53770/) to patch the vulnerability (CVE-2025-53770) in SharePoint.
+- Rotate all SharePoint ASP.NET Machine Keys and immediately restart IIS across the farm to invalidate stolen cryptographic tokens and block post-patch impersonation attempts.
+- Restore the system from a known good backup if evidence of compromise is confirmed, ensuring that the backup is free from malicious artifacts.
+- Report the incident to the appropriate internal security team or external authorities if required, providing them with detailed findings and evidence for further investigation.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+  "https://research.eye.security/sharepoint-under-siege/",
+  "https://msrc.microsoft.com/blog/2025/07/customer-guidance-for-sharepoint-vulnerability-cve-2025-53770/",
+  "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/vulnerabilities/backdoor/sharepoint-toolshell-backdoor.yaml",
+]
+risk_score = 73
+rule_id = "f4f12c35-bf9d-4595-9cf3-822b590d49f3"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.action != "deletion" and
+  file.name : "spinstall0.aspx" and
+  file.path : (
+    "*microsoft shared\\Web Server Extensions\\1?\\TEMPLATE\\LAYOUTS*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
