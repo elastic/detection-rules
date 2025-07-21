@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2025/06/27"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the deletion of Kubernetes events, which can indicate an attempt to cover up malicious
+activity or misconfigurations. Adversaries may delete events to remove traces of their actions, making it
+harder for defenders to investigate and respond to incidents.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Events Deleted"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Events Deleted
+Kubernetes, a container orchestration platform, logs events to track activities within the cluster. These events are crucial for monitoring and troubleshooting. Adversaries may delete these logs to hide their tracks, impeding incident response. The detection rule identifies deletions of Kubernetes events, signaling potential defense evasion attempts by matching specific audit log attributes, thus alerting security teams to investigate further.
+
+### Possible investigation steps
+
+- Review the audit logs to identify the source of the deletion request by examining the `kubernetes.audit.user.username` field to determine which user or service account initiated the delete action.
+- Check the `kubernetes.audit.sourceIPs` field to trace the IP address from which the deletion request originated, which can help identify potential unauthorized access.
+- Investigate the `kubernetes.audit.objectRef.namespace` field to understand which namespace the deleted events belonged to, as this can provide context on the affected applications or services.
+- Analyze the timeline of events leading up to the deletion by reviewing other audit logs with similar `kubernetes.audit.verb` values to identify any suspicious activities or patterns.
+- Assess the role and permissions of the user or service account involved in the deletion to determine if they had legitimate access or if there was a potential privilege escalation.
+- Cross-reference the deletion event with other security alerts or logs to identify any correlated activities that might indicate a broader attack or misconfiguration.
+
+### False positive analysis
+
+- Routine maintenance activities may involve the deletion of Kubernetes events, such as during cluster upgrades or cleanup tasks. To manage this, create exceptions for known maintenance periods or specific user accounts responsible for these tasks.
+- Automated scripts or tools that manage Kubernetes resources might delete events as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by whitelisting their service accounts or IP addresses.
+- Misconfigured applications or services might inadvertently delete events. Regularly review and update configurations to ensure they align with best practices, and consider excluding specific applications if they are known to cause benign deletions.
+- Development and testing environments often have more frequent event deletions as part of iterative testing processes. Implement separate monitoring rules or thresholds for these environments to reduce noise in alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access or tampering with event logs.
+- Review and restore any deleted Kubernetes events from backup logs or snapshots to ensure a complete audit trail is available for further investigation.
+- Conduct a thorough review of access controls and permissions within the Kubernetes environment to identify and revoke any unauthorized access that may have led to the deletion of events.
+- Implement stricter logging and monitoring policies to ensure that any future deletions of Kubernetes events are detected and alerted in real-time.
+- Escalate the incident to the security operations center (SOC) for a comprehensive analysis of potential breaches and to determine if additional systems or data were affected.
+- Coordinate with the incident response team to conduct a root cause analysis and identify any vulnerabilities or misconfigurations that allowed the event deletion to occur.
+- Update and reinforce security policies and procedures to prevent similar incidents, including enhancing detection capabilities for defense evasion tactics as outlined in MITRE ATT&CK.
+"""
+risk_score = 21
+rule_id = "33c27b4e-8ec6-406f-b8e5-345dc024aa97"
+severity = "low"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "delete" and
+kubernetes.audit.objectRef.resource == "events" and kubernetes.audit.stage == "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
