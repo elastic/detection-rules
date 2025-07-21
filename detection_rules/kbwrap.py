@@ -235,6 +235,7 @@ def kibana_import_rules(  # noqa: PLR0915
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from exported rules")
+@click.option("--strip-exception-list-id", "-sli", is_flag=True, help="Strip id fields from rule exceptions list")
 @click.option(
     "--no-tactic-filename",
     "-nt",
@@ -269,6 +270,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     skip_errors: bool = False,
     strip_version: bool = False,
     strip_dates: bool = False,
+    strip_exception_list_id: bool = False,
     no_tactic_filename: bool = False,
     local_creation_date: bool = False,
     local_updated_date: bool = False,
@@ -279,6 +281,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     kibana = ctx.obj["kibana"]
     strip_version = strip_version or RULES_CONFIG.strip_version
     strip_dates = strip_dates or RULES_CONFIG.strip_dates
+    strip_exception_list_id = strip_exception_list_id or RULES_CONFIG.strip_exception_list_id
     kibana_include_details = export_exceptions or export_action_connectors
 
     # Only allow one of rule_id or rule_name
@@ -380,6 +383,9 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 params["updated_date"] = None
             contents = TOMLRuleContents.from_rule_resource(**params)  # type: ignore[reportArgumentType]
             rule = TOMLRule(contents=contents, path=save_path)
+            if strip_exception_list_id and rule.contents.data.exceptions_list:
+                for exc in rule.contents.data.exceptions_list:
+                    exc.pop("id", None)
         except Exception as e:
             if skip_errors:
                 print(f"- skipping {rule_resource.get('name')} - {type(e).__name__}")  # type: ignore[reportUnknownMemberType]

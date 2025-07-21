@@ -211,6 +211,7 @@ class RulesConfig:
     no_tactic_filename: bool = False
     strip_version: bool = False
     strip_dates: bool = False
+    strip_exception_list_id: bool = False
 
     def __post_init__(self) -> None:
         """Perform post validation on packages.yaml file."""
@@ -335,6 +336,9 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
     # strip_dates
     contents["strip_dates"] = loaded.get("strip_dates", False)
+
+    # strip_exception_list_id
+    contents["strip_exception_list_id"] = loaded.get("strip_exception_list_id", False)
 
     # return the config
     try:

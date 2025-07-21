@@ -156,6 +156,7 @@ def generate_rules_index(
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 @click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from imported rules")
+@click.option("--strip-exception-list-id", "-sli", is_flag=True, help="Strip id fields from rule exceptions list")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
@@ -171,6 +172,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     default_author: str,
     strip_none_values: bool,
     strip_dates: bool,
+    strip_exception_list_id: bool,
     local_creation_date: bool,
     local_updated_date: bool,
 ) -> None:
@@ -235,6 +237,10 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         if strip_dates:
             contents.pop("creation_date", None)
             contents.pop("updated_date", None)
+
+        if strip_exception_list_id and contents.get("exceptions_list"):
+            for exc in contents["exceptions_list"]:
+                exc.pop("id", None)
 
         output = rule_prompt(
             rule_path,
