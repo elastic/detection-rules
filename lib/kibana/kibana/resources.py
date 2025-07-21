@@ -5,6 +5,7 @@
 
 import datetime
 from typing import List, Optional, Type
+from uuid import uuid4
 
 import json
 
@@ -241,6 +242,11 @@ class RuleResource(BaseResource):
             overwrite_exceptions=stringify_bool(overwrite_exceptions),
             overwrite_action_connectors=stringify_bool(overwrite_action_connectors),
         )
+        # add missing ids for exceptions_list entries to satisfy the Kibana API
+        for rule in rules:
+            for exc in rule.get("exceptions_list", []):
+                exc.setdefault("id", str(uuid4()))
+
         rule_ids = [r['rule_id'] for r in rules]
         flattened_exceptions = [e for sublist in exceptions for e in sublist]
         flattened_actions_connectors = [a for sublist in action_connectors for a in sublist]
