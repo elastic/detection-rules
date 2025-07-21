@@ -279,6 +279,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=True,
             skip_errors=skip_errors,
             verbose=True,
+            strip_dates=strip_dates,
         )
         for line in e_output:
             click.echo(line)
@@ -293,6 +294,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=True,
             skip_errors=skip_errors,
             verbose=True,
+            strip_dates=strip_dates,
         )
         for line in ac_output:
             click.echo(line)

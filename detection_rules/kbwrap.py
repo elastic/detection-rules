@@ -421,6 +421,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
+            strip_dates=strip_dates,
         )
         for line in e_output:
             click.echo(line)
@@ -439,6 +440,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
+            strip_dates=strip_dates,
         )
         for line in ac_output:
             click.echo(line)

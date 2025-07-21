@@ -26,11 +26,11 @@ RULES_CONFIG = parse_rules_config()
 class ExceptionMeta(MarshmallowDataclassMixin):
     """Data stored in an exception's [metadata] section of TOML."""
 
-    creation_date: definitions.Date
     list_name: str
     rule_ids: list[definitions.UUIDString]
     rule_names: list[str]
-    updated_date: definitions.Date
+    creation_date: definitions.Date | None = None
+    updated_date: definitions.Date | None = None
 
     # Optional fields
     deprecation_date: definitions.Date | None = None
@@ -164,7 +164,10 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
     @classmethod
     def from_exceptions_dict(
-        cls, exceptions_dict: dict[str, Any], rule_list: list[dict[str, Any]]
+        cls,
+        exceptions_dict: dict[str, Any],
+        rule_list: list[dict[str, Any]],
+        strip_dates: bool = False,
     ) -> "TOMLExceptionContents":
         """Create a TOMLExceptionContents from a kibana rule resource."""
         rule_ids: list[str] = []
@@ -176,15 +179,25 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         # Format date to match schema
         container = exceptions_dict["container"]
-        creation_date = datetime.strptime(container["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
-        updated_date = datetime.strptime(container["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        creation_date = None
+        updated_date = None
+        if not strip_dates:
+            creation_date = datetime.strptime(  # noqa: DTZ007
+                container["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
+            updated_date = datetime.strptime(  # noqa: DTZ007
+                container["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
+
         metadata = {
-            "creation_date": creation_date,
-            "list_name": exceptions_dict["container"]["name"],
+            "list_name": container["name"],
             "rule_ids": rule_ids,
             "rule_names": rule_names,
-            "updated_date": updated_date,
         }
+        if creation_date is not None:
+            metadata["creation_date"] = creation_date
+        if updated_date is not None:
+            metadata["updated_date"] = updated_date
 
         return cls.from_dict({"metadata": metadata, "exceptions": [exceptions_dict]}, unknown=EXCLUDE)
 
@@ -259,6 +272,7 @@ def build_exception_objects(  # noqa: PLR0913
     save_toml: bool = False,
     skip_errors: bool = False,
     verbose: bool = False,
+    strip_dates: bool = False,
 ) -> tuple[list[TOMLException], list[str], list[str]]:
     """Build TOMLException objects from a list of exception dictionaries."""
     output: list[str] = []
@@ -271,6 +285,7 @@ def build_exception_objects(  # noqa: PLR0913
             contents = TOMLExceptionContents.from_exceptions_dict(
                 {"container": container, "items": items},
                 exception_list_rule_table[list_id],
+                strip_dates=strip_dates,
             )
             filename = f"{list_id}_exceptions.toml"
             if RULES_CONFIG.exception_dir is None and not exceptions_directory:
