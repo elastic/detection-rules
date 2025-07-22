@@ -57,7 +57,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure.auditlogs-*
+FROM logs-azure.auditlogs-* metadata _id, _version, _index
 | WHERE event.action == "Authentication Methods Policy Update"
 | EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.new_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
 | EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.old_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
