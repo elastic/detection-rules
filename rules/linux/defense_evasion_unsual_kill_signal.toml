@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2025/07/16"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2025/07/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of unusual kill signals, specifically kill signals in the range of 32-64, which
+are not commonly used in standard operations. Rootkits may leverage these signals to conduct certain actions,
+such as manipulating processes in unexpected ways, potentially escalating privileges or evading detection. 
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Kill Signal"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Kill Signal
+
+In Linux environments, kill signals are used to manage process lifecycles. Signals in the range of 32-64 are less common and can be exploited by adversaries, such as rootkits, to manipulate processes stealthily, potentially leading to privilege escalation or evasion of security measures. The 'Unusual Kill Signal' detection rule identifies these rare signals, flagging potential misuse by monitoring specific syscall activities, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the process details associated with the alert, focusing on the process name, PID, and parent process to understand the context of the kill signal usage.
+- Examine the user account under which the process was executed to determine if it aligns with expected behavior or if it indicates potential unauthorized access.
+- Investigate the command line arguments and environment variables of the process to identify any suspicious or unusual commands that may suggest malicious activity.
+- Check the system logs around the time of the alert for any related events or anomalies that could provide additional context or indicate a broader attack pattern.
+- Correlate the alert with other security events or alerts from the same host to identify if this is part of a larger attack or if there are other indicators of compromise.
+- Assess the network activity of the host to identify any unusual outbound connections that could suggest data exfiltration or communication with a command and control server.
+
+### False positive analysis
+
+- Legitimate applications or services may use signals in the 32-64 range for custom inter-process communication, leading to false positives. Identify these applications and create exceptions for their specific processes.
+- Some system monitoring or management tools might utilize these signals for legitimate process management tasks. Review the tools in use and whitelist their activities if they are verified as non-threatening.
+- Development environments or testing frameworks might employ unusual signals for debugging or testing purposes. Ensure these environments are properly isolated and exclude their activities from triggering alerts.
+- Custom scripts or automation tasks could be configured to use these signals for specific operations. Audit these scripts and, if deemed safe, add them to an exception list to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified with unusual kill signals in the range of 32-64 to halt any ongoing malicious activity.
+- Conduct a thorough forensic analysis of the affected system to identify any rootkits or malicious software that may have been installed, focusing on the processes and files associated with the unusual kill signals.
+- Restore the system from a known good backup if rootkit presence is confirmed, ensuring that the backup is free from any compromise.
+- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Implement enhanced monitoring and logging for unusual kill signals and related activities to detect any future attempts at similar attacks.
+- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further investigation and to assess the need for broader organizational response measures.
+"""
+references = [
+    "https://github.com/m0nad/Diamorphine/blob/master/diamorphine.c#L302",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
+risk_score = 47
+rule_id = "cf307a5a-d503-44a4-8158-db196d99c9df"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-a always,exit -F arch=b64 -S kill
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "killed-pid" and auditd.data.syscall == "kill" and
+auditd.data.a1 in (
+  "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", "30",
+  "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", "40",
+  "41", "42", "43", "44", "45", "46", "47"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
