@@ -7,7 +7,12 @@ updated_date = "2025/07/23"
 [rule]
 author = ["Elastic"]
 description = """
-Detects potential remote code execution (RCE) attempts targeting IIS web servers running SharePoint via malicious VIEWSTATE payloads in HTTP POST requests. Attackers may exploit insecure deserialization in the VIEWSTATE parameter to execute arbitrary code. This rule identifies suspicious requests containing VIEWSTATE data and other indicators of exploitation, specifically those associated with the Toolshell exploit chain. Toolshell leverages vulnerabilities (CVE-2025-53770 and CVE-2025-53771) for initial access, enabling adversaries to deploy a webshell, steal machine keys, sign VIEWSTATE payloads offline, and subsequently send signed payloads to the server to achieve code execution.
+Detects potential remote code execution (RCE) attempts targeting IIS web servers running SharePoint via malicious
+VIEWSTATE payloads in HTTP POST requests. Attackers may exploit insecure deserialization in the VIEWSTATE parameter to
+execute arbitrary code. This rule identifies suspicious requests containing VIEWSTATE data and other indicators of
+exploitation, specifically those associated with the Toolshell exploit chain. Toolshell leverages vulnerabilities
+(CVE-2025-53770 and CVE-2025-53771) for initial access, enabling adversaries to deploy a webshell, steal machine keys,
+sign VIEWSTATE payloads offline, and subsequently send signed payloads to the server to achieve code execution.
 """
 from = "now-9m"
 index = ["logs-network_traffic.http*"]
@@ -15,16 +20,15 @@ language = "kuery"
 license = "Elastic License v2"
 max_signals = 10
 name = "Potential VIEWSTATE RCE Attempt on SharePoint/IIS"
-reference = [
+references = [
     "https://research.eye.security/sharepoint-under-siege/",
     "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-53771",
     "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-53770",
-    "https://msrc.microsoft.com/blog/2025/07/customer-guidance-for-sharepoint-vulnerability-cve-2025-53770/"
+    "https://msrc.microsoft.com/blog/2025/07/customer-guidance-for-sharepoint-vulnerability-cve-2025-53770/",
 ]
 risk_score = 73
 rule_id = "99c9af5a-67cf-11f0-b69e-f661ea17fbcd"
-setup = """
-### Network Traffic Setup
+setup = """### Network Traffic Setup
 
 This rule requires network traffic logs to be collected from HTTP endpoints, focusing on IIS web servers and SharePoint sites. Ensure logging captures HTTP request and response details, including headers and request bodies for POST requests. Monitoring VIEWSTATE content is critical for detecting deserialization attacks.
 """
@@ -38,6 +42,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 data_stream.dataset : "network_traffic.http" and
     network.direction: "ingress" and
@@ -49,15 +54,17 @@ data_stream.dataset : "network_traffic.http" and
     http.response.headers.server: Microsoft-IIS*
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1203"
 name = "Exploitation for Client Execution"
 reference = "https://attack.mitre.org/techniques/T1203/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
