@@ -293,6 +293,12 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         if rule_name:
             found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")  # type: ignore[reportUnknownMemberType]
             rule_id = [r["rule_id"] for r in found]  # type: ignore[reportUnknownVariableType]
+            if not rule_id:
+                click.echo(
+                    f"No rules found to export matching the provided name '{rule_name}' "
+                    f"using filter 'alert.attributes.name:{rule_name}'"
+                )
+                return []
         query = (
             export_query
             if not custom_rules_only
