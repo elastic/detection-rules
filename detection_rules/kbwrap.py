@@ -27,9 +27,9 @@ from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
-from .rule_loader import RuleCollection, update_metadata_from_file
+from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, update_metadata_from_file
 from .schemas import definitions  # noqa: TC001
-from .utils import format_command_options, rulename_to_filename
+from .utils import format_command_options, load_toml_rule_paths_by_id, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
@@ -285,10 +285,9 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     if rule_name and rule_id:
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
 
-    rules = None
+    rules_map = {}
     if load_rule_loading:
-        rules = RuleCollection.default()
-
+        rules_map = load_toml_rule_paths_by_id(DEFAULT_PREBUILT_RULES_DIRS)
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
         if rule_name:
@@ -370,7 +369,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             tactic_name = first_tactic if not no_tactic_filename else None  # type: ignore[reportUnknownMemberType]
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=tactic_name)  # type: ignore[reportUnknownMemberType]
 
-            local_contents = None
             save_path = directory / f"{rule_name}"
 
             # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
@@ -380,14 +378,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             if local_rule:
                 input_rule_id = cast("definitions.UUIDString", local_rule.get("rule_id"))
 
-            if rules and input_rule_id and input_rule_id in rules.id_map:
-                save_path = rules.id_map[input_rule_id].path
-                local_contents = rules.id_map[input_rule_id].contents
+            if rules_map and input_rule_id and input_rule_id in rules_map:
+                save_path = rules_map[input_rule_id]
             params.update(
                 update_metadata_from_file(
-                    {"creation_date": local_creation_date, "updated_date": local_updated_date},
-                    save_path,
-                    local_contents,
+                    save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
                 )
             )
             contents = TOMLRuleContents.from_rule_resource(**params)  # type: ignore[reportArgumentType]

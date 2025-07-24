@@ -33,7 +33,7 @@ from .generic_loader import GenericCollection
 from .misc import add_client, nested_set, parse_user_config, raise_client_error
 from .rule import DeprecatedRule, QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
-from .rule_loader import RuleCollection, update_metadata_from_file
+from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import (
     Ndjson,
@@ -42,6 +42,7 @@ from .utils import (
     get_path,
     load_dump,  # type: ignore[reportUnknownVariableType]
     load_rule_contents,
+    load_toml_rule_paths_by_id,
     rulename_to_filename,
 )
 
@@ -196,9 +197,9 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     if not file_contents:
         click.echo("Must specify at least one file!")
 
-    rules = None
+    rules_map = None
     if load_rule_loading:
-        rules = RuleCollection.default()
+        rules_map = load_toml_rule_paths_by_id(DEFAULT_PREBUILT_RULES_DIRS)
 
     exceptions_containers = {}
     exceptions_items = {}
@@ -222,13 +223,11 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         if base_path is None:
             raise ValueError(f"Invalid rule file, please ensure the rule has a name field: {contents}")
 
-        local_contents = None
         rule_base_path = Path(save_directory or RULES_DIRS[0])
         rule_path = rule_base_path / base_path
         rule_id = contents.get("rule_id")
-        if rules and rule_id in rules.id_map:
-            rule_path = rules.id_map[rule_id].path
-            local_contents = rules.id_map[rule_id].contents
+        if rules_map and rule_id in rules_map:
+            rule_path = rules_map[rule_id]
 
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
@@ -244,7 +243,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
 
         contents.update(
             update_metadata_from_file(
-                {"creation_date": local_creation_date, "updated_date": local_updated_date}, rule_path, local_contents
+                rule_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
             )
         )
 
