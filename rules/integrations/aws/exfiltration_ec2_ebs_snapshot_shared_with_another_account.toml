@@ -88,12 +88,12 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 
 // Extract snapshotId, attribute type, operation type, and userId
 | dissect aws.cloudtrail.request_parameters
-  "{%{?snapshotId}=%{Esql.aws.cloudtrail.request_parameters.snapshot.id},%{?attributeType}=%{Esql.aws.cloudtrail.request_parameters.attribute.type},%{?createVolumePermission}={%{Esql.aws.cloudtrail.request_parameters.operation.type}={%{?items}=[{%{?userId}=%{Esql.aws.cloudtrail.request_parameters.user.id}}]}}}"
+  "{%{?snapshotId}=%{Esql.aws_cloudtrail_request_parameters_snapshot_id},%{?attributeType}=%{Esql.aws_cloudtrail_request_parameters_attribute_type},%{?createVolumePermission}={%{Esql.aws_cloudtrail_request_parameters_operation_type}={%{?items}=[{%{?userId}=%{Esql_priv.aws_cloudtrail_request_parameters_user_id}}]}}}"
 
 // Check for snapshot permission added for another AWS account
 | where
-  Esql.aws.cloudtrail.request_parameters.operation.type == "add"
-  and cloud.account.id != Esql.aws.cloudtrail.request_parameters.user.id
+  Esql.aws_cloudtrail_request_parameters_operation_type == "add"
+  and cloud.account.id != Esql_priv.aws_cloudtrail_request_parameters_user_id
 
 // Keep ECS and derived fields
 | keep
@@ -101,11 +101,12 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   aws.cloudtrail.user_identity.arn,
   cloud.account.id,
   event.action,
-  Esql.aws.cloudtrail.request_parameters.snapshot.id,
-  Esql.aws.cloudtrail.request_parameters.attribute.type,
-  Esql.aws.cloudtrail.request_parameters.operation.type,
-  Esql.aws.cloudtrail.request_parameters.user.id,
+  Esql.aws_cloudtrail_request_parameters_snapshot_id,
+  Esql.aws_cloudtrail_request_parameters_attribute_type,
+  Esql.aws_cloudtrail_request_parameters_operation_type,
+  Esql_priv.aws_cloudtrail_request_parameters_user_id,
   source.ip
+
 '''
 
 

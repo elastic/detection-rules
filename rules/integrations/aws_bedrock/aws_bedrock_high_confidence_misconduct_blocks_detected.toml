@@ -100,21 +100,22 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count blocked violations per user per violation type
 | stats
-    Esql.ml.policy.blocked.violation.count = COUNT()
+    Esql.ml_policy_blocked_violation_count = COUNT()
   by
     user.id,
     gen_ai.compliance.violation_code
 
 // Aggregate all violation types per user
 | stats
-    Esql.ml.policy.blocked.violation.total.count = SUM(Esql.ml.policy.blocked.violation.count)
+    Esql.ml_policy_blocked_violation_total_count = SUM(Esql.ml_policy_blocked_violation_count)
   by
     user.id
 
 // Filter for users with more than 5 total violations
-| where Esql.ml.policy.blocked.violation.total.count > 5
+| where Esql.ml_policy_blocked_violation_total_count > 5
 
 // Sort by violation volume
-| sort Esql.ml.policy.blocked.violation.total.count desc
+| sort Esql.ml_policy_blocked_violation_total_count desc
+
 '''
 

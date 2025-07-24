@@ -89,21 +89,22 @@ FROM logs-o365.audit-*
     o365.audit.AuthenticationType == "OAuth" AND
     event.outcome == "success"
 | EVAL
-    Esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+    Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
 | KEEP
-    Esql.time_window.date_trunc,
+    Esql.time_window_date_trunc,
     o365.audit.UserId,
     file.name,
     source.ip
 | STATS
-    Esql.file.name.count_distinct = COUNT_DISTINCT(file.name),
-    Esql.event.count = COUNT(*)
+    Esql.file_name_count_distinct = COUNT_DISTINCT(file.name),
+    Esql.event_count = COUNT(*)
   BY
-    Esql.time_window.date_trunc,
+    Esql.time_window_date_trunc,
     o365.audit.UserId,
     source.ip
 | WHERE
-    Esql.file.name.count_distinct >= 25
+    Esql.file_name_count_distinct >= 25
+
 '''
 
 

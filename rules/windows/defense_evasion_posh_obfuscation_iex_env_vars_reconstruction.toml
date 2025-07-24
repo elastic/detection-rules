@@ -87,24 +87,24 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 | WHERE event.code == "4104"
 
 // Evaluate the length of the script block
-| EVAL Esql.powershell.file.script_block_text.length = LENGTH(powershell.file.script_block_text)
-| WHERE Esql.powershell.file.script_block_text.length > 500
+| EVAL Esql.powershell_file_script_block_text_length = LENGTH(powershell.file.script_block_text)
+| WHERE Esql.powershell_file_script_block_text_length > 500
 
 // Replace obfuscated dynamic string construction with 🔥 to count obfuscation attempts
-| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(
+| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(
     powershell.file.script_block_text,
     """(?i)(\$(?:\w+|\w+\:\w+)\[\d++\]\+\$(?:\w+|\w+\:\w+)\[\d++\]\+['"]x['"]|\$(?:\w+\:\w+)\[\d++,\d++,\d++\]|\.name\[\d++,\d++,\d++\])""",
     "🔥"
 )
 
 // Count how many 🔥 were inserted
-| EVAL Esql.powershell.file.script_block_text.character.count = LENGTH(Esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell_file_script_block_text_character_count = LENGTH(Esql_priv.powershell_file_script_block_text_replace) - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
 
 // Keep relevant context fields
 | KEEP
-    Esql.powershell.file.script_block_text.character.count,
-    Esql.powershell.file.script_block_text.length,
-    Esql.powershell.file.script_block_text.replace,
+    Esql.powershell_file_script_block_text_character_count,
+    Esql.powershell_file_script_block_text_length,
+    Esql_priv.powershell_file_script_block_text_replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -117,7 +117,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for meaningful pattern matches
-| WHERE Esql.powershell.file.script_block_text.character.count >= 1
+| WHERE Esql.powershell_file_script_block_text_character_count >= 1
 '''
 
 

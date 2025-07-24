@@ -81,7 +81,7 @@ query = '''
 FROM logs-okta*
 | WHERE
     event.dataset == "okta.system" AND
-    (event.action RLIKE "user\\.authentication(.*)" OR event.action == "user.session.start") AND
+    (event.action RLIKE "user\.authentication(.*)" OR event.action == "user.session.start") AND
     okta.security_context.is_proxy != true AND
     okta.actor.id != "unknown" AND
     event.outcome == "success"
@@ -93,12 +93,13 @@ FROM logs-okta*
     event.outcome,
     client.geo.country_name
 | STATS
-    Esql.client.geo.country_name.count_distinct = COUNT_DISTINCT(client.geo.country_name)
+    Esql.client_geo_country_name_count_distinct = COUNT_DISTINCT(client.geo.country_name)
     BY okta.actor.id, okta.actor.alternate_id
 | WHERE
-    Esql.client.geo.country_name.count_distinct >= 2
+    Esql.client_geo_country_name_count_distinct >= 2
 | SORT
-    Esql.client.geo.country_name.count_distinct DESC
+    Esql.client_geo_country_name_count_distinct DESC
+
 '''
 
 

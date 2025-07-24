@@ -94,22 +94,23 @@ FROM logs-aws.cloudtrail-*
   and event.action == "DescribeInstances"
 
 // truncate the timestamp to a 30-second window
-| eval Esql.time_window.date_trunc = DATE_TRUNC(30 seconds, @timestamp)
+| eval Esql.time_window_date_trunc = DATE_TRUNC(30 seconds, @timestamp)
 
 // keep only the relevant raw fields
-| keep Esql.time_window.date_trunc, aws.cloudtrail.user_identity.arn, cloud.region
+| keep Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn, cloud.region
 
 // count the number of unique regions and total API calls within the 30-second window
 | stats
-    Esql.cloud.region.count_distinct = COUNT_DISTINCT(cloud.region),
-    Esql.event.count = COUNT(*)
-  by Esql.time_window.date_trunc, aws.cloudtrail.user_identity.arn
+    Esql.cloud_region_count_distinct = COUNT_DISTINCT(cloud.region),
+    Esql.event_count = COUNT(*)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for resources making DescribeInstances API calls in more than 10 regions within the 30-second window
-| where Esql.cloud.region.count_distinct >= 10 and Esql.event.count >= 10
+| where Esql.cloud_region_count_distinct >= 10 and Esql.event_count >= 10
 
 // sort the results by time window in descending order
-| sort Esql.time_window.date_trunc desc
+| sort Esql.time_window_date_trunc desc
+
 '''
 
 [rule.investigation_fields]

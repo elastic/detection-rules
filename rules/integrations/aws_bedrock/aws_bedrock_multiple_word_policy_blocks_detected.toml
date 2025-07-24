@@ -94,13 +94,14 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count blocked profanity attempts per user
 | stats
-    Esql.ml.policy.blocked.profanity.count = COUNT()
+    Esql.ml_policy_blocked_profanity_count = COUNT()
   by user.id
 
 // Filter for excessive policy violations
-| where Esql.ml.policy.blocked.profanity.count > 5
+| where Esql.ml_policy_blocked_profanity_count > 5
 
 // Sort by violation volume
-| sort Esql.ml.policy.blocked.profanity.count desc
+| sort Esql.ml_policy_blocked_profanity_count desc
+
 '''
 

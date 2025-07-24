@@ -94,19 +94,19 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
 
 // Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL Esql.powershell.file.script_block_text.replace = REPLACE(
+| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(
     powershell.file.script_block_text,
     """(char\[\]\]\(\d+,\d+[^)]+|(\s?\(\[char\]\d+\s?\)\+){2,})""",
     "🔥"
 )
 
 // Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL Esql.powershell.file.script_block_text.character.count = LENGTH(Esql.powershell.file.script_block_text.replace) - LENGTH(REPLACE(Esql.powershell.file.script_block_text.replace, "🔥", ""))
+| EVAL Esql.powershell_file_script_block_text_character_count = LENGTH(Esql_priv.powershell_file_script_block_text_replace) - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
 
 // Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | KEEP
-    Esql.powershell.file.script_block_text.character.count,
-    Esql.powershell.file.script_block_text.replace,
+    Esql.powershell_file_script_block_text_character_count,
+    Esql_priv.powershell_file_script_block_text_replace,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -119,7 +119,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Final filter on match count
-| WHERE Esql.powershell.file.script_block_text.character.count >= 1
+| WHERE Esql.powershell_file_script_block_text_character_count >= 1
 '''
 
 

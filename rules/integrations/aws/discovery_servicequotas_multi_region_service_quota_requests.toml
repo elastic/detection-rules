@@ -44,35 +44,36 @@ FROM logs-aws.cloudtrail-*
   and event.action == "GetServiceQuota"
 
 // truncate the timestamp to a 30-second window
-| eval Esql.time_window.date_trunc = DATE_TRUNC(30 seconds, @timestamp)
+| eval Esql.time_window_date_trunc = DATE_TRUNC(30 seconds, @timestamp)
 
 // dissect request parameters to extract service and quota code
-| dissect aws.cloudtrail.request_parameters "{%{?Esql.aws.cloudtrail.request_parameters.service_code.key}=%{Esql.aws.cloudtrail.request_parameters.service_code}, %{?quota_code_key}=%{Esql.aws.cloudtrail.request_parameters.quota_code}}"
+| dissect aws.cloudtrail.request_parameters "{%{?Esql.aws_cloudtrail_request_parameters_service_code_key}=%{Esql.aws_cloudtrail_request_parameters_service_code}, %{?quota_code_key}=%{Esql.aws_cloudtrail_request_parameters_quota_code}}"
 
 // filter for EC2 service quota L-1216C47A (vCPU on-demand instances)
-| where Esql.aws.cloudtrail.request_parameters.service_code == "ec2" and Esql.aws.cloudtrail.request_parameters.quota_code == "L-1216C47A"
+| where Esql.aws_cloudtrail_request_parameters_service_code == "ec2" and Esql.aws_cloudtrail_request_parameters_quota_code == "L-1216C47A"
 
 // keep only the relevant fields
 | keep
-    Esql.time_window.date_trunc,
+    Esql.time_window_date_trunc,
     aws.cloudtrail.user_identity.arn,
     cloud.region,
-    Esql.aws.cloudtrail.request_parameters.service_code,
-    Esql.aws.cloudtrail.request_parameters.quota_code
+    Esql.aws_cloudtrail_request_parameters_service_code,
+    Esql.aws_cloudtrail_request_parameters_quota_code
 
 // count the number of unique regions and total API calls within the time window
 | stats
-    Esql.cloud.region.count_distinct = COUNT_DISTINCT(cloud.region),
-    Esql.event.count = COUNT(*)
-  by Esql.time_window.date_trunc, aws.cloudtrail.user_identity.arn
+    Esql.cloud_region_count_distinct = COUNT_DISTINCT(cloud.region),
+    Esql.event_count = COUNT(*)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for API calls in more than 10 regions within the 30-second window
 | where
-  Esql.cloud.region.count_distinct >= 10
-  and Esql.event.count >= 10
+  Esql.cloud_region_count_distinct >= 10
+  and Esql.event_count >= 10
 
 // sort by time window descending
-| sort Esql.time_window.date_trunc desc
+| sort Esql.time_window_date_trunc desc
+
 '''
 note = """## Triage and analysis
 

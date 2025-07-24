@@ -94,13 +94,14 @@ FROM logs-aws_bedrock.invocation-*
 
 // Count how many times each user triggered a blocked topic policy
 | stats
-    Esql.ml.policy.blocked.topic.count = COUNT()
+    Esql.ml_policy_blocked_topic_count = COUNT()
   by user.id
 
 // Filter for excessive violations
-| where Esql.ml.policy.blocked.topic.count > 5
+| where Esql.ml_policy_blocked_topic_count > 5
 
 // Sort highest to lowest
-| sort Esql.ml.policy.blocked.topic.count desc
+| sort Esql.ml_policy_blocked_topic_count desc
+
 '''
 

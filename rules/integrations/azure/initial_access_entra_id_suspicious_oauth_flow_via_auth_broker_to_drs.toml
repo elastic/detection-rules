@@ -101,93 +101,94 @@ FROM logs-azure.signinlogs* METADATA _id, _version, _index
     azure.signinlogs.properties.resource_id == "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9"  // DRS
 
 | EVAL
-    Esql.time_window.date_trunc = DATE_TRUNC(30 minutes, @timestamp),
-    Esql.azure.signinlogs.properties.session_id = azure.signinlogs.properties.session_id,
-    Esql.is_browser.case = CASE(
+    Esql.time_window_date_trunc = DATE_TRUNC(30 minutes, @timestamp),
+    Esql.azure_signinlogs_properties_session_id = azure.signinlogs.properties.session_id,
+    Esql.is_browser_case = CASE(
         TO_LOWER(azure.signinlogs.properties.device_detail.browser) RLIKE "(chrome|firefox|edge|safari).*", 1, 0
     )
 
 | STATS
-    Esql.azure.signinlogs.properties.user_display_name.values = VALUES(azure.signinlogs.properties.user_display_name),
-    Esql.azure.signinlogs.properties.user_principal_name.values = VALUES(azure.signinlogs.properties.user_principal_name),
-    Esql.azure.signinlogs.properties.session_id.values = VALUES(azure.signinlogs.properties.session_id),
-    Esql.azure.signinlogs.properties.unique_token_identifier.values = VALUES(azure.signinlogs.properties.unique_token_identifier),
+    Esql_priv.azure_signinlogs_properties_user_display_name_values = VALUES(azure.signinlogs.properties.user_display_name),
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values = VALUES(azure.signinlogs.properties.user_principal_name),
+    Esql.azure_signinlogs_properties_session_id_values = VALUES(azure.signinlogs.properties.session_id),
+    Esql.azure_signinlogs_properties_unique_token_identifier_values = VALUES(azure.signinlogs.properties.unique_token_identifier),
 
-    Esql.source.geo.city_name.values = VALUES(source.geo.city_name),
-    Esql.source.geo.country_name.values = VALUES(source.geo.country_name),
-    Esql.source.geo.region_name.values = VALUES(source.geo.region_name),
-    Esql.source.address.values = VALUES(source.address),
-    Esql.source.address.count_distinct = COUNT_DISTINCT(source.address),
-    Esql.source.`as`.organization.name.values = VALUES(source.`as`.organization.name),
+    Esql.source_geo_city_name_values = VALUES(source.geo.city_name),
+    Esql.source_geo_country_name_values = VALUES(source.geo.country_name),
+    Esql.source_geo_region_name_values = VALUES(source.geo.region_name),
+    Esql.source_address_values = VALUES(source.address),
+    Esql.source_address_count_distinct = COUNT_DISTINCT(source.address),
+    Esql.source_`as`.organization.name.values = VALUES(source.`as`.organization.name),
 
-    Esql.azure.signinlogs.properties.authentication_protocol.values = VALUES(azure.signinlogs.properties.authentication_protocol),
-    Esql.azure.signinlogs.properties.authentication_requirement.values = VALUES(azure.signinlogs.properties.authentication_requirement),
-    Esql.azure.signinlogs.properties.is_interactive.values = VALUES(azure.signinlogs.properties.is_interactive),
+    Esql.azure_signinlogs_properties_authentication_protocol_values = VALUES(azure.signinlogs.properties.authentication_protocol),
+    Esql.azure_signinlogs_properties_authentication_requirement_values = VALUES(azure.signinlogs.properties.authentication_requirement),
+    Esql.azure_signinlogs_properties_is_interactive_values = VALUES(azure.signinlogs.properties.is_interactive),
 
-    Esql.azure.signinlogs.properties.incoming_token_type.values = VALUES(azure.signinlogs.properties.incoming_token_type),
-    Esql.azure.signinlogs.properties.token_protection_status_details.sign_in_session_status.values = VALUES(azure.signinlogs.properties.token_protection_status_details.sign_in_session_status),
-    Esql.azure.signinlogs.properties.session_id.count_distinct = COUNT_DISTINCT(azure.signinlogs.properties.session_id),
-    Esql.azure.signinlogs.properties.app_display_name.values = VALUES(azure.signinlogs.properties.app_display_name),
-    Esql.azure.signinlogs.properties.app_id.values = VALUES(azure.signinlogs.properties.app_id),
-    Esql.azure.signinlogs.properties.resource_id.values = VALUES(azure.signinlogs.properties.resource_id),
-    Esql.azure.signinlogs.properties.resource_display_name.values = VALUES(azure.signinlogs.properties.resource_display_name),
+    Esql.azure_signinlogs_properties_incoming_token_type_values = VALUES(azure.signinlogs.properties.incoming_token_type),
+    Esql.azure_signinlogs_properties_token_protection_status_details_sign_in_session_status_values = VALUES(azure.signinlogs.properties.token_protection_status_details.sign_in_session_status),
+    Esql.azure_signinlogs_properties_session_id_count_distinct = COUNT_DISTINCT(azure.signinlogs.properties.session_id),
+    Esql.azure_signinlogs_properties_app_display_name_values = VALUES(azure.signinlogs.properties.app_display_name),
+    Esql.azure_signinlogs_properties_app_id_values = VALUES(azure.signinlogs.properties.app_id),
+    Esql.azure_signinlogs_properties_resource_id_values = VALUES(azure.signinlogs.properties.resource_id),
+    Esql.azure_signinlogs_properties_resource_display_name_values = VALUES(azure.signinlogs.properties.resource_display_name),
 
-    Esql.azure.signinlogs.properties.app_owner_tenant_id.values = VALUES(azure.signinlogs.properties.app_owner_tenant_id),
-    Esql.azure.signinlogs.properties.resource_owner_tenant_id.values = VALUES(azure.signinlogs.properties.resource_owner_tenant_id),
+    Esql.azure_signinlogs_properties_app_owner_tenant_id_values = VALUES(azure.signinlogs.properties.app_owner_tenant_id),
+    Esql.azure_signinlogs_properties_resource_owner_tenant_id_values = VALUES(azure.signinlogs.properties.resource_owner_tenant_id),
 
-    Esql.azure.signinlogs.properties.conditional_access_status.values = VALUES(azure.signinlogs.properties.conditional_access_status),
-    Esql.azure.signinlogs.properties.risk_state.values = VALUES(azure.signinlogs.properties.risk_state),
-    Esql.azure.signinlogs.properties.risk_level_aggregated.values = VALUES(azure.signinlogs.properties.risk_level_aggregated),
+    Esql.azure_signinlogs_properties_conditional_access_status_values = VALUES(azure.signinlogs.properties.conditional_access_status),
+    Esql.azure_signinlogs_properties_risk_state_values = VALUES(azure.signinlogs.properties.risk_state),
+    Esql.azure_signinlogs_properties_risk_level_aggregated_values = VALUES(azure.signinlogs.properties.risk_level_aggregated),
 
-    Esql.azure.signinlogs.properties.device_detail.browser.values = VALUES(azure.signinlogs.properties.device_detail.browser),
-    Esql.azure.signinlogs.properties.device_detail.operating_system.values = VALUES(azure.signinlogs.properties.device_detail.operating_system),
-    Esql.user_agent.original.values = VALUES(user_agent.original),
-    Esql.is_browser.case.max = MAX(Esql.is_browser.case),
+    Esql.azure_signinlogs_properties_device_detail_browser_values = VALUES(azure.signinlogs.properties.device_detail.browser),
+    Esql.azure_signinlogs_properties_device_detail_operating_system_values = VALUES(azure.signinlogs.properties.device_detail.operating_system),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.is_browser_case_max = MAX(Esql.is_browser_case),
 
-    Esql.event.count = COUNT(*)
+    Esql.event_count = COUNT(*)
   BY
-    Esql.time_window.date_trunc,
+    Esql.time_window_date_trunc,
     azure.signinlogs.properties.user_principal_name,
     azure.signinlogs.properties.session_id
 
 | KEEP
-    Esql.time_window.date_trunc,
-    Esql.azure.signinlogs.properties.user_display_name.values,
-    Esql.azure.signinlogs.properties.user_principal_name.values,
-    Esql.azure.signinlogs.properties.session_id.values,
-    Esql.azure.signinlogs.properties.unique_token_identifier.values,
-    Esql.source.geo.city_name.values,
-    Esql.source.geo.country_name.values,
-    Esql.source.geo.region_name.values,
-    Esql.source.address.values,
-    Esql.source.address.count_distinct,
-    Esql.source.`as`.organization.name.values,
-    Esql.azure.signinlogs.properties.authentication_protocol.values,
-    Esql.azure.signinlogs.properties.authentication_requirement.values,
-    Esql.azure.signinlogs.properties.is_interactive.values,
-    Esql.azure.signinlogs.properties.incoming_token_type.values,
-    Esql.azure.signinlogs.properties.token_protection_status_details.sign_in_session_status.values,
-    Esql.azure.signinlogs.properties.session_id.count_distinct,
-    Esql.azure.signinlogs.properties.app_display_name.values,
-    Esql.azure.signinlogs.properties.app_id.values,
-    Esql.azure.signinlogs.properties.resource_id.values,
-    Esql.azure.signinlogs.properties.resource_display_name.values,
-    Esql.azure.signinlogs.properties.app_owner_tenant_id.values,
-    Esql.azure.signinlogs.properties.resource_owner_tenant_id.values,
-    Esql.azure.signinlogs.properties.conditional_access_status.values,
-    Esql.azure.signinlogs.properties.risk_state.values,
-    Esql.azure.signinlogs.properties.risk_level_aggregated.values,
-    Esql.azure.signinlogs.properties.device_detail.browser.values,
-    Esql.azure.signinlogs.properties.device_detail.operating_system.values,
-    Esql.user_agent.original.values,
-    Esql.is_browser.case.max,
-    Esql.event.count
+    Esql.time_window_date_trunc,
+    Esql_priv.azure_signinlogs_properties_user_display_name_values,
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values,
+    Esql.azure_signinlogs_properties_session_id_values,
+    Esql.azure_signinlogs_properties_unique_token_identifier_values,
+    Esql.source_geo_city_name_values,
+    Esql.source_geo_country_name_values,
+    Esql.source_geo_region_name_values,
+    Esql.source_address_values,
+    Esql.source_address_count_distinct,
+    Esql.source_`as`.organization.name.values,
+    Esql.azure_signinlogs_properties_authentication_protocol_values,
+    Esql.azure_signinlogs_properties_authentication_requirement_values,
+    Esql.azure_signinlogs_properties_is_interactive_values,
+    Esql.azure_signinlogs_properties_incoming_token_type_values,
+    Esql.azure_signinlogs_properties_token_protection_status_details_sign_in_session_status_values,
+    Esql.azure_signinlogs_properties_session_id_count_distinct,
+    Esql.azure_signinlogs_properties_app_display_name_values,
+    Esql.azure_signinlogs_properties_app_id_values,
+    Esql.azure_signinlogs_properties_resource_id_values,
+    Esql.azure_signinlogs_properties_resource_display_name_values,
+    Esql.azure_signinlogs_properties_app_owner_tenant_id_values,
+    Esql.azure_signinlogs_properties_resource_owner_tenant_id_values,
+    Esql.azure_signinlogs_properties_conditional_access_status_values,
+    Esql.azure_signinlogs_properties_risk_state_values,
+    Esql.azure_signinlogs_properties_risk_level_aggregated_values,
+    Esql.azure_signinlogs_properties_device_detail_browser_values,
+    Esql.azure_signinlogs_properties_device_detail_operating_system_values,
+    Esql.user_agent_original_values,
+    Esql.is_browser_case_max,
+    Esql.event_count
 
 | WHERE
-    Esql.source.address.count_distinct >= 2 AND
-    Esql.azure.signinlogs.properties.session_id.count_distinct == 1 AND
-    Esql.is_browser.case.max >= 1 AND
-    Esql.event.count >= 2
+    Esql.source_address_count_distinct >= 2 AND
+    Esql.azure_signinlogs_properties_session_id_count_distinct == 1 AND
+    Esql.is_browser_case_max >= 1 AND
+    Esql.event_count >= 2
+
 '''
 
 

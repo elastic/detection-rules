@@ -78,22 +78,23 @@ type = "esql"
 query = '''
 FROM logs-azure_openai.logs-*
 | EVAL
-    Esql.time_window.date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+    Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
 | WHERE azure.open_ai.operation_name == "ChatCompletions_Create"
 | KEEP
     azure.open_ai.properties.request_length,
     azure.resource.name,
     cloud.account.id,
-    Esql.time_window.date_trunc
+    Esql.time_window_date_trunc
 | STATS
-    Esql.event.count = COUNT(*),
-    Esql.azure.open_ai.properties.request_length.avg = AVG(azure.open_ai.properties.request_length)
+    Esql.event_count = COUNT(*),
+    Esql.azure_open_ai_properties_request_length_avg = AVG(azure.open_ai.properties.request_length)
   BY
-    Esql.time_window.date_trunc,
+    Esql.time_window_date_trunc,
     azure.resource.name
 | WHERE
-    Esql.event.count >= 10 AND
-    Esql.azure.open_ai.properties.request_length.avg >= 5000
-| SORT Esql.event.count DESC
+    Esql.event_count >= 10 AND
+    Esql.azure_open_ai_properties_request_length_avg >= 5000
+| SORT Esql.event_count DESC
+
 '''
 
