@@ -256,7 +256,7 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
     modules: set[str] = set()
     datasets: set[str] = set()
 
-    # extract out event.module and event.dataset from the query's AST
+    # extract out event.module, data_stream.dataset, and event.dataset from the query's AST
     for node in tree:  # type: ignore[reportUnknownVariableType]
         if (
             isinstance(node, eql.ast.Comparison)
