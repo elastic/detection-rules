@@ -322,6 +322,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         return []
 
     rules_results = results  # type: ignore[reportUnknownVariableType]
+    if (custom_rules_only or export_query) and "exported_rules_count" in results[-1]:  # type: ignore[reportUnknownMemberType]
+        # Kibana returns a summary message if a query is provided, so we need to filter out the summary
+        rules_results = rules_results[:-1]  # type: ignore[reportUnknownVariableType]
+        results = results[:-1]  # type: ignore[reportUnknownVariableType]
     action_connector_results = []
     exception_results = []
     if kibana_include_details:
