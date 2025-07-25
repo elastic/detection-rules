@@ -256,7 +256,7 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
     modules: set[str] = set()
     datasets: set[str] = set()
 
-    # extract out event.module and event.dataset from the query's AST
+    # extract out event.module, data_stream.dataset, and event.dataset from the query's AST
     for node in tree:  # type: ignore[reportUnknownVariableType]
         if (
             isinstance(node, eql.ast.Comparison)
@@ -265,17 +265,23 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
         ):
             if node.left == eql.ast.Field("event", ["module"]):
                 modules.add(node.right.render())  # type: ignore[reportUnknownMemberType]
-            elif node.left == eql.ast.Field("event", ["dataset"]):
+            elif node.left == eql.ast.Field("event", ["dataset"]) or node.left == eql.ast.Field(
+                "data_stream", ["dataset"]
+            ):
                 datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, eql.ast.InSet):
             if node.expression == eql.ast.Field("event", ["module"]):
                 modules.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
-            elif node.expression == eql.ast.Field("event", ["dataset"]):
+            elif node.expression == eql.ast.Field("event", ["dataset"]) or node.expression == eql.ast.Field(
+                "data_stream", ["dataset"]
+            ):
                 datasets.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):  # type: ignore[reportUnknownMemberType]
             modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):  # type: ignore[reportUnknownMemberType]
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("data_stream.dataset"):  # type: ignore[reportUnknownMemberType]
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType]
 
     return datasets, modules
 
