@@ -267,15 +267,21 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
                 modules.add(node.right.render())  # type: ignore[reportUnknownMemberType]
             elif node.left == eql.ast.Field("event", ["dataset"]):
                 datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
+            elif node.left == eql.ast.Field("data_stream", ["dataset"]):
+                datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, eql.ast.InSet):
             if node.expression == eql.ast.Field("event", ["module"]):
                 modules.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
             elif node.expression == eql.ast.Field("event", ["dataset"]):
                 datasets.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
+            elif node.expression == eql.ast.Field("data_stream", ["dataset"]):
+                datasets.update(node.get_literals()). # type: ignore[reportUnknownMemberType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):  # type: ignore[reportUnknownMemberType]
             modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
         elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):  # type: ignore[reportUnknownMemberType]
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("data_stream.dataset"):  # type: ignore[reportUnknownMemberType]
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))  # type: ignore[reportUnknownMemberType]
 
     return datasets, modules
 
