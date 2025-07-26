@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2025/06/18"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2025/07/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual request responses in Kubernetes audit logs through the use of the
+"new_terms" rule type. In production environments, default API requests are typically made by
+system components or trusted users, who are expected to have a consistent user agent and
+allowed response annotations. By monitoring for anomalies in the username and response
+annotations, this rule helps identify potential unauthorized access or misconfigurations
+in the Kubernetes environment.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Unusual Decision by User Agent"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Unusual Decision by User Agent
+
+Kubernetes orchestrates containerized applications, relying on API requests for operations. Typically, these requests originate from system components or trusted users with consistent user agents. Adversaries might exploit this by using atypical user agents to mask unauthorized access or misconfigurations. The detection rule identifies anomalies in user agents and response annotations, signaling potential threats in the Kubernetes environment.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs for entries where the user_agent.original field is present to identify any unusual or unexpected user agents.
+- Cross-reference the identified user agents with known system components and trusted users to determine if the user agent is legitimate or potentially malicious.
+- Examine the kubernetes.audit.stage field for "ResponseComplete" entries to understand the context and outcome of the requests associated with the unusual user agent.
+- Investigate the source IP addresses and associated usernames in the audit logs to identify any patterns or anomalies that could indicate unauthorized access.
+- Check for any recent changes or deployments in the Kubernetes environment that might explain the presence of unusual user agents or unexpected behavior.
+- Assess the risk and impact of the detected anomaly by considering the sensitivity of the accessed resources and the permissions associated with the user account involved.
+
+### False positive analysis
+
+- System components or trusted users with legitimate but infrequent user agents may trigger the rule. To manage this, identify these user agents and add them to an exception list to prevent unnecessary alerts.
+- Automated scripts or tools used for maintenance or monitoring might use unique user agents. Regularly review these tools and update the exception list to include their user agents if they are verified as non-threatening.
+- New deployments or updates to Kubernetes components can introduce new user agents temporarily. Monitor these changes and adjust the rule exceptions accordingly to accommodate expected behavior during these periods.
+- Third-party integrations or plugins may use distinct user agents. Validate these integrations and, if deemed safe, include their user agents in the exception list to reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes node or cluster to prevent further unauthorized access or potential lateral movement by the adversary.
+- Review and terminate any suspicious or unauthorized sessions identified in the audit logs to cut off any active malicious activity.
+- Revoke and rotate credentials associated with the compromised user agent to prevent further unauthorized access using the same credentials.
+- Conduct a thorough review of the affected system's configurations and permissions to identify and rectify any misconfigurations or overly permissive access controls.
+- Implement additional monitoring and logging for the affected systems to detect any further anomalies or unauthorized activities promptly.
+- Escalate the incident to the security operations team for a comprehensive investigation and to determine if any data exfiltration or further compromise has occurred.
+- Update and enhance detection rules and alerts to better identify similar anomalies in user agents and response annotations in the future, ensuring quicker response times.
+"""
+risk_score = 21
+rule_id = "8a1db198-da6f-4500-b985-7fe2457300af"
+severity = "low"
+tags = [
+    "Domain: Kubernetes",
+    "Domain: Container",
+    "Use Case: Threat Detection",
+    "Data Source: Kubernetes",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:"linux" and event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and user_agent.original:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

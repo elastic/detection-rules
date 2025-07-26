@@ -23,7 +23,7 @@ from .action_connector import (
 from .cli_utils import multi_collection
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
-from .generic_loader import GenericCollection
+from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
@@ -159,6 +159,10 @@ def kibana_import_rules(  # noqa: PLR0915
                 )
                 click.echo()
 
+    def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
+        """Check if the item matches any of the rule IDs in the provided set."""
+        return any(rule_id in rule_ids for rule_id in item.contents.metadata.get("rule_ids", []))
+
     def _process_imported_items(
         imported_items_list: list[list[dict[str, Any]]],
         item_type_description: str,
@@ -173,13 +177,18 @@ def kibana_import_rules(  # noqa: PLR0915
 
     kibana = ctx.obj["kibana"]
     rule_dicts = [r.contents.to_api_format() for r in rules]
+    rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
         exception_dicts = [
-            d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)
+            d.contents.to_api_format()
+            for d in cl.items
+            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids)
         ]
         action_connectors_dicts = [
-            d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            d.contents.to_api_format()
+            for d in cl.items
+            if isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids)
         ]
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,
@@ -273,6 +282,12 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         if rule_name:
             found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")  # type: ignore[reportUnknownMemberType]
             rule_id = [r["rule_id"] for r in found]  # type: ignore[reportUnknownVariableType]
+            if not rule_id:
+                click.echo(
+                    f"No rules found to export matching the provided name '{rule_name}' "
+                    f"using filter 'alert.attributes.name:{rule_name}'"
+                )
+                return []
         query = (
             export_query
             if not custom_rules_only

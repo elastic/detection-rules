@@ -256,7 +256,8 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     }
 
     try:
-        rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({"rule": contents, "metadata": meta}))
+        rule_contents = TOMLRuleContents.from_dict({"rule": contents, "metadata": meta})
+        rule = TOMLRule(path=Path(path), contents=rule_contents)
     except kql.KqlParseError as e:
         if skip_errors:
             return f"Rule: {kwargs['id']}, Rule Name: {rule_name} query failed to parse: {e.error_msg}"
