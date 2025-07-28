@@ -107,6 +107,8 @@ class ParserTests(unittest.TestCase):
     def test_blank_space(self):
         with self.assertRaises(kql.KqlParseError):
             kql.lark_parse('"Test-ServiceDaclPermission" or"Update-ExeFunctions"')
+            kql.lark_parse('"Test-ServiceDaclPermission"and "Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermission" or "Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermission" \nor "Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermission" or\n "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermissionOr" or\n "Update-ExeAndFunctions"')
