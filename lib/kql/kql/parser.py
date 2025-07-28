@@ -381,8 +381,7 @@ def lark_parse(text):
 
         # Check for whitespace around "and" and "or" tokens
         lines = text.split('\n')
-        check_whitespace(collect_token_positions(tree, "and"), 'and', lines)
-        check_whitespace(collect_token_positions(tree, "or"), 'or', lines)
+        check_whitespace(collect_token_positions(tree, ["and", "or"]), lines)
 
         return tree
     except UnexpectedEOF:

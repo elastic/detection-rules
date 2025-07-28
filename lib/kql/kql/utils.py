@@ -5,16 +5,17 @@
 
 import re
 
-from lark import Token  # noqa: F401
-from lark import Tree
+from lark import (
+    Token,
+    Tree,
+)
 
-from typing import List
 from kql.errors import KqlParseError
 
 
-def check_whitespace(token_positions: List, token: str, lines: List[str]) -> None:
+def check_whitespace(token_positions: list[tuple[int, int, str]], lines: list[str]) -> None:
     """Check for whitespace around a token."""
-    for line_num, column in token_positions:
+    for line_num, column, token in token_positions:
         # Check the substring at the given position
         line = lines[line_num - 1]
         start = column - 1
@@ -27,27 +28,26 @@ def check_whitespace(token_positions: List, token: str, lines: List[str]) -> Non
         # Check for whitespace around the token
         if (
             start > 0
-            and (end < len(line) and re.match(r"\s", line[end]) or end == len(line))
+            and ((end < len(line) and re.match(r"\s", line[end])) or end == len(line))
             and re.match(r"\s", line[start - 1])
         ):
             continue
-        else:
-            raise KqlParseError(
-                error_msg=f"Missing whitespace around '{token}' token",
-                line=line_num,
-                column=column,
-                source=line,
-                width=len(token),
-                trailer=None
-            )
+        raise KqlParseError(
+            error_msg=f"Missing whitespace around '{token}' token",
+            line=line_num,
+            column=column,
+            source=line,
+            width=len(token),
+            trailer=None
+        )
 
 
-def collect_token_positions(tree: Tree, token: str) -> List:
-    """Collect token positions from a tree."""
+def collect_token_positions(tree: Tree, token_list: list[str]) -> list[tuple[int, int, str]]:
+    """Collect token positions from a tree for a list of tokens."""
     token_positions = []
     for child in tree.children:
-        if isinstance(child, Token) and child.value.lower() in [token]:
-            token_positions.append((child.line, child.column))
+        if isinstance(child, Token) and child.value.lower() in [token.lower() for token in token_list]:
+            token_positions.append((child.line, child.column, child.value))
         elif isinstance(child, Tree):
-            token_positions.extend(collect_token_positions(child, token))
+            token_positions.extend(collect_token_positions(child, token_list))
     return token_positions
