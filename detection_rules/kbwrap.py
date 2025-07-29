@@ -279,7 +279,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 ) -> list[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
-    kibana_include_details = export_exceptions or export_action_connectors
+    kibana_include_details = export_exceptions or export_action_connectors or custom_rules_only or export_query
 
     # Only allow one of rule_id or rule_name
     if rule_name and rule_id:
