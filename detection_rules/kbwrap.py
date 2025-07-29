@@ -27,9 +27,9 @@ from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
-from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, update_metadata_from_file
+from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import definitions  # noqa: TC001
-from .utils import format_command_options, load_toml_rule_paths_by_id, rulename_to_filename
+from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
@@ -285,9 +285,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     if rule_name and rule_id:
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
 
-    rules_map = {}
+    raw_rule_collection = RawRuleCollection()
     if load_rule_loading:
-        rules_map = load_toml_rule_paths_by_id(DEFAULT_PREBUILT_RULES_DIRS)
+        raw_rule_collection = RawRuleCollection().default()
+
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
         if rule_name:
@@ -384,8 +385,8 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             if local_rule:
                 input_rule_id = cast("definitions.UUIDString", local_rule.get("rule_id"))
 
-            if rules_map and input_rule_id and input_rule_id in rules_map:
-                save_path = rules_map[input_rule_id]
+            if input_rule_id and input_rule_id in raw_rule_collection.id_map:
+                save_path = raw_rule_collection.id_map[input_rule_id].path or save_path
             params.update(
                 update_metadata_from_file(
                     save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}

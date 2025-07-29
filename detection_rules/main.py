@@ -33,7 +33,7 @@ from .generic_loader import GenericCollection
 from .misc import add_client, nested_set, parse_user_config, raise_client_error
 from .rule import DeprecatedRule, QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
-from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, update_metadata_from_file
+from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import (
     Ndjson,
@@ -42,7 +42,6 @@ from .utils import (
     get_path,
     load_dump,  # type: ignore[reportUnknownVariableType]
     load_rule_contents,
-    load_toml_rule_paths_by_id,
     rulename_to_filename,
 )
 
@@ -197,9 +196,9 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     if not file_contents:
         click.echo("Must specify at least one file!")
 
-    rules_map = None
+    raw_rule_collection = RawRuleCollection()
     if load_rule_loading:
-        rules_map = load_toml_rule_paths_by_id(DEFAULT_PREBUILT_RULES_DIRS)
+        raw_rule_collection = RawRuleCollection().default()
 
     exceptions_containers = {}
     exceptions_items = {}
@@ -226,8 +225,8 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         rule_base_path = Path(save_directory or RULES_DIRS[0])
         rule_path = rule_base_path / base_path
         rule_id = contents.get("rule_id")
-        if rules_map and rule_id in rules_map:
-            rule_path = rules_map[rule_id]
+        if rule_id in raw_rule_collection.id_map:
+            rule_path = raw_rule_collection.id_map[rule_id].path or rule_path
 
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")

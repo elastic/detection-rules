@@ -82,18 +82,18 @@ class DictRule:
 
     @property
     def data(self) -> dict[str, Any]:
-        """Rule portion of TOML file rule."""
-        return self.contents.get("data") or self.contents
+        """Rule portion of TOML file rule. Supports nested and flattened rule dictionaries"""
+        return self.contents.get("data", {}) or self.contents or self.contents.get("rule", {})
 
     @property
     def id(self) -> str:
-        """Get the rule ID."""
-        return self.data["rule_id"]  # type: ignore[reportUnknownMemberType]
+        """Get the rule ID. Supports nested and flattened rule dictionaries."""
+        return self.data.get("rule_id") or self.data.get("rule", {}).get("rule_id")
 
     @property
     def name(self) -> str:
-        """Get the rule name."""
-        return self.data["name"]  # type: ignore[reportUnknownMemberType]
+        """Get the rule name. Supports nested and flattened rule dictionaries"""
+        return self.data.get("name") or self.data.get("rule", {}).get("name")
 
     def __hash__(self) -> int:
         """Get the hash of the rule."""
