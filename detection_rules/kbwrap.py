@@ -287,7 +287,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
     raw_rule_collection = RawRuleCollection()
     if load_rule_loading:
-        raw_rule_collection = RawRuleCollection().default()
+        raw_rule_collection = raw_rule_collection.default()
 
     with kibana:
         # Look up rule IDs by name if --rule-name was provided

@@ -198,7 +198,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
 
     raw_rule_collection = RawRuleCollection()
     if load_rule_loading:
-        raw_rule_collection = RawRuleCollection().default()
+        raw_rule_collection = raw_rule_collection.default()
 
     exceptions_containers = {}
     exceptions_items = {}
