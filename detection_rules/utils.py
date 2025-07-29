@@ -16,7 +16,6 @@ import os
 import re
 import shutil
 import subprocess
-import tomllib
 import zipfile
 from collections.abc import Callable, Iterator
 from dataclasses import astuple, is_dataclass
@@ -485,27 +484,6 @@ def add_params(*params: Any) -> Callable[[FuncT], FuncT]:
         return f
 
     return decorator
-
-
-def load_toml_file(file_path: Path) -> dict[str, str]:
-    """Loads a TOML file and returns its contents as a dictionary."""
-    try:
-        with file_path.open("rb") as f:
-            return tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
-        raise ValueError(f"Failed to parse TOML file: {file_path}") from e
-
-
-def load_toml_rule_paths_by_id(file_paths: list[Path]) -> dict[str, Path]:
-    """Lightweight loader for raw TOML rule files. No Validation is done."""
-    rule_map: dict[str, Path] = {}
-    for directory in file_paths:
-        for toml_file in Path(directory).glob("**/*.toml"):
-            toml_data: dict[str, Any] = load_toml_file(toml_file)
-            rule_id = toml_data.get("rule", {}).get("rule_id")
-            if rule_id:
-                rule_map[rule_id] = toml_file
-    return rule_map
 
 
 class Ndjson(list[dict[str, Any]]):
