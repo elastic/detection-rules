@@ -59,12 +59,12 @@ type = "esql"
 query = '''
 FROM logs-azure.auditlogs-* metadata _id, _version, _index
 | WHERE event.action == "Authentication Methods Policy Update"
-| EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.new_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
-| EVAL Esql.azure.auditlogs.properties.target_resources.modified_properties.old_value.replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
-| DISSECT Esql.azure.auditlogs.properties.target_resources.modified_properties.new_value.replace "%{}discoveryUrl\":\"%{Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new}\"}%{}"
-| DISSECT Esql.azure.auditlogs.properties.target_resources.modified_properties.old_value.replace "%{}discoveryUrl\":\"%{Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old}\"}%{}"
-| WHERE Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new IS NOT NULL and Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old IS NOT NULL
-| WHERE Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new != Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old
+| EVAL Esql.azure_auditlogs_properties_target_resources_modified_properties_new_value_replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
+| EVAL Esql.azure_auditlogs_properties_target_resources_modified_properties_old_value_replace = REPLACE(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
+| DISSECT Esql.azure_auditlogs_properties_target_resources_modified_properties_new_value_replace "%{}discoveryUrl\":\"%{Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new}\"}%{}"
+| DISSECT Esql.azure_auditlogs_properties_target_resources_modified_properties_old_value_replace "%{}discoveryUrl\":\"%{Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old}\"}%{}"
+| WHERE Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new IS NOT NULL and Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old IS NOT NULL
+| WHERE Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new != Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old
 | KEEP
     @timestamp,
     event.action,
@@ -79,8 +79,8 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     source.geo.city_name,
     source.geo.region_name,
     source.geo.country_name,
-    Esql.azure.auditlogs.properties.auth.oidc.discovery.url.new,
-    Esql.azure.auditlogs.properties.auth.oidc.discovery.url.old
+    Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new,
+    Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old
 '''
 
 
