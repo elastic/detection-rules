@@ -2,15 +2,12 @@
 creation_date = "2024/12/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/17"
+updated_date = "2025/07/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user has queried for deprecated Amazon Machine Images (AMIs) in AWS. This may indicate an adversary
-whom is looking for outdated AMIs that may be vulnerable to exploitation. While deprecated AMIs are not inherently
-malicious or indicate breach, they may be more susceptible to vulnerabilities and should be investigated for potential
-security risks.
+Identifies when a user has queried for deprecated Amazon Machine Images (AMIs) in AWS. This may indicate an adversary looking for outdated AMIs that may be vulnerable to exploitation. While deprecated AMIs are not inherently malicious or indicative of a breach, they may be more susceptible to vulnerabilities and should be investigated for potential security risks.
 """
 false_positives = [
     "Legitimate use of deprecated AMIs for testing or development purposes.",
@@ -18,7 +15,8 @@ false_positives = [
     "Misconfigured applications or services that rely on deprecated AMIs for compatibility reasons.",
     "Administrators or developers who are unaware of the deprecation status of AMIs they are using.",
 ]
-from = "now-9m"
+from = "now-6m"
+interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -34,29 +32,24 @@ This rule detects when a user queries AWS for deprecated Amazon Machine Images (
 1. **Identify the User Performing the Query**:
    - Review the `aws.cloudtrail.user_identity.arn` field to determine the AWS user or role making the request.
    - Check `aws.cloudtrail.user_identity.type` and `aws.cloudtrail.user_identity.access_key_id` to verify the type of access (e.g., IAM user, role, or federated identity).
-   - Investigate the `related.user` field for additional user context.
 
 2. **Analyze the Source of the Request**:
    - Review the `source.ip` field to determine the IP address of the source making the request.
    - Check `source.geo` for the geographic location of the IP address.
    - Analyze the `user_agent.original` field to determine the client or tool used (e.g., AWS CLI, SDK).
 
-3. **Review the Request Details**:
-   - Inspect the `aws.cloudtrail.flattened.request_parameters` field for query parameters, such as `includeDeprecated=true`.
-   - Confirm that the request explicitly includes deprecated AMIs (`includeDeprecated=true`) and is tied to specific owners via the `ownersSet` field.
-   - Verify the `event.action` is `DescribeImages` and the `event.outcome` is `success`.
-
-4. **Validate the Query Context**:
+3. **Validate the Query Context**:
+   - Inspect the `aws.cloudtrail.request_parameters` field 
    - Determine if the request is part of legitimate activity, such as:
      - Security assessments or vulnerability scans.
      - Maintenance or testing of legacy systems.
    - Check if the query aligns with recent changes in the AWS environment, such as new configurations or services.
 
-5. **Correlate with Other Events**:
+4. **Correlate with Other Events**:
    - Investigate additional AWS API calls from the same user or IP address for signs of reconnaissance or exploitation.
    - Review logs for related actions, such as launching instances from deprecated AMIs (`RunInstances` API call).
 
-6. **Assess Security Risks**:
+5. **Assess Security Risks**:
    - Evaluate the use of deprecated AMIs within your environment and their associated vulnerabilities.
    - Ensure that deprecated AMIs are not being used in production environments or systems exposed to external threats.
 
@@ -116,9 +109,22 @@ event.dataset: "aws.cloudtrail"
     and event.action: "DescribeImages"
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.includeDeprecated: "true"
-    and aws.cloudtrail.request_parameters: *owner=*
 '''
-
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -132,16 +138,4 @@ reference = "https://attack.mitre.org/techniques/T1580/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-[rule.investigation_fields]
-field_names = [
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "source.ip",
-    "cloud.account.id",
-    "cloud.region",
-    "user_agent.original",
-    "event.action",
-]
 

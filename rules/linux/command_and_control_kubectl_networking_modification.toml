@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2025/06/19"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential kubectl network configuration modification activity by monitoring for process events
+where the kubectl command is executed with arguments that suggest an attempt to modify network configurations in
+Kubernetes. This could indicate an adversary trying to manipulate network settings for malicious purposes, such as
+establishing unauthorized access or exfiltrating data.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubectl Network Configuration Modification"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubectl Network Configuration Modification
+
+Kubectl is a command-line tool for interacting with Kubernetes clusters, allowing users to manage applications and network settings. Adversaries may exploit kubectl to alter network configurations, potentially establishing unauthorized access or data exfiltration channels. The detection rule identifies suspicious kubectl usage patterns, such as port-forwarding or proxy commands, especially when executed from atypical parent processes or directories, indicating possible malicious intent.
+
+### Possible investigation steps
+
+- Review the process command line to confirm the specific kubectl command and arguments used, focusing on "port-forward", "proxy", or "expose" to understand the intended network configuration change.
+- Examine the parent process details, including the name and executable path, to determine if the kubectl command was initiated from an unusual or suspicious location, such as "/tmp/*" or "/var/tmp/*".
+- Investigate the user account associated with the kubectl process to verify if the activity aligns with their typical behavior or if it indicates potential compromise.
+- Check for any recent changes or anomalies in the Kubernetes cluster's network settings or configurations that could correlate with the detected kubectl activity.
+- Look for additional related alerts or logs that might indicate a broader pattern of suspicious activity, such as other command and control tactics or protocol tunneling attempts.
+
+### False positive analysis
+
+- Legitimate administrative tasks using kubectl port-forward or proxy commands can trigger the rule. To manage this, create exceptions for known administrative scripts or users who frequently perform these tasks.
+- Automated scripts or cron jobs that use kubectl for network configuration changes may cause false positives. Identify these scripts and exclude their specific command patterns or parent processes from the rule.
+- Development environments where developers frequently use kubectl for testing purposes might generate alerts. Consider excluding specific user accounts or directories associated with development activities.
+- Continuous integration/continuous deployment (CI/CD) pipelines that utilize kubectl for deployment processes can be a source of false positives. Exclude the CI/CD tool's process names or execution paths from the rule.
+- Temporary directories like /tmp or /var/tmp used by legitimate applications for kubectl operations can trigger alerts. Review and whitelist these specific applications or their execution contexts.
+
+### Response and remediation
+
+- Immediately isolate the affected host to prevent further unauthorized access or data exfiltration. This can be done by removing the host from the network or applying network segmentation rules.
+- Terminate any suspicious kubectl processes identified by the detection rule to halt any ongoing malicious activity.
+- Review and revoke any unauthorized access credentials or tokens that may have been compromised or used in the attack.
+- Conduct a thorough audit of Kubernetes network configurations and access controls to identify and rectify any unauthorized changes or vulnerabilities.
+- Restore any altered network configurations to their original state using backups or configuration management tools.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or data have been affected.
+- Implement enhanced monitoring and logging for kubectl activities and network configuration changes to detect and respond to similar threats more effectively in the future.
+"""
+risk_score = 21
+rule_id = "877cc04a-3320-411d-bbe9-53266fa5e107"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "Domain: Kubernetes",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name == "kubectl" and (
+  process.args == "port-forward" and process.command_line like "*:*" or
+  process.args in ("proxy", "expose")
+) and (
+  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+  (
+    process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
+    process.parent.name like (".*", "*.sh")
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
