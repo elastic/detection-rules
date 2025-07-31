@@ -94,26 +94,25 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-endpoint.events.network-*
-| KEEP @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id, host.name
-| WHERE
-    @timestamp > NOW() - 1 HOURS AND
-    host.os.type == "linux" AND
-    event.type == "start" AND
+from logs-endpoint.events.network-*
+| keep @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id, host.name
+| where
+    @timestamp > now() - 1 hours and
+    host.os.type == "linux" and
+    event.type == "start" and
     event.action == "connection_attempted"
-| STATS
-    Esql.event_count = COUNT(),
-    Esql.destination_ip_count_distinct = COUNT_DISTINCT(destination.ip),
-    Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
-    Esql.host_name_values = VALUES(host.name),
-    Esql.agent_id_values = VALUES(agent.id)
-  BY process.executable
-| WHERE
-    Esql.agent_id_count_distinct == 1 AND
+| stats
+    Esql.event_count = count(),
+    Esql.destination_ip_count_distinct = count_distinct(destination.ip),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+  by process.executable
+| where
+    Esql.agent_id_count_distinct == 1 and
     Esql.destination_ip_count_distinct > 250
-| SORT Esql.event_count ASC
-| LIMIT 100
-
+| sort Esql.event_count asc
+| limit 100
 '''
 
 

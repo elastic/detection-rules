@@ -80,20 +80,20 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Filter for compliance violations detected
 | where gen_ai.compliance.violation_detected
 
-// Keep relevant ECS + model fields
+// keep relevant ECS + model fields
 | keep
   user.id,
   gen_ai.request.model.id,
   cloud.account.id
 
-// Count violations by user, model, and account
+// count violations by user, model, and account
 | stats
-    Esql.ml_violations_count = COUNT(*)
+    Esql.ml_violations_count = count(*)
   by
     user.id,
     gen_ai.request.model.id,
@@ -102,8 +102,7 @@ FROM logs-aws_bedrock.invocation-*
 // Filter for repeated violations
 | where Esql.ml_violations_count > 1
 
-// Sort descending by violation volume
+// sort descending by violation volume
 | sort Esql.ml_violations_count desc
-
 '''
 

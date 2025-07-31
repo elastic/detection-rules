@@ -43,32 +43,32 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: PowerShell Logs",
-    "Rule Type: BBR"
+    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
 // Look for scripts with more than 1000 chars that contain a related keyword
-| EVAL Esql.powershell_file_script_block_text_length = LENGTH(powershell.file.script_block_text)
+| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
 
 // Filter for long scripts
-| WHERE Esql.powershell_file_script_block_text_length > 1000
+| where Esql.powershell_file_script_block_text_length > 1000
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 // Excludes spaces, #, = and - as they are heavily used in scripts for formatting
-| EVAL Esql.powershell_file_script_block_text_replace = REPLACE(powershell.file.script_block_text, """[^0-9A-Za-z\s#=-]""", "🔥")
+| eval Esql.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """[^0-9A-Za-z\s#=-]""", "🔥")
 
-// Count the occurrence of special chars and their proportion to the total chars in the script
-| EVAL Esql.powershell_file_script_block_text_character_count = Esql.powershell_file_script_block_text_length - LENGTH(REPLACE(Esql.powershell_file_script_block_text_replace, "🔥", ""))
-| EVAL Esql.powershell_file_script_block_text_character_ratio = Esql.powershell_file_script_block_text_character_count::double / Esql.powershell_file_script_block_text_length::double
+// count the occurrence of special chars and their proportion to the total chars in the script
+| eval Esql.powershell_file_script_block_text_character_count = Esql.powershell_file_script_block_text_length - length(replace(Esql.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.powershell_file_script_block_text_character_ratio = Esql.powershell_file_script_block_text_character_count::double / Esql.powershell_file_script_block_text_length::double
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
     Esql.powershell_file_script_block_text_character_count,
     Esql.powershell_file_script_block_text_length,
     Esql.powershell_file_script_block_text_character_ratio,
@@ -85,7 +85,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for scripts with a 25%+ proportion of special chars
-| WHERE Esql.powershell_file_script_block_text_character_ratio > 0.25
+| where Esql.powershell_file_script_block_text_character_ratio > 0.25
 '''
 
 

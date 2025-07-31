@@ -83,28 +83,28 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
+from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // Filter for PowerShell Event ID 4104
-| WHERE event.code == "4104"
+| where event.code == "4104"
 
 // Look for scripts with more than 500 chars that contain a related keyword
-| EVAL Esql.powershell_file_script_block_text_length = LENGTH(powershell.file.script_block_text)
-| WHERE Esql.powershell_file_script_block_text_length > 500
+| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
+| where Esql.powershell_file_script_block_text_length > 500
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(
     powershell.file.script_block_text,
     """['"][A-Za-z0-9.]+['"](\s?\+\s?['"][A-Za-z0-9.,\-\s]+['"]){2,}""",
     "🔥"
 )
 
-// Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL Esql.powershell_file_script_block_text_character_count = LENGTH(Esql_priv.powershell_file_script_block_text_replace) - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.powershell_file_script_block_text_character_count = length(Esql_priv.powershell_file_script_block_text_replace) - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
     Esql.powershell_file_script_block_text_character_count,
     Esql.powershell_file_script_block_text_length,
     Esql_priv.powershell_file_script_block_text_replace,
@@ -120,7 +120,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for scripts with at least 2 suspicious string concatenations
-| WHERE Esql.powershell_file_script_block_text_character_count >= 2
+| where Esql.powershell_file_script_block_text_character_count >= 2
 '''
 
 

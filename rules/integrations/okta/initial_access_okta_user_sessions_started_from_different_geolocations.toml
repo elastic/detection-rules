@@ -16,8 +16,7 @@ interval = "15m"
 language = "esql"
 license = "Elastic License v2"
 name = "Okta User Sessions Started from Different Geolocations"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Okta User Sessions Started from Different Geolocations
 
@@ -78,28 +77,27 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-okta*
-| WHERE
-    event.dataset == "okta.system" AND
-    (event.action RLIKE "user\.authentication(.*)" OR event.action == "user.session.start") AND
-    okta.security_context.is_proxy != true AND
-    okta.actor.id != "unknown" AND
+from logs-okta*
+| where
+    event.dataset == "okta.system" and
+    (event.action rlike "user\.authentication(.*)" or event.action == "user.session.start") and
+    okta.security_context.is_proxy != true and
+    okta.actor.id != "unknown" and
     event.outcome == "success"
-| KEEP
+| keep
     event.action,
     okta.security_context.is_proxy,
     okta.actor.id,
     okta.actor.alternate_id,
     event.outcome,
     client.geo.country_name
-| STATS
-    Esql.client_geo_country_name_count_distinct = COUNT_DISTINCT(client.geo.country_name)
-    BY okta.actor.id, okta.actor.alternate_id
-| WHERE
+| stats
+    Esql.client_geo_country_name_count_distinct = count_distinct(client.geo.country_name)
+    by okta.actor.id, okta.actor.alternate_id
+| where
     Esql.client_geo_country_name_count_distinct >= 2
-| SORT
-    Esql.client_geo_country_name_count_distinct DESC
-
+| sort
+    Esql.client_geo_country_name_count_distinct desc
 '''
 
 

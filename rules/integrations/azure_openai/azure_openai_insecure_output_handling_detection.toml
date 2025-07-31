@@ -71,24 +71,23 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure_openai.logs-*
-| WHERE
-    azure.open_ai.properties.response_length == 0 AND
-    azure.open_ai.result_signature == "200" AND
+from logs-azure_openai.logs-*
+| where
+    azure.open_ai.properties.response_length == 0 and
+    azure.open_ai.result_signature == "200" and
     azure.open_ai.operation_name == "ChatCompletions_Create"
-| KEEP
+| keep
     azure.open_ai.properties.request_length,
     azure.open_ai.result_signature,
     cloud.account.id,
     azure.resource.name
-| STATS
-    Esql.event_count = COUNT(*)
-  BY
+| stats
+    Esql.event_count = count(*)
+  by
     azure.resource.name
-| WHERE
+| where
     Esql.event_count >= 10
-| SORT
-    Esql.event_count DESC
-
+| sort
+    Esql.event_count desc
 '''
 

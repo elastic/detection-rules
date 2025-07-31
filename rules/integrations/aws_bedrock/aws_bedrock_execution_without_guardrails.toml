@@ -79,31 +79,30 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Create 1-minute time buckets
-| eval Esql.time_window_date_trunc = DATE_TRUNC(1 minute, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(1 minute, @timestamp)
 
 // Filter for invocations without guardrails
-| where gen_ai.guardrail_id IS NULL and user.id IS NOT NULL
+| where gen_ai.guardrail_id is null and user.id is not null
 
-// Keep only relevant fields
+// keep only relevant fields
 | keep
   @timestamp,
   Esql.time_window_date_trunc,
   gen_ai.guardrail_id,
   user.id
 
-// Count number of unsafe invocations per user
+// count number of unsafe invocations per user
 | stats
-    Esql.ml_invocations_no_guardrails_count = COUNT()
+    Esql.ml_invocations_no_guardrails_count = count()
   by user.id
 
 // Filter for suspicious volume
 | where Esql.ml_invocations_no_guardrails_count > 5
 
-// Sort descending
+// sort descending
 | sort Esql.ml_invocations_no_guardrails_count desc
-
 '''
 

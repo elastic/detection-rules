@@ -88,30 +88,30 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure.*
-| WHERE
+from logs-azure.*
+| where
     (event.dataset == "azure.signinlogs"
-     AND source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
-     AND azure.signinlogs.properties.session_id IS NOT NULL)
-    OR
+     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-as-BLOCK"
+     and azure.signinlogs.properties.session_id is not null)
+    or
     (event.dataset == "azure.graphactivitylogs"
-     AND source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
-     AND azure.graphactivitylogs.properties.c_sid IS NOT NULL)
+     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-as-BLOCK"
+     and azure.graphactivitylogs.properties.c_sid is not null)
 
-| EVAL
-    Esql.azure_signinlogs_properties_session_id_coalesce = COALESCE(azure.signinlogs.properties.session_id, azure.graphactivitylogs.properties.c_sid),
-    Esql.azure_signinlogs_properties_user_id_coalesce = COALESCE(azure.signinlogs.properties.user_id, azure.graphactivitylogs.properties.user_principal_object_id),
-    Esql.azure_signinlogs_properties_app_id_coalesce = COALESCE(azure.signinlogs.properties.app_id, azure.graphactivitylogs.properties.app_id),
+| eval
+    Esql.azure_signinlogs_properties_session_id_coalesce = coalesce(azure.signinlogs.properties.session_id, azure.graphactivitylogs.properties.c_sid),
+    Esql.azure_signinlogs_properties_user_id_coalesce = coalesce(azure.signinlogs.properties.user_id, azure.graphactivitylogs.properties.user_principal_object_id),
+    Esql.azure_signinlogs_properties_app_id_coalesce = coalesce(azure.signinlogs.properties.app_id, azure.graphactivitylogs.properties.app_id),
     Esql.source_ip = source.ip,
     Esql.@timestamp = @timestamp,
-    Esql.event_type_case = CASE(
+    Esql.event_type_case = case(
         event.dataset == "azure.signinlogs", "signin",
         event.dataset == "azure.graphactivitylogs", "graph",
         "other"
     ),
-    Esql.time_window_date_trunc = DATE_TRUNC(5 minutes, @timestamp)
+    Esql.time_window_date_trunc = date_trunc(5 minutes, @timestamp)
 
-| KEEP
+| keep
     Esql.azure_signinlogs_properties_session_id_coalesce,
     Esql.source_ip,
     Esql.@timestamp,
@@ -120,34 +120,33 @@ FROM logs-azure.*
     Esql.azure_signinlogs_properties_user_id_coalesce,
     Esql.azure_signinlogs_properties_app_id_coalesce
 
-| STATS
-    Esql.azure_signinlogs_properties_user_id_coalesce_values = VALUES(Esql.azure_signinlogs_properties_user_id_coalesce),
-    Esql.azure_signinlogs_properties_session_id_coalesce_values = VALUES(Esql.azure_signinlogs_properties_session_id_coalesce),
-    Esql.source_ip_values = VALUES(Esql.source_ip),
-    Esql.source_ip_count_distinct = COUNT_DISTINCT(Esql.source_ip),
-    Esql.azure_signinlogs_properties_app_id_coalesce_values = VALUES(Esql.azure_signinlogs_properties_app_id_coalesce),
-    Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct = COUNT_DISTINCT(Esql.azure_signinlogs_properties_app_id_coalesce),
-    Esql.event_type_case_values = VALUES(Esql.event_type_case),
-    Esql.event_type_case_count_distinct = COUNT_DISTINCT(Esql.event_type_case),
-    Esql.@timestamp.min = MIN(Esql.@timestamp),
-    Esql.@timestamp.max = MAX(Esql.@timestamp),
-    Esql.signin_time_min = MIN(CASE(Esql.event_type_case == "signin", Esql.@timestamp, NULL)),
-    Esql.graph_time_min = MIN(CASE(Esql.event_type_case == "graph", Esql.@timestamp, NULL)),
-    Esql.event_count = COUNT()
-  BY Esql.azure_signinlogs_properties_session_id_coalesce, Esql.time_window_date_trunc
+| stats
+    Esql.azure_signinlogs_properties_user_id_coalesce_values = values(Esql.azure_signinlogs_properties_user_id_coalesce),
+    Esql.azure_signinlogs_properties_session_id_coalesce_values = values(Esql.azure_signinlogs_properties_session_id_coalesce),
+    Esql.source_ip_values = values(Esql.source_ip),
+    Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
+    Esql.azure_signinlogs_properties_app_id_coalesce_values = values(Esql.azure_signinlogs_properties_app_id_coalesce),
+    Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct = count_distinct(Esql.azure_signinlogs_properties_app_id_coalesce),
+    Esql.event_type_case_values = values(Esql.event_type_case),
+    Esql.event_type_case_count_distinct = count_distinct(Esql.event_type_case),
+    Esql.@timestamp.min = min(Esql.@timestamp),
+    Esql.@timestamp.max = max(Esql.@timestamp),
+    Esql.signin_time_min = min(case(Esql.event_type_case == "signin", Esql.@timestamp, null)),
+    Esql.graph_time_min = min(case(Esql.event_type_case == "graph", Esql.@timestamp, null)),
+    Esql.event_count = count()
+  by Esql.azure_signinlogs_properties_session_id_coalesce, Esql.time_window_date_trunc
 
-| EVAL
-    Esql.event_duration_minutes_date_diff = DATE_DIFF("minutes", Esql.@timestamp.min, Esql.@timestamp.max),
-    Esql.event_signin_to_graph_delay_minutes_date_diff = DATE_DIFF("minutes", Esql.signin_time_min, Esql.graph_time_min)
+| eval
+    Esql.event_duration_minutes_date_diff = date_diff("minutes", Esql.@timestamp.min, Esql.@timestamp.max),
+    Esql.event_signin_to_graph_delay_minutes_date_diff = date_diff("minutes", Esql.signin_time_min, Esql.graph_time_min)
 
-| WHERE
-    Esql.event_type_case_count_distinct > 1 AND
-    Esql.source_ip_count_distinct > 1 AND
-    Esql.event_duration_minutes_date_diff <= 5 AND
-    Esql.signin_time_min IS NOT NULL AND
-    Esql.graph_time_min IS NOT NULL AND
+| where
+    Esql.event_type_case_count_distinct > 1 and
+    Esql.source_ip_count_distinct > 1 and
+    Esql.event_duration_minutes_date_diff <= 5 and
+    Esql.signin_time_min is not null and
+    Esql.graph_time_min is not null and
     Esql.event_signin_to_graph_delay_minutes_date_diff >= 0
-
 '''
 
 

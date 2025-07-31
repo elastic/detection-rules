@@ -7,20 +7,21 @@ updated_date = "2025/07/16"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the removal of access permissions from a shared AWS EC2 EBS snapshot. EBS snapshots are essential for data retention and disaster recovery. Adversaries may revoke or modify snapshot permissions to prevent legitimate users from accessing backups, thereby obstructing recovery efforts after data loss or destructive actions. This tactic can also be used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack and complicating incident response.
+Identifies the removal of access permissions from a shared AWS EC2 EBS snapshot. EBS snapshots are essential for data
+retention and disaster recovery. Adversaries may revoke or modify snapshot permissions to prevent legitimate users from
+accessing backups, thereby obstructing recovery efforts after data loss or destructive actions. This tactic can also be
+used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack
+and complicating incident response.
 """
 false_positives = [
-    """
-    Access removal may be a part of normal operations and should be verified before taking action.
-    """,
+    "    Access removal may be a part of normal operations and should be verified before taking action.\n    ",
 ]
 from = "now-6m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EC2 EBS Snapshot Access Removed"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EC2 EBS Snapshot Access Removed
 
@@ -75,7 +76,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 
 // Filter for successful snapshot modifications
 | where
@@ -83,14 +84,14 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
 
-// Dissect parameters to extract key fields
+// dissect parameters to extract key fields
 | dissect aws.cloudtrail.request_parameters
     "{%{?snapshotId}=%{Esql.aws_cloudtrail_request_parameters_snapshot_id},%{?attributeType}=%{Esql.aws_cloudtrail_request_parameters_attribute_type},%{?createVolumePermission}={%{Esql.aws_cloudtrail_request_parameters_operation_type}={%{?items}=[{%{?userId}=%{Esql_priv.aws_cloudtrail_request_parameters_user_id}}]}}}"
 
 // Match on snapshot permission **removal**
 | where Esql.aws_cloudtrail_request_parameters_operation_type == "remove"
 
-// Keep ECS and derived fields
+// keep ECS and derived fields
 | keep
   @timestamp,
   aws.cloudtrail.user_identity.arn,
@@ -101,21 +102,20 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   Esql.aws_cloudtrail_request_parameters_operation_type,
   Esql_priv.aws_cloudtrail_request_parameters_user_id,
   source.address
-
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1490"
-name = "Inhibit System Recovery"
-reference = "https://attack.mitre.org/techniques/T1490/"
-
-[[rule.threat.technique]]
 id = "T1485"
 name = "Data Destruction"
 reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
 
 
 [rule.threat.tactic]

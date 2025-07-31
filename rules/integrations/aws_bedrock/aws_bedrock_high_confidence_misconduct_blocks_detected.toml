@@ -79,43 +79,42 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Expand multi-value fields
-| MV_EXPAND gen_ai.compliance.violation_code
-| MV_EXPAND gen_ai.policy.confidence
-| MV_EXPAND gen_ai.policy.name
+| mv_expand gen_ai.compliance.violation_code
+| mv_expand gen_ai.policy.confidence
+| mv_expand gen_ai.policy.name
 
 // Filter for high-confidence content policy blocks with targeted violations
 | where
   gen_ai.policy.action == "BLOCKED"
   and gen_ai.policy.name == "content_policy"
-  and gen_ai.policy.confidence LIKE "HIGH"
-  and gen_ai.compliance.violation_code IN ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
+  and gen_ai.policy.confidence like "HIGH"
+  and gen_ai.compliance.violation_code in ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
 
-// Keep ECS + compliance fields
+// keep ECS + compliance fields
 | keep
   user.id,
   gen_ai.compliance.violation_code
 
-// Count blocked violations per user per violation type
+// count blocked violations per user per violation type
 | stats
-    Esql.ml_policy_blocked_violation_count = COUNT()
+    Esql.ml_policy_blocked_violation_count = count()
   by
     user.id,
     gen_ai.compliance.violation_code
 
 // Aggregate all violation types per user
 | stats
-    Esql.ml_policy_blocked_violation_total_count = SUM(Esql.ml_policy_blocked_violation_count)
+    Esql.ml_policy_blocked_violation_total_count = sum(Esql.ml_policy_blocked_violation_count)
   by
     user.id
 
 // Filter for users with more than 5 total violations
 | where Esql.ml_policy_blocked_violation_total_count > 5
 
-// Sort by violation volume
+// sort by violation volume
 | sort Esql.ml_policy_blocked_violation_total_count desc
-
 '''
 

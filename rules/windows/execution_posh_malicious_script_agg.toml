@@ -28,11 +28,10 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
-description = """
-Identifies PowerShell script blocks associated with multiple distinct detections, indicating likely malicious behavior.
-"""
+description = "Identifies PowerShell script blocks associated with multiple distinct detections, indicating likely malicious behavior.\n"
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
@@ -101,33 +100,33 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Rule Type: Higher-Order Rule",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM .alerts-security.* METADATA _id
+from .alerts-security.* metadata _id
 
 // Filter for PowerShell related alerts
-| WHERE kibana.alert.rule.name LIKE "*PowerShell*"
+| where kibana.alert.rule.name like "*PowerShell*"
 
-// As alerts don't have non-ECS fields, parse the script block ID using GROK
-| GROK message "ScriptBlock ID: (?<Esql.message_powershell_file_script_block_id>.+)"
-| WHERE Esql.message_powershell_file_script_block_id IS NOT NULL
+// as alerts don't have non-ECS fields, parse the script block ID using grok
+| grok message "ScriptBlock ID: (?<Esql.message_powershell_file_script_block_id>.+)"
+| where Esql.message_powershell_file_script_block_id is not null
 
-// Keep relevant fields for further processing
-| KEEP kibana.alert.rule.name, Esql.message_powershell_file_script_block_id, _id
+// keep relevant fields for further processing
+| keep kibana.alert.rule.name, Esql.message_powershell_file_script_block_id, _id
 
-// Count distinct alerts and filter for matches above the threshold
-| STATS
-    Esql.kibana_alert_rule_name_count_distinct = COUNT_DISTINCT(kibana.alert.rule.name),
-    Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
-    Esql._id_values = VALUES(_id)
-  BY Esql.message_powershell_file_script_block_id
+// count distinct alerts and filter for matches above the threshold
+| stats
+    Esql.kibana_alert_rule_name_count_distinct = count_distinct(kibana.alert.rule.name),
+    Esql.kibana_alert_rule_name_values = values(kibana.alert.rule.name),
+    Esql._id_values = values(_id)
+  by Esql.message_powershell_file_script_block_id
 
 // Apply detection threshold
-| WHERE Esql.kibana_alert_rule_name_count_distinct >= 5
+| where Esql.kibana_alert_rule_name_count_distinct >= 5
 '''
 
 
@@ -148,5 +147,4 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 

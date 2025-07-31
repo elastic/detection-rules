@@ -21,8 +21,7 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential AWS S3 Bucket Ransomware Note Uploaded"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Potential AWS S3 Bucket Ransomware Note Uploaded
 
@@ -81,7 +80,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-*
+from logs-aws.cloudtrail-*
 
 // any successful uploads via S3 API requests
 | where
@@ -106,7 +105,7 @@ FROM logs-aws.cloudtrail-*
 
 // aggregate by server name, actor, and object key
 | stats
-    Esql.event_count = COUNT(*)
+    Esql.event_count = count(*)
   by
     tls.client.server_name,
     aws.cloudtrail.user_identity.arn,
@@ -114,7 +113,6 @@ FROM logs-aws.cloudtrail-*
 
 // filter for rare single uploads (likely test/detonation)
 | where Esql.event_count == 1
-
 '''
 
 

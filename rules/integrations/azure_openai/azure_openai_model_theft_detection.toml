@@ -73,28 +73,27 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure_openai.logs-*
-| WHERE
-    azure.open_ai.operation_name == "ListKey" AND
+from logs-azure_openai.logs-*
+| where
+    azure.open_ai.operation_name == "ListKey" and
     azure.open_ai.category == "Audit"
-| KEEP
+| keep
     @timestamp,
     azure.open_ai.operation_name,
     azure.open_ai.category,
     azure.resource.group,
     azure.resource.name,
     azure.open_ai.properties.response_length
-| STATS
-    Esql.event_count = COUNT(*),
-    Esql.azure_open_ai_properties_response_length_max = MAX(azure.open_ai.properties.response_length)
-  BY
+| stats
+    Esql.event_count = count(*),
+    Esql.azure_open_ai_properties_response_length_max = max(azure.open_ai.properties.response_length)
+  by
     azure.resource.group,
     azure.resource.name
-| WHERE
-    Esql.event_count >= 100 OR
+| where
+    Esql.event_count >= 100 or
     Esql.azure_open_ai_properties_response_length_max >= 1000000
-| SORT
-    Esql.event_count DESC
-
+| sort
+    Esql.event_count desc
 '''
 

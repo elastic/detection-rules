@@ -76,25 +76,24 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure_openai.logs-*
-| EVAL
-    Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
-| WHERE azure.open_ai.operation_name == "ChatCompletions_Create"
-| KEEP
+from logs-azure_openai.logs-*
+| eval
+    Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| where azure.open_ai.operation_name == "ChatCompletions_Create"
+| keep
     azure.open_ai.properties.request_length,
     azure.resource.name,
     cloud.account.id,
     Esql.time_window_date_trunc
-| STATS
-    Esql.event_count = COUNT(*),
-    Esql.azure_open_ai_properties_request_length_avg = AVG(azure.open_ai.properties.request_length)
-  BY
+| stats
+    Esql.event_count = count(*),
+    Esql.azure_open_ai_properties_request_length_avg = avg(azure.open_ai.properties.request_length)
+  by
     Esql.time_window_date_trunc,
     azure.resource.name
-| WHERE
-    Esql.event_count >= 10 AND
+| where
+    Esql.event_count >= 10 and
     Esql.azure_open_ai_properties_request_length_avg >= 5000
-| SORT Esql.event_count DESC
-
+| sort Esql.event_count desc
 '''
 

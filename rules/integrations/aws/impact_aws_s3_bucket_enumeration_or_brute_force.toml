@@ -85,23 +85,23 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail*
+from logs-aws.cloudtrail*
 
 | where
   event.provider == "s3.amazonaws.com"
   and aws.cloudtrail.error_code == "AccessDenied"
-  and tls.client.server_name IS NOT NULL
-  and cloud.account.id IS NOT NULL
+  and tls.client.server_name is not null
+  and cloud.account.id is not null
 
-// Keep only relevant ECS fields
+// keep only relevant ECS fields
 | keep
   tls.client.server_name,
   source.address,
   cloud.account.id
 
-// Count access denied requests per server_name, source, and account
+// count access denied requests per server_name, source, and account
 | stats
-    Esql.event_count = COUNT(*)
+    Esql.event_count = count(*)
   by
     tls.client.server_name,
     source.address,
@@ -109,7 +109,6 @@ FROM logs-aws.cloudtrail*
 
 // Threshold: more than 40 denied requests
 | where Esql.event_count > 40
-
 '''
 
 

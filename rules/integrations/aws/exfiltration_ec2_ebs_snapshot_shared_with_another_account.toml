@@ -21,8 +21,7 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EC2 EBS Snapshot Shared or Made Public"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EC2 EBS Snapshot Shared or Made Public
 
@@ -80,7 +79,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 | where
   event.provider == "ec2.amazonaws.com"
   and event.action == "ModifySnapshotAttribute"
@@ -95,7 +94,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   Esql.aws_cloudtrail_request_parameters_operation_type == "add"
   and cloud.account.id != Esql_priv.aws_cloudtrail_request_parameters_user_id
 
-// Keep ECS and derived fields
+// keep ECS and derived fields
 | keep
   @timestamp,
   aws.cloudtrail.user_identity.arn,
@@ -106,7 +105,6 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   Esql.aws_cloudtrail_request_parameters_operation_type,
   Esql_priv.aws_cloudtrail_request_parameters_user_id,
   source.ip
-
 '''
 
 

@@ -82,15 +82,15 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Truncate timestamp to 1-minute window
-| eval Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
 
 // Filter for validation exceptions in responses
 | where gen_ai.response.error_code == "ValidationException"
 
-// Keep relevant ECS and derived fields
+// keep relevant ECS and derived fields
 | keep
   user.id,
   gen_ai.request.model.id,
@@ -98,9 +98,9 @@ FROM logs-aws_bedrock.invocation-*
   gen_ai.response.error_code,
   Esql.time_window_date_trunc
 
-// Count number of denials by user/account/time window
+// count number of denials by user/account/time window
 | stats
-    Esql.ml_response_validation_error_count = COUNT(*)
+    Esql.ml_response_validation_error_count = count(*)
   by
     Esql.time_window_date_trunc,
     user.id,
@@ -108,8 +108,6 @@ FROM logs-aws_bedrock.invocation-*
 
 // Filter for excessive errors
 | where Esql.ml_response_validation_error_count > 3
-
-
 '''
 
 

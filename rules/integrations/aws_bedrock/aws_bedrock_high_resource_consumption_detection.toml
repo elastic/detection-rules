@@ -79,9 +79,9 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
-// Keep token usage data
+// keep token usage data
 | keep
   user.id,
   gen_ai.usage.prompt_tokens,
@@ -89,9 +89,9 @@ FROM logs-aws_bedrock.invocation-*
 
 // Aggregate usage metrics
 | stats
-    Esql.ml_usage_prompt_tokens_max = MAX(gen_ai.usage.prompt_tokens),
-    Esql.ml_invocations_total_count = COUNT(*),
-    Esql.ml_usage_completion_tokens_avg = AVG(gen_ai.usage.completion_tokens)
+    Esql.ml_usage_prompt_tokens_max = max(gen_ai.usage.prompt_tokens),
+    Esql.ml_invocations_total_count = count(*),
+    Esql.ml_usage_completion_tokens_avg = avg(gen_ai.usage.completion_tokens)
   by
     user.id
 
@@ -110,8 +110,7 @@ FROM logs-aws_bedrock.invocation-*
 // Filter on risk score
 | where Esql.ml_risk_score > 10
 
-// Sort high risk users to top
+// sort high risk users to top
 | sort Esql.ml_risk_score desc
-
 '''
 

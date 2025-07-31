@@ -83,22 +83,22 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
 // Measure script length
-| EVAL Esql.powershell_file_script_block_text_length = LENGTH(powershell.file.script_block_text)
-| WHERE Esql.powershell_file_script_block_text_length > 1000
+| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
+| where Esql.powershell_file_script_block_text_length > 1000
 
-// Replace digits with 🔥 for numeric pattern density analysis
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(powershell.file.script_block_text, """[0-9]""", "🔥")
+// replace digits with 🔥 for numeric pattern density analysis
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """[0-9]""", "🔥")
 
-// Count numeric characters and calculate proportion of total
-| EVAL Esql.powershell_file_script_block_text_character_count = Esql.powershell_file_script_block_text_length - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
-| EVAL Esql.powershell_file_script_block_text_character_ratio = Esql.powershell_file_script_block_text_character_count::double / Esql.powershell_file_script_block_text_length::double
+// count numeric characters and calculate proportion of total
+| eval Esql.powershell_file_script_block_text_character_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.powershell_file_script_block_text_character_ratio = Esql.powershell_file_script_block_text_character_count::double / Esql.powershell_file_script_block_text_length::double
 
 // Retain relevant fields for investigation
-| KEEP
+| keep
     Esql.powershell_file_script_block_text_character_count,
     Esql.powershell_file_script_block_text_character_ratio,
     Esql.powershell_file_script_block_text_length,
@@ -115,10 +115,10 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for suspiciously high numeric content
-| WHERE Esql.powershell_file_script_block_text_character_ratio > 0.30
+| where Esql.powershell_file_script_block_text_character_ratio > 0.30
 
 // Exclude noisy patterns such as 64-character hashes
-| WHERE NOT powershell.file.script_block_text RLIKE """.*\"[a-fA-F0-9]{64}\"\,.*"""
+| where not powershell.file.script_block_text rlike """.*\"[a-fA-F0-9]{64}\"\,.*"""
 '''
 
 

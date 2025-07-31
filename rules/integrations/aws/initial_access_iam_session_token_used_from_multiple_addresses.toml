@@ -80,67 +80,67 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail* METADATA _id, _version, _index
-| WHERE @timestamp > NOW() - 30 minutes
-  AND event.dataset == "aws.cloudtrail"
-  AND aws.cloudtrail.user_identity.arn IS NOT NULL
-  AND aws.cloudtrail.user_identity.type == "IAMUser"
-  AND source.ip IS NOT NULL
-  AND NOT (
-    user_agent.original LIKE "%Terraform%" OR
-    user_agent.original LIKE "%Ansible%" OR
-    user_agent.original LIKE "%Pulumni%"
+from logs-aws.cloudtrail* metadata _id, _version, _index
+| where @timestamp > now() - 30 minutes
+  and event.dataset == "aws.cloudtrail"
+  and aws.cloudtrail.user_identity.arn is not null
+  and aws.cloudtrail.user_identity.type == "IAMUser"
+  and source.ip is not null
+  and not (
+    user_agent.original like "%Terraform%" or
+    user_agent.original like "%Ansible%" or
+    user_agent.original like "%Pulumni%"
   )
-  AND `source.as.organization.name` != "AMAZON-AES"
-  AND event.provider NOT IN (
+  and `source.as.organization.name` != "AMAZON-AES"
+  and event.provider not in (
     "health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com",
     "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com",
     "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com"
   )
 
-| EVAL
-  Esql.time_window_date_trunc = DATE_TRUNC(30 minutes, @timestamp),
+| eval
+  Esql.time_window_date_trunc = date_trunc(30 minutes, @timestamp),
   Esql.aws_cloudtrail_user_identity_arn = aws.cloudtrail.user_identity.arn,
   Esql.aws_cloudtrail_user_identity_access_key_id = aws.cloudtrail.user_identity.access_key_id,
   Esql.source_ip = source.ip,
   Esql.user_agent_original = user_agent.original,
-  Esql.source_ip_string = TO_STRING(source.ip),
-  Esql.source_ip_user_agent_pair = CONCAT(Esql.source_ip_string, " - ", user_agent.original),
-  Esql.source_ip_city_pair = CONCAT(Esql.source_ip_string, " - ", source.geo.city_name),
+  Esql.source_ip_string = to_string(source.ip),
+  Esql.source_ip_user_agent_pair = concat(Esql.source_ip_string, " - ", user_agent.original),
+  Esql.source_ip_city_pair = concat(Esql.source_ip_string, " - ", source.geo.city_name),
   Esql.source_geo_city_name = source.geo.city_name,
   Esql.event_timestamp = @timestamp,
   Esql.source_network_org_name = `source.as.organization.name`
 
-| STATS
-  Esql.event_action_values = VALUES(event.action),
-  Esql.event_provider_values = VALUES(event.provider),
-  Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(Esql.aws_cloudtrail_user_identity_access_key_id),
-  Esql.aws_cloudtrail_user_identity_arn_values = VALUES(Esql.aws_cloudtrail_user_identity_arn),
-  Esql.source_ip_values = VALUES(Esql.source_ip),
-  Esql.user_agent_original_values = VALUES(Esql.user_agent_original),
-  Esql.source_ip_user_agent_pair_values = VALUES(Esql.source_ip_user_agent_pair),
-  Esql.source_geo_city_name_values = VALUES(Esql.source_geo_city_name),
-  Esql.source_ip_city_pair_values = VALUES(Esql.source_ip_city_pair),
-  Esql.source_network_org_name_values = VALUES(Esql.source_network_org_name),
-  Esql.source_ip_count_distinct = COUNT_DISTINCT(Esql.source_ip),
-  Esql.user_agent_original_count_distinct = COUNT_DISTINCT(Esql.user_agent_original),
-  Esql.source_geo_city_name_count_distinct = COUNT_DISTINCT(Esql.source_geo_city_name),
-  Esql.source_network_org_name_count_distinct = COUNT_DISTINCT(Esql.source_network_org_name),
-  Esql.timestamp_first_seen = MIN(Esql.event_timestamp),
-  Esql.timestamp_last_seen = MAX(Esql.event_timestamp),
-  Esql.event_count = COUNT()
-  BY Esql.time_window_date_trunc, Esql.aws_cloudtrail_user_identity_access_key_id
+| stats
+  Esql.event_action_values = values(event.action),
+  Esql.event_provider_values = values(event.provider),
+  Esql.aws_cloudtrail_user_identity_access_key_id_values = values(Esql.aws_cloudtrail_user_identity_access_key_id),
+  Esql.aws_cloudtrail_user_identity_arn_values = values(Esql.aws_cloudtrail_user_identity_arn),
+  Esql.source_ip_values = values(Esql.source_ip),
+  Esql.user_agent_original_values = values(Esql.user_agent_original),
+  Esql.source_ip_user_agent_pair_values = values(Esql.source_ip_user_agent_pair),
+  Esql.source_geo_city_name_values = values(Esql.source_geo_city_name),
+  Esql.source_ip_city_pair_values = values(Esql.source_ip_city_pair),
+  Esql.source_network_org_name_values = values(Esql.source_network_org_name),
+  Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
+  Esql.user_agent_original_count_distinct = count_distinct(Esql.user_agent_original),
+  Esql.source_geo_city_name_count_distinct = count_distinct(Esql.source_geo_city_name),
+  Esql.source_network_org_name_count_distinct = count_distinct(Esql.source_network_org_name),
+  Esql.timestamp_first_seen = min(Esql.event_timestamp),
+  Esql.timestamp_last_seen = max(Esql.event_timestamp),
+  Esql.event_count = count()
+  by Esql.time_window_date_trunc, Esql.aws_cloudtrail_user_identity_access_key_id
 
-| EVAL
-  Esql.activity_type = CASE(
-    Esql.source_ip_count_distinct >= 2 AND Esql.source_network_org_name_count_distinct >= 2 AND Esql.source_geo_city_name_count_distinct >= 2 AND Esql.user_agent_original_count_distinct >= 2, "multiple_ip_network_city_user_agent",
-    Esql.source_ip_count_distinct >= 2 AND Esql.source_network_org_name_count_distinct >= 2 AND Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_network_city",
-    Esql.source_ip_count_distinct >= 2 AND Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_and_city",
-    Esql.source_ip_count_distinct >= 2 AND Esql.source_network_org_name_count_distinct >= 2, "multiple_ip_and_network",
-    Esql.source_ip_count_distinct >= 2 AND Esql.user_agent_original_count_distinct >= 2, "multiple_ip_and_user_agent",
+| eval
+  Esql.activity_type = case(
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2 and Esql.user_agent_original_count_distinct >= 2, "multiple_ip_network_city_user_agent",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_network_city",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_and_city",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2, "multiple_ip_and_network",
+    Esql.source_ip_count_distinct >= 2 and Esql.user_agent_original_count_distinct >= 2, "multiple_ip_and_user_agent",
     "normal_activity"
   ),
-  Esql.activity_fidelity_score = CASE(
+  Esql.activity_fidelity_score = case(
     Esql.activity_type == "multiple_ip_network_city_user_agent", "high",
     Esql.activity_type == "multiple_ip_network_city", "high",
     Esql.activity_type == "multiple_ip_and_city", "medium",
@@ -148,7 +148,7 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
     Esql.activity_type == "multiple_ip_and_user_agent", "low"
   )
 
-| KEEP
+| keep
   Esql.time_window_date_trunc,
   Esql.activity_type,
   Esql.activity_fidelity_score,
@@ -170,8 +170,7 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
   Esql.source_geo_city_name_count_distinct,
   Esql.source_network_org_name_count_distinct
 
-| WHERE Esql.activity_type != "normal_activity"
-
+| where Esql.activity_type != "normal_activity"
 '''
 
 

@@ -76,21 +76,21 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Filter for access denied errors from GenAI responses
 | where gen_ai.response.error_code == "AccessDeniedException"
 
-// Keep ECS and response fields
+// keep ECS and response fields
 | keep
   user.id,
   gen_ai.request.model.id,
   cloud.account.id,
   gen_ai.response.error_code
 
-// Count total denials per user/model/account
+// count total denials per user/model/account
 | stats
-    Esql.ml_response_access_denied_count = COUNT(*)
+    Esql.ml_response_access_denied_count = count(*)
   by
     user.id,
     gen_ai.request.model.id,
@@ -99,9 +99,8 @@ FROM logs-aws_bedrock.invocation-*
 // Filter for users with repeated denials
 | where Esql.ml_response_access_denied_count > 3
 
-// Sort by volume of denials
+// sort by volume of denials
 | sort Esql.ml_response_access_denied_count desc
-
 '''
 
 

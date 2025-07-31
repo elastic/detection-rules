@@ -80,18 +80,18 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Filter for policy-blocked requests
 | where gen_ai.policy.action == "BLOCKED"
 
-// Count number of policy matches per request (multi-valued)
-| eval Esql.ml_policy_violations_mv_count = MV_COUNT(gen_ai.policy.name)
+// count number of policy matches per request (multi-valued)
+| eval Esql.ml_policy_violations_mv_count = mv_count(gen_ai.policy.name)
 
 // Filter for requests with more than one policy match
 | where Esql.ml_policy_violations_mv_count > 1
 
-// Keep relevant fields
+// keep relevant fields
 | keep
   gen_ai.policy.action,
   Esql.ml_policy_violations_mv_count,
@@ -101,15 +101,14 @@ FROM logs-aws_bedrock.invocation-*
 
 // Aggregate requests with multiple violations
 | stats
-    Esql.ml_policy_violations_total_unique_requests_count = COUNT(*)
+    Esql.ml_policy_violations_total_unique_requests_count = count(*)
   by
     Esql.ml_policy_violations_mv_count,
     user.id,
     gen_ai.request.model.id,
     cloud.account.id
 
-// Sort by number of unique requests
+// sort by number of unique requests
 | sort Esql.ml_policy_violations_total_unique_requests_count desc
-
 '''
 

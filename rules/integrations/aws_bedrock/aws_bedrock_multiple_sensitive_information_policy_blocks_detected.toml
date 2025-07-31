@@ -78,10 +78,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Expand multi-valued policy name field
-| MV_EXPAND gen_ai.policy.name
+| mv_expand gen_ai.policy.name
 
 // Filter for blocked actions related to sensitive info policy
 | where
@@ -89,19 +89,18 @@ FROM logs-aws_bedrock.invocation-*
   and gen_ai.compliance.violation_detected == "true"
   and gen_ai.policy.name == "sensitive_information_policy"
 
-// Keep only relevant fields
+// keep only relevant fields
 | keep user.id
 
-// Count how many times each user triggered a sensitive info block
+// count how many times each user triggered a sensitive info block
 | stats
-    Esql.ml_policy_blocked_sensitive_info_count = COUNT()
+    Esql.ml_policy_blocked_sensitive_info_count = count()
   by user.id
 
 // Filter for users with more than 5 violations
 | where Esql.ml_policy_blocked_sensitive_info_count > 5
 
-// Sort highest to lowest
+// sort highest to lowest
 | sort Esql.ml_policy_blocked_sensitive_info_count desc
-
 '''
 

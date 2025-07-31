@@ -80,10 +80,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail*
+from logs-aws.cloudtrail*
 
 // create time window buckets of 10 seconds
-| eval Esql.time_window_date_trunc = DATE_TRUNC(10 seconds, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
 | where
     event.dataset == "aws.cloudtrail"
 
@@ -111,22 +111,22 @@ FROM logs-aws.cloudtrail*
 
 // filter for Describe, Get, List, and Generate API calls
 | where true in (
-    STARTS_WITH(event.action, "Describe"),
-    STARTS_WITH(event.action, "Get"),
-    STARTS_WITH(event.action, "List"),
-    STARTS_WITH(event.action, "Generate")
+    starts_with(event.action, "Describe"),
+    starts_with(event.action, "Get"),
+    starts_with(event.action, "List"),
+    starts_with(event.action, "Generate")
 )
 
 // extract owner, identity type, and actor from the ARN
 | dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql_priv.aws_cloudtrail_user_identity_arn_owner}:%{Esql.aws_cloudtrail_user_identity_arn_type}/%{Esql.aws_cloudtrail_user_identity_arn_roles}"
-| where STARTS_WITH(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
+| where starts_with(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
 
 // keep relevant fields (preserving ECS fields and computed time window)
 | keep @timestamp, Esql.time_window_date_trunc, event.action, aws.cloudtrail.user_identity.arn
 
 // count the number of unique API calls per time window and actor
 | stats
-    Esql.event_action_count_distinct = COUNT_DISTINCT(event.action)
+    Esql.event_action_count_distinct = count_distinct(event.action)
   by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for more than 5 unique API calls per 10s window
@@ -134,7 +134,6 @@ FROM logs-aws.cloudtrail*
 
 // sort the results by the number of unique API calls in descending order
 | sort Esql.event_action_count_distinct desc
-
 '''
 
 

@@ -90,20 +90,20 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE
-    event.code == "4104" AND
-    powershell.file.script_block_text LIKE "*`*"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where
+    event.code == "4104" and
+    powershell.file.script_block_text like "*`*"
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL Esql.script_block_text_replace = REPLACE(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
+| eval Esql.script_block_text_replace = replace(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
 
-// Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL Esql.script_block_text_character_count = LENGTH(Esql.script_block_text_replace) - LENGTH(REPLACE(Esql.script_block_text_replace, "🔥", ""))
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_text_character_count = length(Esql.script_block_text_replace) - length(replace(Esql.script_block_text_replace, "🔥", ""))
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
     Esql.script_block_text_character_count,
     Esql.script_block_text_replace,
     powershell.file.script_block_text,
@@ -118,14 +118,15 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     agent.id,
     user.id
 
-| WHERE Esql.script_block_text_character_count >= 10
+| where Esql.script_block_text_character_count >= 10
 
-// Filter FPs, and due to the behavior of the LIKE operator, allow null values
-| WHERE (file.name NOT LIKE "TSS_*.psm1" OR file.name IS NULL)
+// Filter FPs, and due to the behavior of the like operator, allow null values
+| where (file.name not like "TSS_*.psm1" or file.name is null)
 
 // VSCode Shell integration
-| WHERE NOT powershell.file.script_block_text LIKE "*$([char]0x1b)]633*"
+| where not powershell.file.script_block_text like "*$([char]0x1b)]633*"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

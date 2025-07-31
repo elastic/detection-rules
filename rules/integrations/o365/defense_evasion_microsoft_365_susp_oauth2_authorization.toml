@@ -68,41 +68,41 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-o365.audit-*
-| WHERE
-    event.dataset == "o365.audit" AND
-    event.action == "UserLoggedIn" AND
-    source.ip IS NOT NULL AND
-    o365.audit.UserId IS NOT NULL AND
-    o365.audit.ApplicationId IS NOT NULL AND
-    o365.audit.UserType IN ("0", "2", "3", "10") AND
-    o365.audit.ApplicationId IN ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") AND
-    o365.audit.ObjectId IN ("00000003-0000-0000-c000-000000000000")
-| EVAL
-    Esql.time_window_date_trunc = DATE_TRUNC(30 minutes, @timestamp),
-    Esql.oauth_authorize_user_id_case = CASE(
-        o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" AND o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
+from logs-o365.audit-*
+| where
+    event.dataset == "o365.audit" and
+    event.action == "UserLoggedIn" and
+    source.ip is not null and
+    o365.audit.UserId is not null and
+    o365.audit.ApplicationId is not null and
+    o365.audit.UserType in ("0", "2", "3", "10") and
+    o365.audit.ApplicationId in ("aebc6443-996d-45c2-90f0-388ff96faa56", "29d9ed98-a469-4536-ade2-f981bc1d605e") and
+    o365.audit.ObjectId in ("00000003-0000-0000-c000-000000000000")
+| eval
+    Esql.time_window_date_trunc = date_trunc(30 minutes, @timestamp),
+    Esql.oauth_authorize_user_id_case = case(
+        o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
         o365.audit.UserId,
         null
     ),
-    Esql.oauth_token_user_id_case = CASE(
+    Esql.oauth_token_user_id_case = case(
         o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
         o365.audit.UserId,
         null
     )
-| STATS
-    Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
-    Esql.source_ip_values = VALUES(source.ip),
-    Esql.o365_audit_ApplicationId_values = VALUES(o365.audit.ApplicationId),
-    Esql.source_as_organization_name_values = VALUES(source.`as`.organization.name),
-    Esql.oauth_token_count_distinct = COUNT_DISTINCT(Esql.oauth_token_user_id_case),
-    Esql.oauth_authorize_count_distinct = COUNT_DISTINCT(Esql.oauth_authorize_user_id_case)
-  BY
+| stats
+    Esql.source_ip_count_distinct = count_distinct(source.ip),
+    Esql.source_ip_values = values(source.ip),
+    Esql.o365_audit_ApplicationId_values = values(o365.audit.ApplicationId),
+    Esql.source_as_organization_name_values = values(source.`as`.organization.name),
+    Esql.oauth_token_count_distinct = count_distinct(Esql.oauth_token_user_id_case),
+    Esql.oauth_authorize_count_distinct = count_distinct(Esql.oauth_authorize_user_id_case)
+  by
     o365.audit.UserId,
     Esql.time_window_date_trunc,
     o365.audit.ApplicationId,
     o365.audit.ObjectId
-| KEEP
+| keep
     Esql.time_window_date_trunc,
     Esql.source_ip_values,
     Esql.source_ip_count_distinct,
@@ -110,11 +110,10 @@ FROM logs-o365.audit-*
     Esql.source_as_organization_name_values,
     Esql.oauth_token_count_distinct,
     Esql.oauth_authorize_count_distinct
-| WHERE
-    Esql.source_ip_count_distinct >= 2 AND
-    Esql.oauth_token_count_distinct > 0 AND
+| where
+    Esql.source_ip_count_distinct >= 2 and
+    Esql.oauth_token_count_distinct > 0 and
     Esql.oauth_authorize_count_distinct > 0
-
 '''
 
 

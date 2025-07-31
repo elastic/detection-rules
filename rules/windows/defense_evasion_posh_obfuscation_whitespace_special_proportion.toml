@@ -83,31 +83,31 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
+from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // Filter for PowerShell Event ID 4104
-| WHERE event.code == "4104"
+| where event.code == "4104"
 
-// Replace repeated spaces used for formatting after a new line with a single space to reduce FPs
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(powershell.file.script_block_text, """\n\s+""", "\n ")
+// replace repeated spaces used for formatting after a new line with a single space to reduce FPs
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
 
 // Look for scripts with more than 1000 chars
-| EVAL Esql.powershell_file_script_block_text_replace_length = LENGTH(Esql_priv.powershell_file_script_block_text_replace)
-| WHERE Esql.powershell_file_script_block_text_replace_length > 1000
+| eval Esql.powershell_file_script_block_text_replace_length = length(Esql_priv.powershell_file_script_block_text_replace)
+| where Esql.powershell_file_script_block_text_replace_length > 1000
 
-// Replace format characters with 🔥 to count suspicious formatting density
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(
+// replace format characters with 🔥 to count suspicious formatting density
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(
     Esql_priv.powershell_file_script_block_text_replace,
     """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
     "🔥"
 )
 
-// Count 🔥 and calculate its proportion of the script
-| EVAL Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
-| EVAL Esql.powershell_file_script_block_text_ratio = Esql.powershell_file_script_block_text_count::double / Esql.powershell_file_script_block_text_length::double
+// count 🔥 and calculate its proportion of the script
+| eval Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.powershell_file_script_block_text_ratio = Esql.powershell_file_script_block_text_count::double / Esql.powershell_file_script_block_text_length::double
 
 // Retain fields for context or alert generation
-| KEEP
+| keep
     Esql.powershell_file_script_block_text_count,
     Esql.powershell_file_script_block_text_length,
     Esql.powershell_file_script_block_text_ratio,
@@ -125,7 +125,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Filter for high-ratio suspicious formatting scripts
-| WHERE Esql.powershell_file_script_block_text_ratio > 0.75
+| where Esql.powershell_file_script_block_text_ratio > 0.75
 '''
 
 

@@ -84,22 +84,22 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
 // Look for scripts with more than 500 chars that contain a related keyword
-| EVAL Esql.script_block_text_length = LENGTH(powershell.file.script_block_text)
-| WHERE Esql.script_block_text_length > 500
+| eval Esql.script_block_text_length = length(powershell.file.script_block_text)
+| where Esql.script_block_text_length > 500
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(powershell.file.script_block_text, """\$\{(\w++`){2,}\w++\}""", "🔥")
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\$\{(\w++`){2,}\w++\}""", "🔥")
 
-// Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL Esql.powershell_file_script_block_text_character_count = LENGTH(Esql_priv.powershell_file_script_block_text_replace) - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.powershell_file_script_block_text_character_count = length(Esql_priv.powershell_file_script_block_text_replace) - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
     Esql.powershell_file_script_block_text_character_count,
     Esql.powershell_file_script_block_text_replace_length,
     Esql_priv.powershell_file_script_block_text_replace,
@@ -115,7 +115,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     agent.id,
     user.id
 
-| WHERE Esql.powershell_file_script_block_text_character_count >= 1
+| where Esql.powershell_file_script_block_text_character_count >= 1
 '''
 
 

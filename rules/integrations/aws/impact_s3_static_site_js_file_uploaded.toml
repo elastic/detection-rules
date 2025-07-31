@@ -8,8 +8,8 @@ updated_date = "2025/07/16"
 author = ["Elastic"]
 description = """
 This rule detects when a JavaScript file is uploaded or accessed in an S3 static site directory (`static/js/`) by an IAM
-user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious scripts into a
-static website frontend.
+user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious
+scripts into a static website frontend.
 """
 false_positives = [
     """
@@ -70,7 +70,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail* METADATA _id, _version, _index
+from logs-aws.cloudtrail* metadata _id, _version, _index
 
 | where
     // S3 object read/write activity
@@ -82,13 +82,13 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
     and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
 
     // Requests for static site bundles
-    and aws.cloudtrail.request_parameters LIKE "*static/js/*.js*"
+    and aws.cloudtrail.request_parameters like "*static/js/*.js*"
 
     // Exclude IaC and automation tools
     and not (
-        user_agent.original LIKE "*Terraform*"
-        or user_agent.original LIKE "*Ansible*"
-        or user_agent.original LIKE "*Pulumni*"
+        user_agent.original like "*Terraform*"
+        or user_agent.original like "*Ansible*"
+        or user_agent.original like "*Pulumni*"
     )
 
 // Extract fields from request parameters
@@ -99,7 +99,7 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
 | dissect Esql.aws_cloudtrail_request_parameters_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
 
 // Match on JavaScript files
-| where ENDS_WITH(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
+| where ends_with(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
 
 // Retain relevant ECS and dissected fields
 | keep
@@ -113,7 +113,6 @@ FROM logs-aws.cloudtrail* METADATA _id, _version, _index
     source.ip,
     event.action,
     @timestamp
-
 '''
 
 

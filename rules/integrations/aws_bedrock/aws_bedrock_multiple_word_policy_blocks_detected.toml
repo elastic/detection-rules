@@ -78,10 +78,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Expand multivalued policy names
-| MV_EXPAND gen_ai.policy.name
+| mv_expand gen_ai.policy.name
 
 // Filter for blocked profanity-related policy violations
 | where
@@ -89,19 +89,18 @@ FROM logs-aws_bedrock.invocation-*
   and gen_ai.compliance.violation_detected == "true"
   and gen_ai.policy.name == "word_policy"
 
-// Keep relevant user field
+// keep relevant user field
 | keep user.id
 
-// Count blocked profanity attempts per user
+// count blocked profanity attempts per user
 | stats
-    Esql.ml_policy_blocked_profanity_count = COUNT()
+    Esql.ml_policy_blocked_profanity_count = count()
   by user.id
 
 // Filter for excessive policy violations
 | where Esql.ml_policy_blocked_profanity_count > 5
 
-// Sort by violation volume
+// sort by violation volume
 | sort Esql.ml_policy_blocked_profanity_count desc
-
 '''
 

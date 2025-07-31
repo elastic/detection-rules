@@ -80,31 +80,30 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-o365.audit-*
-| WHERE
-    @timestamp > NOW() - 14d AND
-    event.dataset == "o365.audit" AND
-    event.provider == "OneDrive" AND
-    event.action == "FileDownloaded" AND
-    o365.audit.AuthenticationType == "OAuth" AND
+from logs-o365.audit-*
+| where
+    @timestamp > now() - 14d and
+    event.dataset == "o365.audit" and
+    event.provider == "OneDrive" and
+    event.action == "FileDownloaded" and
+    o365.audit.AuthenticationType == "OAuth" and
     event.outcome == "success"
-| EVAL
-    Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
-| KEEP
+| eval
+    Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| keep
     Esql.time_window_date_trunc,
     o365.audit.UserId,
     file.name,
     source.ip
-| STATS
-    Esql.file_name_count_distinct = COUNT_DISTINCT(file.name),
-    Esql.event_count = COUNT(*)
-  BY
+| stats
+    Esql.file_name_count_distinct = count_distinct(file.name),
+    Esql.event_count = count(*)
+  by
     Esql.time_window_date_trunc,
     o365.audit.UserId,
     source.ip
-| WHERE
+| where
     Esql.file_name_count_distinct >= 25
-
 '''
 
 

@@ -78,10 +78,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-*
 
 // Expand multi-value policy name field
-| MV_EXPAND gen_ai.policy.name
+| mv_expand gen_ai.policy.name
 
 // Filter for blocked topic policy violations
 | where
@@ -89,19 +89,18 @@ FROM logs-aws_bedrock.invocation-*
   and gen_ai.compliance.violation_detected == "true"
   and gen_ai.policy.name == "topic_policy"
 
-// Keep only user info
+// keep only user info
 | keep user.id
 
-// Count how many times each user triggered a blocked topic policy
+// count how many times each user triggered a blocked topic policy
 | stats
-    Esql.ml_policy_blocked_topic_count = COUNT()
+    Esql.ml_policy_blocked_topic_count = count()
   by user.id
 
 // Filter for excessive violations
 | where Esql.ml_policy_blocked_topic_count > 5
 
-// Sort highest to lowest
+// sort highest to lowest
 | sort Esql.ml_policy_blocked_topic_count desc
-
 '''
 

@@ -84,25 +84,25 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
 // Check script length > 500
-| EVAL Esql.powershell_file_script_block_text_length = LENGTH(powershell.file.script_block_text)
-| WHERE Esql.powershell_file_script_block_text_length > 500
+| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
+| where Esql.powershell_file_script_block_text_length > 500
 
-// Replace method access patterns with 🔥 for detection
-| EVAL Esql_priv.powershell_file_script_block_text_replace = REPLACE(
+// replace method access patterns with 🔥 for detection
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(
     powershell.file.script_block_text,
-    """(?i)['"]['"].(Insert|Normalize|Chars|SubString|Remove|LastIndexOfAny|LastIndexOf|IsNormalized|IndexOfAny|IndexOf)[^\[]+\[\d+,\d+,\d+\]""",
+    """(?i)['"]['"].(Insert|Normalize|Chars|substring|Remove|LastIndexOfAny|LastIndexOf|IsNormalized|IndexOfAny|IndexOf)[^\[]+\[\d+,\d+,\d+\]""",
     "🔥"
 )
 
-// Count 🔥 instances to determine presence of suspicious method usage
-| EVAL Esql.powershell_file_script_block_text_character_count = LENGTH(Esql_priv.powershell_file_script_block_text_replace) - LENGTH(REPLACE(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+// count 🔥 instances to determine presence of suspicious method usage
+| eval Esql.powershell_file_script_block_text_character_count = length(Esql_priv.powershell_file_script_block_text_replace) - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
 
-// Keep relevant fields for context and triage
-| KEEP
+// keep relevant fields for context and triage
+| keep
     Esql.powershell_file_script_block_text_character_count,
     Esql.powershell_file_script_block_text_length,
     Esql_priv.powershell_file_script_block_text_replace,
@@ -118,7 +118,7 @@ FROM logs-windows.powershell_operational* METADATA _id, _version, _index
     user.id
 
 // Only return if at least one pattern is found
-| WHERE Esql.powershell_file_script_block_text_character_count >= 1
+| where Esql.powershell_file_script_block_text_character_count >= 1
 '''
 
 

@@ -61,8 +61,8 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-endpoint.events.file-*
-| KEEP
+from logs-endpoint.events.file-*
+| keep
     @timestamp,
     host.os.type,
     event.type,
@@ -74,37 +74,37 @@ FROM logs-endpoint.events.file-*
     file.path,
     agent.id,
     host.name
-| WHERE
-    @timestamp > NOW() - 1 HOURS AND
-    host.os.type == "linux" AND
-    event.type == "change" AND
-    event.action IN ("rename", "creation") AND (
-        user.name IN (
+| where
+    @timestamp > now() - 1 hours and
+    host.os.type == "linux" and
+    event.type == "change" and
+    event.action in ("rename", "creation") and (
+        user.name in (
             "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
-        ) OR
-        user.id IN ("99", "33", "498", "48")
-    ) AND (
-        process.name IN (
+        ) or
+        user.id in ("99", "33", "498", "48")
+    ) and (
+        process.name in (
             "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
             "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
             "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
-        ) OR
-        process.name LIKE "php-*" OR
-        process.name LIKE "python*" OR
-        process.name LIKE "ruby*" OR
-        process.name LIKE "perl*"
+        ) or
+        process.name like "php-*" or
+        process.name like "python*" or
+        process.name like "ruby*" or
+        process.name like "perl*"
     )
-| STATS
-    Esql.event_count = COUNT(),
-    Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
-    Esql.host_name_values = VALUES(host.name),
-    Esql.agent_id_values = VALUES(agent.id)
-  BY process.executable, file.path
-| WHERE
-    Esql.agent_id_count_distinct == 1 AND
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+  by process.executable, file.path
+| where
+    Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 5
-| SORT Esql.event_count ASC
-| LIMIT 100
+| sort Esql.event_count asc
+| limit 100
 '''
 
 

@@ -98,7 +98,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 
 | where
   event.provider == "iam.amazonaws.com"
@@ -112,7 +112,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 // Filter for attachment of AdministratorAccess policy
 | where Esql.aws_cloudtrail_request_parameters_policy_name == "AdministratorAccess"
 
-// Keep ECS and derived fields
+// keep ECS and derived fields
 | keep
   @timestamp,
   event.provider,
@@ -120,7 +120,6 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
   event.outcome,
   Esql.aws_cloudtrail_request_parameters_policy_name,
   Esql.aws_cloudtrail_request_parameters_group_name
-
 '''
 
 
