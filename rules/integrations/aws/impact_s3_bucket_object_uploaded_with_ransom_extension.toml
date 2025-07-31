@@ -2,7 +2,7 @@
 creation_date = "2024/04/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -21,8 +21,7 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential AWS S3 Bucket Ransomware Note Uploaded"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Potential AWS S3 Bucket Ransomware Note Uploaded
 
@@ -84,26 +83,36 @@ query = '''
 from logs-aws.cloudtrail-*
 
 // any successful uploads via S3 API requests
-| where event.dataset == "aws.cloudtrail"
-    and event.provider == "s3.amazonaws.com"
-    and event.action == "PutObject"
-    and event.outcome == "success"
+| where
+  event.dataset == "aws.cloudtrail"
+  and event.provider == "s3.amazonaws.com"
+  and event.action == "PutObject"
+  and event.outcome == "success"
 
-// abstract object name from API request parameters
-| dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{object_name}}"
+// extract object key from API request parameters
+| dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{Esql.aws_cloudtrail_request_parameters_object_key}}"
 
-// regex on common ransomware note extensions
-| where object_name rlike "(.*)(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)(.*)"
-    and not object_name rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
+// regex match against common ransomware naming patterns
+| where
+  Esql.aws_cloudtrail_request_parameters_object_key rlike "(.*)(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)(.*)"
+  and not Esql.aws_cloudtrail_request_parameters_object_key rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
 
-// keep relevant fields
-| keep tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
+// keep relevant ECS and derived fields
+| keep
+  tls.client.server_name,
+  aws.cloudtrail.user_identity.arn,
+  Esql.aws_cloudtrail_request_parameters_object_key
 
-// aggregate by S3 bucket, resource and object name
-| stats note_upload_count = count(*) by tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
+// aggregate by server name, actor, and object key
+| stats
+    Esql.event_count = count(*)
+  by
+    tls.client.server_name,
+    aws.cloudtrail.user_identity.arn,
+    Esql.aws_cloudtrail_request_parameters_object_key
 
-// filter for single occurrence to eliminate common upload operations
-| where note_upload_count == 1
+// filter for rare single uploads (likely test/detonation)
+| where Esql.event_count == 1
 '''
 
 

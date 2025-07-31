@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -98,10 +98,27 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "iam.amazonaws.com" and event.action == "AttachRolePolicy" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?roleName}=%{role.name}}"
-| where policyName == "AdministratorAccess"
-| keep @timestamp, event.provider, event.action, event.outcome, policyName, role.name
+
+| where
+  event.provider == "iam.amazonaws.com"
+  and event.action == "AttachRolePolicy"
+  and event.outcome == "success"
+
+// Extract policy name and role name from request parameters
+| dissect aws.cloudtrail.request_parameters
+    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{Esql.aws_cloudtrail_request_parameters_policy_name},%{?roleName}=%{Esql.aws_cloudtrail_request_parameters_role_name}}"
+
+// Filter for AdministratorAccess policy attachment
+| where Esql.aws_cloudtrail_request_parameters_policy_name == "AdministratorAccess"
+
+// keep relevant ECS and dynamic fields
+| keep
+  @timestamp,
+  event.provider,
+  event.action,
+  event.outcome,
+  Esql.aws_cloudtrail_request_parameters_policy_name,
+  Esql.aws_cloudtrail_request_parameters_role_name
 '''
 
 

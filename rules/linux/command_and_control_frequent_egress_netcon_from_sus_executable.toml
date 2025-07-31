@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -94,30 +94,50 @@ type = "esql"
 
 query = '''
 from logs-endpoint.events.network-*
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, destination.ip, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
-     (
-       process.executable like "/tmp/*" or
-       process.executable like "/var/tmp/*" or
-       process.executable like "/dev/shm/*"
-     ) or
-     (process.name like ".*")
-) and not (
-     CIDR_MATCH(
-       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
-       "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
-       "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1",
-       "FE80::/10", "FF00::/8"
-     ) or
-     process.executable like "/nix/store/*" or
-     process.executable like "/tmp/newroot/*" or
-     process.executable like "/tmp/.mount*" or
-     process.executable like "/tmp/go-build*"
-   )
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable
-| where agent_count == 1 and cc > 15
-| sort cc asc
+| where
+    @timestamp > now() - 1h and
+    host.os.type == "linux" and
+    event.type == "start" and
+    event.action == "connection_attempted" and
+    (
+        process.executable like "/tmp/*" or
+        process.executable like "/var/tmp/*" or
+        process.executable like "/dev/shm/*" or
+        process.name rlike ".*"
+    ) and not (
+        cidr_match(destination.ip,
+            "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+            "192.0.0.0/24", "192.0.0.29/32", "192.0.0.8/32", "192.0.0.9/32",
+            "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+            "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+            "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15",
+            "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+        ) or
+        process.executable like "/nix/store/*" or
+        process.executable like "/tmp/newroot/*" or
+        process.executable like "/tmp/.mount*" or
+        process.executable like "/tmp/go-build*"
+    )
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.executable,
+    destination.ip,
+    agent.id,
+    host.name
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+    by process.executable
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count > 15
+| sort Esql.event_count asc
 | limit 100
 '''
 

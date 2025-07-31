@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -83,29 +83,49 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* metadata _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
 
-// Replace repeated spaces used for formatting after a new line with a single space to reduce FPs
-| EVAL dedup_space_script_block = REPLACE(powershell.file.script_block_text, """\n\s+""", "\n ")
+// Filter for PowerShell Event ID 4104
+| where event.code == "4104"
 
-// Look for scripts with more than 1000 chars that contain a related keyword
-| EVAL script_len = LENGTH(dedup_space_script_block)
-| WHERE script_len > 1000
+// replace repeated spaces used for formatting after a new line with a single space to reduce FPs
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
-// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL replaced_with_fire = REPLACE(dedup_space_script_block, """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""", "🔥")
+// Look for scripts with more than 1000 chars
+| eval Esql.powershell_file_script_block_text_replace_length = length(Esql_priv.powershell_file_script_block_text_replace)
+| where Esql.powershell_file_script_block_text_replace_length > 1000
 
-// Count the occurrence of numbers and their proportion to the total chars in the script
-| EVAL special_count = script_len - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
-| EVAL proportion = special_count::double / script_len::double
+// replace format characters with 🔥 to count suspicious formatting density
+| eval Esql_priv.powershell_file_script_block_text_replace = replace(
+    Esql_priv.powershell_file_script_block_text_replace,
+    """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
+    "🔥"
+)
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP special_count, script_len, proportion, dedup_space_script_block, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+// count 🔥 and calculate its proportion of the script
+| eval Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.powershell_file_script_block_text_ratio = Esql.powershell_file_script_block_text_count::double / Esql.powershell_file_script_block_text_length::double
 
-// Filter for scripts with a 75%+ proportion of numbers
-| WHERE proportion > 0.75
+// Retain fields for context or alert generation
+| keep
+    Esql.powershell_file_script_block_text_count,
+    Esql.powershell_file_script_block_text_length,
+    Esql.powershell_file_script_block_text_ratio,
+    Esql_priv.powershell_file_script_block_text_replace,
+    Esql.powershell_file_script_block_text_replace_length,
+    powershell.file.script_block_text,
+    powershell.file.script_block_id,
+    file.path,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for high-ratio suspicious formatting scripts
+| where Esql.powershell_file_script_block_text_ratio > 0.75
 '''
 
 

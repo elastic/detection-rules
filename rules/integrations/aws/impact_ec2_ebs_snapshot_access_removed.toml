@@ -2,25 +2,26 @@
 creation_date = "2024/06/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/02"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the removal of access permissions from a shared AWS EC2 EBS snapshot. EBS snapshots are essential for data retention and disaster recovery. Adversaries may revoke or modify snapshot permissions to prevent legitimate users from accessing backups, thereby obstructing recovery efforts after data loss or destructive actions. This tactic can also be used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack and complicating incident response.
+Identifies the removal of access permissions from a shared AWS EC2 EBS snapshot. EBS snapshots are essential for data
+retention and disaster recovery. Adversaries may revoke or modify snapshot permissions to prevent legitimate users from
+accessing backups, thereby obstructing recovery efforts after data loss or destructive actions. This tactic can also be
+used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack
+and complicating incident response.
 """
 false_positives = [
-    """
-    Access removal may be a part of normal operations and should be verified before taking action.
-    """,
+    "    Access removal may be a part of normal operations and should be verified before taking action.\n    ",
 ]
 from = "now-6m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EC2 EBS Snapshot Access Removed"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EC2 EBS Snapshot Access Removed
 
@@ -34,7 +35,7 @@ Restricting snapshot access may help adversaries cover their tracks by making it
 - **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
 - **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
 - **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities. In particular, use the `snapshotId` to see if this snapshot was shared with an unauthorized account.
-- **Review UserID**: Check the `userId` field to identify which user's permissions were removed. Verify if this account should be authorized to access the data or if the access removal is expected. 
+- **Review UserID**: Check the `userId` field to identify which user's permissions were removed. Verify if this account should be authorized to access the data or if the access removal is expected.
 
 ### False Positive Analysis:
 
@@ -76,24 +77,45 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
-| where operationType == "remove"
-| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId, source.address
+
+// Filter for successful snapshot modifications
+| where
+  event.provider == "ec2.amazonaws.com"
+  and event.action == "ModifySnapshotAttribute"
+  and event.outcome == "success"
+
+// dissect parameters to extract key fields
+| dissect aws.cloudtrail.request_parameters
+    "{%{?snapshotId}=%{Esql.aws_cloudtrail_request_parameters_snapshot_id},%{?attributeType}=%{Esql.aws_cloudtrail_request_parameters_attribute_type},%{?createVolumePermission}={%{Esql.aws_cloudtrail_request_parameters_operation_type}={%{?items}=[{%{?userId}=%{Esql_priv.aws_cloudtrail_request_parameters_user_id}}]}}}"
+
+// Match on snapshot permission **removal**
+| where Esql.aws_cloudtrail_request_parameters_operation_type == "remove"
+
+// keep ECS and derived fields
+| keep
+  @timestamp,
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  event.action,
+  Esql.aws_cloudtrail_request_parameters_snapshot_id,
+  Esql.aws_cloudtrail_request_parameters_attribute_type,
+  Esql.aws_cloudtrail_request_parameters_operation_type,
+  Esql_priv.aws_cloudtrail_request_parameters_user_id,
+  source.address
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1490"
-name = "Inhibit System Recovery"
-reference = "https://attack.mitre.org/techniques/T1490/"
-
-[[rule.threat.technique]]
 id = "T1485"
 name = "Data Destruction"
 reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
 
 
 [rule.threat.tactic]

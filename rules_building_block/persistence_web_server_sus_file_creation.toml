@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2025/03/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/03"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -62,27 +62,48 @@ type = "esql"
 
 query = '''
 from logs-endpoint.events.file-*
-| keep @timestamp, host.os.type, event.type, event.action, user.name, user.id, process.name, process.executable, file.path, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "change" and event.action in ("rename", "creation") and (
-     user.name in (
-      "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
-     ) or
-     user.id in ("99", "33", "498", "48")
-   ) and (
-   process.name in (
-    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
-    "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
-    "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
-  ) or
-    process.name like "php-*" or
-    process.name like "python*" or
-    process.name like "ruby*" or
-    process.name like "perl*"
-   )
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.executable, file.path
-| where agent_count == 1 and cc < 5
-| sort cc asc
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    user.name,
+    user.id,
+    process.name,
+    process.executable,
+    file.path,
+    agent.id,
+    host.name
+| where
+    @timestamp > now() - 1 hours and
+    host.os.type == "linux" and
+    event.type == "change" and
+    event.action in ("rename", "creation") and (
+        user.name in (
+            "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
+        ) or
+        user.id in ("99", "33", "498", "48")
+    ) and (
+        process.name in (
+            "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
+            "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
+            "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
+        ) or
+        process.name like "php-*" or
+        process.name like "python*" or
+        process.name like "ruby*" or
+        process.name like "perl*"
+    )
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+  by process.executable, file.path
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count < 5
+| sort Esql.event_count asc
 | limit 100
 '''
 

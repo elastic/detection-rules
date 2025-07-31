@@ -2,19 +2,22 @@
 creation_date = "2024/10/23"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies role chaining activity. Role chaining is when you use one assumed role to assume a second role through the AWS CLI or API.
-While this a recognized functionality in AWS, role chaining can be abused for privilege escalation if the subsequent assumed role provides additional privileges.
-Role chaining can also be used as a persistence mechanism as each AssumeRole action results in a refreshed session token with a 1 hour maximum duration.
-This rule looks for role chaining activity happening within a single account, to eliminate false positives produced by common cross-account behavior.
+Identifies role chaining activity. Role chaining is when you use one assumed role to assume a second role through the
+AWS CLI or API. While this a recognized functionality in AWS, role chaining can be abused for privilege escalation if
+the subsequent assumed role provides additional privileges. Role chaining can also be used as a persistence mechanism as
+each AssumeRole action results in a refreshed session token with a 1 hour maximum duration. This rule looks for role
+chaining activity happening within a single account, to eliminate false positives produced by common cross-account
+behavior.
 """
 false_positives = [
     """
-    Role chaining can be used as an access control. Ensure that this behavior is not part of a legitimate operation before taking action.
+    Role chaining can be used as an access control. Ensure that this behavior is not part of a legitimate operation
+    before taking action.
     """,
 ]
 from = "now-6m"
@@ -117,6 +120,7 @@ name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
@@ -128,3 +132,4 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

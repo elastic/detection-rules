@@ -2,7 +2,7 @@
 creation_date = "2024/05/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -98,17 +98,28 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "iam.amazonaws.com" and event.action == "AttachUserPolicy" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?userName}=%{target.userName}}"
-| where policyName == "AdministratorAccess"
+
+| where
+  event.provider == "iam.amazonaws.com"
+  and event.action == "AttachUserPolicy"
+  and event.outcome == "success"
+
+// Extract policy name and user name from request parameters
+| dissect aws.cloudtrail.request_parameters
+    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{Esql.aws_cloudtrail_request_parameters_policy_name},%{?userName}=%{Esql_priv.aws_cloudtrail_request_parameters_target_user_name}}"
+
+// Filter for AdministratorAccess policy
+| where Esql.aws_cloudtrail_request_parameters_policy_name == "AdministratorAccess"
+
+// keep ECS and parsed fields
 | keep
     @timestamp,
     cloud.region,
     event.provider,
     event.action,
     event.outcome,
-    policyName,
-    target.userName,
+    Esql.aws_cloudtrail_request_parameters_policy_name,
+    Esql_priv.aws_cloudtrail_request_parameters_target_user_name,
     aws.cloudtrail.request_parameters,
     aws.cloudtrail.user_identity.arn,
     related.user,
