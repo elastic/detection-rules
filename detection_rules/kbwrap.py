@@ -28,7 +28,7 @@ from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RuleCollection, update_metadata_from_file
-from .utils import format_command_options, rulename_to_filename
+from .utils import CUSTOM_RULES_KQL, format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
@@ -291,9 +291,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         query = (
             export_query
             if not custom_rules_only
-            else (
-                f'alert.attributes.params.ruleSource.type: "internal"{f" and ({export_query})" if export_query else ""}'
-            )
+            else (f"{CUSTOM_RULES_KQL}{f' and ({export_query})' if export_query else ''}")
         )
 
         results = (  # type: ignore[reportUnknownVariableType]
