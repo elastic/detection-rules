@@ -510,10 +510,10 @@ class TestRuleTags(BaseRuleTest):
     def test_tag_prefix(self):
         """Ensure all tags have a prefix from an expected list."""
         invalid = []
-
+        expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
-            expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
+
             invalid.extend(
                 [
                     f"{self.rule_str(rule)}-{tag}"
