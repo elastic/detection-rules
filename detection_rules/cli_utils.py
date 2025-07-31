@@ -189,8 +189,8 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
 
         # build this from technique ID
         if name == "threat":
-            threat_map: list[dict[str, Any]] = []
-            if not skip_errors:
+            threat_map: list[dict[str, Any]] = kwargs.get("threat", [])
+            if not skip_errors and not threat_map:
                 while click.confirm("add mitre tactic?"):
                     tactic = schema_prompt("mitre tactic name", type="string", enum=tactics, is_required=True)
                     technique_ids = (  # type: ignore[reportUnknownVariableType]
