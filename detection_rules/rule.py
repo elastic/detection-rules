@@ -1428,7 +1428,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
 
         # integration is None to remove duplicate references upstream in Kibana
-        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 
