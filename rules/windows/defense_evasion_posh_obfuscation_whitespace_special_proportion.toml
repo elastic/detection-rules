@@ -89,21 +89,21 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
 // replace repeated spaces used for formatting after a new line with a single space to reduce FPs
-| eval Esql_priv.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
+| eval Esql_temp.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
 
 // Look for scripts with more than 1000 chars
-| eval Esql.powershell_file_script_block_text_replace_length = length(Esql_priv.powershell_file_script_block_text_replace)
+| eval Esql.powershell_file_script_block_text_replace_length = length(Esql_temp.powershell_file_script_block_text_replace)
 | where Esql.powershell_file_script_block_text_replace_length > 1000
 
 // replace format characters with 🔥 to count suspicious formatting density
-| eval Esql_priv.powershell_file_script_block_text_replace = replace(
-    Esql_priv.powershell_file_script_block_text_replace,
+| eval Esql_temp.powershell_file_script_block_text_replace = replace(
+    Esql_temp.powershell_file_script_block_text_replace,
     """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
     "🔥"
 )
 
 // count 🔥 and calculate its proportion of the script
-| eval Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_priv.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_temp.powershell_file_script_block_text_replace, "🔥", ""))
 | eval Esql.powershell_file_script_block_text_ratio = Esql.powershell_file_script_block_text_count::double / Esql.powershell_file_script_block_text_length::double
 
 // Retain fields for context or alert generation
@@ -111,7 +111,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     Esql.powershell_file_script_block_text_count,
     Esql.powershell_file_script_block_text_length,
     Esql.powershell_file_script_block_text_ratio,
-    Esql_priv.powershell_file_script_block_text_replace,
+    Esql_temp.powershell_file_script_block_text_replace,
     Esql.powershell_file_script_block_text_replace_length,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
