@@ -86,18 +86,21 @@ query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
-// Measure script length
+// Filter out small scripts that are unlikely to contain the patterns we are looking for
 | eval Esql.script_block_length = length(powershell.file.script_block_text)
 | where Esql.script_block_length > 1000
 
-// replace digits with 🔥 for numeric pattern density analysis
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """[0-9]""", "🔥")
 
-// count numeric characters and calculate proportion of total
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
 | eval Esql.script_block_pattern_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// Calculate the ratio of special characters to total length
 | eval Esql.script_block_ratio = Esql.script_block_pattern_count::double / Esql.script_block_length::double
 
-// Retain relevant fields for investigation
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | keep
     Esql.script_block_pattern_count,
     Esql.script_block_ratio,

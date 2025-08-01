@@ -83,15 +83,13 @@ type = "esql"
 
 query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
-
-// Filter for PowerShell Event ID 4104
 | where event.code == "4104"
 
 // Filter for scripts that contains these keywords using MATCH, boosts the query performance,
 // match will ignore the | and look for the individual words
 | where powershell.file.script_block_text : "rahc|metsys|stekcos|tcejboimw|ecalper|ecnerferpe|noitcennoc|nioj|eman|vne|gnirts|tcejbo-wen|_23niw|noisserpxe|ekovni|daolnwod"
 
-// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(
     powershell.file.script_block_text,

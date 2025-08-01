@@ -84,8 +84,6 @@ type = "esql"
 
 query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
-
-// Filter for PowerShell Event ID 4104
 | where event.code == "4104"
 
 // replace repeated spaces used for formatting after a new line with a single space to reduce FPs
@@ -95,18 +93,21 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | eval Esql.script_block_length = length(Esql.script_block_tmp)
 | where Esql.script_block_length > 1000
 
-// replace format characters with 🔥 to count suspicious formatting density
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(
     Esql.script_block_tmp,
     """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
     "🔥"
 )
 
-// count 🔥 and calculate its proportion of the script
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
 | eval Esql.script_block_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// Calculate the ratio of special characters to total length
 | eval Esql.script_block_ratio = Esql.script_block_count::double / Esql.script_block_length::double
 
-// Retain fields for context or alert generation
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | keep
     Esql.script_block_count,
     Esql.script_block_length,

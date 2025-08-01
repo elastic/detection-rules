@@ -86,21 +86,22 @@ query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
-// Evaluate the length of the script block
+// Filter out small scripts that are unlikely to contain the patterns we are looking for
 | eval Esql.script_block_length = length(powershell.file.script_block_text)
 | where Esql.script_block_length > 500
 
-// replace obfuscated dynamic string construction with 🔥 to count obfuscation attempts
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(
     powershell.file.script_block_text,
     """(?i)(\$(?:\w+|\w+\:\w+)\[\d++\]\+\$(?:\w+|\w+\:\w+)\[\d++\]\+['"]x['"]|\$(?:\w+\:\w+)\[\d++,\d++,\d++\]|\.name\[\d++,\d++,\d++\])""",
     "🔥"
 )
 
-// count how many 🔥 were inserted
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
 | eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
 
-// keep relevant context fields
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | keep
     Esql.script_block_pattern_count,
     Esql.script_block_length,

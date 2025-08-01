@@ -86,15 +86,13 @@ type = "esql"
 
 query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
-
-// Filter for PowerShell Event ID 4104
 | where event.code == "4104"
 
-// Look for scripts with more than 500 chars that contain a related keyword
+// Filter out small scripts that are unlikely to contain the patterns we are looking for
 | eval Esql.script_block_length = length(powershell.file.script_block_text)
 | where Esql.script_block_length > 500
 
-// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(
     powershell.file.script_block_text,

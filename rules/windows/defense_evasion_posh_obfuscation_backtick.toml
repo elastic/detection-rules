@@ -91,11 +91,9 @@ type = "esql"
 
 query = '''
 from logs-windows.powershell_operational* metadata _id, _version, _index
-| where
-    event.code == "4104" and
-    powershell.file.script_block_text like "*`*"
+| where event.code == "4104" and powershell.file.script_block_text like "*`*"
 
-// replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
 | eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
 
