@@ -7,7 +7,10 @@ updated_date = "2025/07/31"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential session hijacking or token replay in Microsoft Entra ID. This rule detects cases where a user signs in and subsequently accesses Microsoft Graph from a different IP address using the same session ID. This may indicate a successful OAuth phishing attack, session hijacking, or token replay attack, where an adversary has stolen a session cookie or refresh/access token and is impersonating the user from an alternate host or location.
+Identifies potential session hijacking or token replay in Microsoft Entra ID. This rule detects cases where a user signs
+in and subsequently accesses Microsoft Graph from a different IP address using the same session ID. This may indicate a
+successful OAuth phishing attack, session hijacking, or token replay attack, where an adversary has stolen a session
+cookie or refresh/access token and is impersonating the user from an alternate host or location.
 """
 false_positives = [
     """
@@ -129,6 +132,24 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.event_count = COUNT()
   by Esql.azure_session_id_coalesce, Esql.azure_app_id_coalesce, Esql.azure_user_id_coalesce
 | eval Esql.azure_signin_to_graph_date_diff_minutes = DATE_DIFF("minutes", Esql.azure_signin_time, Esql.azure_graph_time)
+| keep
+    Esql.azure_session_id_coalesce,
+    Esql.azure_app_id_coalesce,
+    Esql.azure_user_id_coalesce,
+    Esql.azure_event_dataset_case_values,
+    Esql.source_ip_values,
+    Esql.source_ip_count_distinct,
+    Esql.azure_event_dataset_case_count_distinct,
+    Esql.azure_signin_source_ip,
+    Esql.azure_signin_source_ip_count_distinct,
+    Esql.azure_graph_source_ip,
+    Esql.azure_graph_source_ip_count_distinct,
+    Esql.azure_signin_event_count,
+    Esql.azure_graph_event_count,
+    Esql.azure_signin_time,
+    Esql.azure_graph_time,
+    Esql.event_count,
+    Esql.azure_signin_to_graph_date_diff_minutes
 | where
     Esql.azure_event_dataset_case_count_distinct > 1 and
     Esql.source_ip_count_distinct > 1 and
