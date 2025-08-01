@@ -34,7 +34,7 @@ CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
 ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
 INTEGRATION_RULE_DIR = ROOT_DIR / "rules" / "integrations"
-CUSTOM_RULES_KQL = 'alert.attributes.params.ruleSource.type: "internal" and alert.attributes.params.immutable: false'
+CUSTOM_RULES_KQL = 'alert.attributes.params.ruleSource.type: "internal" or alert.attributes.params.immutable: false'
 
 
 class DateTimeEncoder(json.JSONEncoder):
