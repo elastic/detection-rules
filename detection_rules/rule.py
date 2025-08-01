@@ -1432,15 +1432,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 
-        rule_integrations = meta.get("integration", [])
-        if rule_integrations:
-            for integration in rule_integrations:
-                ineligible_integrations = [
-                    *definitions.NON_DATASET_PACKAGES,
-                    *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-                ]
-                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
-                    packaged_integrations.append({"package": integration, "integration": None})
+        rule_integrations = meta.get("integration") or []
+        for integration in rule_integrations:
+            ineligible_integrations = [
+                *definitions.NON_DATASET_PACKAGES,
+                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
+            ]
+            if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                packaged_integrations.append({"package": integration, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 
@@ -1754,7 +1753,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         else:
             package = value
 
-        if package in list(package_manifest):
+        if package in package_manifest:
             packaged_integrations.append({"package": package, "integration": integration})
     return packaged_integrations
 
