@@ -303,7 +303,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         query = (
             export_query
             if not custom_rules_only
-            else (f"{CUSTOM_RULES_KQL}{f' and ({export_query})' if export_query else ''}")
+            else (f"({CUSTOM_RULES_KQL}){f' and ({export_query})' if export_query else ''}")
         )
 
         results = (  # type: ignore[reportUnknownVariableType]
