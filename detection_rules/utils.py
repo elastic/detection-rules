@@ -527,3 +527,16 @@ class PatchedTemplate(Template):
                 # another group we're not expecting
                 raise ValueError("Unrecognized named group in pattern", self.pattern)
         return ids
+
+
+FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE)
+
+
+def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
+    match = FROM_SOURCES_REGEX.search(query)
+
+    if not match:
+        return "", []
+
+    sources_str = match.group("sources")
+    return sources_str, [source.strip() for source in sources_str.split(",")]
