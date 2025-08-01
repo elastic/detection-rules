@@ -88,26 +88,26 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
 // Look for scripts with more than 500 chars that contain a related keyword
-| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
-| where Esql.powershell_file_script_block_text_length > 500
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 500
 | where powershell.file.script_block_text like "*{0}*"
 
 // replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| eval Esql_temp.powershell_file_script_block_text_replace = replace(
+| eval Esql.script_block_tmp = replace(
     powershell.file.script_block_text,
     """((\{\d+\}){2,}["']\s?-f|::Format[^\{]+(\{\d+\}){2,})""",
     "🔥"
 )
 
 // count how many patterns were detected by calculating the number of 🔥 characters inserted
-| eval Esql.powershell_script_block_text_character_count = length(Esql_temp.powershell_file_script_block_text_replace) - length(replace(Esql_temp.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
 
 // keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | keep
-    Esql.powershell_script_block_text_character_count,
-    Esql.powershell_file_script_block_text_length,
-    Esql_temp.powershell_file_script_block_text_replace,
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -120,8 +120,8 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     agent.id,
     user.id
 
-// Filter for scripts with more than 3 suspicious format patterns
-| where Esql.powershell_script_block_text_character_count > 3
+// Filter for scripts that match the pattern at least four times
+| where Esql.script_block_pattern_count >= 4
 
 // Exclude Noisy Patterns
 

@@ -87,22 +87,22 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
 // Measure script length
-| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
-| where Esql.powershell_file_script_block_text_length > 1000
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 1000
 
 // replace digits with 🔥 for numeric pattern density analysis
-| eval Esql_temp.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """[0-9]""", "🔥")
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """[0-9]""", "🔥")
 
 // count numeric characters and calculate proportion of total
-| eval Esql.powershell_file_script_block_text_character_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_temp.powershell_file_script_block_text_replace, "🔥", ""))
-| eval Esql.powershell_file_script_block_text_character_ratio = Esql.powershell_file_script_block_text_character_count::double / Esql.powershell_file_script_block_text_length::double
+| eval Esql.script_block_pattern_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+| eval Esql.script_block_ratio = Esql.script_block_pattern_count::double / Esql.script_block_length::double
 
 // Retain relevant fields for investigation
 | keep
-    Esql.powershell_file_script_block_text_character_count,
-    Esql.powershell_file_script_block_text_character_ratio,
-    Esql.powershell_file_script_block_text_length,
-    Esql_temp.powershell_file_script_block_text_replace,
+    Esql.script_block_pattern_count,
+    Esql.script_block_ratio,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -114,10 +114,10 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     agent.id,
     user.id
 
-// Filter for suspiciously high numeric content
-| where Esql.powershell_file_script_block_text_character_ratio > 0.30
+// Filter for scripts with high numeric character ratio
+| where Esql.script_block_ratio > 0.30
 
-// Exclude noisy patterns such as 64-character hashes
+// Exclude noisy patterns such as 64-character hash lists
 | where not powershell.file.script_block_text rlike """.*\"[a-fA-F0-9]{64}\"\,.*"""
 '''
 

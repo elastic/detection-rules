@@ -89,30 +89,29 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
 // replace repeated spaces used for formatting after a new line with a single space to reduce FPs
-| eval Esql_temp.powershell_file_script_block_text_replace = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
 
 // Look for scripts with more than 1000 chars
-| eval Esql.powershell_file_script_block_text_replace_length = length(Esql_temp.powershell_file_script_block_text_replace)
-| where Esql.powershell_file_script_block_text_replace_length > 1000
+| eval Esql.script_block_length = length(Esql.script_block_tmp)
+| where Esql.script_block_length > 1000
 
 // replace format characters with 🔥 to count suspicious formatting density
-| eval Esql_temp.powershell_file_script_block_text_replace = replace(
-    Esql_temp.powershell_file_script_block_text_replace,
+| eval Esql.script_block_tmp = replace(
+    Esql.script_block_tmp,
     """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
     "🔥"
 )
 
 // count 🔥 and calculate its proportion of the script
-| eval Esql.powershell_file_script_block_text_count = Esql.powershell_file_script_block_text_length - length(replace(Esql_temp.powershell_file_script_block_text_replace, "🔥", ""))
-| eval Esql.powershell_file_script_block_text_ratio = Esql.powershell_file_script_block_text_count::double / Esql.powershell_file_script_block_text_length::double
+| eval Esql.script_block_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+| eval Esql.script_block_ratio = Esql.script_block_count::double / Esql.script_block_length::double
 
 // Retain fields for context or alert generation
 | keep
-    Esql.powershell_file_script_block_text_count,
-    Esql.powershell_file_script_block_text_length,
-    Esql.powershell_file_script_block_text_ratio,
-    Esql_temp.powershell_file_script_block_text_replace,
-    Esql.powershell_file_script_block_text_replace_length,
+    Esql.script_block_count,
+    Esql.script_block_length,
+    Esql.script_block_ratio,
+    Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -124,8 +123,8 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     agent.id,
     user.id
 
-// Filter for high-ratio suspicious formatting scripts
-| where Esql.powershell_file_script_block_text_ratio > 0.75
+// Filter for scripts with high whitespace and special character ratio
+| where Esql.script_block_ratio > 0.75
 '''
 
 

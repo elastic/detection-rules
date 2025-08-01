@@ -87,24 +87,24 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 | where event.code == "4104"
 
 // Evaluate the length of the script block
-| eval Esql.powershell_file_script_block_text_length = length(powershell.file.script_block_text)
-| where Esql.powershell_file_script_block_text_length > 500
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 500
 
 // replace obfuscated dynamic string construction with 🔥 to count obfuscation attempts
-| eval Esql_temp.powershell_file_script_block_text_replace = replace(
+| eval Esql.script_block_tmp = replace(
     powershell.file.script_block_text,
     """(?i)(\$(?:\w+|\w+\:\w+)\[\d++\]\+\$(?:\w+|\w+\:\w+)\[\d++\]\+['"]x['"]|\$(?:\w+\:\w+)\[\d++,\d++,\d++\]|\.name\[\d++,\d++,\d++\])""",
     "🔥"
 )
 
 // count how many 🔥 were inserted
-| eval Esql.powershell_file_script_block_text_character_count = length(Esql_temp.powershell_file_script_block_text_replace) - length(replace(Esql_temp.powershell_file_script_block_text_replace, "🔥", ""))
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
 
 // keep relevant context fields
 | keep
-    Esql.powershell_file_script_block_text_character_count,
-    Esql.powershell_file_script_block_text_length,
-    Esql_temp.powershell_file_script_block_text_replace,
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
@@ -116,8 +116,8 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     agent.id,
     user.id
 
-// Filter for meaningful pattern matches
-| where Esql.powershell_file_script_block_text_character_count >= 1
+// Filter for scripts that match the pattern at least once
+| where Esql.script_block_pattern_count >= 1
 '''
 
 

@@ -112,18 +112,18 @@ from .alerts-security.* metadata _id
 | where kibana.alert.rule.name like "*PowerShell*"
 
 // as alerts don't have non-ECS fields, parse the script block ID using grok
-| grok message "ScriptBlock ID: (?<Esql.message_powershell_file_script_block_id>.+)"
-| where Esql.message_powershell_file_script_block_id is not null
+| grok message "ScriptBlock ID: (?<Esql.script_block_id>.+)"
+| where Esql.script_block_id is not null
 
 // keep relevant fields for further processing
-| keep kibana.alert.rule.name, Esql.message_powershell_file_script_block_id, _id
+| keep kibana.alert.rule.name, Esql.script_block_id, _id
 
 // count distinct alerts and filter for matches above the threshold
 | stats
     Esql.kibana_alert_rule_name_count_distinct = count_distinct(kibana.alert.rule.name),
     Esql.kibana_alert_rule_name_values = values(kibana.alert.rule.name),
     Esql._id_values = values(_id)
-  by Esql.message_powershell_file_script_block_id
+  by Esql.script_block_id
 
 // Apply detection threshold
 | where Esql.kibana_alert_rule_name_count_distinct >= 5

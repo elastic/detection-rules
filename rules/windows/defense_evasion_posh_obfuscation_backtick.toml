@@ -97,15 +97,15 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| eval Esql.script_block_text_replace = replace(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """[A-Za-z0-9_-]`(?![rntb]|\r|\n|\d)[A-Za-z0-9_-]""", "🔥")
 
 // count how many patterns were detected by calculating the number of 🔥 characters inserted
-| eval Esql.script_block_text_character_count = length(Esql.script_block_text_replace) - length(replace(Esql.script_block_text_replace, "🔥", ""))
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
 
 // keep the fields relevant to the query, although this is not needed as the alert is populated using _id
 | keep
-    Esql.script_block_text_character_count,
-    Esql.script_block_text_replace,
+    Esql.script_block_pattern_count,
+    Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.name,
@@ -118,7 +118,8 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     agent.id,
     user.id
 
-| where Esql.script_block_text_character_count >= 10
+// Filter for scripts that match the pattern at least 10 times
+| where Esql.script_block_pattern_count >= 10
 
 // Filter FPs, and due to the behavior of the like operator, allow null values
 | where (file.name not like "TSS_*.psm1" or file.name is null)
