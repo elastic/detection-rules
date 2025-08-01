@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2025/07/24"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/07/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of ASPX files in specific directories that are commonly targeted by attackers to deploy web shells.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Web Shell ASPX File Creation"
+references = [
+    "https://blog.viettelcybersecurity.com/toolshell-a-critical-sharepoint-vulnerability-chain-under-active-exploitation/",
+    "https://www.sentinelone.com/blog/sharepoint-toolshell-zero-day-exploited-in-the-wild-targets-enterprise-servers/",
+    "https://www.rapid7.com/blog/post/2024/10/30/investigating-a-sharepoint-compromise-ir-tales-from-the-field/",
+]
+risk_score = 21
+rule_id = "32144184-7bfa-4541-9c3f-b65f16d24df9"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type != "deletion" and
+  file.extension : "aspx" and
+  file.path : "?:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\*" and
+  not process.executable: "?:\\Windows\\System32\\msiexec.exe"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
