@@ -16,7 +16,7 @@ from typing import Any
 import click
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
-from elasticsearch import Elasticsearch # type: ignore[reportMissingTypeStubs]
+from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint  # type: ignore[reportMissingTypeStubs]
 from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStubs]
@@ -653,7 +653,6 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError)
 
 
 def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents) -> None:
-
     rule_id = contents.data.rule_id
 
     def log(val: str) -> None:
@@ -669,7 +668,7 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
 
     # Get mappings for all matching existing index templates
 
-    existing_mappings = {}
+    existing_mappings: dict[str, Any] = {}
 
     for index in indices:
         index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
@@ -686,10 +685,10 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         else:
             rule_integrations = [contents.metadata.integration]
 
-    if "endpoint." in index:
-        rule_integrations.append("endpoint")
-
-    log(f"Working with rule integrations: {', '.join(rule_integrations)}")
+    if len(rule_integrations) > 0:
+        log(f"Working with rule integrations: {', '.join(rule_integrations)}")
+    else:
+        log("No integrations found in the rule")
 
     package_manifests = load_integrations_manifests()
     integration_schemas = load_integrations_schemas()
@@ -701,11 +700,15 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         package = integration
 
         package_version, _ = integrations.find_latest_compatible_version(
-            package, None, Version.parse(stack_version), package_manifests,
+            package,
+            "",
+            Version.parse(stack_version),
+            package_manifests,
         )
 
         package_schema = integration_schemas[package][package_version]
 
+        # Add schemas for all streams in the package
         for stream in package_schema:
             flat_schema = package_schema[stream]
             stream_mappings = flat_schema_to_mapping(flat_schema)
@@ -717,21 +720,18 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     merge_dicts(combined_mappings, existing_mappings)
     merge_dicts(combined_mappings, integration_mappings)
 
+    if not combined_mappings:
+        log("ERROR: no mappings found for the rule")
+        raise ValueError("No mappings found")
+
+    import json
+
+    with open("./mappings.json", "w") as f:
+        _ = f.write(json.dumps(combined_mappings, indent=4, sort_keys=True))
+
     # Creating a test index with the test name
-    suffix = str(int(time.time()))
+    suffix = str(int(time.time() * 1000))
     test_index = f"rule-test-index-{suffix}"
-
-    # Setting up missing mapping properties
-
-    # FIXME: `alias` types require `path` arguments that are missing in the integration mappings
-    # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/field-alias
-
-    # add missing `scaling_factor`
-    # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
-    set_scaling_factor(combined_mappings)
-
-    # add @timestamp to the mappings
-    combined_mappings["@timestamp"] = {"type": "date"}
 
     # creating an index
     response = elastic_client.indices.create(
@@ -749,13 +749,16 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     query = contents.data.query
     query = query.replace(indices_str, test_index)
 
-    log(f"Executing a query against `{test_index}`")
+    try:
+        log(f"Executing a query against `{test_index}`")
+        response = elastic_client.esql.query(query=query)
+        log(f"Got query response: {response}")
+        query_columns = response.get("columns", [])
+    finally:
+        response = elastic_client.indices.delete(index=test_index)
+        log(f"Test index `{test_index}` deleted: {response}")
 
-    response = elastic_client.esql.query(query=query)
-
-    query_columns = response.get("columns", [])
     query_column_names = [c["name"] for c in query_columns]
-
     log(f"Got query columns: {', '.join(query_column_names)}")
 
     # FIXME: validate the dynamic columns
@@ -776,11 +779,11 @@ def get_simulated_template_mappings(elastic_client: Elasticsearch, name: str) ->
 
 def get_indices(elastic_client: Kibana, index: str) -> list[str]:
     """Fetch indices that match the provided name from Elasticsearch"""
-    # `index` supports wildcards
+    # `index` arg here supports wildcards
     return [i["index"] for i in elastic_client.cat.indices(index=index, format="json")]
 
 
-def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> dict[Any, Any]:
+def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]):
     """Merge two dictionaries recursively."""
     for k, v in src.items():
         if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
@@ -789,42 +792,40 @@ def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> dict[Any, Any]:
             dest[k] = v
 
 
-def flat_schema_to_mapping(flat_mapping: dict[str, str]) -> dict[str, Any]:
+def flat_schema_to_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
     """
     Convert dicts with flat JSON paths and values into a nested mapping with
-    intermediary `properties` and `type` fields.
+    intermediary `properties`, `fields` and `type` fields.
     """
 
+    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
+    # detect and handle multi-fields.
+    sorted_items = sorted(flat_schema.items())
     result = {}
 
-    for key, value in flat_mapping.items():
-        path = key.split(".")
+    for field_path, field_type in sorted_items:
 
-        # add "properties" wrappers
-        extended_path = []
-        for part in path:
-            extended_path.append(part)
-            extended_path.append("properties")
+        parts = field_path.split(".")
+        current_level = result
 
-        # drop last `properties`
-        extended_path.pop()
-        extended_path.append("type")
+        for part in parts[:-1]:
+            node = current_level.setdefault(part, {})
 
-        new_key = ".".join(extended_path)
-        utils.set_nested_value(result, new_key, value)
+            if "type" in node and node["type"] not in ("nested", "object"):
+                current_level = node.setdefault("fields", {})
+            else:
+                current_level = node.setdefault("properties", {})
+
+        leaf_key = parts[-1]
+        current_level[leaf_key] = {"type": field_type}
+
+        # add `scaling_factor` field missing in the schema
+        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
+        if field_type == "scaled_float":
+            current_level[leaf_key]["scaling_factor"] = 1000
+
+        # add `path` field for `alias` fields, set to a dummy value
+        if field_type == "alias":
+            current_level[leaf_key]["path"] = "@timestamp"
 
     return result
-
-
-def set_scaling_factor(val: Any) -> None:
-    """
-    Recursively set `scaling_factor` property for `scaled_float` field type.
-    """
-    if isinstance(val, dict):
-        if "type" in val and val["type"] == "scaled_float":
-            val["scaling_factor"] = 1000
-            return
-
-        for v in val.values():
-            set_scaling_factor(v)
-

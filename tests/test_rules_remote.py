@@ -5,7 +5,6 @@
 
 import unittest
 
-from detection_rules import ecs
 from detection_rules.misc import get_default_config, get_elasticsearch_client, get_kibana_client, getdefault
 from detection_rules.rule_validators import validate_esql_rule
 
@@ -22,9 +21,6 @@ class TestRemoteRules(BaseRuleTest):
         esql_rules = [r for r in self.all_rules if r.contents.data.type == "esql"]
 
         print("ESQL rules loaded:", len(esql_rules))
-
-        # Temporarily limit the number of rules
-        esql_rules = esql_rules[:10]
 
         if not esql_rules:
             return
@@ -44,5 +40,18 @@ class TestRemoteRules(BaseRuleTest):
             ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
         )
 
+        failed_count = 0
+
         for r in esql_rules:
-            validate_esql_rule(kibana_client, elastic_client, r.contents)
+            print()
+            try:
+                validate_esql_rule(kibana_client, elastic_client, r.contents)
+            except Exception as e:
+                print(f"FAILURE: {e}")
+                failed_count += 1
+
+        print(f"Total rules: {len(esql_rules)}")
+        print(f"Failed rules: {failed_count}")
+
+        if failed_count > 0:
+            self.fail(f"Found {failed_count} invalid rules")
