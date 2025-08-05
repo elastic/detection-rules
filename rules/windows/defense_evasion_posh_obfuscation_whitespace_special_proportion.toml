@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -83,29 +83,49 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* metadata _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
-// Replace repeated spaces used for formatting after a new line with a single space to reduce FPs
-| EVAL dedup_space_script_block = REPLACE(powershell.file.script_block_text, """\n\s+""", "\n ")
+// replace repeated spaces used for formatting after a new line with a single space to reduce FPs
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
 
-// Look for scripts with more than 1000 chars that contain a related keyword
-| EVAL script_len = LENGTH(dedup_space_script_block)
-| WHERE script_len > 1000
+// Look for scripts with more than 1000 chars
+| eval Esql.script_block_length = length(Esql.script_block_tmp)
+| where Esql.script_block_length > 1000
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL replaced_with_fire = REPLACE(dedup_space_script_block, """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""", "🔥")
+| eval Esql.script_block_tmp = replace(
+    Esql.script_block_tmp,
+    """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
+    "🔥"
+)
 
-// Count the occurrence of numbers and their proportion to the total chars in the script
-| EVAL special_count = script_len - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
-| EVAL proportion = special_count::double / script_len::double
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP special_count, script_len, proportion, dedup_space_script_block, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
+// Calculate the ratio of special characters to total length
+| eval Esql.script_block_ratio = Esql.script_block_count::double / Esql.script_block_length::double
 
-// Filter for scripts with a 75%+ proportion of numbers
-| WHERE proportion > 0.75
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_count,
+    Esql.script_block_length,
+    Esql.script_block_ratio,
+    Esql.script_block_tmp,
+    powershell.file.script_block_text,
+    powershell.file.script_block_id,
+    file.path,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for scripts with high whitespace and special character ratio
+| where Esql.script_block_ratio > 0.75
 '''
 
 
