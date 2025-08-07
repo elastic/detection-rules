@@ -79,6 +79,8 @@ Some notes:
 * To on bulk disable elastic validation for optional fields, use the following line `bypass_optional_elastic_validation: True`.
 * To omit version fields when exporting rules, set `strip_version: True` or use the `--strip-version` flag. This only strips the
   `version` and `revision` fields from exported rule TOML files and does not impact the version lock strategy.
+* To supply a default author for rules that lack one when importing or exporting, set
+  `default_author: <name>` or use the `--default-author`/`-da` flag.
 
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`

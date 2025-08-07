@@ -282,6 +282,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     strip_version = strip_version or RULES_CONFIG.strip_version
     strip_dates = strip_dates or RULES_CONFIG.strip_dates
     strip_exception_list_id = strip_exception_list_id or RULES_CONFIG.strip_exception_list_id
+    default_author = default_author or RULES_CONFIG.default_author
     kibana_include_details = export_exceptions or export_action_connectors
 
     # Only allow one of rule_id or rule_name

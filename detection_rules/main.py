@@ -177,6 +177,8 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     local_updated_date: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
+    default_author = default_author or RULES_CONFIG.default_author
+
     errors: list[str] = []
 
     rule_files: list[Path] = []

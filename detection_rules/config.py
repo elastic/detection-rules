@@ -212,6 +212,7 @@ class RulesConfig:
     strip_version: bool = False
     strip_dates: bool = False
     strip_exception_list_id: bool = False
+    default_author: str | None = None
 
     def __post_init__(self) -> None:
         """Perform post validation on packages.yaml file."""
@@ -339,6 +340,9 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
     # strip_exception_list_id
     contents["strip_exception_list_id"] = loaded.get("strip_exception_list_id", False)
+
+    # default_author
+    contents["default_author"] = loaded.get("default_author")
 
     # return the config
     try:
