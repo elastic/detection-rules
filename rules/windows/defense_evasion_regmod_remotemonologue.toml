@@ -2,7 +2,7 @@
 creation_date = "2025/04/14"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2025/08/08"
 
 [rule]
 author = ["Elastic"]
@@ -33,11 +33,11 @@ note = """## Triage and analysis
 - Check for any recent remote authentication attempts or sessions on the affected host to determine if this activity is associated with lateral movement or not.
 - Investigate the timeline of the registry change to correlate with any other suspicious activities or alerts on the host, such as the execution of unusual processes or network connections.
 
-
 ### False positive analysis
 
 - Software updates or installations that modify COM settings.
 - Automated scripts or management tools that adjust COM configurations.
+
 ### Response and remediation
 
 - Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
@@ -51,9 +51,9 @@ references = [
     "https://www.ibm.com/think/x-force/remotemonologue-weaponizing-dcom-ntlm-authentication-coercions#1",
     "https://github.com/xforcered/RemoteMonologue",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "c18975f5-676c-4091-b626-81e8938aa2ee"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -70,7 +70,49 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.action != "deletion" and registry.value == "RunAs" and registry.data.strings : "Interactive User"
+registry where host.os.type == "windows" and event.action != "deletion" and
+  registry.value == "RunAs" and registry.data.strings : "Interactive User" and
+
+  not 
+  (
+    (
+      process.executable : (
+        "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.*\\MsMpEng.exe",
+        "C:\\Program Files\\Windows Defender\\MsMpEng.exe"
+      ) and
+      registry.path : "*\\SOFTWARE\\Classes\\AppID\\{1111A26D-EF95-4A45-9F55-21E52ADF9887}\\RunAs"
+    ) or
+    (
+      process.executable : (
+        "C:\\Program Files\\TeamViewer\\TeamViewer.exe",
+        "C:\\Program Files (x86)\\TeamViewer\\TeamViewer.exe"
+      ) and
+      registry.path : "*\\SOFTWARE\\Classes\\AppID\\{850A928D-5456-4865-BBE5-42635F1EBCA1}\\RunAs"
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\svchost.exe" and
+      registry.path : "*\\S-1-*Classes\\AppID\\{D3E34B21-9D75-101A-8C3D-00AA001A1652}\\RunAs"
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\SecurityHealthService.exe" and
+      registry.path : (
+        "*\\SOFTWARE\\Classes\\AppID\\{1D278EEF-5C38-4F2A-8C7D-D5C13B662567}\\RunAs",
+        "*\\SOFTWARE\\Classes\\AppID\\{7E55A26D-EF95-4A45-9F55-21E52ADF9878}\\RunAs"
+      )
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\SecurityHealthService.exe" and
+      registry.path : (
+        "*\\SOFTWARE\\Classes\\AppID\\{1D278EEF-5C38-4F2A-8C7D-D5C13B662567}\\RunAs",
+        "*\\SOFTWARE\\Classes\\AppID\\{7E55A26D-EF95-4A45-9F55-21E52ADF9878}\\RunAs"
+      )
+    ) or
+    registry.path : (
+      "HKLM\\SOFTWARE\\Microsoft\\Office\\ClickToRun\\VREGISTRY_*",
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Office\\ClickToRun\\VREGISTRY_*"
+    ) or
+    (process.executable : "C:\\windows\\System32\\msiexec.exe" and user.id : "S-1-5-18")
+  )
 '''
 
 
