@@ -2,7 +2,7 @@
 creation_date = "2024/09/11"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -83,13 +83,31 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-// truncate the timestamp to a 1-minute window
-| eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
+
+// Truncate timestamp to 1-minute window
+| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+
+// Filter for validation exceptions in responses
 | where gen_ai.response.error_code == "ValidationException"
-| keep user.id, gen_ai.request.model.id, cloud.account.id, gen_ai.response.error_code, target_time_window
-// count the number of users causing validation errors within a 1 minute window
-| stats total_denials = count(*) by target_time_window, user.id, cloud.account.id
-| where total_denials > 3
+
+// keep relevant ECS and derived fields
+| keep
+  user.id,
+  gen_ai.request.model.id,
+  cloud.account.id,
+  gen_ai.response.error_code,
+  Esql.time_window_date_trunc
+
+// count number of denials by user/account/time window
+| stats
+    Esql.ml_response_validation_error_count = count(*)
+  by
+    Esql.time_window_date_trunc,
+    user.id,
+    cloud.account.id
+
+// Filter for excessive errors
+| where Esql.ml_response_validation_error_count > 3
 '''
 
 
