@@ -133,12 +133,21 @@ registry where host.os.type == "windows" and event.type == "change" and registry
           "?:\\Windows\\Lenovo\\ImController\\Service\\Lenovo.Modern.ImController.exe",
           "?:\\Windows\\Sysmon.exe",
           "?:\\Windows\\Sysmon64.exe",
-          "?:\\Windows\\System32\\*.exe",
-          "?:\\Windows\\SysWOW64\\*.exe",
           "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
           "?:\\Windows\\UUS\\amd64\\WaaSMedicAgent.exe",
           "?:\\Windows\\UUS\\Packages\\Preview\\amd64\\MoUsoCoreWorker.exe",
           "?:\\Windows\\WinSxS\\*.exe"
+  ) and
+  not
+  (
+    process.executable : (
+      "?:\\Windows\\System32\\*.exe",
+      "?:\\Windows\\SysWOW64\\*.exe"
+    ) and
+    not process.name : (
+        "rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe",
+        "regsvr32.exe", "cscript.exe", "wscript.exe", "wmiprvse.exe", "certutil.exe"
+    )
   )
 '''
 
