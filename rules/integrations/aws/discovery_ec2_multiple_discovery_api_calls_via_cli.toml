@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -83,11 +83,11 @@ query = '''
 from logs-aws.cloudtrail*
 
 // create time window buckets of 10 seconds
-| eval time_window = date_trunc(10 seconds, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
 | where
     event.dataset == "aws.cloudtrail"
 
-    // filter on CloudTrail audit logs for IAM, EC2, and S3 events only
+    // filter on CloudTrail audit logs for IAM, EC2, S3, etc.
     and event.provider in (
       "iam.amazonaws.com",
       "ec2.amazonaws.com",
@@ -97,8 +97,7 @@ from logs-aws.cloudtrail*
       "dynamodb.amazonaws.com",
       "kms.amazonaws.com",
       "cloudfront.amazonaws.com",
-      "elasticloadbalancing.amazonaws.com",
-      "cloudfront.amazonaws.com"
+      "elasticloadbalancing.amazonaws.com"
     )
 
     // ignore AWS service actions
@@ -117,19 +116,24 @@ from logs-aws.cloudtrail*
     starts_with(event.action, "List"),
     starts_with(event.action, "Generate")
 )
-// extract owner, identity type, and actor from the ARN
-| dissect aws.cloudtrail.user_identity.arn "%{}::%{owner}:%{identity_type}/%{actor}"
-| where starts_with(actor, "AWSServiceRoleForConfig") != true
-| keep @timestamp, time_window, event.action, aws.cloudtrail.user_identity.arn
-| stats
-    // count the number of unique API calls per time window and actor
-    unique_api_count = count_distinct(event.action) by time_window, aws.cloudtrail.user_identity.arn
 
-// filter for more than 5 unique API calls per time window
-| where unique_api_count > 5
+// extract owner, identity type, and actor from the ARN
+| dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql_priv.aws_cloudtrail_user_identity_arn_owner}:%{Esql.aws_cloudtrail_user_identity_arn_type}/%{Esql.aws_cloudtrail_user_identity_arn_roles}"
+| where starts_with(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
+
+// keep relevant fields (preserving ECS fields and computed time window)
+| keep @timestamp, Esql.time_window_date_trunc, event.action, aws.cloudtrail.user_identity.arn
+
+// count the number of unique API calls per time window and actor
+| stats
+    Esql.event_action_count_distinct = count_distinct(event.action)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
+
+// filter for more than 5 unique API calls per 10s window
+| where Esql.event_action_count_distinct > 5
 
 // sort the results by the number of unique API calls in descending order
-| sort unique_api_count desc
+| sort Esql.event_action_count_distinct desc
 '''
 
 
