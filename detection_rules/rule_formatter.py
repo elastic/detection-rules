@@ -151,6 +151,7 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
+        # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
         if "\\\\x" in v:
             return f'"{v!s}"'
         return self._old_dump_str(v)
