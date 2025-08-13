@@ -17,22 +17,19 @@ mkdir tmp-custom 2>/dev/null
 python -m detection_rules custom-rules setup-config tmp-custom
 export CUSTOM_RULES_DIR=./tmp-custom/
 
-echo "Performing a rule export..."
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r 565d6ca5-75ba-4c82-9b13-add25353471c #eql-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r e6c1a552-7776-44ad-ae0f-8746cc07773c #kql-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r e903ce9a-5ce6-4246-bb14-75ed3ec2edf5 #esql-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r a61809f3-fb5b-465c-8bff-23a8a068ac60 #indicator-match-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r 035889c4-2686-4583-a7df-67f89c292f2c #threshold-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r 6b84d470-9036-4cc0-a27c-6d90bbfe81ab #new_terms-rule
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors -r 9d302377-d226-4e12-b54c-1906b5aec4f6 #machine-learning-rule
+echo "Performing a rule conversion from ndjson to toml files..."
+python -m detection_rules  import-rules-to-repo detection_rules/etc/custom-consolidated-rules.ndjson --required-only
 
-# Reorder the rules to ensure they are in the correct directory
-echo "Moving exported rules to the rules directory..."
-mv $CUSTOM_RULES_DIR/*.toml $CUSTOM_RULES_DIR/rules/.
+echo "Move the converted rules to the custom rules directory..."
+mv detection_rules/rules/test_*.toml $CUSTOM_RULES_DIR/rules/.
 
-echo "Performing a rule import..."
+echo "Performing a rule import to kibana..."
 
 python -m detection_rules kibana import-rules -o -e -ac
+
+echo "Performing a rule export..."
+python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors --custom-rules-only 
+
 echo "Removing generated files..."
 rm -rf $CUSTOM_RULES_DIR
 set -e CUSTOM_RULES_DIR
