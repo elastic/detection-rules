@@ -151,6 +151,8 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
+        if "\\\\x" in v:
+            return f'"{v!s}"'
         return self._old_dump_str(v)
 
     def _dump_flat_list(self, v: Iterable[Any]) -> str:
