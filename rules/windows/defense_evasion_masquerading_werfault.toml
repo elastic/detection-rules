@@ -2,7 +2,7 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/08/12"
 
 [transform]
 [[transform.osquery]]
@@ -120,7 +120,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan = 5s
-  [process where host.os.type == "windows" and event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and process.args_count == 1]
+  [process where host.os.type == "windows" and event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and
+    (process.args_count == 1 and
+      /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+      not process.command_line regex~ """\".*\.exe[^\"].*""")]
   [network where host.os.type == "windows" and process.name : ("wermgr.exe", "WerFault.exe") and network.protocol != "dns" and
     network.direction : ("outgoing", "egress") and destination.ip !="::1" and destination.ip !="127.0.0.1"
   ]
