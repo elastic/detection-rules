@@ -18,17 +18,14 @@ python -m detection_rules custom-rules setup-config tmp-custom
 export CUSTOM_RULES_DIR=./tmp-custom/
 
 echo "Performing a rule conversion from ndjson to toml files..."
-python -m detection_rules  import-rules-to-repo detection_rules/etc/custom-consolidated-rules.ndjson --required-only
-
-echo "Move the converted rules to the custom rules directory..."
-mv detection_rules/rules/test_*.toml $CUSTOM_RULES_DIR/rules/.
+python -m detection_rules  import-rules-to-repo detection_rules/etc/custom-consolidated-rules.ndjson -ac -e -s $CUSTOM_RULES_DIR/rules --required-only
 
 echo "Performing a rule import to kibana..."
 
 python -m detection_rules kibana import-rules -o -e -ac
 
 echo "Performing a rule export..."
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -sv --skip-errors --custom-rules-only 
+python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -ac -e -sv --skip-errors --custom-rules-only 
 
 echo "Removing generated files..."
 rm -rf $CUSTOM_RULES_DIR
