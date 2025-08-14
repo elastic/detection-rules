@@ -2,7 +2,7 @@
 creation_date = "2025/04/03"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/08/14"
 
 [rule]
 author = ["Elastic"]
@@ -108,7 +108,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
-    file.name,
+    file.directory,
     powershell.sequence,
     powershell.total,
     _id,
@@ -123,8 +123,12 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 // Exclude Noisy Patterns
 
 // Icinga Framework
-| where (file.name not like "framework_cache.psm1" or file.name is null)
+| where not file.directory == "C:\\Program Files\\WindowsPowerShell\\Modules\\icinga-powershell-framework\\cache"
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory IS NULL
 
+| where not (powershell.file.script_block_text LIKE "*GitBranchStatus*" AND 
+    powershell.file.script_block_text LIKE "*$s.BranchBehindStatusSymbol.Text*")
 | where not
     // https://wtfbins.wtf/17
     (
