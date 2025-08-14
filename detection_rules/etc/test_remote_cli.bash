@@ -25,7 +25,7 @@ echo "Performing a rule import to kibana..."
 python -m detection_rules kibana import-rules -o -e -ac
 
 echo "Performing a rule export..."
-python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -ac -e -sv --skip-errors --custom-rules-only 
+python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -ac -e -sv --custom-rules-only 
 
 echo "Removing generated files..."
 rm -rf $CUSTOM_RULES_DIR
