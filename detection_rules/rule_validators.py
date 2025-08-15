@@ -6,6 +6,7 @@
 """Validation logic for rules containing queries."""
 
 import re
+import time
 import typing
 from collections.abc import Callable
 from enum import Enum
@@ -15,16 +16,18 @@ from typing import Any
 import click
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
+from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint  # type: ignore[reportMissingTypeStubs]
 from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStubs]
+from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 from marshmallow import ValidationError
 from semver import Version
 
-from . import ecs, endgame
+from . import ecs, endgame, integrations, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import get_integration_schema_data, load_integrations_manifests, load_integrations_schemas
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_stack_schemas
 
@@ -647,3 +650,182 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError)
     start = exc.column  # type: ignore[reportUnknownMemberType]
     stop = start + len(exc.caret.strip())  # type: ignore[reportUnknownVariableType]
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
+
+
+def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents) -> None:
+    rule_id = contents.data.rule_id
+
+    def log(val: str) -> None:
+        print(f"{rule_id}:", val)
+
+    kibana_details = kibana_client.get("/api/status")
+    stack_version = kibana_details["version"]["number"]
+
+    log(f"Validating against {stack_version} stack")
+
+    indices_str, indices = utils.get_esql_query_indices(contents.data.query)
+    log(f"Extracted indices from query: {', '.join(indices)}")
+
+    # Get mappings for all matching existing index templates
+
+    existing_mappings: dict[str, Any] = {}
+
+    for index in indices:
+        index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
+        merge_dicts(existing_mappings, index_tmpl_mappings)
+
+    log(f"Collected mappigns: {len(existing_mappings)}")
+
+    # Collect mappings for the integrations
+
+    rule_integrations = []
+    if contents.metadata.integration:
+        if isinstance(contents.metadata.integration, list):
+            rule_integrations = contents.metadata.integration
+        else:
+            rule_integrations = [contents.metadata.integration]
+
+    if len(rule_integrations) > 0:
+        log(f"Working with rule integrations: {', '.join(rule_integrations)}")
+    else:
+        log("No integrations found in the rule")
+
+    package_manifests = load_integrations_manifests()
+    integration_schemas = load_integrations_schemas()
+
+    integration_mappings = {}
+
+    for integration in rule_integrations:
+        # Assume the integration value is a package name
+        package = integration
+
+        package_version, _ = integrations.find_latest_compatible_version(
+            package,
+            "",
+            Version.parse(stack_version),
+            package_manifests,
+        )
+
+        package_schema = integration_schemas[package][package_version]
+
+        # Add schemas for all streams in the package
+        for stream in package_schema:
+            flat_schema = package_schema[stream]
+            stream_mappings = flat_schema_to_mapping(flat_schema)
+            merge_dicts(integration_mappings, stream_mappings)
+
+    log(f"Integration mappings prepared: {len(integration_mappings)}")
+
+    combined_mappings = {}
+    merge_dicts(combined_mappings, existing_mappings)
+    merge_dicts(combined_mappings, integration_mappings)
+
+    if not combined_mappings:
+        log("ERROR: no mappings found for the rule")
+        raise ValueError("No mappings found")
+
+    import json
+
+    with open("./mappings.json", "w") as f:
+        _ = f.write(json.dumps(combined_mappings, indent=4, sort_keys=True))
+
+    # Creating a test index with the test name
+    suffix = str(int(time.time() * 1000))
+    test_index = f"rule-test-index-{suffix}"
+
+    # creating an index
+    response = elastic_client.indices.create(
+        index=test_index,
+        mappings={"properties": combined_mappings},
+        settings={
+            "index.mapping.total_fields.limit": 10000,
+            "index.mapping.nested_fields.limit": 500,
+            "index.mapping.nested_objects.limit": 10000,
+        },
+    )
+    log(f"Index `{test_index}` created: {response}")
+
+    # Replace all sources with the test index
+    query = contents.data.query
+    query = query.replace(indices_str, test_index)
+
+    try:
+        log(f"Executing a query against `{test_index}`")
+        response = elastic_client.esql.query(query=query)
+        log(f"Got query response: {response}")
+        query_columns = response.get("columns", [])
+    finally:
+        response = elastic_client.indices.delete(index=test_index)
+        log(f"Test index `{test_index}` deleted: {response}")
+
+    query_column_names = [c["name"] for c in query_columns]
+    log(f"Got query columns: {', '.join(query_column_names)}")
+
+    # FIXME: validate the dynamic columns
+
+
+def get_simulated_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
+    """
+    Return the mappings from the index configuration that would be applied
+    to the specified index from an existing index template
+
+    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
+    """
+    template = elastic_client.indices.simulate_index_template(name=name)
+    if not template:
+        return {}
+    return template["template"]["mappings"]["properties"]
+
+
+def get_indices(elastic_client: Kibana, index: str) -> list[str]:
+    """Fetch indices that match the provided name from Elasticsearch"""
+    # `index` arg here supports wildcards
+    return [i["index"] for i in elastic_client.cat.indices(index=index, format="json")]
+
+
+def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]):
+    """Merge two dictionaries recursively."""
+    for k, v in src.items():
+        if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
+            merge_dicts(dest[k], v)
+        else:
+            dest[k] = v
+
+
+def flat_schema_to_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
+    """
+    Convert dicts with flat JSON paths and values into a nested mapping with
+    intermediary `properties`, `fields` and `type` fields.
+    """
+
+    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
+    # detect and handle multi-fields.
+    sorted_items = sorted(flat_schema.items())
+    result = {}
+
+    for field_path, field_type in sorted_items:
+
+        parts = field_path.split(".")
+        current_level = result
+
+        for part in parts[:-1]:
+            node = current_level.setdefault(part, {})
+
+            if "type" in node and node["type"] not in ("nested", "object"):
+                current_level = node.setdefault("fields", {})
+            else:
+                current_level = node.setdefault("properties", {})
+
+        leaf_key = parts[-1]
+        current_level[leaf_key] = {"type": field_type}
+
+        # add `scaling_factor` field missing in the schema
+        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
+        if field_type == "scaled_float":
+            current_level[leaf_key]["scaling_factor"] = 1000
+
+        # add `path` field for `alias` fields, set to a dummy value
+        if field_type == "alias":
+            current_level[leaf_key]["path"] = "@timestamp"
+
+    return result
