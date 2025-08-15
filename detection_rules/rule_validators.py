@@ -188,7 +188,7 @@ class KQLValidator(QueryValidator):
                 message = exc.error_msg
                 trailer = err_trailer
                 if "Unknown field" in message and beat_types:
-                    trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+                    trailer = f"\nTry adding event.module or data_stream.dataset to specify beats module\n\n{trailer}"
 
                 return kql.KqlParseError(
                     exc.error_msg,  # type: ignore[reportUnknownArgumentType]
@@ -258,7 +258,7 @@ class KQLValidator(QueryValidator):
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(self.query, exc)
                     trailer = (
-                        f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
+                        f"\n\tTry adding event.module or data_stream.dataset to specify integration module\n\t"
                         f"Will check against integrations {meta.integration} combined.\n\t"
                         f"{package=}, {integration=}, {integration_schema_data['package_version']=}, "
                         f"{integration_schema_data['stack_version']=}, "
@@ -512,7 +512,7 @@ class EQLValidator(QueryValidator):
                 if message == "Unknown field" or "Field not recognized" in message:
                     field = extract_error_field(self.query, exc)
                     trailer = (
-                        f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
+                        f"\n\tTry adding event.module or data_stream.dataset to specify integration module\n\t"
                         f"Will check against integrations {meta.integration} combined.\n\t"
                         f"{package=}, {integration=}, {package_version=}, "
                         f"{stack_version=}, {ecs_version=}"
@@ -571,7 +571,7 @@ class EQLValidator(QueryValidator):
             message = exc.error_msg
             trailer = err_trailer
             if "Unknown field" in message and beat_types:
-                trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+                trailer = f"\nTry adding event.module or data_stream.dataset to specify beats module\n\n{trailer}"
             elif "Field not recognized" in message:
                 text_fields = self.text_fields(schema)
                 if text_fields:

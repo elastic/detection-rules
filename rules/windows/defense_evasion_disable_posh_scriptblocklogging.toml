@@ -2,7 +2,7 @@
 creation_date = "2022/01/31"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/13"
 
 [rule]
 author = ["Elastic"]
@@ -89,7 +89,15 @@ registry where host.os.type == "windows" and event.type == "change" and
         "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging",
         "\\REGISTRY\\MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging",
         "MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
-    ) and registry.data.strings : ("0", "0x00000000")
+    ) and registry.data.strings : ("0", "0x00000000") and
+    not (
+        process.executable : (
+          "?:\\Windows\\System32\\svchost.exe",
+          "?:\\Windows\\System32\\DeviceEnroller.exe",
+          "?:\\Windows\\system32\\omadmclient.exe",
+          "?:\\Program Files (x86)\\N-able Technologies\\AutomationManagerAgent\\AutomationManager.AgentService.exe"
+        ) and user.id == "S-1-5-18"
+    )
 '''
 
 
