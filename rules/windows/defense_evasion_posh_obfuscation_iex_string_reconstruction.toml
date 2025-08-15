@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/08/14"
 
 [rule]
 author = ["Elastic"]
@@ -110,6 +110,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.path,
+    file.directory,
     powershell.sequence,
     powershell.total,
     _id,
@@ -120,6 +121,13 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // Filter for scripts that match the pattern at least once
 | where Esql.script_block_pattern_count >= 1
+
+| where not (
+    file.directory like "C:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\Maester\\\\1.1.0*" or
+    file.directory like "C:\\\\Users\\\\*\\\\Documents\\\\WindowsPowerShell\\\\Modules\\\\Maester\\\\1.1.0*"
+  )
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory is null
 '''
 
 

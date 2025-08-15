@@ -2,7 +2,7 @@
 creation_date = "2025/04/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/08/14"
 
 [rule]
 author = ["Elastic"]
@@ -107,6 +107,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     powershell.file.script_block_text,
     powershell.file.script_block_id,
     file.name,
+    file.directory,
     file.path,
     powershell.sequence,
     powershell.total,
@@ -119,11 +120,16 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 // Filter for scripts that match the pattern at least 10 times
 | where Esql.script_block_pattern_count >= 10
 
-// Filter FPs, and due to the behavior of the like operator, allow null values
-| where (file.name not like "TSS_*.psm1" or file.name is null)
+| where file.name not like "TSS_*.psm1"
+  // ESQL requires this condition, otherwise it only returns matches where file.name exists.
+  or file.name is null
 
 // VSCode Shell integration
 | where not powershell.file.script_block_text like "*$([char]0x1b)]633*"
+
+| where not file.directory == "C:\\Program Files\\MVPSI\\JAMS\\Agent\\Temp"
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory is null
 '''
 
 
