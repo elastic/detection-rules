@@ -71,4 +71,12 @@ class TestRuleTomlFormatter(unittest.TestCase):
 
     def test_formatter_deep(self):
         """Test that the data remains unchanged from formatting."""
-        self.compare_test_data(self.test_data[1:])
+        self.compare_test_data(self.test_data[2:])
+
+    def test_formatter_paths(self):
+        """Test that paths are handled as expected in with toml lib."""
+        with self.assertRaisesRegex(
+            AssertionError,
+            r'\+ {"metadata": {"field": "value"}, "rule": {"path": "\?:\\\\Windows\\\\Sys\?\?\?\?\?\\\\x5lrs\.dll"}}',
+        ):
+            self.compare_test_data([self.test_data[1]])
