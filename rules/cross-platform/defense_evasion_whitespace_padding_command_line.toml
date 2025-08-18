@@ -86,11 +86,7 @@ type = "esql"
 
 query = '''
 FROM logs-* metadata _id, _version, _index 
-| where event.category == "process" and (
-  (host.os.type == "windows" and event.type == "start") or
-  (host.os.type == "macos" and event.type == "start" and event.action == "exec") or
-  (host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "executed", "process_started")
-)
+| where event.category == "process" and event.type == "start" and event.action != "fork"
 // more than 100 spaces in process.command_line
 | eval multi_spaces = LOCATE(process.command_line, space(100)) 
 | where multi_spaces > 0 
