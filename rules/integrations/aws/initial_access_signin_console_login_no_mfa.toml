@@ -2,7 +2,7 @@
 creation_date = "2024/08/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -69,14 +69,28 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
+
 | where
     event.provider == "signin.amazonaws.com"
     and event.action == "GetSigninToken"
     and aws.cloudtrail.event_type == "AwsConsoleSignIn"
     and aws.cloudtrail.user_identity.type == "FederatedUser"
-| dissect aws.cloudtrail.additional_eventdata "{%{?mobile_version_key}=%{mobile_version}, %{?mfa_used_key}=%{mfa_used}}"
-| where mfa_used == "No"
-| keep @timestamp, event.action, aws.cloudtrail.event_type, aws.cloudtrail.user_identity.type
+
+// Extract mobile version and MFA usage
+| dissect aws.cloudtrail.additional_eventdata
+    "{%{?mobile_version_key}=%{Esql.aws_cloudtrail_additional_eventdata_device_version}, %{?mfa_used_key}=%{Esql.aws_cloudtrail_additional_eventdata_auth_mfa_used}}"
+
+// Only keep events where MFA was not used
+| where Esql.aws_cloudtrail_additional_eventdata_auth_mfa_used == "No"
+
+// keep relevant ECS and dissected fields
+| keep
+    @timestamp,
+    event.action,
+    aws.cloudtrail.event_type,
+    aws.cloudtrail.user_identity.type,
+    Esql.aws_cloudtrail_additional_eventdata_device_version,
+    Esql.aws_cloudtrail_additional_eventdata_auth_mfa_used
 '''
 
 

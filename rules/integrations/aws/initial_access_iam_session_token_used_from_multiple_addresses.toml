@@ -1,22 +1,27 @@
 [metadata]
 creation_date = "2025/04/11"
 integration = ["aws"]
-min_stack_version = "8.17.0"
-min_stack_comments = "Elastic ES|QL values aggregation is more performant in 8.16.5 and above."
 maturity = "production"
-updated_date = "2025/05/29"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies potentially suspicious activity by detecting instances where a single IAM user's temporary session token is accessed from multiple IP addresses within a short time frame. Such behavior may suggest that an adversary has compromised temporary credentials and is utilizing them from various locations.
-To enhance detection accuracy and minimize false positives, the rule incorporates criteria that evaluate unique IP addresses, user agents, cities, and networks. These additional checks help distinguish between legitimate distributed access patterns and potential credential misuse.
-Detected activities are classified into different types based on the combination of unique indicators, with each classification assigned a fidelity score reflecting the likelihood of malicious behavior. High fidelity scores are given to patterns most indicative of threats, such as multiple unique IPs, networks, cities, and user agents. Medium and low fidelity scores correspond to less severe patterns, enabling security teams to effectively prioritize alerts.
+This rule identifies potentially suspicious activity by detecting instances where a single IAM user's temporary session
+token is accessed from multiple IP addresses within a short time frame. Such behavior may suggest that an adversary has
+compromised temporary credentials and is utilizing them from various locations. To enhance detection accuracy and
+minimize false positives, the rule incorporates criteria that evaluate unique IP addresses, user agents, cities, and
+networks. These additional checks help distinguish between legitimate distributed access patterns and potential
+credential misuse. Detected activities are classified into different types based on the combination of unique
+indicators, with each classification assigned a fidelity score reflecting the likelihood of malicious behavior. High
+fidelity scores are given to patterns most indicative of threats, such as multiple unique IPs, networks, cities, and
+user agents. Medium and low fidelity scores correspond to less severe patterns, enabling security teams to effectively
+prioritize alerts.
 """
 false_positives = [
     """
-    Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to appear from multiple IPs. 
-    Review the geolocation, network context, and user agent patterns to rule out benign use.
+    Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to
+    appear from multiple IPs. Review the geolocation, network context, and user agent patterns to rule out benign use.
     """,
 ]
 from = "now-32m"
@@ -28,12 +33,12 @@ note = """## Triage and Analysis
 
 ### Investigating AWS Access Token Used from Multiple Addresses
 
-Access tokens are bound to a single user. Usage from multiple IP addresses may indicate the token was stolen and used elsewhere. By correlating this with additional detection criteria like multiple user agents, different cities, and different networks, we can improve the fidelity of the rule and help to eliminate false positives associated with expected behavior, like dual-stack IPV4/IPV6 usage. 
+Access tokens are bound to a single user. Usage from multiple IP addresses may indicate the token was stolen and used elsewhere. By correlating this with additional detection criteria like multiple user agents, different cities, and different networks, we can improve the fidelity of the rule and help to eliminate false positives associated with expected behavior, like dual-stack IPV4/IPV6 usage.
 
 #### Possible Investigation Steps
 
 - **Identify the IAM User**: Examine the `aws.cloudtrail.user_identity.arn` stored in `user_id` and correlate with the `source.ips` stored in `ip_list` and `unique_ips` count to determine how widely the token was used.
-- **Correlate Additional Detection Context**: Examine `activity_type` and `fidelity_score` to determine additional cities, networks or user agents associated with the token usage. 
+- **Correlate Additional Detection Context**: Examine `activity_type` and `fidelity_score` to determine additional cities, networks or user agents associated with the token usage.
 - **Determine Access Key Type**: Examine the `access_key_id` to determine whether the token is short-term (beginning with ASIA) or long-term (beginning with AKIA).
 - **Check Recent MFA Events**: Determine whether the user recently enabled MFA, registered devices, or assumed a role using this token.
 - **Review Workload Context**: Confirm whether the user was expected to be active across multiple cities, networks or user agent environments.
@@ -75,81 +80,97 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail* metadata _id, _version, _index
-| WHERE @timestamp > NOW() - 30 minutes
-    // filter on CloudTrail logs for STS temporary session tokens used by IAM users
+from logs-aws.cloudtrail* metadata _id, _version, _index
+| where @timestamp > now() - 30 minutes
+  and event.dataset == "aws.cloudtrail"
+  and aws.cloudtrail.user_identity.arn is not null
+  and aws.cloudtrail.user_identity.type == "IAMUser"
+  and source.ip is not null
+  and not (
+    user_agent.original like "%Terraform%" or
+    user_agent.original like "%Ansible%" or
+    user_agent.original like "%Pulumni%"
+  )
+  and `source.as.organization.name` != "AMAZON-AES"
+  and event.provider not in (
+    "health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com",
+    "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com",
+    "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com"
+  )
 
-  AND event.dataset == "aws.cloudtrail"
-  AND aws.cloudtrail.user_identity.arn IS NOT NULL
-  AND aws.cloudtrail.user_identity.type == "IAMUser"
-  AND source.ip IS NOT NULL
-    
-    // exclude known benign IaC tools and Amazon Network
-  AND NOT (user_agent.original LIKE "%Terraform%" OR user_agent.original LIKE "%Ansible%" OR user_agent.original LIKE "%Pulumni%")
-  AND `source.as.organization.name` != "AMAZON-AES"
-    
-    // exclude noisy service APIs less indicative of malicous behavior
-  AND event.provider NOT IN ("health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com", "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com", "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com")
+| eval
+  Esql.time_window_date_trunc = date_trunc(30 minutes, @timestamp),
+  Esql.aws_cloudtrail_user_identity_arn = aws.cloudtrail.user_identity.arn,
+  Esql.aws_cloudtrail_user_identity_access_key_id = aws.cloudtrail.user_identity.access_key_id,
+  Esql.source_ip = source.ip,
+  Esql.user_agent_original = user_agent.original,
+  Esql.source_ip_string = to_string(source.ip),
+  Esql.source_ip_user_agent_pair = concat(Esql.source_ip_string, " - ", user_agent.original),
+  Esql.source_ip_city_pair = concat(Esql.source_ip_string, " - ", source.geo.city_name),
+  Esql.source_geo_city_name = source.geo.city_name,
+  Esql.event_timestamp = @timestamp,
+  Esql.source_network_org_name = `source.as.organization.name`
 
-| EVAL
-  // create a time window for aggregation
-    time_window = DATE_TRUNC(30 minutes, @timestamp),
-  // capture necessary fields for detection and investigation  
-    user_id = aws.cloudtrail.user_identity.arn,
-    access_key_id = aws.cloudtrail.user_identity.access_key_id,
-    ip = source.ip,
-    user_agent = user_agent.original,
-    ip_string = TO_STRING(source.ip),  // Convert IP to string
-    ip_user_agent_pair = CONCAT(ip_string, " - ", user_agent.original),  // Combine IP and user agent
-    ip_city_pair = CONCAT(ip_string, " - ", source.geo.city_name), // Combine IP and city
-    city = source.geo.city_name,
-    event_time = @timestamp,
-    network_arn = `source.as.organization.name` 
+| stats
+  Esql.event_action_values = values(event.action),
+  Esql.event_provider_values = values(event.provider),
+  Esql.aws_cloudtrail_user_identity_access_key_id_values = values(Esql.aws_cloudtrail_user_identity_access_key_id),
+  Esql.aws_cloudtrail_user_identity_arn_values = values(Esql.aws_cloudtrail_user_identity_arn),
+  Esql.source_ip_values = values(Esql.source_ip),
+  Esql.user_agent_original_values = values(Esql.user_agent_original),
+  Esql.source_ip_user_agent_pair_values = values(Esql.source_ip_user_agent_pair),
+  Esql.source_geo_city_name_values = values(Esql.source_geo_city_name),
+  Esql.source_ip_city_pair_values = values(Esql.source_ip_city_pair),
+  Esql.source_network_org_name_values = values(Esql.source_network_org_name),
+  Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
+  Esql.user_agent_original_count_distinct = count_distinct(Esql.user_agent_original),
+  Esql.source_geo_city_name_count_distinct = count_distinct(Esql.source_geo_city_name),
+  Esql.source_network_org_name_count_distinct = count_distinct(Esql.source_network_org_name),
+  Esql.timestamp_first_seen = min(Esql.event_timestamp),
+  Esql.timestamp_last_seen = max(Esql.event_timestamp),
+  Esql.event_count = count()
+  by Esql.time_window_date_trunc, Esql.aws_cloudtrail_user_identity_access_key_id
 
-| STATS
-    event_actions = VALUES(event.action),
-    event_providers = VALUES(event.provider),
-    access_key_id = VALUES(access_key_id),
-    user_id = VALUES(user_id), 
-    ip_list = VALUES(ip),  // Collect list of IPs
-    user_agent_list = VALUES(user_agent),  // Collect list of user agents
-    ip_user_agent_pairs = VALUES(ip_user_agent_pair),  // Collect list of IP - user agent pairs
-    cities_list = VALUES(city), // Collect list of cities
-    ip_city_pairs = VALUES(ip_city_pair), // Collect list of IP - city pairs
-    networks_list = VALUES(network_arn), // Collect list of networks
-    unique_ips = COUNT_DISTINCT(ip),
-    unique_user_agents = COUNT_DISTINCT(user_agent),
-    unique_cities = COUNT_DISTINCT(city),
-    unique_networks = COUNT_DISTINCT(network_arn),
-    first_seen = MIN(event_time),
-    last_seen = MAX(event_time),
-    total_events = COUNT()
-  BY time_window, access_key_id 
+| eval
+  Esql.activity_type = case(
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2 and Esql.user_agent_original_count_distinct >= 2, "multiple_ip_network_city_user_agent",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_network_city",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_geo_city_name_count_distinct >= 2, "multiple_ip_and_city",
+    Esql.source_ip_count_distinct >= 2 and Esql.source_network_org_name_count_distinct >= 2, "multiple_ip_and_network",
+    Esql.source_ip_count_distinct >= 2 and Esql.user_agent_original_count_distinct >= 2, "multiple_ip_and_user_agent",
+    "normal_activity"
+  ),
+  Esql.activity_fidelity_score = case(
+    Esql.activity_type == "multiple_ip_network_city_user_agent", "high",
+    Esql.activity_type == "multiple_ip_network_city", "high",
+    Esql.activity_type == "multiple_ip_and_city", "medium",
+    Esql.activity_type == "multiple_ip_and_network", "medium",
+    Esql.activity_type == "multiple_ip_and_user_agent", "low"
+  )
 
-| EVAL
- //   activity type based on combinations of detection criteria 
-    activity_type = CASE(
-        unique_ips >= 2 AND unique_networks >= 2 AND unique_cities >= 2 AND unique_user_agents >= 2, "multiple_ip_network_city_user_agent", // high severity
-        unique_ips >= 2 AND unique_networks >= 2 AND unique_cities >= 2, "multiple_ip_network_city", // high severity
-        unique_ips >= 2 AND unique_cities >= 2, "multiple_ip_and_city", // medium severity
-        unique_ips >= 2 AND unique_networks >= 2, "multiple_ip_and_network", // medium severity
-        unique_ips >= 2 AND unique_user_agents >= 2, "multiple_ip_and_user_agent", // low severity
-        "normal_activity"
-    ),
- // likelihood of malicious activity based on activity type
-    fidelity_score = CASE(
-        activity_type == "multiple_ip_network_city_user_agent", "high",
-        activity_type == "multiple_ip_network_city", "high",
-        activity_type == "multiple_ip_and_city", "medium",
-        activity_type == "multiple_ip_and_network", "medium",
-        activity_type == "multiple_ip_and_user_agent", "low"
-    )
+| keep
+  Esql.time_window_date_trunc,
+  Esql.activity_type,
+  Esql.activity_fidelity_score,
+  Esql.event_count,
+  Esql.timestamp_first_seen,
+  Esql.timestamp_last_seen,
+  Esql.aws_cloudtrail_user_identity_arn_values,
+  Esql.aws_cloudtrail_user_identity_access_key_id_values,
+  Esql.event_action_values,
+  Esql.event_provider_values,
+  Esql.source_ip_values,
+  Esql.user_agent_original_values,
+  Esql.source_ip_user_agent_pair_values,
+  Esql.source_geo_city_name_values,
+  Esql.source_ip_city_pair_values,
+  Esql.source_network_org_name_values,
+  Esql.source_ip_count_distinct,
+  Esql.user_agent_original_count_distinct,
+  Esql.source_geo_city_name_count_distinct,
+  Esql.source_network_org_name_count_distinct
 
-| KEEP
-    time_window, activity_type, fidelity_score, total_events, first_seen, last_seen,
-    user_id, access_key_id, event_actions, event_providers, ip_list, user_agent_list, ip_user_agent_pairs, cities_list, ip_city_pairs, networks_list, unique_ips, unique_user_agents, unique_cities, unique_networks
-
-| WHERE activity_type != "normal_activity"
+| where Esql.activity_type != "normal_activity"
 '''
 
 

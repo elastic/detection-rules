@@ -25,9 +25,11 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_user (kibana and es)
-* *_password (kibana and es)
+* es_user 
+* es_password
 * api_key
+
+Authenticating to Kibana is only available using api_key.
 
 #### Using environment variables
 
@@ -104,6 +106,7 @@ Options:
   -snv, --strip-none-values       Strip None values from the rule
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 ```
 
@@ -505,6 +508,7 @@ Options:
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -cro, --custom-rules-only       Only export custom rules
   -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 
 ```

@@ -4,19 +4,19 @@
 # 2.0.
 
 import unittest
+
 import kql
 from kql.ast import (
+    Exists,
     Field,
     FieldComparison,
     FieldRange,
-    String,
     Number,
-    Exists,
+    String,
 )
 
 
 class ParserTests(unittest.TestCase):
-
     def validate(self, source, tree, *args, **kwargs):
         kwargs.setdefault("optimize", False)
         self.assertEqual(kql.parse(source, *args, **kwargs), tree)
@@ -28,14 +28,14 @@ class ParserTests(unittest.TestCase):
             "b": "long",
         }
 
-        self.validate('a.text:hello', FieldComparison(Field("a.text"), String("hello")), schema=schema)
-        self.validate('a.keyword:hello', FieldComparison(Field("a.keyword"), String("hello")), schema=schema)
+        self.validate("a.text:hello", FieldComparison(Field("a.text"), String("hello")), schema=schema)
+        self.validate("a.keyword:hello", FieldComparison(Field("a.keyword"), String("hello")), schema=schema)
 
         self.validate('a.text:"hello"', FieldComparison(Field("a.text"), String("hello")), schema=schema)
         self.validate('a.keyword:"hello"', FieldComparison(Field("a.keyword"), String("hello")), schema=schema)
 
-        self.validate('a.text:1', FieldComparison(Field("a.text"), String("1")), schema=schema)
-        self.validate('a.keyword:1', FieldComparison(Field("a.keyword"), String("1")), schema=schema)
+        self.validate("a.text:1", FieldComparison(Field("a.text"), String("1")), schema=schema)
+        self.validate("a.keyword:1", FieldComparison(Field("a.keyword"), String("1")), schema=schema)
 
         self.validate('a.text:"1"', FieldComparison(Field("a.text"), String("1")), schema=schema)
         self.validate('a.keyword:"1"', FieldComparison(Field("a.keyword"), String("1")), schema=schema)
@@ -43,10 +43,10 @@ class ParserTests(unittest.TestCase):
     def test_conversion(self):
         schema = {"num": "long", "text": "text"}
 
-        self.validate('num:1', FieldComparison(Field("num"), Number(1)), schema=schema)
+        self.validate("num:1", FieldComparison(Field("num"), Number(1)), schema=schema)
         self.validate('num:"1"', FieldComparison(Field("num"), Number(1)), schema=schema)
 
-        self.validate('text:1', FieldComparison(Field("text"), String("1")), schema=schema)
+        self.validate("text:1", FieldComparison(Field("text"), String("1")), schema=schema)
         self.validate('text:"1"', FieldComparison(Field("text"), String("1")), schema=schema)
 
     def test_list_equals(self):
@@ -57,11 +57,11 @@ class ParserTests(unittest.TestCase):
 
     def test_multiple_types_success(self):
         schema = {"common.a": "keyword", "common.b": "keyword"}
-        self.validate("common.* : \"hello\"", FieldComparison(Field("common.*"), String("hello")), schema=schema)
+        self.validate('common.* : "hello"', FieldComparison(Field("common.*"), String("hello")), schema=schema)
 
     def test_multiple_types_fail(self):
         with self.assertRaises(kql.KqlParseError):
-            kql.parse("common.* : \"hello\"", schema={"common.a": "keyword", "common.b": "ip"})
+            kql.parse('common.* : "hello"', schema={"common.a": "keyword", "common.b": "ip"})
 
     def test_number_wildcard_fail(self):
         with self.assertRaises(kql.KqlParseError):
@@ -81,7 +81,34 @@ class ParserTests(unittest.TestCase):
 
     def test_date(self):
         schema = {"@time": "date"}
-        self.validate('@time <= now-10d', FieldRange(Field("@time"), "<=", String("now-10d")), schema=schema)
+        self.validate("@time <= now-10d", FieldRange(Field("@time"), "<=", String("now-10d")), schema=schema)
 
         with self.assertRaises(kql.KqlParseError):
             kql.parse("@time > 5", schema=schema)
+
+    def test_optimization(self):
+        query = 'host.name: test-* and not (destination.ip : "127.0.0.53" and destination.ip : "169.254.169.254")'
+        dsl_str = str(kql.to_dsl(query))
+
+        bad_case = (
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "'must_not': [{'match': {'destination.ip': '127.0.0.53'}}, "
+            "{'match': {'destination.ip': '169.254.169.254'}}]}}"
+        )
+        self.assertNotEqual(dsl_str, bad_case, "DSL string matches the bad case, optimization failed.")
+
+        good_case = (
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "'must_not': [{'bool': {'filter': [{'match': {'destination.ip': '127.0.0.53'}}, "
+            "{'match': {'destination.ip': '169.254.169.254'}}]}}]}}"
+        )
+        self.assertEqual(dsl_str, good_case, "DSL string does not match the good case, optimization failed.")
+
+    def test_blank_space(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse('"Test-ServiceDaclPermission" or"Update-ExeFunctions"')
+            kql.lark_parse('"Test-ServiceDaclPermission"and "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermission" or "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermission" \nor "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermission" or\n "Update-ExeFunctions"')
+        kql.lark_parse('"Test-ServiceDaclPermissionOr" or\n "Update-ExeAndFunctions"')

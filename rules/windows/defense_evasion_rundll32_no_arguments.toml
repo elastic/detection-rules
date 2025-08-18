@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/12"
 
 [transform]
 [[transform.osquery]]
@@ -116,7 +116,9 @@ query = '''
 sequence with maxspan=1h
   [process where host.os.type == "windows" and event.type == "start" and
      (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE") and
-      process.args_count == 1
+      (process.args_count == 1 and
+        /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+        not process.command_line regex~ """\".*\.exe[^\"].*""")
   ] by process.entity_id
   [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "rundll32.exe"
   ] by process.parent.entity_id

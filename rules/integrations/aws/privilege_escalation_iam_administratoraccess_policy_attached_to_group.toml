@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ note = """## Triage and analysis
 
 The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources.
 With access to the `iam:AttachGroupPolicy` permission, a set of compromised credentials could be used to attach
-this policy to the current user's groups for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule)
+this policy to the current user's groups for privilege escalation or as a means of persistence. This rule uses [ESQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule)
 to look for use of the `AttachGroupPolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
 
 
@@ -99,10 +99,27 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.provider == "iam.amazonaws.com" and event.action == "AttachGroupPolicy" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?groupName}=%{group.name}}"
-| where policyName == "AdministratorAccess"
-| keep @timestamp, event.provider, event.action, event.outcome, policyName, group.name
+
+| where
+  event.provider == "iam.amazonaws.com"
+  and event.action == "AttachGroupPolicy"
+  and event.outcome == "success"
+
+// Extract policy and group details from request parameters
+| dissect aws.cloudtrail.request_parameters
+    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{Esql.aws_cloudtrail_request_parameters_policy_name},%{?groupName}=%{Esql.aws_cloudtrail_request_parameters_group_name}}"
+
+// Filter for attachment of AdministratorAccess policy
+| where Esql.aws_cloudtrail_request_parameters_policy_name == "AdministratorAccess"
+
+// keep ECS and derived fields
+| keep
+  @timestamp,
+  event.provider,
+  event.action,
+  event.outcome,
+  Esql.aws_cloudtrail_request_parameters_policy_name,
+  Esql.aws_cloudtrail_request_parameters_group_name
 '''
 
 
