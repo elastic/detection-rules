@@ -152,8 +152,9 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         if raw:
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
-        if "\\\\x" in v:
-            return f'"{v!s}"'
+        # Also addresses an issue where backslashes in certain strings are not properly escaped in self._old_dump_str(v)
+        if "\\" in v:
+            return f'"{repr(v)[1:-1]}"'
         return self._old_dump_str(v)
 
     def _dump_flat_list(self, v: Iterable[Any]) -> str:
