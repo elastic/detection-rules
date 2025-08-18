@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2025/06/30"
+integration = ["endpoint", "system", "windows", "auditd_manager", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process execution events where the command line value contains a long sequence of whitespace characters or
+multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections by padding
+their malicious command with unnecessary whitespace characters. These observations should be investigated for malicious
+behavior.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Command Line Obfuscation via Whitespace Padding"
+note = """## Triage and analysis
+
+### Investigating Command Line Obfuscation via Whitespace Padding
+
+This rule identifies process execution events where the command line value contains a long sequence of whitespace
+characters or multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections
+by padding their malicious command with unnecessary whitespace characters.
+
+#### Possible investigation steps
+
+- Analyze the command line of the process in question for evidence of malicious code execution.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file
+modifications, and any spawned child processes.
+- Retrieve the process executable and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- Alerts derived from this rule are not inherently malicious. Analysts can dismiss the alert if they don't find enough
+evidence of further suspicious activity.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove the malicious certificate from the root certificate store.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
+risk_score = 47
+rule_id = "5a876e0d-d39a-49b9-8ad8-19c9b622203b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: macOS",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-* metadata _id, _version, _index 
+| where event.category == "process" and event.type == "start" and event.action != "fork"
+// more than 100 spaces in process.command_line
+| eval multi_spaces = LOCATE(process.command_line, space(100)) 
+| where multi_spaces > 0 
+| keep user.name, host.id, host.name, process.command_line, process.executable, process.parent.executable
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
