@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/08/14"
 
 [rule]
 author = ["Elastic"]
@@ -108,6 +108,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     Esql.script_block_tmp,
     powershell.file.script_block_text,
     powershell.file.script_block_id,
+    file.directory,
     file.path,
     powershell.sequence,
     powershell.total,
@@ -120,8 +121,15 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 // Filter for scripts with high numeric character ratio
 | where Esql.script_block_ratio > 0.30
 
-// Exclude noisy patterns such as 64-character hash lists
-| where not powershell.file.script_block_text rlike """.*\"[a-fA-F0-9]{64}\"\,.*"""
+// Exclude Windows Defender Noisy Patterns
+| where not (
+    file.directory == "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads" or
+    file.directory like "C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection*"
+  )
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory is null
+| where not powershell.file.script_block_text like "*[System.IO.File]::Open('C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection*"
+| where not powershell.file.script_block_text : "26a24ae4-039d-4ca4-87b4-2f64180311f0"
 '''
 
 
