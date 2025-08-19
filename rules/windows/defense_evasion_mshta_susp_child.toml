@@ -7,7 +7,7 @@ updated_date = "2025/08/19"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Mshta.exe executing content from a remote server. This may indicate adversarial activity, as Mshta is often
+Identifies Mshta.exe spawning a suspicious child process. This may indicate adversarial activity, as Mshta is often
 leveraged by adversaries to execute malicious scripts and evade detection.
 """
 from = "now-9m"
@@ -24,13 +24,13 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Remote Script via Microsoft HTML Application"
+name = "Suspicious Microsoft HTML Application Child Process"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Remote Script via Microsoft HTML Application
+### Investigating Suspicious Microsoft HTML Application Child Process
 
 Mshta.exe is a legitimate Windows utility used to execute Microsoft HTML Application (HTA) files. Adversaries exploit it to run malicious scripts, leveraging its trusted status to bypass security measures. The detection rule identifies suspicious network activity by Mshta.exe, excluding known benign processes, to flag potential threats. This approach helps in identifying unauthorized network connections indicative of malicious intent.
 
@@ -68,7 +68,7 @@ tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
-    "Tactic: Execution",
+    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
@@ -83,7 +83,11 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : "mshta.exe" and process.command_line : "*http*"
+ process.parent.name : "mshta.exe" and
+ (
+  process.name : ("cmd.exe", "powershell.exe", "certutil.exe", "bitsadmin.exe", "curl.exe", "msiexec.exe", "schtasks.exe", "reg.exe") or
+  process.executable : ("C:\\Users\\*\\Appdata\\*.exe", "C:\\Users\\Public\\*.exe", "C:\\Users\\*\\Music\\*.exe")
+  )
 '''
 
 
