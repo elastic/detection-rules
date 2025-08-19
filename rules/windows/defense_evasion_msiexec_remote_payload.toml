@@ -80,9 +80,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type : "start" and
-  process.name : "msiexec.exe" and process.args : ("-i", "/i")
-  process.args : ("/qn", "-qn", "-q", "/q", "/quiet") and process.command_line : "*http*" and
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "msiexec.exe" and process.args : ("-i", "/i") and process.command_line : "*http*" and
+  process.args : ("/qn", "-qn", "-q", "/q", "/quiet") and 
   process.parent.name : ("sihost.exe", "explorer.exe", "cmd.exe", "wscript.exe", "mshta.exe", "powershell.exe") and
   not process.command_line : ("*--set-server=*", "*UPGRADEADD=*" , "*--url=*",
                               "*USESERVERCONFIG=*", "*RCTENTERPRISESERVER=*", "*app.ninjarmm.com*", "*zoom.us/client*",
