@@ -6,3 +6,4 @@ Implementation:
 - Extended `ValueListResource` with methods to retrieve, delete, and import list items using `/api/lists/items/_import`.
 - Updated `kibana import-rules` to load value list files prior to rule import, upload them when referenced by exceptions, and report skipped or missing lists.
 - Documented the new `--overwrite-value-lists` flag across CLI docs and example workflows.
+- Corrected value list existence checks to ignore 404 responses so lists are imported on fresh spaces without `--overwrite-value-lists`.

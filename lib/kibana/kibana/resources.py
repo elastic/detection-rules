@@ -286,8 +286,19 @@ class ValueListResource(BaseResource):
 
     @classmethod
     def get(cls, list_id: str) -> dict | None:
-        """Retrieve a value list by ID."""
-        return Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
+        """Retrieve a value list by ID.
+
+        The API returns a JSON body with ``status_code: 404`` when the list is
+        missing, even though ``error=False`` suppresses HTTP errors. In that
+        case return ``None`` so callers can treat the list as nonexistent.
+        """
+        response = Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
+        if not response:
+            return None
+        status_code = response.get("status_code") or response.get("statusCode")
+        if status_code == 404:
+            return None
+        return response
 
     @classmethod
     def delete(cls, list_id: str) -> None:
