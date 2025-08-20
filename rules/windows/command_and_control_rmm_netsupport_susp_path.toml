@@ -75,12 +75,15 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- (process.name : "client32.exe" or ?process.pe.original_file_name == "client32.exe") and
- process.executable :
+ (process.name : "client32.exe" or ?process.pe.original_file_name == "client32.exe" or process.parent.name : "client32.exe") and
+ (
+  process.executable :
                ("?:\\Users\\*.exe",
                 "?:\\ProgramData\\*.exe",
                 "\\Device\\HarddiskVolume?\\Users\\*.exe",
-                "\\Device\\HarddiskVolume?\\ProgramData\\*.exe")
+                "\\Device\\HarddiskVolume?\\ProgramData\\*.exe") or
+  ?process.parent.executable : ("?:\\Users\\*\\client32.exe", "?:\\ProgramData\\*\\client32.exe")
+  )
 '''
 
 
