@@ -357,6 +357,13 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
 
 @cached
+def get_default_rule_dir() -> Path | None:
+    """Get the first rule directory configured in `_config.yaml`, if any."""
+    rule_dirs = parse_rules_config().rule_dirs
+    return rule_dirs[0] if rule_dirs else None
+
+
+@cached
 def load_current_package_version() -> str:
     """Load the current package version from config file."""
     return parse_rules_config().packages["package"]["name"]

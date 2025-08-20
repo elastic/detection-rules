@@ -231,7 +231,8 @@ Running the following command will print out a table showing any alerts that hav
 
 ### Using `kibana import-rules`
 
-To directly load Toml formatted rule files into Kibana, one can use the `kibana import-rules` command as shown below.
+To directly load Toml formatted rule files into Kibana, one can use the `kibana import-rules` command as shown below. If the
+`-d/--directory` option is omitted, the first path listed in the `rule_dirs` array of `_config.yaml` is used.
 
 ```
 python -m detection_rules kibana import-rules -h
@@ -408,7 +409,8 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 ### Using `export-rules-from-repo`
 
 Toml formatted rule files can also be imported into Kibana through Kibana security app via a consolidated ndjson file
-which is exported from detection rules.
+which is exported from detection rules. If the `-d/--directory` option is omitted, the first path listed in the
+`rule_dirs` array of `_config.yaml` is used.
 
 ```console
 Usage: detection_rules export-rules-from-repo [OPTIONS]
@@ -438,7 +440,7 @@ the `Load prebuilt detection rules and timeline templates` button on the `detect
 
 ### Deprecated Methods
 
-Toml formatted rule files can also be uploaded as custom rules using the `kibana upload-rule` command. This command is 
+Toml formatted rule files can also be uploaded as custom rules using the `kibana upload-rule` command. This command is
 deprecated as of Elastic Stack version 9.0, but is included for compatibility with older stacks. To upload more than one
 file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of
 rules and is not intended for production use in its current state.
@@ -479,6 +481,8 @@ This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way prop
 
 Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `-cro` flag to only export custom rules, or the `-eq` flag to filter by query.
 
+If the `-d/--directory` option is omitted, the first path in the `rule_dirs` list of `_config.yaml` is used as the export destination.
+
 ```
 python -m detection_rules kibana export-rules -h
 
@@ -501,7 +505,7 @@ Usage: detection_rules kibana export-rules [OPTIONS]
   Export custom rules from Kibana.
 
 Options:
-  -d, --directory PATH            Directory to export rules to  [required]
+  -d, --directory PATH            Directory to export rules to
   -acd, --action-connectors-directory PATH
                                   Directory to export action connectors to
   -ed, --exceptions-directory PATH

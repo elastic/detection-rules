@@ -21,7 +21,7 @@ from .action_connector import (
     parse_action_connector_results_from_api,
 )
 from .cli_utils import multi_collection
-from .config import parse_rules_config
+from .config import get_default_rule_dir, parse_rules_config
 from .exception import (
     TOMLException,
     TOMLExceptionContents,
@@ -218,7 +218,7 @@ def kibana_import_rules(  # noqa: PLR0915
 
 
 @kibana_group.command("export-rules")
-@click.option("--directory", "-d", required=True, type=Path, help="Directory to export rules to")
+@click.option("--directory", "-d", required=False, type=Path, help="Directory to export rules to")
 @click.option(
     "--action-connectors-directory", "-acd", required=False, type=Path, help="Directory to export action connectors to"
 )
@@ -266,7 +266,7 @@ def kibana_import_rules(  # noqa: PLR0915
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
-    directory: Path,
+    directory: Path | None,
     action_connectors_directory: Path | None,
     exceptions_directory: Path | None,
     value_list_directory: Path | None,
@@ -287,6 +287,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     export_query: str | None = None,
 ) -> list[TOMLRule]:
     """Export custom rules from Kibana."""
+    directory = directory or get_default_rule_dir()
+    if directory is None:
+        raise click.UsageError("No directory specified and no rule_dirs configured")
+
     kibana = ctx.obj["kibana"]
     strip_version = strip_version or RULES_CONFIG.strip_version
     strip_dates = strip_dates or RULES_CONFIG.strip_dates

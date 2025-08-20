@@ -17,7 +17,7 @@ import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
-from .config import parse_rules_config
+from .config import get_default_rule_dir, parse_rules_config
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
@@ -85,14 +85,17 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     def get_collection(*args: Any, **kwargs: Any) -> Any:
         rule_id: list[str] = kwargs.pop("rule_id", [])
         rule_files: list[str] = kwargs.pop("rule_file")
-        directories: list[str] = kwargs.pop("directory")
+        directories: list[str] = list(kwargs.pop("directory"))
         no_tactic_filename: bool = kwargs.pop("no_tactic_filename", False)
 
+        if not (directories or rule_id or rule_files):
+            default_dir = get_default_rule_dir()
+            if default_dir:
+                directories = [str(default_dir)]
+            elif not (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
+                raise_client_error("Required: at least one of --rule-id, --rule-file, or --directory")
+
         rules = RuleCollection()
-
-        if not (directories or rule_id or rule_files or (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)):
-            raise_client_error("Required: at least one of --rule-id, --rule-file, or --directory")
-
         rules.load_files(Path(p) for p in rule_files)
         rules.load_directories(Path(d) for d in directories)
 
