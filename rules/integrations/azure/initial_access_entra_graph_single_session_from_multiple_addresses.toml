@@ -2,8 +2,7 @@
 creation_date = "2025/05/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/07/31"
-
+updated_date = "2025/08/20"
 
 [rule]
 author = ["Elastic"]
@@ -30,12 +29,12 @@ note = """## Triage and analysis
 
 ### Investigating Microsoft Entra ID Suspicious Session Reuse to Graph Access
 
-Identifies potential session hijacking or token replay in Microsoft Entra ID. This rule detects cases where a user signs in and subsequently accesses Microsoft Graph from a different IP address using the same session ID. This may indicate a successful OAuth phishing attack, session hijacking, or token replay attack, where an adversary has stolen a session cookie or refresh/access token and is impersonating the user from an alternate host or location.
+Identifies potential phishing, session hijacking or token replay in Microsoft Entra ID. This rule detects cases where a user signs in and subsequently accesses Microsoft Graph from a different IP address using the same session ID and client application. This may indicate a successful OAuth phishing attack, session hijacking, or token replay attack, where an adversary has stolen a session cookie or refresh/access token and is impersonating the user from an alternate host or location.
 
 This rule uses ESQL aggregations and thus has dynamically generated fields. Correlation of the values in the alert document may need to be
 performed to the original sign-in and Graph events for further context.
 
-### Investigation Steps
+### Possible investigation steps
 
 - This rule relies on an aggregation-based ESQL query, therefore the alert document will contain dynamically generated fields.
     - To pivot into the original events, it is recommended to use the values captured to filter in timeline or discovery for the original sign-in and Graph events.
@@ -44,14 +43,15 @@ performed to the original sign-in and Graph events for further context.
     - The sign-in source addresses should be two, one for the initial phishing sign-in and the other when exchanging the auth code for a token by the adversary.
     - The Graph API source address should identify the IP address used by the adversary to access Microsoft Graph.
 - Review the user agent strings for the sign-in and Graph access events to identify any anomalies or indicators of compromise.
+- Analyze the Graph permission scopes to identify what resources were accessed and whether they align with the user's expected behavior.
 - Check the timestamp difference between the sign-in and Graph access events to determine if they occurred within a reasonable time frame that would suggest successful phishing to token issuance and then Graph access.
 - Identify the original sign-in event to investigation if conditional access policies were applied, such as requiring multi-factor authentication or blocking access from risky locations. In phishing scenarios, these policies likely were applied as the victim user would have been prompted to authenticate.
 
-### False Positive Analysis
+### False positive analysis
 - This pattern may occur during legitimate device switching or roaming between networks (e.g., corporate to mobile).
 - Developers or power users leveraging multiple environments may also trigger this detection if session persistence spans IP ranges. Still, this behavior is rare and warrants investigation when rapid IP switching and Graph access are involved.
 
-### Response Recommendations
+### Response and remediation
 
 - If confirmed malicious, revoke all refresh/access tokens for the user principal.
 - Block the source IP(s) involved in the Graph access.
@@ -93,11 +93,11 @@ query = '''
 from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _version, _index
 | where
     (event.dataset == "azure.signinlogs"
-     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-as-BLOCK"
+     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
      and azure.signinlogs.properties.session_id is not null)
     or
     (event.dataset == "azure.graphactivitylogs"
-     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-as-BLOCK"
+     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
      and azure.graphactivitylogs.properties.c_sid is not null)
 
 | eval
@@ -110,8 +110,32 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
         event.dataset == "azure.signinlogs", "signin",
         event.dataset == "azure.graphactivitylogs", "graph",
         "other"
-    ),
-    Esql.time_window_date_trunc = date_trunc(5 minutes, @timestamp)
+    )
+
+| where Esql.azure_signinlogs_properties_app_id_coalesce not in (
+    "4354e225-50c9-4423-9ece-2d5afd904870",  // Augmentation Loop
+    "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe",  // Microsoft Teams Services
+    "ecd6b820-32c2-49b6-98a6-444530e5a77a",  // Microsoft Edge [Community Contributed]
+    "e8be65d6-d430-4289-a665-51bf2a194bda",  // Microsoft 365 App Catalog Services
+    "ab9b8c07-8f02-4f72-87fa-80105867a763",  // OneDrive SyncEngine
+    "394866fc-eedb-4f01-8536-3ff84b16be2a",  // Microsoft People Cards Service
+    "66a88757-258c-4c72-893c-3e8bed4d6899",  // Office 365 Search Service
+    "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7",  // Bing
+    "d7b530a4-7680-4c23-a8bf-c52c121d2e87",  // Microsoft Edge Enterprise New Tab Page [Community Contributed]
+    "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3",  // Microsoft Application Command Service [Community Contributed]
+    "52c2e0b5-c7b6-4d11-a89c-21e42bcec444",  // Graph Files Manager
+    "27922004-5251-4030-b22d-91ecd9a37ea4",  // Outlook Mobile
+    "bb893c22-978d-4cd4-a6f7-bb6cc0d6e6ce",  // Olympus [Community Contributed]
+    "26a7ee05-5602-4d76-a7ba-eae8b7b67941",  // Windows Search
+    "66a88757-258c-4c72-893c-3e8bed4d6899",  // Office 365 Search Service
+    "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7",  // Bing
+    "d7b530a4-7680-4c23-a8bf-c52c121d2e87",  // Microsoft Edge Enterprise New Tab Page [Community Contributed]
+    "00000007-0000-0000-c000-000000000000",  // Dataverse
+    "6bc3b958-689b-49f5-9006-36d165f30e00",  // Teams CMD Services Artifacts
+    "0ec893e0-5785-4de6-99da-4ed124e5296c",  // Office UWP PWA [Community Contributed]
+    "fc108d3f-543d-4374-bbff-c7c51f651fe5",  // Zoom
+    "01fc33a7-78ba-4d2f-a4b7-768e336e890e"   // MS PIM
+    )
 
 | keep
     Esql.azure_signinlogs_properties_session_id_coalesce,
@@ -120,35 +144,47 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.event_type_case,
     Esql.time_window_date_trunc,
     Esql.azure_signinlogs_properties_user_id_coalesce,
-    Esql.azure_signinlogs_properties_app_id_coalesce
+    Esql.azure_signinlogs_properties_app_id_coalesce,
+    source.`as`.organization.name,
+    user_agent.original,
+    url.original,
+    azure.graphactivitylogs.properties.scopes,
+    azure.signinlogs.properties.user_principal_name
 
 | stats
     Esql.azure_signinlogs_properties_user_id_coalesce_values = values(Esql.azure_signinlogs_properties_user_id_coalesce),
     Esql.azure_signinlogs_properties_session_id_coalesce_values = values(Esql.azure_signinlogs_properties_session_id_coalesce),
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values = values(azure.signinlogs.properties.user_principal_name),
     Esql.source_ip_values = values(Esql.source_ip),
     Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
+    Esql.source_as_organization_name_values = values(source.`as`.organization.name),
+    Esql.user_agent_original_values = values(user_agent.original),
     Esql.azure_signinlogs_properties_app_id_coalesce_values = values(Esql.azure_signinlogs_properties_app_id_coalesce),
     Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct = count_distinct(Esql.azure_signinlogs_properties_app_id_coalesce),
     Esql.event_type_case_values = values(Esql.event_type_case),
     Esql.event_type_case_count_distinct = count_distinct(Esql.event_type_case),
-    Esql.@timestamp.min = min(Esql.@timestamp),
-    Esql.@timestamp.max = max(Esql.@timestamp),
     Esql.signin_time_min = min(case(Esql.event_type_case == "signin", Esql.@timestamp, null)),
     Esql.graph_time_min = min(case(Esql.event_type_case == "graph", Esql.@timestamp, null)),
+    Esql.url_original_values = values(url.original),
+    Esql.azure_graphactivitylogs_properties_scopes_values = values(azure.graphactivitylogs.properties.scopes),
     Esql.event_count = count()
-  by Esql.azure_signinlogs_properties_session_id_coalesce, Esql.time_window_date_trunc
+  by
+    Esql.azure_signinlogs_properties_session_id_coalesce,
+    Esql.azure_signinlogs_properties_app_id_coalesce,
+    Esql.azure_signinlogs_properties_user_id_coalesce
 
 | eval
-    Esql.event_duration_minutes_date_diff = date_diff("minutes", Esql.@timestamp.min, Esql.@timestamp.max),
-    Esql.event_signin_to_graph_delay_minutes_date_diff = date_diff("minutes", Esql.signin_time_min, Esql.graph_time_min)
+    Esql.event_signin_to_graph_delay_minutes_date_diff = date_diff("minutes", Esql.signin_time_min, Esql.graph_time_min),
+    Esql.event_signin_to_graph_delay_days_date_diff = date_diff("days", Esql.signin_time_min, Esql.graph_time_min)
 
 | where
     Esql.event_type_case_count_distinct > 1 and
     Esql.source_ip_count_distinct > 1 and
-    Esql.event_duration_minutes_date_diff <= 5 and
+    Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct == 1 and
     Esql.signin_time_min is not null and
     Esql.graph_time_min is not null and
-    Esql.event_signin_to_graph_delay_minutes_date_diff >= 0
+    Esql.event_signin_to_graph_delay_minutes_date_diff >= 0 and
+    Esql.event_signin_to_graph_delay_days_date_diff == 0
 '''
 
 
