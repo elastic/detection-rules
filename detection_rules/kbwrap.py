@@ -217,6 +217,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         missing_value_lists: list[str] = []
         value_list_dir = RULES_CONFIG.value_list_dir
         if value_list_map:
+            # the value list APIs expect an index to exist, so ensure it's created once
             ValueListResource.create_index()
         for list_id, list_type in value_list_map.items():
             file_path = value_list_dir / list_id if value_list_dir else None
@@ -226,12 +227,16 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             text = file_path.read_text()
             existing = ValueListResource.get(list_id)
             if existing and not overwrite_value_lists:
+                # skip existing lists unless --overwrite-value-lists is provided
                 skipped_value_lists.append(list_id)
                 continue
             if existing and overwrite_value_lists:
+                # deleting avoids duplicate items when re-importing
                 ValueListResource.delete(list_id)
             if not existing or overwrite_value_lists:
+                # /items/_import only uploads items and does not create the list itself
                 ValueListResource.create(list_id, list_type)
+            # now populate the value list with its newline-delimited contents
             ValueListResource.import_list_items(list_id, text, list_type)
             imported_value_lists.append(list_id)
 

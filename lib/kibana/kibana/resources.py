@@ -312,7 +312,13 @@ class ValueListResource(BaseResource):
 
     @classmethod
     def import_list_items(cls, list_id: str, text: str, list_type: str) -> dict:
-        """Import newline-delimited items into a value list."""
+        """Import newline-delimited items into an existing value list.
+
+        The `/api/lists/items/_import` endpoint only adds items to a list that
+        already exists and will not implicitly create the list. Callers must
+        ensure the value list (and its backing index) are created before
+        invoking this helper.
+        """
         boundary = "----ElasticBoundary"
         body = (
             f"--{boundary}\r\n"
