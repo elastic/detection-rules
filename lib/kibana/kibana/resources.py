@@ -279,6 +279,20 @@ class RuleResource(BaseResource):
         return [cls(r) for r in data]
 
 
+class ValueListResource(BaseResource):
+    """Resource for interacting with value list items."""
+
+    BASE_URI = "/api/lists"
+
+    @classmethod
+    def export_list_items(cls, list_id: str) -> str:
+        """Export the contents of a value list as newline-delimited text."""
+        response = Kibana.current().post(
+            f"{cls.BASE_URI}/items/_export", params={"list_id": list_id}, raw=True
+        )
+        return response.text
+
+
 class Signal(BaseResource):
     BASE_URI = "/api/detection_engine/signals"
 

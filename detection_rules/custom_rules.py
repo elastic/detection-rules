@@ -34,6 +34,7 @@ def create_config_content() -> str:
             "action_dir": "actions",
             "action_connector_dir": "action_connectors",
             "exception_dir": "exceptions",
+            "value_list_dir": "value_lists",
         },
         "files": {
             "deprecated_rules": "etc/deprecated_rules.json",
@@ -104,6 +105,7 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_p
         directory / "actions",
         directory / "action_connectors",
         directory / "exceptions",
+        directory / "value_lists",
         directory / "rules",
         directory / "rules_building_block",
         etc_dir,

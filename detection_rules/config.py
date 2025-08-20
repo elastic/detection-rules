@@ -206,6 +206,7 @@ class RulesConfig:
     bbr_rules_dirs: list[Path] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
+    value_list_dir: Path | None = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
@@ -303,6 +304,8 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
             contents["action_dir"] = base_dir.joinpath(directories.get("action_dir")).resolve()
         if directories.get("action_connector_dir"):
             contents["action_connector_dir"] = base_dir.joinpath(directories.get("action_connector_dir")).resolve()
+        if directories.get("value_list_dir"):
+            contents["value_list_dir"] = base_dir.joinpath(directories.get("value_list_dir")).resolve()
 
     # version strategy
     contents["bypass_version_lock"] = loaded.get("bypass_version_lock", False)

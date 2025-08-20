@@ -506,12 +506,14 @@ Options:
                                   Directory to export action connectors to
   -ed, --exceptions-directory PATH
                                   Directory to export exceptions to
+  -vld, --value-list-directory PATH  Directory to export value lists to
   -da, --default-author TEXT      Default author for rules missing one
   -r, --rule-id TEXT              Optional Rule IDs to restrict export to
   -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards). May be specified multiple times.
   -ac, --export-action-connectors
                                   Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
+  -vl, --export-value-lists       Include value lists referenced in exceptions
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
   -sd, --strip-dates              Strip creation and updated date fields from exported rules

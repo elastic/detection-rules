@@ -12,7 +12,7 @@ from typing import Any
 
 import click
 import kql  # type: ignore[reportMissingTypeStubs]
-from kibana import RuleResource, Signal  # type: ignore[reportMissingTypeStubs]
+from kibana import RuleResource, Signal, ValueListResource  # type: ignore[reportMissingTypeStubs]
 
 from .action_connector import (
     TOMLActionConnector,
@@ -22,7 +22,12 @@ from .action_connector import (
 )
 from .cli_utils import multi_collection
 from .config import parse_rules_config
-from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
+from .exception import (
+    TOMLException,
+    TOMLExceptionContents,
+    build_exception_objects,
+    parse_exceptions_results_from_api,
+)
 from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
@@ -218,6 +223,7 @@ def kibana_import_rules(  # noqa: PLR0915
     "--action-connectors-directory", "-acd", required=False, type=Path, help="Directory to export action connectors to"
 )
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
+@click.option("--value-list-directory", "-vld", required=False, type=Path, help="Directory to export value lists to")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
 @click.option(
@@ -232,6 +238,7 @@ def kibana_import_rules(  # noqa: PLR0915
 )
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
+@click.option("--export-value-lists", "-vl", is_flag=True, help="Include value lists referenced in exceptions")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from exported rules")
@@ -262,11 +269,13 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     directory: Path,
     action_connectors_directory: Path | None,
     exceptions_directory: Path | None,
+    value_list_directory: Path | None,
     default_author: str,
     rule_id: list[str] | None = None,
     rule_name: list[str] | None = None,
     export_action_connectors: bool = False,
     export_exceptions: bool = False,
+    export_value_lists: bool = False,
     skip_errors: bool = False,
     strip_version: bool = False,
     strip_dates: bool = False,
@@ -283,6 +292,8 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     strip_dates = strip_dates or RULES_CONFIG.strip_dates
     strip_exception_list_id = strip_exception_list_id or RULES_CONFIG.strip_exception_list_id
     default_author = default_author or RULES_CONFIG.default_author
+    if export_value_lists and not export_exceptions:
+        raise click.UsageError("--export-value-lists requires --export-exceptions")
     kibana_include_details = export_exceptions or export_action_connectors
 
     # Only allow one of rule_id or rule_name
@@ -324,6 +335,13 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     if not action_connectors_directory and export_action_connectors:
         click.echo("Warning: Action Connector export requested, but no Action Connector directory found")
 
+    # Handle Value List Directory Location
+    if results and value_list_directory:
+        value_list_directory.mkdir(parents=True, exist_ok=True)
+    value_list_directory = value_list_directory or RULES_CONFIG.value_list_dir
+    if not value_list_directory and export_value_lists:
+        click.echo("Warning: Value list export requested, but no Value list directory found")
+
     if results:
         directory.mkdir(parents=True, exist_ok=True)
     else:
@@ -352,6 +370,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     exported: list[TOMLRule] = []
     exception_list_rule_table: dict[str, list[dict[str, Any]]] = {}
     action_connector_rule_table: dict[str, list[dict[str, Any]]] = {}
+    value_list_ids: set[str] = set()
     for rule_resource in rules_results:  # type: ignore[reportUnknownVariableType]
         try:
             if strip_version:
@@ -467,6 +486,14 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         saved.append(rule)
 
     saved_exceptions: list[TOMLException] = []
+
+    def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
+        for entry in entries:
+            if entry.get("type") == "list" and entry.get("list"):
+                value_list_ids.add(entry["list"]["id"])
+            elif entry.get("type") == "nested":
+                _collect_list_ids(entry.get("entries", []))
+
     for exception in exceptions:
         try:
             exception.save_toml()
@@ -478,6 +505,28 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             raise
 
         saved_exceptions.append(exception)
+        if export_value_lists:
+            list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+            for item in exceptions_items.get(list_id, []):
+                _collect_list_ids(item.get("entries", []))
+
+    value_list_exported: list[str] = []
+    saved_value_lists: list[str] = []
+    if export_value_lists and value_list_ids:
+        with kibana:
+            for list_id in sorted(value_list_ids):
+                try:
+                    text = ValueListResource.export_list_items(list_id)
+                    value_list_exported.append(list_id)
+                    if value_list_directory:
+                        (value_list_directory / list_id).write_text(text)
+                        saved_value_lists.append(list_id)
+                except Exception as e:
+                    if skip_errors:
+                        print(f"- skipping value list {list_id} - {type(e).__name__}")
+                        errors.append(f"- {list_id} - {e}")
+                        continue
+                    raise
 
     saved_action_connectors: list[TOMLActionConnector] = []
     for action in action_connectors:
@@ -496,9 +545,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     click.echo(f"{len(exported)} rules converted")
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(action_connectors)} action connectors exported")
+    click.echo(f"{len(value_list_exported)} value lists exported")
     click.echo(f"{len(saved)} rules saved to {directory}")
     click.echo(f"{len(saved_exceptions)} exception lists saved to {exceptions_directory}")
     click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
+    click.echo(f"{len(saved_value_lists)} value lists saved to {value_list_directory}")
     if errors:
         err_file = directory / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
