@@ -53,7 +53,7 @@ curl -X DELETE "$DR_KIBANA_URL/api/spaces/space/$SPACE" \
 # test rule import
 export CUSTOM_RULES_DIR=./rules-test
 python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
-    --overwrite --overwrite-action-connectors --overwrite-exceptions
+    --overwrite --overwrite-action-connectors --overwrite-exceptions --overwrite-value-lists
 
 # test rule export
 python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \

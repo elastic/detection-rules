@@ -285,6 +285,48 @@ class ValueListResource(BaseResource):
     BASE_URI = "/api/lists"
 
     @classmethod
+    def get(cls, list_id: str) -> dict | None:
+        """Retrieve a value list by ID."""
+        return Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
+
+    @classmethod
+    def delete(cls, list_id: str) -> None:
+        """Delete a value list by ID."""
+        Kibana.current().delete(cls.BASE_URI, params={"id": list_id}, error=False)
+
+    @classmethod
+    def create_index(cls) -> None:
+        """Ensure the value list index exists."""
+        Kibana.current().post(f"{cls.BASE_URI}/index", error=False)
+
+    @classmethod
+    def create(cls, list_id: str, list_type: str, name: str | None = None, description: str | None = None) -> dict:
+        """Create a value list."""
+        payload = {
+            "id": list_id,
+            "type": list_type,
+            "name": name or list_id,
+            "description": description or name or list_id,
+        }
+        return Kibana.current().post(cls.BASE_URI, data=payload)
+
+    @classmethod
+    def import_list_items(cls, list_id: str, text: str, list_type: str) -> dict:
+        """Import newline-delimited items into a value list."""
+        boundary = "----ElasticBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            f"Content-Disposition: form-data; name=\"file\"; filename=\"{list_id}\"\r\n"
+            "Content-Type: text/plain\r\n\r\n"
+            f"{text}\r\n--{boundary}--\r\n"
+        ).encode("utf-8")
+        headers = {"content-type": f"multipart/form-data; boundary={boundary}"}
+        params = {"list_id": list_id, "type": list_type}
+        return Kibana.current().post(
+            f"{cls.BASE_URI}/items/_import", params=params, raw_data=body, headers=headers
+        )
+
+    @classmethod
     def export_list_items(cls, list_id: str) -> str:
         """Export the contents of a value list as newline-delimited text."""
         response = Kibana.current().post(

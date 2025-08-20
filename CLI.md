@@ -264,6 +264,7 @@ Options:
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
+  -vl, --overwrite-value-lists    Overwrite value lists referenced in exceptions
   -h, --help                      Show this message and exit.
 ```
 

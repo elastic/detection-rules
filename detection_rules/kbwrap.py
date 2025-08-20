@@ -105,13 +105,20 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     is_flag=True,
     help="Overwrite action connectors in existing rules",
 )
+@click.option(
+    "--overwrite-value-lists",
+    "-vl",
+    is_flag=True,
+    help="Overwrite value lists referenced in exceptions",
+)
 @click.pass_context
-def kibana_import_rules(  # noqa: PLR0915
+def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
     rules: RuleCollection,
     overwrite: bool = False,
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
+    overwrite_value_lists: bool = False,
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import custom rules into Kibana."""
 
@@ -185,16 +192,49 @@ def kibana_import_rules(  # noqa: PLR0915
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
-        exception_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids)
-        ]
-        action_connectors_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids)
-        ]
+        exception_dicts: list[list[dict[str, Any]]] = []
+        action_connectors_dicts: list[list[dict[str, Any]]] = []
+        value_list_map: dict[str, str] = {}
+
+        def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
+            for entry in entries:
+                if entry.get("type") == "list" and entry.get("list"):
+                    value_list_map[entry["list"]["id"]] = entry["list"].get("type", "keyword")
+                elif entry.get("type") == "nested":
+                    _collect_list_ids(entry.get("entries", []))
+
+        for d in cl.items:
+            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
+                edicts = d.contents.to_api_format()
+                exception_dicts.append(edicts)
+                for item in edicts:
+                    _collect_list_ids(item.get("entries", []))
+            elif isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids):
+                action_connectors_dicts.append(d.contents.to_api_format())
+
+        imported_value_lists: list[str] = []
+        skipped_value_lists: list[str] = []
+        missing_value_lists: list[str] = []
+        value_list_dir = RULES_CONFIG.value_list_dir
+        if value_list_map:
+            ValueListResource.create_index()
+        for list_id, list_type in value_list_map.items():
+            file_path = value_list_dir / list_id if value_list_dir else None
+            if not file_path or not file_path.exists():
+                missing_value_lists.append(list_id)
+                continue
+            text = file_path.read_text()
+            existing = ValueListResource.get(list_id)
+            if existing and not overwrite_value_lists:
+                skipped_value_lists.append(list_id)
+                continue
+            if existing and overwrite_value_lists:
+                ValueListResource.delete(list_id)
+            if not existing or overwrite_value_lists:
+                ValueListResource.create(list_id, list_type)
+            ValueListResource.import_list_items(list_id, text, list_type)
+            imported_value_lists.append(list_id)
+
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,
             exception_dicts,
@@ -213,6 +253,18 @@ def kibana_import_rules(  # noqa: PLR0915
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
+        if imported_value_lists:
+            click.echo(f"{len(imported_value_lists)} value list(s) successfully imported")
+            ids_str = "\n - ".join(imported_value_lists)
+            click.echo(f" - {ids_str}")
+        if skipped_value_lists:
+            click.echo("Value lists already exist and were not overwritten:")
+            ids_str = "\n - ".join(skipped_value_lists)
+            click.echo(f" - {ids_str}")
+        if missing_value_lists:
+            click.echo("Value list files not found:")
+            ids_str = "\n - ".join(missing_value_lists)
+            click.echo(f" - {ids_str}")
 
     return response, results  # type: ignore[reportUnknownVariableType]
 
