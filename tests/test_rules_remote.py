@@ -41,6 +41,7 @@ class TestRemoteRules(BaseRuleTest):
         )
 
         failed_count = 0
+        fail_list = []
 
         for r in esql_rules:
             print()
@@ -48,6 +49,7 @@ class TestRemoteRules(BaseRuleTest):
                 validate_esql_rule(kibana_client, elastic_client, r.contents)
             except Exception as e:
                 print(f"FAILURE: {e}")
+                fail_list.append(f"FAILURE: {e}")
                 failed_count += 1
 
         print(f"Total rules: {len(esql_rules)}")

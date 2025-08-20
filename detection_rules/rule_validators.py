@@ -652,9 +652,69 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError)
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
 
 
+def traverse_schema(
+    keys: list[str], current_schema: dict[str, Any] | None, traversed: bool = False
+) -> tuple[str | None, bool]:
+    """Recursively traverse the schema to find the type of the column."""
+    key = keys[0]
+    if not current_schema:
+        return None, traversed
+    column = current_schema.get(key) or {}
+    column_type = column.get("type") if column else None
+    if not column_type and len(keys) > 1:
+        return traverse_schema(keys[1:], current_schema=column.get("properties"), traversed=True)
+    return column_type, traversed
+
+
+def get_column_type_from_schemas(column_name: str, schemas: dict[str, Any]) -> str | None:
+    """Check if a column is present in the provided schema. If present, returns its type."""
+    keys = column_name.split(".")
+    schema_type, traversed = traverse_schema(keys, schemas)
+    # FIXME if suffix, check matches ESQL function mapping (reverse recursive)
+    # suffix = parse_suffix_type
+    suffix = None
+    # If matches function mapping, use this function mapping's type, instead of schema_type
+    # If suffix and traversed, then return type, else unknown type
+    if suffix and traversed:
+        return suffix
+    return schema_type
+
+
+def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]):
+    """Validate that the columns in the ESQL query match the provided mappings."""
+    mismatched_columns: list[str] = []
+
+    for column in query_columns:
+        column_name = column["name"]
+        if not (column_name.startswith("Esql.") or column_name.startswith("Esql_priv.")):
+            # FIXME do we want to validate the columns against the schemas separately from the stack?
+            continue
+        column_type = column["type"]
+        formatted_column_name = column_name.replace("Esql.", "").replace("Esql_priv.", "").replace("_", ".")
+
+        # Check if the column exists in combined_mappings or a valid field generated from a function or operator
+        schema_type = get_column_type_from_schemas(formatted_column_name, combined_mappings)
+        if not schema_type:
+            mismatched_columns.append(f"Column `{column_name}` is not defined in the mappings.")
+            continue
+
+        # Validate the type
+        if column_type != schema_type:
+            mismatched_columns.append(
+                f"Type mismatch for column `{column_name}`: expected `{schema_type}`, got `{column_type}`."
+            )
+
+    # Raise an error if there are mismatches
+    if mismatched_columns:
+        raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
+
+    return True
+
+
 def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents) -> None:
     rule_id = contents.data.rule_id
 
+    # FIXME perhaps move this to utils
     def log(val: str) -> None:
         print(f"{rule_id}:", val)
 
@@ -674,7 +734,7 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
         merge_dicts(existing_mappings, index_tmpl_mappings)
 
-    log(f"Collected mappigns: {len(existing_mappings)}")
+    log(f"Collected mappings: {len(existing_mappings)}")
 
     # Collect mappings for the integrations
 
@@ -719,6 +779,8 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     combined_mappings = {}
     merge_dicts(combined_mappings, existing_mappings)
     merge_dicts(combined_mappings, integration_mappings)
+    # NOTE non-ecs schema needs to have formatting updates prior to merge
+    # merge_dicts(combined_mappings, ecs.get_non_ecs_schema())
 
     if not combined_mappings:
         log("ERROR: no mappings found for the rule")
@@ -726,6 +788,7 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
 
     import json
 
+    # FIXME update this with utils function
     with open("./mappings.json", "w") as f:
         _ = f.write(json.dumps(combined_mappings, indent=4, sort_keys=True))
 
@@ -761,7 +824,11 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     query_column_names = [c["name"] for c in query_columns]
     log(f"Got query columns: {', '.join(query_column_names)}")
 
-    # FIXME: validate the dynamic columns
+    # FIXME Perhaps update rule_validator's get_required_fields as well
+    if validate_columns_input_mapping(query_columns, combined_mappings):
+        log("All column types match the mappings.")
+    else:
+        log("All column types DO NOT match the mappings.")
 
 
 def get_simulated_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
@@ -783,7 +850,7 @@ def get_indices(elastic_client: Kibana, index: str) -> list[str]:
     return [i["index"] for i in elastic_client.cat.indices(index=index, format="json")]
 
 
-def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]):
+def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
     """Merge two dictionaries recursively."""
     for k, v in src.items():
         if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
@@ -804,7 +871,6 @@ def flat_schema_to_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
     result = {}
 
     for field_path, field_type in sorted_items:
-
         parts = field_path.split(".")
         current_level = result
 
