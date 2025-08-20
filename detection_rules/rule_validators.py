@@ -652,32 +652,16 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError)
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
 
 
-def traverse_schema(
-    keys: list[str], current_schema: dict[str, Any] | None, traversed: bool = False
-) -> tuple[str | None, bool]:
+def traverse_schema(keys: list[str], current_schema: dict[str, Any] | None) -> str | None:
     """Recursively traverse the schema to find the type of the column."""
     key = keys[0]
     if not current_schema:
-        return None, traversed
+        return None
     column = current_schema.get(key) or {}
     column_type = column.get("type") if column else None
     if not column_type and len(keys) > 1:
-        return traverse_schema(keys[1:], current_schema=column.get("properties"), traversed=True)
-    return column_type, traversed
-
-
-def check_expected_dynamic_field(column_name: str, schemas: dict[str, Any]) -> list[str] | None:
-    """Check if a column is present in the provided schema. If present, returns its type."""
-    errors: list[str] = []
-    keys = column_name.split(".")
-    column_type, traversed = traverse_schema(keys, schemas)
-    if not traversed and not column_type:
-        errors.append(f"Dynamic field `{column_name}` is not based on known field in schema.")
-
-    # FIXME perhaps check suffix format? if suffix, check matches ESQL function mapping (reverse recursive)
-    # suffix = parse_suffix_type
-    # if suffix_invalid add error
-    return errors if errors else None
+        return traverse_schema(keys[1:], current_schema=column.get("properties"))
+    return column_type
 
 
 def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]):
@@ -687,23 +671,19 @@ def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined
     for column in query_columns:
         column_name = column["name"]
         if column_name.startswith("Esql.") or column_name.startswith("Esql_priv."):
-            column_name = column_name.replace("Esql.", "").replace("Esql_priv.", "").replace("_", ".")
-            errors = check_expected_dynamic_field(column_name, combined_mappings)
-            if errors:
-                mismatched_columns.extend(errors)
-        else:
-            column_type = column["type"]
+            continue
+        column_type = column["type"]
 
-            # Check if the column exists in combined_mappings or a valid field generated from a function or operator
-            keys = column_name.split(".")
-            schema_type, _ = traverse_schema(keys, combined_mappings)
+        # Check if the column exists in combined_mappings or a valid field generated from a function or operator
+        keys = column_name.split(".")
+        schema_type = traverse_schema(keys, combined_mappings)
 
-            # Validate the type
-            if not schema_type or column_type != schema_type:
-                mismatched_columns.append(
-                    f"Dynamic field `{column_name}` is not correctly mapped. "
-                    f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
-                )
+        # Validate the type
+        if not schema_type or column_type != schema_type:
+            mismatched_columns.append(
+                f"Dynamic field `{column_name}` is not correctly mapped. "
+                f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
+            )
 
     # Raise an error if there are mismatches
     if mismatched_columns:
@@ -733,7 +713,7 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
 
     for index in indices:
         index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
-        merge_dicts(existing_mappings, index_tmpl_mappings)
+        combine_dicts(existing_mappings, index_tmpl_mappings)
 
     log(f"Collected mappings: {len(existing_mappings)}")
 
@@ -773,25 +753,19 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         for stream in package_schema:
             flat_schema = package_schema[stream]
             stream_mappings = flat_schema_to_mapping(flat_schema)
-            merge_dicts(integration_mappings, stream_mappings)
+            combine_dicts(integration_mappings, stream_mappings)
 
     log(f"Integration mappings prepared: {len(integration_mappings)}")
 
     combined_mappings = {}
-    merge_dicts(combined_mappings, existing_mappings)
-    merge_dicts(combined_mappings, integration_mappings)
+    combine_dicts(combined_mappings, existing_mappings)
+    combine_dicts(combined_mappings, integration_mappings)
     # NOTE non-ecs schema needs to have formatting updates prior to merge
-    # merge_dicts(combined_mappings, ecs.get_non_ecs_schema())
+    # combine_dicts(combined_mappings, ecs.get_non_ecs_schema())
 
     if not combined_mappings:
         log("ERROR: no mappings found for the rule")
         raise ValueError("No mappings found")
-
-    import json
-
-    # FIXME update this with utils function
-    with open("./mappings.json", "w") as f:
-        _ = f.write(json.dumps(combined_mappings, indent=4, sort_keys=True))
 
     # Creating a test index with the test name
     suffix = str(int(time.time() * 1000))
@@ -852,11 +826,11 @@ def get_indices(elastic_client: Kibana, index: str) -> list[str]:
     return [i["index"] for i in elastic_client.cat.indices(index=index, format="json")]
 
 
-def merge_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
-    """Merge two dictionaries recursively."""
+def combine_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
+    """Combine two dictionaries recursively."""
     for k, v in src.items():
         if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
-            merge_dicts(dest[k], v)
+            combine_dicts(dest[k], v)
         else:
             dest[k] = v
 
