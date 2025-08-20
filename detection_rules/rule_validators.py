@@ -666,18 +666,18 @@ def traverse_schema(
     return column_type, traversed
 
 
-def get_column_type_from_schemas(column_name: str, schemas: dict[str, Any]) -> str | None:
+def check_expected_dynamic_field(column_name: str, schemas: dict[str, Any]) -> list[str] | None:
     """Check if a column is present in the provided schema. If present, returns its type."""
+    errors: list[str] = []
     keys = column_name.split(".")
-    schema_type, traversed = traverse_schema(keys, schemas)
-    # FIXME if suffix, check matches ESQL function mapping (reverse recursive)
+    column_type, traversed = traverse_schema(keys, schemas)
+    if not traversed and not column_type:
+        errors.append(f"Dynamic field `{column_name}` is not based on known field in schema.")
+
+    # FIXME perhaps check suffix format? if suffix, check matches ESQL function mapping (reverse recursive)
     # suffix = parse_suffix_type
-    suffix = None
-    # If matches function mapping, use this function mapping's type, instead of schema_type
-    # If suffix and traversed, then return type, else unknown type
-    if suffix and traversed:
-        return suffix
-    return schema_type
+    # if suffix_invalid add error
+    return errors if errors else None
 
 
 def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]):
@@ -686,23 +686,24 @@ def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined
 
     for column in query_columns:
         column_name = column["name"]
-        if not (column_name.startswith("Esql.") or column_name.startswith("Esql_priv.")):
-            # FIXME do we want to validate the columns against the schemas separately from the stack?
-            continue
-        column_type = column["type"]
-        formatted_column_name = column_name.replace("Esql.", "").replace("Esql_priv.", "").replace("_", ".")
+        if column_name.startswith("Esql.") or column_name.startswith("Esql_priv."):
+            column_name = column_name.replace("Esql.", "").replace("Esql_priv.", "").replace("_", ".")
+            errors = check_expected_dynamic_field(column_name, combined_mappings)
+            if errors:
+                mismatched_columns.extend(errors)
+        else:
+            column_type = column["type"]
 
-        # Check if the column exists in combined_mappings or a valid field generated from a function or operator
-        schema_type = get_column_type_from_schemas(formatted_column_name, combined_mappings)
-        if not schema_type:
-            mismatched_columns.append(f"Column `{column_name}` is not defined in the mappings.")
-            continue
+            # Check if the column exists in combined_mappings or a valid field generated from a function or operator
+            keys = column_name.split(".")
+            schema_type, _ = traverse_schema(keys, combined_mappings)
 
-        # Validate the type
-        if column_type != schema_type:
-            mismatched_columns.append(
-                f"Type mismatch for column `{column_name}`: expected `{schema_type}`, got `{column_type}`."
-            )
+            # Validate the type
+            if not schema_type or column_type != schema_type:
+                mismatched_columns.append(
+                    f"Dynamic field `{column_name}` is not correctly mapped. "
+                    f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
+                )
 
     # Raise an error if there are mismatches
     if mismatched_columns:
@@ -825,10 +826,11 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     log(f"Got query columns: {', '.join(query_column_names)}")
 
     # FIXME Perhaps update rule_validator's get_required_fields as well
+    # to everything needs to either be directly mapped to schema or be annotated as dynamic field
     if validate_columns_input_mapping(query_columns, combined_mappings):
-        log("All column types match the mappings.")
+        log("All dynamic columns have proper formatting.")
     else:
-        log("All column types DO NOT match the mappings.")
+        log("Dynamic column(s) have improper formatting.")
 
 
 def get_simulated_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
