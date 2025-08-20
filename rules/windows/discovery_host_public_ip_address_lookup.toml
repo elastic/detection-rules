@@ -7,8 +7,7 @@ updated_date = "2025/08/20"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies DNS queries to commonly abused Top Level Domains by common LOLBINs or executable running from world writable
-directories or unsigned binaries. This behavior matches on common malware C2 abusing less formal domain names.
+Identifies DNS queries known public IP address lookup web services. Malwares tend to perform this action to assess potential targets.
 """
 from = "now-9m"
 index = [
@@ -22,16 +21,16 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Network Activity to a Suspicious Top Level Domain"
+name = "System Public IP Discovery via DNS Query"
 note = """## Triage and analysis
 
-### Investigating Network Activity to a Suspicious Top Level Domain
+### Investigating System Public IP Discovery via DNS Query
 
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes or malicious scripts.
-- Review if the domain reputation and the frequency of network activities as well as any download/upload activity.
 - Verify if the executed process is persistent on the host like common mechanisms Startup folder, task or Run key.
+- Review any unusual network, files or registry events by the same process.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
 
@@ -52,19 +51,20 @@ note = """## Triage and analysis
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = ["https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains"]
+references = ["https://attack.mitre.org/techniques/T1016/"]
 risk_score = 73
-rule_id = "3a59fc81-99d3-47ea-8cd6-d48d561fca20"
+rule_id = "642ce354-4252-4d43-80c9-6603f16571c1"
 severity = "High"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
+    "Tactic: Discovery",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Data Source: Sysmon",
@@ -73,16 +73,74 @@ type = "eql"
 
 query = '''
 network where host.os.type == "windows" and dns.question.name != null and
- (
+(
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
-                  "bitsadmin.exe", "InstallUtil.exe", "python.exe", "regsvr32.exe", "dllhost.exe", "node.exe",
-                  "java.exe", "javaw.exe", "*.pif", "*.com", "*.scr") or
+  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+
   ?process.code_signature.exists == false or ?process.code_signature.trused == false or
+
   ?process.code_signature.subject_name in ("AUTOIT CONSULTING LTD", "AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+
   process.executable : ("?:\\Users\\*.exe", "", "?:\\ProgramData\\*.exe",  "?\\Device\\HarddiskVolume?\\Users\\*.exe",  "?\\Device\\HarddiskVolume?\\ProgramData\\*.exe")
  ) and
-dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)"""
+ dns.question.name :
+         (
+          "ip-api.com",
+          "checkip.dyndns.org",
+          "api.ipify.org",
+          "api.ipify.com",
+          "whatismyip.akamai.com",
+          "bot.whatismyipaddress.com",
+          "ifcfg.me",
+          "ident.me",
+          "ipof.in",
+          "ip.tyk.nu",
+          "icanhazip.com",
+          "curlmyip.com",
+          "wgetip.com",
+          "eth0.me",
+          "ipecho.net",
+          "ip.appspot.com",
+          "api.myip.com",
+          "geoiptool.com",
+          "api.2ip.ua",
+          "api.ip.sb",
+          "ipinfo.io",
+          "checkip.amazonaws.com",
+          "wtfismyip.com",
+          "iplogger.*",
+          "freegeoip.net",
+          "freegeoip.app",
+          "ipinfo.io",
+          "geoplugin.net",
+          "myip.dnsomatic.com",
+          "www.geoplugin.net",
+          "api64.ipify.org",
+          "ip4.seeip.org",
+          "*.geojs.io",
+          "*portmap.io",
+          "api.2ip.ua",
+          "api.db-ip.com",
+          "geolocation-db.com",
+          "httpbin.org",
+          "myip.opendns.com"
+         )
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 
 
 [[rule.threat]]
@@ -101,5 +159,3 @@ reference = "https://attack.mitre.org/techniques/T1071/004/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-
