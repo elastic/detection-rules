@@ -72,6 +72,8 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
 
     operator: definitions.ExceptionEntryOperator
     value_list: ListObject | None = field(default=None, metadata={"data_key": "list"})
+    # Serialized as "list" in the TOML/JSON representation while exposing a
+    # friendlier name in Python and avoiding clashing with the built-in list
     value: str | None | list[str] = None
 
     @validates_schema

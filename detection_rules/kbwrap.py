@@ -370,7 +370,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     exported: list[TOMLRule] = []
     exception_list_rule_table: dict[str, list[dict[str, Any]]] = {}
     action_connector_rule_table: dict[str, list[dict[str, Any]]] = {}
-    value_list_ids: set[str] = set()
+    value_list_ids: set[str] = set()  # value lists referenced across all exceptions
     for rule_resource in rules_results:  # type: ignore[reportUnknownVariableType]
         try:
             if strip_version:
@@ -487,6 +487,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
     saved_exceptions: list[TOMLException] = []
 
+    # Recursively walk exception entries and record any referenced value list IDs
     def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
         for entry in entries:
             if entry.get("type") == "list" and entry.get("list"):
@@ -506,16 +507,19 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         saved_exceptions.append(exception)
         if export_value_lists:
+            # Gather list IDs for each successfully saved exception
             list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
             for item in exceptions_items.get(list_id, []):
                 _collect_list_ids(item.get("entries", []))
 
     value_list_exported: list[str] = []
     saved_value_lists: list[str] = []
+    # Export each collected value list from Kibana and write to disk once
     if export_value_lists and value_list_ids:
         with kibana:
             for list_id in sorted(value_list_ids):
                 try:
+                    # Call Kibana API to fetch the list's items in export format
                     text = ValueListResource.export_list_items(list_id)
                     value_list_exported.append(list_id)
                     if value_list_directory:
