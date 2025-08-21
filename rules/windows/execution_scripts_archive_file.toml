@@ -8,8 +8,8 @@ updated_date = "2025/08/20"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to execute Jscript files masquerading as update files. The use of fake update lures to entice
-a user to run a malicious JS dropper is a common technique used by known threats such as SocGholish and SmartApeSG.
+Identifies attempts to execute Jscript/Vbscript files from an archive file. The use of archives is a common delivery method
+of malicious scripts.
 """
 
 from = "now-9m"
@@ -26,11 +26,11 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Attack via Fake JScript Updates"
+name = "Windows Script Execution from Archive"
 references = ["https://medium.com/walmartglobaltech/smartapesg-4605157a5b80"]
-risk_score = 73
+risk_score = 47
 rule_id = "30f9d940-7d55-4fff-a8b9-4715d20eb204"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -50,15 +50,20 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "wscript.exe" and
- process.parent.name : ("chrome.exe", "msedge.exe", "brave.exe", "firefox.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe", "outlook.exe") and
- process.args : ("?:\\Users\\*\\Downloads\\Update*.js", "?:\\Users\\*\\Content.Outlook\\*\\Update*.js", "?:\\Users\\*\\AppData\\Local\\Temp*\\Update*.js")
+ process.parent.name : ("explorer.exe", "winrar.exe", "7zFM.exe") and
+ process.args :
+        ("?:\\Users\\*\\AppData\\Local\\Temp\\7z*\\*",
+         "?:\Users\*\AppData\Local\Temp\*.zip.*\\*",
+         "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*\\*",
+         "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*\\*",
+         "?:\\Users\\*\\AppData\\Local\\Temp\\BNZ.*")
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential Attack via Fake JScript Update
+### Investigating Windows Script Execution from Archive
 
 Windows scripts, often used for legitimate automation tasks, can be exploited by adversaries to execute malicious code. Attackers may download scripts via browsers or file utilities, then execute them using scripting tools like wscript or mshta. The detection rule identifies such threats by monitoring script creation from internet sources and subsequent execution, focusing on unusual parent-child process relationships and script attributes.
 
@@ -103,6 +108,11 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
 
 
 [rule.threat.tactic]
