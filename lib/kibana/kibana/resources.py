@@ -386,10 +386,11 @@ class TimelineTemplateResource(BaseResource):
     BASE_URI = "/api/timeline"
 
     @classmethod
-    def export_template(cls, timeline_id: str) -> str | None:
+    def export_template(cls, timeline_id: str) -> str:
         """Export a timeline template as NDJSON text.
 
-        Returns ``None`` if the timeline template does not exist.
+        Raise an error if the template is missing or the API responds with a
+        non-success status so callers can handle failures explicitly.
         """
         response = Kibana.current().post(
             f"{cls.BASE_URI}/_export",
@@ -398,8 +399,10 @@ class TimelineTemplateResource(BaseResource):
             raw=True,
             error=False,
         )
-        if response.status_code == 404:
-            return None
+        if response.status_code != 200:
+            raise RuntimeError(
+                response.text or f"unexpected status {response.status_code} for timeline {timeline_id}"
+            )
         return response.text
 
 

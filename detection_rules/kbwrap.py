@@ -687,15 +687,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
     timeline_template_exported: list[str] = []
     saved_timeline_templates: list[str] = []
-    missing_timeline_templates: list[str] = []
     if export_timeline_templates and timeline_ids:
         with kibana:
             for t_id in sorted(timeline_ids):
                 try:
                     text = TimelineTemplateResource.export_template(t_id)
-                    if not text:
-                        missing_timeline_templates.append(t_id)
-                        continue
                     timeline_template_exported.append(t_id)
                     if timeline_templates_directory:
                         (timeline_templates_directory / f"{t_id}.json").write_text(text)
@@ -731,10 +727,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
     click.echo(f"{len(saved_value_lists)} value lists saved to {value_list_directory}")
     click.echo(f"{len(saved_timeline_templates)} timeline templates saved to {timeline_templates_directory}")
-    if missing_timeline_templates:
-        click.echo("Timeline templates not found:")
-        ids_str = "\n - ".join(missing_timeline_templates)
-        click.echo(f" - {ids_str}")
     if errors:
         err_file = directory / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
