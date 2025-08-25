@@ -386,34 +386,42 @@ class TimelineTemplateResource(BaseResource):
     BASE_URI = "/api/timeline"
 
     @classmethod
-    def export_template(cls, timeline_id: str) -> str:
-        """Export a timeline template referenced by ``timeline_id``.
-
-        The ``timeline_id`` stored on rules corresponds to the template's
-        ``templateTimelineId`` rather than the saved object ID required by the
-        export API.  To retrieve the actual saved object ID, the method first
-        resolves the template and then requests an export of that object.
-
-        An error is raised if the template cannot be resolved or if the export
-        API returns an unexpected status code or a response payload containing a
-        ``statusCode`` field (which Kibana uses to report errors while still
-        responding with HTTP 200).
-        """
+    def resolve_saved_object_id(cls, timeline_id: str) -> str:
+        """Resolve a timeline's ``templateTimelineId`` to its saved object ID."""
 
         kibana = Kibana.current()
-
-        # Resolve the template ID to a saved object ID
         resolved = kibana.get(
             f"{cls.BASE_URI}/resolve",
             params={"template_timeline_id": timeline_id},
             error=False,
         )
-        if isinstance(resolved, dict) and resolved.get("statusCode"):
-            raise RuntimeError(resolved.get("message", f"timeline {timeline_id} not found"))
+        if isinstance(resolved, dict) and resolved.get("status_code"):
+            raise RuntimeError(
+                resolved.get("message", f"timeline {timeline_id} not found")
+            )
 
         saved_id = resolved.get("timeline", {}).get("savedObjectId")
         if not saved_id:
             raise RuntimeError(f"timeline {timeline_id} not found")
+
+        return saved_id
+
+    @classmethod
+    def export_template(cls, timeline_id: str) -> str:
+        """Export a timeline template referenced by ``timeline_id``.
+
+        The ``timeline_id`` stored on rules corresponds to the template's
+        ``templateTimelineId`` rather than the saved object ID required by the
+        export API.  The saved object ID is retrieved via
+        :meth:`resolve_saved_object_id` before calling the export endpoint.
+
+        An error is raised if the export API returns an unexpected status code or
+        if the response payload contains a ``statusCode`` field (which Kibana uses
+        to report errors while still responding with HTTP 200).
+        """
+
+        kibana = Kibana.current()
+        saved_id = cls.resolve_saved_object_id(timeline_id)
 
         # Export the timeline template using the saved object ID
         response = kibana.post(

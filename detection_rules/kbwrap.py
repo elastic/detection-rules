@@ -6,6 +6,7 @@
 """Kibana cli commands."""
 
 import fnmatch
+import json
 import re
 import sys
 from pathlib import Path
@@ -692,6 +693,22 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             for t_id in sorted(timeline_ids):
                 try:
                     text = TimelineTemplateResource.export_template(t_id)
+
+                    # Optionally strip version and date fields from the exported JSON
+                    if strip_version or strip_dates:
+                        lines = text.splitlines()
+                        if lines:
+                            template_obj = json.loads(lines[0])
+                            if strip_version:
+                                template_obj.pop("version", None)
+                            if strip_dates:
+                                template_obj.pop("created", None)
+                                template_obj.pop("updated", None)
+                            lines[0] = json.dumps(template_obj)
+                            text = "\n".join(lines)
+                            if text and not text.endswith("\n"):
+                                text += "\n"
+
                     timeline_template_exported.append(t_id)
                     if timeline_templates_directory:
                         (timeline_templates_directory / f"{t_id}.json").write_text(text)
