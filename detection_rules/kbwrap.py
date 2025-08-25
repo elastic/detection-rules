@@ -233,9 +233,6 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             if existing and not overwrite_exceptions:
                 skipped_exception_lists.append(list_id)
                 continue
-            if existing and overwrite_exceptions:
-                # delete to ensure the list matches the imported contents exactly
-                ExceptionListResource.delete(list_id)
             for item in edicts:
                 # collect value list IDs from each exception item for later processing
                 _collect_list_ids(item.get("entries", []))
