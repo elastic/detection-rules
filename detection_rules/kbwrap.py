@@ -516,6 +516,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     exception_list_rule_table: dict[str, list[dict[str, Any]]] = {}
     action_connector_rule_table: dict[str, list[dict[str, Any]]] = {}
     value_list_ids: set[str] = set()  # value lists referenced across all exceptions
+    timeline_ids: set[str] = set()  # timeline templates referenced by rules
     for rule_resource in rules_results:  # type: ignore[reportUnknownVariableType]
         try:
             if strip_version:
@@ -572,6 +573,13 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     action_connector_rule_table[action_id] = []
                 action_connector_rule_table[action_id].append({"id": rule.id, "name": rule.name})
 
+        if export_timeline_templates:
+            # Collect timeline IDs in this initial pass, alongside exception and action connector data,
+            # so we only walk the rules once before exporting templates later.
+            t_id = rule.contents.data.timeline_id  # type: ignore[reportUnknownMemberType]
+            if t_id:
+                timeline_ids.add(t_id)
+
         exported.append(rule)
 
     # Parse exceptions results from API return
@@ -618,7 +626,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         errors.extend(ac_errors)
 
     saved: list[TOMLRule] = []
-    timeline_ids: set[str] = set()
     for rule in exported:
         try:
             rule.save_toml()
@@ -630,10 +637,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             raise
 
         saved.append(rule)
-        if export_timeline_templates:
-            t_id = rule.contents.data.timeline_id  # type: ignore[reportUnknownMemberType]
-            if t_id:
-                timeline_ids.add(t_id)
 
     saved_exceptions: list[TOMLException] = []
 
