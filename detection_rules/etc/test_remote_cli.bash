@@ -12,20 +12,23 @@ echo "Performing a quick rule alerts search..."
 echo "Requires .detection-rules-cfg.json credentials file set."
 python -m detection_rules kibana search-alerts
 
-echo "Performing a rule export..."
-mkdir tmp-export 2>/dev/null
-python -m detection_rules kibana export-rules -d tmp-export -sv --skip-errors -r 565d6ca5-75ba-4c82-9b13-add25353471c
-ls tmp-export
-echo "Removing generated files..."
-rm -rf tmp-export
-
-echo "Performing a rule import..."
-
+echo "Setting Up Custom Directory..."
+mkdir tmp-custom 2>/dev/null
 python -m detection_rules custom-rules setup-config tmp-custom
-export CUSTOM_RULES_DIR=./tmp-custom
-cp rules/threat_intel/threat_intel_indicator_match_address.toml tmp-custom/rules/
+export CUSTOM_RULES_DIR=./tmp-custom/
+
+echo "Performing a rule conversion from ndjson to toml files..."
+python -m detection_rules import-rules-to-repo detection_rules/etc/custom-consolidated-rules.ndjson -ac -e -s $CUSTOM_RULES_DIR/rules --required-only
+
+echo "Performing a rule import to kibana..."
+
 python -m detection_rules kibana import-rules -o -e -ac
-rm -rf tmp-custom
+
+echo "Performing a rule export..."
+python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -ac -e -sv --custom-rules-only 
+
+echo "Removing generated files..."
+rm -rf $CUSTOM_RULES_DIR
 set -e CUSTOM_RULES_DIR
 
 echo "Detection-rules Remote CLI tests completed!"
