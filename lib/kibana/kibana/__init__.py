@@ -6,7 +6,7 @@
 """Wrapper around Kibana APIs for the Security Application."""
 
 from .connector import Kibana
-from .resources import RuleResource, Signal, ValueListResource
+from .resources import ExceptionListResource, RuleResource, Signal, ValueListResource
 
 __version__ = "0.5.1"
 __all__ = (
@@ -14,4 +14,5 @@ __all__ = (
     "RuleResource",
     "Signal",
     "ValueListResource",
+    "ExceptionListResource",
 )

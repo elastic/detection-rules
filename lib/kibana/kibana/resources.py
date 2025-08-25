@@ -279,6 +279,34 @@ class RuleResource(BaseResource):
         return [cls(r) for r in data]
 
 
+class ExceptionListResource(BaseResource):
+    """Resource for managing exception lists."""
+
+    BASE_URI = "/api/exception_lists"
+
+    @classmethod
+    def get(cls, list_id: str, namespace_type: str = "single") -> dict | None:
+        """Retrieve an exception list by ``list_id``.
+
+        The API returns ``status_code: 404`` in the body when a list is
+        missing, so return ``None`` to make existence checks straightforward.
+        """
+        params = {"list_id": list_id, "namespace_type": namespace_type}
+        response = Kibana.current().get(cls.BASE_URI, params=params, error=False)
+        if not response:
+            return None
+        status_code = response.get("status_code") or response.get("statusCode")
+        if status_code == 404:
+            return None
+        return response
+
+    @classmethod
+    def delete(cls, list_id: str, namespace_type: str = "single") -> None:
+        """Delete an exception list."""
+        params = {"list_id": list_id, "namespace_type": namespace_type}
+        Kibana.current().delete(cls.BASE_URI, params=params, error=False)
+
+
 class ValueListResource(BaseResource):
     """Resource for interacting with value list items."""
 

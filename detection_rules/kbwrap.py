@@ -12,7 +12,12 @@ from typing import Any
 
 import click
 import kql  # type: ignore[reportMissingTypeStubs]
-from kibana import RuleResource, Signal, ValueListResource  # type: ignore[reportMissingTypeStubs]
+from kibana import (
+    ExceptionListResource,
+    RuleResource,
+    Signal,
+    ValueListResource,
+)  # type: ignore[reportMissingTypeStubs]
 
 from .action_connector import (
     TOMLActionConnector,
@@ -98,7 +103,12 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
 @kibana_group.command("import-rules")
 @multi_collection
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing rules")
-@click.option("--overwrite-exceptions", "-e", is_flag=True, help="Overwrite exceptions in existing rules")
+@click.option(
+    "--overwrite-exceptions",
+    "-e",
+    is_flag=True,
+    help="Overwrite existing exception lists (otherwise they are skipped)",
+)
 @click.option(
     "--overwrite-action-connectors",
     "-ac",
@@ -192,7 +202,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
-        exception_dicts: list[list[dict[str, Any]]] = []
+        exception_list_map: dict[str, list[dict[str, Any]]] = {}
         action_connectors_dicts: list[list[dict[str, Any]]] = []
         value_list_map: dict[str, str] = {}
 
@@ -206,11 +216,25 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         for d in cl.items:
             if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
                 edicts = d.contents.to_api_format()
-                exception_dicts.append(edicts)
-                for item in edicts:
-                    _collect_list_ids(item.get("entries", []))
+                list_id = edicts[0]["list_id"]
+                exception_list_map[list_id] = edicts
             elif isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids):
                 action_connectors_dicts.append(d.contents.to_api_format())
+
+        exception_dicts: list[list[dict[str, Any]]] = []
+        skipped_exception_lists: list[str] = []
+
+        for list_id, edicts in exception_list_map.items():
+            existing = ExceptionListResource.get(list_id)
+            if existing and not overwrite_exceptions:
+                skipped_exception_lists.append(list_id)
+                continue
+            if existing and overwrite_exceptions:
+                # delete to ensure the list matches the imported contents exactly
+                ExceptionListResource.delete(list_id)
+            for item in edicts:
+                _collect_list_ids(item.get("entries", []))
+            exception_dicts.append(edicts)
 
         imported_value_lists: list[str] = []
         skipped_value_lists: list[str] = []
@@ -258,6 +282,10 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
+        if skipped_exception_lists:
+            click.echo("Exception lists already exist and were not overwritten:")
+            ids_str = "\n - ".join(skipped_exception_lists)
+            click.echo(f" - {ids_str}")
         if imported_value_lists:
             click.echo(f"{len(imported_value_lists)} value list(s) successfully imported")
             ids_str = "\n - ".join(imported_value_lists)
