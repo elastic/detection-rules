@@ -54,7 +54,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by process.parent.entity_id with maxspan=3s
-  [process where event.type == "start" and event.action == "exec" and process.parent.executable != null and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and
    process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
    // Only including potentially suspicious locations
    process.args like~ ("-d*", "--d*") and process.working_directory like (
