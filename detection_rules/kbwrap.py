@@ -5,6 +5,7 @@
 
 """Kibana cli commands."""
 
+import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -121,6 +122,12 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     is_flag=True,
     help="Overwrite value lists referenced in exceptions",
 )
+@click.option(
+    "--exclude-exceptions",
+    "-ee",
+    multiple=True,
+    help="Exclude exception lists by name (supports wildcards)",
+)
 @click.pass_context
 def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
@@ -129,6 +136,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
     overwrite_value_lists: bool = False,
+    exclude_exceptions: tuple[str, ...] = (),
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import custom rules into Kibana."""
 
@@ -205,6 +213,10 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         exception_list_map: dict[str, list[dict[str, Any]]] = {}
         action_connectors_dicts: list[list[dict[str, Any]]] = []
         value_list_map: dict[str, str] = {}
+        exclusion_regexes = [re.compile(fnmatch.translate(pat), re.IGNORECASE) for pat in exclude_exceptions]
+
+        def _is_excluded(name: str) -> bool:
+            return any(rx.match(name) for rx in exclusion_regexes)
 
         # helper to gather all referenced value list IDs from exception entries
         def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
@@ -216,13 +228,27 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     _collect_list_ids(entry.get("entries", []))
 
         # iterate over collection items and separate exception lists/action connectors
+        excluded_exception_lists: list[str] = []
+        excluded_list_ids: set[str] = set()
         for d in cl.items:
             if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
+                name = d.contents.metadata.list_name
                 edicts = d.contents.to_api_format()
                 list_id = edicts[0]["list_id"]
+                if _is_excluded(name):
+                    excluded_exception_lists.append(name)
+                    excluded_list_ids.add(list_id)
+                    continue
                 exception_list_map[list_id] = edicts
             elif isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids):
                 action_connectors_dicts.append(d.contents.to_api_format())
+
+        if excluded_list_ids:
+            for rd in rule_dicts:
+                if "exceptions_list" in rd:
+                    rd["exceptions_list"] = [
+                        e for e in rd["exceptions_list"] if e.get("list_id") not in excluded_list_ids
+                    ]
 
         exception_dicts: list[list[dict[str, Any]]] = []
         skipped_exception_lists: list[str] = []
@@ -285,6 +311,10 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
+        if excluded_exception_lists:
+            click.echo("Exception lists excluded from import:")
+            ids_str = "\n - ".join(excluded_exception_lists)
+            click.echo(f" - {ids_str}")
         if skipped_exception_lists:
             click.echo("Exception lists already exist and were not overwritten:")
             ids_str = "\n - ".join(skipped_exception_lists)
