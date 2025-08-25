@@ -265,6 +265,8 @@ Options:
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
   -vl, --overwrite-value-lists    Overwrite value lists referenced in exceptions
+  -tt, --overwrite-timeline-templates
+                                  Overwrite timeline templates referenced in rules
   -ee, --exclude-exceptions TEXT  Exception list names to exclude (supports wildcards)
   -h, --help                      Show this message and exit.
 ```

@@ -381,9 +381,28 @@ class ValueListResource(BaseResource):
 
 
 class TimelineTemplateResource(BaseResource):
-    """Resource for exporting timeline templates."""
+    """Resource for managing timeline templates."""
 
     BASE_URI = "/api/timeline"
+
+    @classmethod
+    def get(cls, timeline_id: str) -> dict | None:
+        """Retrieve a timeline template by its ``templateTimelineId``.
+
+        Returns ``None`` if the template cannot be found.  The response may
+        include a ``status_code`` field when an error occurs while still
+        returning HTTP 200, so those cases are treated as missing as well.
+        """
+
+        kibana = Kibana.current()
+        response = kibana.get(
+            cls.BASE_URI,
+            params={"template_timeline_id": timeline_id},
+            error=False,
+        )
+        if isinstance(response, dict) and response.get("status_code") == 404:
+            return None
+        return response if isinstance(response, dict) else None
 
     @classmethod
     def resolve_saved_object_id(cls, timeline_id: str) -> str:
@@ -447,6 +466,33 @@ class TimelineTemplateResource(BaseResource):
             raise RuntimeError(response.text)
 
         return response.text
+
+    @classmethod
+    def import_template(cls, text: str) -> dict:
+        """Import a timeline template from its ndjson representation.
+
+        The import API requires ``version`` along with ``created`` and ``updated``
+        timestamps.  When these fields are absent (for example when templates
+        were exported with stripping options), sensible defaults are supplied so
+        the payload is accepted by Kibana.
+        """
+
+        payload = json.loads(text)
+        payload.setdefault("version", "1")
+        now_ms = int(datetime.datetime.utcnow().timestamp() * 1000)
+        payload.setdefault("created", now_ms)
+        payload.setdefault("updated", now_ms)
+        headers, raw_data = Kibana.ndjson_file_data_prep([payload], "timeline.ndjson")
+        return Kibana.current().post(f"{cls.BASE_URI}/_import", headers=headers, raw_data=raw_data)
+
+    @classmethod
+    def delete(cls, timeline_id: str) -> None:
+        """Delete a timeline template by its ``templateTimelineId``."""
+
+        saved_id = cls.resolve_saved_object_id(timeline_id)
+        Kibana.current().request(
+            "DELETE", cls.BASE_URI, data={"savedObjectIds": [saved_id]}
+        )
 
 
 class Signal(BaseResource):

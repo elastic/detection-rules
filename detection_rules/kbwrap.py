@@ -125,6 +125,12 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     help="Overwrite value lists referenced in exceptions",
 )
 @click.option(
+    "--overwrite-timeline-templates",
+    "-tt",
+    is_flag=True,
+    help="Overwrite timeline templates referenced in rules",
+)
+@click.option(
     "--exclude-exceptions",
     "-ee",
     multiple=True,
@@ -138,6 +144,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
     overwrite_value_lists: bool = False,
+    overwrite_timeline_templates: bool = False,
     exclude_exceptions: tuple[str, ...] = (),
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import custom rules into Kibana."""
@@ -210,6 +217,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     kibana = ctx.obj["kibana"]
     rule_dicts = [r.contents.to_api_format() for r in rules]
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
+    timeline_ids = {rule["timeline_id"] for rule in rule_dicts if rule.get("timeline_id")}
     with kibana:
         cl = GenericCollection.default()
         exception_list_map: dict[str, list[dict[str, Any]]] = {}
@@ -295,6 +303,36 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             ValueListResource.import_list_items(list_id, text, list_type)
             imported_value_lists.append(list_id)
 
+        # begin handling timeline templates referenced in the rules
+        imported_timeline_templates: list[str] = []
+        skipped_timeline_templates: list[str] = []
+        missing_timeline_templates: list[str] = []
+        timeline_template_dir = RULES_CONFIG.timeline_template_dir
+        for t_id in timeline_ids:
+            # resolve each timeline ID to a file within the configured directory
+            file_path = (
+                timeline_template_dir / f"{t_id}.json" if timeline_template_dir else None
+            )
+            if not file_path or not file_path.exists():
+                missing_timeline_templates.append(t_id)
+                continue
+            text = file_path.read_text()
+            existing = TimelineTemplateResource.get(t_id)
+            if existing and not overwrite_timeline_templates:
+                skipped_timeline_templates.append(t_id)
+                continue
+            if existing and overwrite_timeline_templates:
+                try:
+                    # importing over an existing template may fail if a conflict occurs
+                    TimelineTemplateResource.import_template(text)
+                except Exception:  # noqa: BLE001
+                    # fall back to deleting and re-importing to fully replace the template
+                    TimelineTemplateResource.delete(t_id)
+                    TimelineTemplateResource.import_template(text)
+            else:
+                TimelineTemplateResource.import_template(text)
+            imported_timeline_templates.append(t_id)
+
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,
             exception_dicts,
@@ -332,6 +370,20 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         if missing_value_lists:
             click.echo("Value list files not found:")
             ids_str = "\n - ".join(missing_value_lists)
+            click.echo(f" - {ids_str}")
+        if imported_timeline_templates:
+            click.echo(
+                f"{len(imported_timeline_templates)} timeline template(s) successfully imported"
+            )
+            ids_str = "\n - ".join(imported_timeline_templates)
+            click.echo(f" - {ids_str}")
+        if skipped_timeline_templates:
+            click.echo("Timeline templates already exist and were not overwritten:")
+            ids_str = "\n - ".join(skipped_timeline_templates)
+            click.echo(f" - {ids_str}")
+        if missing_timeline_templates:
+            click.echo("Timeline template files not found:")
+            ids_str = "\n - ".join(missing_timeline_templates)
             click.echo(f" - {ids_str}")
 
     return response, results  # type: ignore[reportUnknownVariableType]
