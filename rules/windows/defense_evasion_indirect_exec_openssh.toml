@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2025/08/21"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to execute commands via proxy using the Windows OpenSSH client. This may indicate an attempt to bypass
+application control via trusted windows binaries.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Proxy Execution via Windows OpenSSH"
+note = """## Triage and analysis
+
+### Investigating Proxy Execution via Windows OpenSSH
+
+### Possible investigation steps
+
+- Review the ssh child processes and the parent process to identify the initial vector.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+
+### False positive analysis
+
+- This is a dual-use tool, meaning its usage is not inherently malicious. Analysts can dismiss the alert if the administrator is aware of the activity, no other suspicious activity was identified.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://lolbas-project.github.io/lolbas/Binaries/Ssh/"]
+risk_score = 73
+rule_id = "8cd49fbc-a35a-4418-8688-133cc3a1e548"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.name : ("ssh.exe", "sftp.exe") and
+ process.command_line : ("*Command=*powershell*", "*schtasks*", "*Command=*@echo off*", "*Command=*http*", "*Command=*mshta*",  "*Command=*msiexec*",
+                          "*Command=*cmd /c*", "*Command=*cmd.exe*", "*Command=\"cmd /c*", "*LocalCommand=scp*&&*", "*LocalCommand=?scp*&&*", "*Command=*script*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
