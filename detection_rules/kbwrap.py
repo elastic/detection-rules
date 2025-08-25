@@ -206,13 +206,16 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         action_connectors_dicts: list[list[dict[str, Any]]] = []
         value_list_map: dict[str, str] = {}
 
+        # helper to gather all referenced value list IDs from exception entries
         def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
             for entry in entries:
                 if entry.get("type") == "list" and entry.get("list"):
                     value_list_map[entry["list"]["id"]] = entry["list"].get("type", "keyword")
                 elif entry.get("type") == "nested":
+                    # recurse into nested entries to find any further value list references
                     _collect_list_ids(entry.get("entries", []))
 
+        # iterate over collection items and separate exception lists/action connectors
         for d in cl.items:
             if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
                 edicts = d.contents.to_api_format()
@@ -226,6 +229,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         for list_id, edicts in exception_list_map.items():
             existing = ExceptionListResource.get(list_id)
+            # decide whether to skip or overwrite existing exception lists
             if existing and not overwrite_exceptions:
                 skipped_exception_lists.append(list_id)
                 continue
@@ -233,9 +237,11 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 # delete to ensure the list matches the imported contents exactly
                 ExceptionListResource.delete(list_id)
             for item in edicts:
+                # collect value list IDs from each exception item for later processing
                 _collect_list_ids(item.get("entries", []))
             exception_dicts.append(edicts)
 
+        # begin handling value lists referenced by the exceptions above
         imported_value_lists: list[str] = []
         skipped_value_lists: list[str] = []
         missing_value_lists: list[str] = []
