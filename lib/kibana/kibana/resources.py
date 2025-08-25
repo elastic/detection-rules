@@ -387,22 +387,57 @@ class TimelineTemplateResource(BaseResource):
 
     @classmethod
     def export_template(cls, timeline_id: str) -> str:
-        """Export a timeline template as NDJSON text.
+        """Export a timeline template referenced by ``timeline_id``.
 
-        Raise an error if the template is missing or the API responds with a
-        non-success status so callers can handle failures explicitly.
+        The ``timeline_id`` stored on rules corresponds to the template's
+        ``templateTimelineId`` rather than the saved object ID required by the
+        export API.  To retrieve the actual saved object ID, the method first
+        resolves the template and then requests an export of that object.
+
+        An error is raised if the template cannot be resolved or if the export
+        API returns an unexpected status code or a response payload containing a
+        ``statusCode`` field (which Kibana uses to report errors while still
+        responding with HTTP 200).
         """
-        response = Kibana.current().post(
+
+        kibana = Kibana.current()
+
+        # Resolve the template ID to a saved object ID
+        resolved = kibana.get(
+            f"{cls.BASE_URI}/resolve",
+            params={"template_timeline_id": timeline_id},
+            error=False,
+        )
+        if isinstance(resolved, dict) and resolved.get("statusCode"):
+            raise RuntimeError(resolved.get("message", f"timeline {timeline_id} not found"))
+
+        saved_id = resolved.get("timeline", {}).get("savedObjectId")
+        if not saved_id:
+            raise RuntimeError(f"timeline {timeline_id} not found")
+
+        # Export the timeline template using the saved object ID
+        response = kibana.post(
             f"{cls.BASE_URI}/_export",
             params={"file_name": timeline_id},
-            data={"ids": [timeline_id]},
+            data={"ids": [saved_id]},
             raw=True,
             error=False,
         )
         if response.status_code != 200:
             raise RuntimeError(
-                response.text or f"unexpected status {response.status_code} for timeline {timeline_id}"
+                response.text
+                or f"unexpected status {response.status_code} for timeline {timeline_id}"
             )
+
+        first_line = response.text.splitlines()[0] if response.text else ""
+        try:
+            payload = json.loads(first_line)
+        except json.JSONDecodeError:
+            payload = None
+
+        if isinstance(payload, dict) and payload.get("statusCode"):
+            raise RuntimeError(response.text)
+
         return response.text
 
 

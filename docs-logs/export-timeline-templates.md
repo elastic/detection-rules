@@ -1,1 +1,3 @@
 Added the ability for the `kibana export-rules` command to optionally export timeline templates referenced by rules. The command now accepts an `--export-timeline-templates` flag and a `--timeline-templates-directory` (`-ttd`) option to choose where templates are saved. The Kibana helper library gained a `TimelineTemplateResource` with an `export_template` method for calling `/api/timeline/_export`.
+
+Later refined the helper to resolve template IDs to saved object IDs using `/api/timeline/resolve` and to raise errors when the export endpoint embeds a `statusCode` in the response body, ensuring missing templates are surfaced instead of writing placeholder files.
