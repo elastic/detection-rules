@@ -5,8 +5,10 @@
 
 import copy
 import datetime
+import fnmatch
 import functools
 import os
+import re
 import typing
 from collections.abc import Callable
 from pathlib import Path
@@ -75,6 +77,16 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     )
     @click.option("--rule-id", "-id", multiple=True, required=False)
     @click.option(
+        "--rule-name",
+        "-rn",
+        multiple=True,
+        required=False,
+        help=(
+            "Optional Rule name to restrict to (case-insensitive, supports wildcards). "
+            "May be specified multiple times."
+        ),
+    )
+    @click.option(
         "--no-tactic-filename",
         "-nt",
         is_flag=True,
@@ -84,16 +96,22 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(f)
     def get_collection(*args: Any, **kwargs: Any) -> Any:
         rule_id: list[str] = kwargs.pop("rule_id", [])
+        rule_name: list[str] = kwargs.pop("rule_name", [])
         rule_files: list[str] = kwargs.pop("rule_file")
         directories: list[str] = list(kwargs.pop("directory"))
         no_tactic_filename: bool = kwargs.pop("no_tactic_filename", False)
 
-        if not (directories or rule_id or rule_files):
+        if rule_id and rule_name:
+            raise_client_error("Cannot use --rule-id and --rule-name together. Please choose one.")
+
+        if not (directories or rule_id or rule_files or rule_name):
             default_dir = get_default_rule_dir()
             if default_dir:
                 directories = [str(default_dir)]
             elif not (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
-                raise_client_error("Required: at least one of --rule-id, --rule-file, or --directory")
+                raise_client_error(
+                    "Required: at least one of --rule-id, --rule-name, --rule-file, or --directory"
+                )
 
         rules = RuleCollection()
         rules.load_files(Path(p) for p in rule_files)
@@ -110,6 +128,10 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
                 raise_client_error(f"Could not find rules with IDs: {', '.join(missing)}")
         elif not rule_files and not directories:
             rules.load_directories(Path(d) for d in (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS))
+
+        if rule_name:
+            patterns = [re.compile(fnmatch.translate(name), re.IGNORECASE) for name in rule_name]
+            rules = rules.filter(lambda r: any(pat.match(r.name) for pat in patterns))
 
         if len(rules) == 0:
             raise_client_error("No rules found")

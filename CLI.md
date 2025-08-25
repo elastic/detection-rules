@@ -259,6 +259,8 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
+  -rn, --rule-name TEXT           Optional Rule name to restrict import to (case-insensitive,
+                                  supports wildcards). May be specified multiple times.
   -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -o, --overwrite                 Overwrite existing rules
   -e, --overwrite-exceptions      Overwrite existing exception lists instead of skipping them
