@@ -207,6 +207,7 @@ class RulesConfig:
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
     value_list_dir: Path | None = None
+    timeline_template_dir: Path | None = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
@@ -306,6 +307,8 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
             contents["action_connector_dir"] = base_dir.joinpath(directories.get("action_connector_dir")).resolve()
         if directories.get("value_list_dir"):
             contents["value_list_dir"] = base_dir.joinpath(directories.get("value_list_dir")).resolve()
+        if directories.get("timeline_template_dir"):
+            contents["timeline_template_dir"] = base_dir.joinpath(directories.get("timeline_template_dir")).resolve()
 
     # version strategy
     contents["bypass_version_lock"] = loaded.get("bypass_version_lock", False)

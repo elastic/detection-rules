@@ -380,6 +380,29 @@ class ValueListResource(BaseResource):
         return response.text
 
 
+class TimelineTemplateResource(BaseResource):
+    """Resource for exporting timeline templates."""
+
+    BASE_URI = "/api/timeline"
+
+    @classmethod
+    def export_template(cls, timeline_id: str) -> str | None:
+        """Export a timeline template as NDJSON text.
+
+        Returns ``None`` if the timeline template does not exist.
+        """
+        response = Kibana.current().post(
+            f"{cls.BASE_URI}/_export",
+            params={"file_name": timeline_id},
+            data={"ids": [timeline_id]},
+            raw=True,
+            error=False,
+        )
+        if response.status_code == 404:
+            return None
+        return response.text
+
+
 class Signal(BaseResource):
     BASE_URI = "/api/detection_engine/signals"
 

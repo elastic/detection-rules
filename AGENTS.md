@@ -61,8 +61,8 @@ python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules
 # test rule export
 python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
     -acd $CUSTOM_RULES_DIR/action_connectors -ed $CUSTOM_RULES_DIR/exceptions \
-    -vld $CUSTOM_RULES_DIR/value_lists -da SOC \
-    --export-action-connectors --export-exceptions --export-value-lists --strip-version
+    -vld $CUSTOM_RULES_DIR/value_lists -ttd $CUSTOM_RULES_DIR/timeline_templates -da SOC \
+    --export-action-connectors --export-exceptions --export-value-lists --export-timeline-templates --strip-version
 ```
 
 ## Genereal Information

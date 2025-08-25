@@ -17,6 +17,7 @@ from kibana import (
     ExceptionListResource,
     RuleResource,
     Signal,
+    TimelineTemplateResource,
     ValueListResource,
 )  # type: ignore[reportMissingTypeStubs]
 
@@ -342,6 +343,13 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
 )
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
 @click.option("--value-list-directory", "-vld", required=False, type=Path, help="Directory to export value lists to")
+@click.option(
+    "--timeline-templates-directory",
+    "-ttd",
+    required=False,
+    type=Path,
+    help="Directory to export timeline templates to",
+)
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
 @click.option(
@@ -357,6 +365,12 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--export-value-lists", "-vl", is_flag=True, help="Include value lists referenced in exceptions")
+@click.option(
+    "--export-timeline-templates",
+    "-tt",
+    is_flag=True,
+    help="Include timeline templates referenced in rules",
+)
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from exported rules")
@@ -388,12 +402,14 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     action_connectors_directory: Path | None,
     exceptions_directory: Path | None,
     value_list_directory: Path | None,
+    timeline_templates_directory: Path | None,
     default_author: str,
     rule_id: list[str] | None = None,
     rule_name: list[str] | None = None,
     export_action_connectors: bool = False,
     export_exceptions: bool = False,
     export_value_lists: bool = False,
+    export_timeline_templates: bool = False,
     skip_errors: bool = False,
     strip_version: bool = False,
     strip_dates: bool = False,
@@ -463,6 +479,13 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     value_list_directory = value_list_directory or RULES_CONFIG.value_list_dir
     if not value_list_directory and export_value_lists:
         click.echo("Warning: Value list export requested, but no Value list directory found")
+
+    # Handle Timeline Template Directory Location
+    if results and timeline_templates_directory:
+        timeline_templates_directory.mkdir(parents=True, exist_ok=True)
+    timeline_templates_directory = timeline_templates_directory or RULES_CONFIG.timeline_template_dir
+    if not timeline_templates_directory and export_timeline_templates:
+        click.echo("Warning: Timeline template export requested, but no Timeline template directory found")
 
     if results:
         directory.mkdir(parents=True, exist_ok=True)
@@ -595,6 +618,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         errors.extend(ac_errors)
 
     saved: list[TOMLRule] = []
+    timeline_ids: set[str] = set()
     for rule in exported:
         try:
             rule.save_toml()
@@ -606,6 +630,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             raise
 
         saved.append(rule)
+        if export_timeline_templates:
+            t_id = rule.contents.data.timeline_id  # type: ignore[reportUnknownMemberType]
+            if t_id:
+                timeline_ids.add(t_id)
 
     saved_exceptions: list[TOMLException] = []
 
@@ -654,6 +682,28 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                         continue
                     raise
 
+    timeline_template_exported: list[str] = []
+    saved_timeline_templates: list[str] = []
+    missing_timeline_templates: list[str] = []
+    if export_timeline_templates and timeline_ids:
+        with kibana:
+            for t_id in sorted(timeline_ids):
+                try:
+                    text = TimelineTemplateResource.export_template(t_id)
+                    if not text:
+                        missing_timeline_templates.append(t_id)
+                        continue
+                    timeline_template_exported.append(t_id)
+                    if timeline_templates_directory:
+                        (timeline_templates_directory / f"{t_id}.json").write_text(text)
+                        saved_timeline_templates.append(t_id)
+                except Exception as e:
+                    if skip_errors:
+                        print(f"- skipping timeline template {t_id} - {type(e).__name__}")
+                        errors.append(f"- {t_id} - {e}")
+                        continue
+                    raise
+
     saved_action_connectors: list[TOMLActionConnector] = []
     for action in action_connectors:
         try:
@@ -672,10 +722,16 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(action_connectors)} action connectors exported")
     click.echo(f"{len(value_list_exported)} value lists exported")
+    click.echo(f"{len(timeline_template_exported)} timeline templates exported")
     click.echo(f"{len(saved)} rules saved to {directory}")
     click.echo(f"{len(saved_exceptions)} exception lists saved to {exceptions_directory}")
     click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
     click.echo(f"{len(saved_value_lists)} value lists saved to {value_list_directory}")
+    click.echo(f"{len(saved_timeline_templates)} timeline templates saved to {timeline_templates_directory}")
+    if missing_timeline_templates:
+        click.echo("Timeline templates not found:")
+        ids_str = "\n - ".join(missing_timeline_templates)
+        click.echo(f" - {ids_str}")
     if errors:
         err_file = directory / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
