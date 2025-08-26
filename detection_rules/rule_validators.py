@@ -642,6 +642,22 @@ class ESQLValidator(QueryValidator):
         pass
 
 
+def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
+    """Convert a flat schema to a nested schema with 'properties' for each sub-key."""
+    nested_schema = {}
+
+    for key, value in flat_schemas.items():
+        parts = key.split(".")
+        current_level = nested_schema
+
+        for part in parts[:-1]:
+            current_level = current_level.setdefault(part, {}).setdefault("properties", {})
+
+        current_level[parts[-1]] = {"type": value}
+
+    return nested_schema
+
+
 def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:
     """Extract the field name from an EQL or KQL parse error."""
     lines = source.splitlines()
@@ -761,7 +777,16 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     combine_dicts(combined_mappings, existing_mappings)
     combine_dicts(combined_mappings, integration_mappings)
     # NOTE non-ecs schema needs to have formatting updates prior to merge
-    # combine_dicts(combined_mappings, ecs.get_non_ecs_schema())
+    # NOTE non-ecs schema uses Kibana reserved word "properties" as a field name
+    # e.g. "azure.auditlogs.properties.target_resources.0.display_name": "keyword",
+    non_ecs_mapping = {}
+    non_ecs = ecs.get_non_ecs_schema()
+    for index in indices:
+        non_ecs_mapping.update(non_ecs.get(index, {}))
+    non_ecs_mapping = ecs.flatten(non_ecs_mapping)
+    non_ecs_mapping = convert_to_nested_schema(non_ecs_mapping)
+    if non_ecs_mapping:
+        combine_dicts(combined_mappings, non_ecs_mapping)
 
     if not combined_mappings:
         log("ERROR: no mappings found for the rule")
