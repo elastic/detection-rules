@@ -2,7 +2,7 @@
 creation_date = "2025/03/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -164,7 +164,10 @@ destination.domain : (
     i.imgur.com or
     the.earth.li or
     *.trycloudflare.com
-)
+) and 
+not (destination.domain : (*.sharepoint.com or *.azurewebsites.net or "onedrive.live.com" or *.b-cdn.net or api.onedrive.com or "drive.google.com" or *.blogspot.com) and process.code_signature.subject_name:(*Microsoft* or "Software Signing" or "Apple Mac OS Application Signing" or *VMware*) and process.code_signature.trusted:true) and 
+not (process.code_signature.subject_name:(*Mozilla* or *Google* or *Brave* or *Opera* or "Software Signing" or *Zscaler* or *Browser*) and process.code_signature.trusted:true)  and 
+not (destination.domain :("discord.com" or cdn.discordapp.com or "content.dropboxapi.com" or "dl.dropboxusercontent.com") and process.code_signature.subject_name :(*Discord* or *Dropbox*) and process.code_signature.trusted:true)
 '''
 
 [[rule.threat]]
