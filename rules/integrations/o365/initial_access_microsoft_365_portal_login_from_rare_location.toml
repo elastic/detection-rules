@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -13,19 +13,58 @@ commonly associated with the user's account. This behavior may indicate an adver
 """
 false_positives = [
     """
-    False positives may occur when users are using a VPN or when users are traveling to different locations.
+    False positives may occur when users are using a VPN or when users are traveling to different locations"
+    """,
+    """
+    Mobile access may also result in false positives, as users may log in from various locations while on the go.
     """,
 ]
 from = "now-9m"
 index = ["filebeat-*", "logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Microsoft 365 Portal Login from Rare Location"
+name = "Microsoft 365 Portal Login (Atypical Travel)"
+note = """## Triage and analysis
+
+### Investigating Microsoft 365 Portal Login (Atypical Travel)
+
+Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon locations, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access attempts by analyzing login events and user location patterns.
+
+### Possible investigation steps
+
+- Review the user associated with these sign-ins to determine if the login attempt was legitimate or if further investigation is needed.
+- Analyze the geographic locations of the logins to identify any patterns or anomalies that may indicate malicious activity.
+- Review the ISP information for the login attempts to identify any unusual or suspicious providers.
+- Review the authorization request type to understand the context of the login attempts and whether they align with the user's typical behavior.
+- Analyze the client application used for the login attempts to determine if it is consistent with the user's normal usage patterns (Teams, Office, etc.)
+- Analyze the user-agent associated with the login attempts to identify any unusual or suspicious patterns.
+
+### False positive analysis
+
+- Users traveling or using VPNs may trigger this alert. Verify with the user if they were traveling or using a VPN at the time of the login attempt.
+- Mobile access may also result in false positives, as users may log in from various locations while on the go.
+
+### Response and remediation
+
+- Investigate the login attempt further by checking for any additional context or related events that may provide insight into the user's behavior.
+- If the login attempt is deemed suspicious, consider implementing additional security measures, such as requiring multi-factor authentication (MFA) for logins from unusual locations.
+- Educate users about the risks of accessing corporate resources from unfamiliar locations and the importance of using secure connections (e.g., VPNs) when doing so.
+- Monitor for any subsequent login attempts from the same location or IP address to identify potential patterns of malicious activity.
+"""
 references = ["https://www.huntress.com/blog/time-travelers-busted-how-to-detect-impossible-travel-"]
 risk_score = 47
 rule_id = "32d3ad0e-6add-11ef-8c7b-f661ea17fbcc"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Threat Detection", "Tactic: Initial Access", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "User Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -35,44 +74,27 @@ event.dataset: "o365.audit"
     and event.action: "UserLoggedIn"
     and event.outcome: "success"
     and not o365.audit.UserId: "Not Available"
+    and o365.audit.UserId: *
+    and source.geo.country_iso_code: *
+    and o365.audit.Target.ID: (
+        "00000006-0000-0ff1-ce00-000000000000" or
+        "4765445b-32c6-49b0-83e6-1d93765276ca"
+    )
     and o365.audit.Target.Type: ("0" or "2" or "3" or "5" or "6" or "10")
+    and not o365.audit.ApplicationId: (
+        "38aa3b87-a06d-4817-b275-7a316988d93b" or
+        "29d9ed98-a469-4536-ade2-f981bc1d605e" or
+        "a809996b-059e-42e2-9866-db24b99a9782"
+    )
+    and not o365.audit.ExtendedProperties.RequestType: (
+        "Login:resume" or
+        "Login:reprocess" or
+        "Consent:Set" or
+        "Cmsi:Cmsi" or
+        "MessagePrompt:MessagePrompt" or
+        "SAS:EndAuth"
+    )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Portal Login from Rare Location
-
-Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon locations, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access attempts by analyzing login events and user location patterns.
-
-### Possible investigation steps
-
-- Review the login event details from the o365.audit dataset to confirm the user's identity and the timestamp of the login.
-- Analyze the location data associated with the login event to determine if it is indeed rare or unusual for the user's typical access patterns.
-- Check the user's recent login history to identify any other logins from the same rare location or any other unusual locations.
-- Investigate the IP address used during the login to determine if it is associated with known VPN services or suspicious activity.
-- Contact the user to verify if they initiated the login from the rare location or if they are aware of any unauthorized access attempts.
-- Examine any recent changes to the user's account settings or permissions that could indicate compromise or unauthorized access.
-- Correlate this event with other security alerts or logs to identify any patterns or additional indicators of compromise.
-
-### False positive analysis
-
-- Users traveling frequently may trigger alerts due to logins from new locations. Implement a process to update known travel patterns for these users to reduce false positives.
-- Employees using VPNs for legitimate purposes might appear to log in from rare locations. Maintain a list of approved VPN IP addresses and exclude them from triggering alerts.
-- Remote workers who occasionally connect from different locations can cause false positives. Establish a baseline of expected locations for these users and adjust the detection rule accordingly.
-- Shared accounts accessed by multiple users from different locations can lead to false alerts. Consider monitoring these accounts separately and applying stricter access controls.
-- Temporary relocations, such as business trips or remote work arrangements, may result in unusual login locations. Communicate with users to anticipate these changes and adjust the detection parameters temporarily.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
-- Notify the user and relevant IT security personnel about the suspicious login activity to ensure awareness and initiate further investigation.
-- Conduct a password reset for the affected account and enforce multi-factor authentication (MFA) if not already enabled to enhance account security.
-- Review and analyze recent activity logs for the affected account to identify any unauthorized actions or data access that may have occurred.
-- If unauthorized access is confirmed, initiate a security incident response plan, including data breach notification procedures if necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems or accounts are compromised.
-- Implement geo-blocking or conditional access policies to restrict access from rare or high-risk locations, reducing the likelihood of similar incidents in the future."""
 
 
 [[rule.threat]]
@@ -93,9 +115,21 @@ id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "organization.id",
+    "o365.audit.UserId",
+    "o365.audit.ActorIpAddress",
+    "o365.audit.ApplicationId",
+    "o365.audit.ExtendedProperties.RequestType",
+    "o365.audit.Target.ID",
+    "source.geo.region_iso_code",
+]
+
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.geo.country_name"]
+value = ["o365.audit.UserId", "source.geo.region_country_iso_code"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
