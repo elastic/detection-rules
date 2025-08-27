@@ -294,9 +294,11 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 skipped_value_lists.append(list_id)
                 continue
             if existing and overwrite_value_lists:
-                # deleting avoids duplicate items when re-importing
-                ValueListResource.delete(list_id)
-            if not existing or overwrite_value_lists:
+                # Deleting the list itself fails when it is referenced by
+                # active exception items. Instead clear its contents and
+                # re-import to avoid duplicate entries.
+                ValueListResource.delete_list_items(list_id)
+            else:
                 # /items/_import only uploads items and does not create the list itself
                 ValueListResource.create(list_id, list_type)
             # now populate the value list with its newline-delimited contents

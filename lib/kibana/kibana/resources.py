@@ -379,6 +379,38 @@ class ValueListResource(BaseResource):
         )
         return response.text
 
+    @classmethod
+    def find_list_items(cls, list_id: str, *, cursor: str | None = None, per_page: int = 1000) -> dict:
+        """Retrieve items from a value list using ``/api/lists/items/_find``.
+
+        Parameters correspond to the REST API. ``cursor`` and ``per_page``
+        support paginating through large lists. The response contains a
+        ``data`` array and a ``cursor`` for the next page.
+        """
+        params = {"list_id": list_id, "per_page": per_page}
+        if cursor:
+            params["cursor"] = cursor
+        return Kibana.current().get(f"{cls.BASE_URI}/items/_find", params=params)
+
+    @classmethod
+    def delete_list_item(cls, item_id: str) -> None:
+        """Delete a single value list item by its ``id``."""
+        Kibana.current().delete(f"{cls.BASE_URI}/items", params={"id": item_id}, error=False)
+
+    @classmethod
+    def delete_list_items(cls, list_id: str) -> None:
+        """Remove all items from a value list without deleting the list itself.
+
+        Lists referenced by exception items cannot be deleted outright. When
+        overwriting a list we first fetch all existing items and delete them one
+        by one to avoid duplicate entries on re-import.
+        """
+        response = cls.find_list_items(list_id, per_page=10_000)
+        for item in response.get("data", []):
+            item_id = item.get("id")
+            if item_id:
+                cls.delete_list_item(item_id)
+
 
 class TimelineTemplateResource(BaseResource):
     """Resource for managing timeline templates."""
