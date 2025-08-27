@@ -262,10 +262,14 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         exception_dicts: list[list[dict[str, Any]]] = []
         skipped_exception_lists: list[str] = []
+        failed_exception_lists: list[str] = []
 
         for list_id, edicts in exception_list_map.items():
-            # todo handle errors here
-            existing = ExceptionListResource.get(list_id)
+            try:
+                existing = ExceptionListResource.get(list_id)
+            except Exception as exc:  # noqa: BLE001
+                failed_exception_lists.append(f"{list_id}: {exc}")
+                continue
             # decide whether to skip or overwrite existing exception lists
             if existing and not overwrite_exceptions:
                 skipped_exception_lists.append(list_id)
@@ -279,20 +283,25 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         imported_value_lists: list[str] = []
         skipped_value_lists: list[str] = []
         missing_value_lists: list[str] = []
+        failed_value_lists: list[str] = []
         value_list_dir = RULES_CONFIG.value_list_dir
         if value_list_map:
             # the value list APIs expect an index to exist, so ensure it's created once
-            # todo it returns error now if it already exists. So handle this specific error here and be fine if its already there,
-                # maybe that was a 409, but check the docs-api again for this.
-            ValueListResource.create_index()
+            try:
+                ValueListResource.create_index()
+            except Exception as exc:  # noqa: BLE001
+                failed_value_lists.append(f"index: {exc}")
         for list_id, list_type in value_list_map.items():
             file_path = value_list_dir / list_id if value_list_dir else None
             if not file_path or not file_path.exists():
                 missing_value_lists.append(list_id)
                 continue
             text = file_path.read_text()
-            # todo handle errors here too
-            existing = ValueListResource.get(list_id)
+            try:
+                existing = ValueListResource.get(list_id)
+            except Exception as exc:  # noqa: BLE001
+                failed_value_lists.append(f"{list_id}: {exc}")
+                continue
             if existing and not overwrite_value_lists:
                 # skip existing lists unless --overwrite-value-lists is provided
                 skipped_value_lists.append(list_id)
@@ -301,21 +310,31 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 # Deleting the list itself fails when it is referenced by
                 # active exception items. Instead clear its contents and
                 # re-import to avoid duplicate entries.
-                # todo handle errors here too
-                ValueListResource.delete_list_items(list_id)
+                try:
+                    ValueListResource.delete_list_items(list_id)
+                except Exception as exc:  # noqa: BLE001
+                    failed_value_lists.append(f"{list_id}: {exc}")
+                    continue
             else:
                 # /items/_import only uploads items and does not create the list itself
-                # todo handle errors here too
-                ValueListResource.create(list_id, list_type)
+                try:
+                    ValueListResource.create(list_id, list_type)
+                except Exception as exc:  # noqa: BLE001
+                    failed_value_lists.append(f"{list_id}: {exc}")
+                    continue
             # now populate the value list with its newline-delimited contents
-            # todo handle errors here too
-            ValueListResource.import_list_items(list_id, text, list_type)
+            try:
+                ValueListResource.import_list_items(list_id, text, list_type)
+            except Exception as exc:  # noqa: BLE001
+                failed_value_lists.append(f"{list_id}: {exc}")
+                continue
             imported_value_lists.append(list_id)
 
         # begin handling timeline templates referenced in the rules
         imported_timeline_templates: list[str] = []
         skipped_timeline_templates: list[str] = []
         missing_timeline_templates: list[str] = []
+        failed_timeline_templates: list[str] = []
         timeline_template_dir = RULES_CONFIG.timeline_template_dir
         for t_id in timeline_ids:
             # resolve each timeline ID to a file within the configured directory
@@ -326,8 +345,11 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 missing_timeline_templates.append(t_id)
                 continue
             text = file_path.read_text()
-            # todo handle errors here too
-            existing = TimelineTemplateResource.get(t_id)
+            try:
+                existing = TimelineTemplateResource.get(t_id)
+            except Exception as exc:  # noqa: BLE001
+                failed_timeline_templates.append(f"{t_id}: {exc}")
+                continue
             if existing and not overwrite_timeline_templates:
                 skipped_timeline_templates.append(t_id)
                 continue
@@ -336,12 +358,19 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     # importing over an existing template may fail if a conflict occurs
                     TimelineTemplateResource.import_template(text)
                 except Exception:  # noqa: BLE001
-                    # fall back to deleting and re-importing to fully replace the template
-                    TimelineTemplateResource.delete(t_id)
-                    TimelineTemplateResource.import_template(text)
+                    try:
+                        # fall back to deleting and re-importing to fully replace the template
+                        TimelineTemplateResource.delete(t_id)
+                        TimelineTemplateResource.import_template(text)
+                    except Exception as exc:  # noqa: BLE001
+                        failed_timeline_templates.append(f"{t_id}: {exc}")
+                        continue
             else:
-                # todo handle errors here too
-                TimelineTemplateResource.import_template(text)
+                try:
+                    TimelineTemplateResource.import_template(text)
+                except Exception as exc:  # noqa: BLE001
+                    failed_timeline_templates.append(f"{t_id}: {exc}")
+                    continue
             imported_timeline_templates.append(t_id)
 
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
@@ -354,7 +383,9 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         )
 
     if successful_rule_ids:
-        click.echo(f"{len(successful_rule_ids)} rule(s) successfully imported")  # type: ignore[reportUnknownArgumentType]
+        click.echo(
+            f"{len(successful_rule_ids)} rule(s) successfully imported"
+        )  # type: ignore[reportUnknownArgumentType]
         rule_str = "\n - ".join(successful_rule_ids)  # type: ignore[reportUnknownArgumentType]
         click.echo(f" - {rule_str}")
     if response["errors"]:
@@ -362,40 +393,55 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
-        if excluded_exception_lists:
-            click.echo("Exception lists excluded from import:")
-            ids_str = "\n - ".join(excluded_exception_lists)
-            click.echo(f" - {ids_str}")
-        if skipped_exception_lists:
-            click.echo("Exception lists already exist and were not overwritten:")
-            ids_str = "\n - ".join(skipped_exception_lists)
-            click.echo(f" - {ids_str}")
-        if imported_value_lists:
-            click.echo(f"{len(imported_value_lists)} value list(s) successfully imported")
-            ids_str = "\n - ".join(imported_value_lists)
-            click.echo(f" - {ids_str}")
-        if skipped_value_lists:
-            click.echo("Value lists already exist and were not overwritten:")
-            ids_str = "\n - ".join(skipped_value_lists)
-            click.echo(f" - {ids_str}")
-        if missing_value_lists:
-            click.echo("Value list files not found:")
-            ids_str = "\n - ".join(missing_value_lists)
-            click.echo(f" - {ids_str}")
-        if imported_timeline_templates:
-            click.echo(
-                f"{len(imported_timeline_templates)} timeline template(s) successfully imported"
-            )
-            ids_str = "\n - ".join(imported_timeline_templates)
-            click.echo(f" - {ids_str}")
-        if skipped_timeline_templates:
-            click.echo("Timeline templates already exist and were not overwritten:")
-            ids_str = "\n - ".join(skipped_timeline_templates)
-            click.echo(f" - {ids_str}")
-        if missing_timeline_templates:
-            click.echo("Timeline template files not found:")
-            ids_str = "\n - ".join(missing_timeline_templates)
-            click.echo(f" - {ids_str}")
+
+    if excluded_exception_lists:
+        click.echo("Exception lists excluded from import:")
+        ids_str = "\n - ".join(excluded_exception_lists)
+        click.echo(f" - {ids_str}")
+    if skipped_exception_lists:
+        click.echo("Exception lists already exist and were not overwritten:")
+        ids_str = "\n - ".join(skipped_exception_lists)
+        click.echo(f" - {ids_str}")
+    if failed_exception_lists:
+        click.echo("Exception list errors:")
+        ids_str = "\n - ".join(failed_exception_lists)
+        click.echo(f" - {ids_str}")
+
+    if imported_value_lists:
+        click.echo(f"{len(imported_value_lists)} value list(s) successfully imported")
+        ids_str = "\n - ".join(imported_value_lists)
+        click.echo(f" - {ids_str}")
+    if skipped_value_lists:
+        click.echo("Value lists already exist and were not overwritten:")
+        ids_str = "\n - ".join(skipped_value_lists)
+        click.echo(f" - {ids_str}")
+    if missing_value_lists:
+        click.echo("Value list files not found:")
+        ids_str = "\n - ".join(missing_value_lists)
+        click.echo(f" - {ids_str}")
+    if failed_value_lists:
+        click.echo("Value list errors:")
+        ids_str = "\n - ".join(failed_value_lists)
+        click.echo(f" - {ids_str}")
+
+    if imported_timeline_templates:
+        click.echo(
+            f"{len(imported_timeline_templates)} timeline template(s) successfully imported"
+        )
+        ids_str = "\n - ".join(imported_timeline_templates)
+        click.echo(f" - {ids_str}")
+    if skipped_timeline_templates:
+        click.echo("Timeline templates already exist and were not overwritten:")
+        ids_str = "\n - ".join(skipped_timeline_templates)
+        click.echo(f" - {ids_str}")
+    if missing_timeline_templates:
+        click.echo("Timeline template files not found:")
+        ids_str = "\n - ".join(missing_timeline_templates)
+        click.echo(f" - {ids_str}")
+    if failed_timeline_templates:
+        click.echo("Timeline template errors:")
+        ids_str = "\n - ".join(failed_timeline_templates)
+        click.echo(f" - {ids_str}")
 
     return response, results  # type: ignore[reportUnknownVariableType]
 

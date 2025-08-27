@@ -295,9 +295,12 @@ class ExceptionListResource(BaseResource):
         params = {"list_id": list_id, "namespace_type": namespace_type}
         response = Kibana.current().get(cls.BASE_URI, params=params)
         if not response:
-            raise RuntimeError(f"Unexpected empty response when fetching exception list {list_id}")
-        # Get the status_code from the body
-        if response.get("status_code") == 404:
+            raise RuntimeError(
+                f"Unexpected empty response when fetching exception list {list_id}"
+            )
+        # Kibana may embed errors in the body while responding with HTTP 200
+        status = response.get("status_code") or response.get("statusCode")
+        if status == 404:
             return None
         return response
 
@@ -323,8 +326,11 @@ class ValueListResource(BaseResource):
         """
         response = Kibana.current().get(cls.BASE_URI, params={"id": list_id})
         if not response:
-            raise RuntimeError(f"Unexpected empty response when fetching value list {list_id}")
-        if response.get("status_code") == 404:
+            raise RuntimeError(
+                f"Unexpected empty response when fetching value list {list_id}"
+            )
+        status = response.get("status_code") or response.get("statusCode")
+        if status == 404:
             return None
         return response
 
@@ -336,7 +342,18 @@ class ValueListResource(BaseResource):
     @classmethod
     def create_index(cls) -> None:
         """Ensure the value list index exists."""
-        Kibana.current().post(f"{cls.BASE_URI}/index")
+        try:
+            response = Kibana.current().post(f"{cls.BASE_URI}/index")
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 409:
+                # index already exists
+                return
+            raise
+        if isinstance(response, dict) and (
+            response.get("status_code") == 409 or response.get("statusCode") == 409
+        ):
+            # index already exists
+            return
 
     @classmethod
     def create(cls, list_id: str, list_type: str, name: str | None = None, description: str | None = None) -> dict:
@@ -434,12 +451,14 @@ class TimelineTemplateResource(BaseResource):
 
         kibana = Kibana.current()
         response = kibana.get(
-            cls.BASE_URI,
-            params={"template_timeline_id": timeline_id}
+            cls.BASE_URI, params={"template_timeline_id": timeline_id}
         )
         if not response:
-            raise RuntimeError(f"Unexpected empty response when fetching timeline {timeline_id}")
-        if response.get("status_code") == 404:
+            raise RuntimeError(
+                f"Unexpected empty response when fetching timeline {timeline_id}"
+            )
+        status = response.get("status_code") or response.get("statusCode")
+        if status == 404:
             return None
         return response
 
@@ -453,8 +472,18 @@ class TimelineTemplateResource(BaseResource):
             params={"template_timeline_id": timeline_id}
         )
         if not resolved:
-            raise RuntimeError(f"Unexpected empty response when resolving timeline {timeline_id}")
-        return resolved.get("timeline", {}).get("savedObjectId")
+            raise RuntimeError(
+                f"Unexpected empty response when resolving timeline {timeline_id}"
+            )
+        status = resolved.get("status_code") or resolved.get("statusCode")
+        if status:
+            raise RuntimeError(
+                resolved.get("message", f"timeline {timeline_id} not found")
+            )
+        saved_id = resolved.get("timeline", {}).get("savedObjectId")
+        if not saved_id:
+            raise RuntimeError(f"timeline {timeline_id} not found")
+        return saved_id
 
     @classmethod
     def export_template(cls, timeline_id: str) -> str:
