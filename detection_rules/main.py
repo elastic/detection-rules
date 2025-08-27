@@ -33,7 +33,7 @@ from .generic_loader import GenericCollection
 from .misc import add_client, nested_set, parse_user_config, raise_client_error
 from .rule import DeprecatedRule, QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
-from .rule_loader import RuleCollection, update_metadata_from_file
+from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import (
     Ndjson,
@@ -159,6 +159,12 @@ def generate_rules_index(
 @click.option("--strip-exception-list-id", "-sli", is_flag=True, help="Strip id fields from rule exceptions list")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
+@click.option(
+    "--load-rule-loading",
+    "-lr",
+    is_flag=True,
+    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
+)
 def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     input_file: tuple[Path, ...] | None,
     required_only: bool,
@@ -175,6 +181,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     strip_exception_list_id: bool,
     local_creation_date: bool,
     local_updated_date: bool,
+    load_rule_loading: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     default_author = default_author or RULES_CONFIG.default_author
@@ -194,6 +201,10 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
 
     if not file_contents:
         click.echo("Must specify at least one file!")
+
+    raw_rule_collection = RawRuleCollection()
+    if load_rule_loading:
+        raw_rule_collection = raw_rule_collection.default()
 
     exceptions_containers = {}
     exceptions_items = {}
@@ -216,7 +227,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         base_path = rulename_to_filename(base_path) if base_path else base_path
         if base_path is None:
             raise ValueError(f"Invalid rule file, please ensure the rule has a name field: {contents}")
-        rule_path = Path(os.path.join(str(save_directory) if save_directory else RULES_DIRS[0], base_path))  # noqa: PTH118
+
+        rule_base_path = Path(save_directory or RULES_DIRS[0])
+        rule_path = rule_base_path / base_path
+        rule_id = contents.get("rule_id")
+        if rule_id in raw_rule_collection.id_map:
+            rule_path = raw_rule_collection.id_map[rule_id].path or rule_path
 
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
@@ -232,7 +248,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
 
         contents.update(
             update_metadata_from_file(
-                Path(rule_path), {"creation_date": local_creation_date, "updated_date": local_updated_date}
+                rule_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
             )
         )
 

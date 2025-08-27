@@ -82,18 +82,18 @@ class DictRule:
 
     @property
     def data(self) -> dict[str, Any]:
-        """Rule portion of TOML file rule."""
-        return self.contents.get("data") or self.contents
+        """Rule portion of TOML file rule. Supports nested and flattened rule dictionaries"""
+        return self.contents.get("data", {}) or self.contents or self.contents.get("rule", {})
 
     @property
     def id(self) -> str:
-        """Get the rule ID."""
-        return self.data["rule_id"]  # type: ignore[reportUnknownMemberType]
+        """Get the rule ID. Supports nested and flattened rule dictionaries."""
+        return self.data.get("rule_id") or self.data.get("rule", {}).get("rule_id")
 
     @property
     def name(self) -> str:
-        """Get the rule name."""
-        return self.data["name"]  # type: ignore[reportUnknownMemberType]
+        """Get the rule name. Supports nested and flattened rule dictionaries"""
+        return self.data.get("name") or self.data.get("rule", {}).get("name")
 
     def __hash__(self) -> int:
         """Get the hash of the rule."""
@@ -934,16 +934,15 @@ class ESQLRuleData(QueryRuleData):
         # Convert the query string to lowercase to handle case insensitivity
         query_lower = data["query"].lower()
 
-        # Combine both patterns using an OR operator and compile the regex
-        # The first part matches the metadata fields in the from clause by allowing one or 
+        # Combine both patterns using an OR operator and compile the regex.
+        # The first part matches the metadata fields in the from clause by allowing one or
         # multiple indices and any order of the metadata fields
         # The second part matches the stats command with the by clause
         combined_pattern = re.compile(
             r"(from\s+(?:\S+\s*,\s*)*\S+\s+metadata\s+"
-            r"(_id,\s*_version,\s*_index|_id,\s*_index,\s*_version|_version,\s*_id,\s*_index|"
-            r"_version,\s*_index,\s*_id|_index,\s*_id,\s*_version|_index,\s*_version,\s*_id))"
+            r"(?:_id|_version|_index)(?:,\s*(?:_id|_version|_index)){2})"
             r"|(\bstats\b.*?\bby\b)",
-            re.DOTALL
+            re.DOTALL,
         )
 
         # Ensure that non-aggregate queries have metadata
@@ -1438,7 +1437,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
 
         # integration is None to remove duplicate references upstream in Kibana
-        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 

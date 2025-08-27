@@ -2,7 +2,7 @@
 creation_date = "2025/04/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -83,23 +83,42 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-windows.powershell_operational* metadata _id, _version, _index
-| WHERE event.code == "4104"
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
 
-// Look for scripts with more than 500 chars that contain a related keyword
-| EVAL script_len = LENGTH(powershell.file.script_block_text)
-| WHERE script_len > 500
+// Filter out smaller scripts that are unlikely to implement obfuscation using the patterns we are looking for
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 500
 
-// Replace string format expressions with 🔥 to enable counting the occurrence of the patterns we are looking for
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
 // The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
-| EVAL replaced_with_fire = REPLACE(powershell.file.script_block_text, """['"][A-Za-z0-9.]+['"](\s?\+\s?['"][A-Za-z0-9.,\-\s]+['"]){2,}""", "🔥")
+| eval Esql.script_block_tmp = replace(
+    powershell.file.script_block_text,
+    """['"][A-Za-z0-9.]+['"](\s?\+\s?['"][A-Za-z0-9.,\-\s]+['"]){2,}""",
+    "🔥"
+)
 
-// Count how many patterns were detected by calculating the number of 🔥 characters inserted
-| EVAL count = LENGTH(replaced_with_fire) - LENGTH(REPLACE(replaced_with_fire, "🔥", ""))
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
 
-// Keep the fields relevant to the query, although this is not needed as the alert is populated using _id
-| KEEP count, replaced_with_fire, powershell.file.script_block_text, powershell.file.script_block_id, file.path, powershell.sequence, powershell.total, _id, _index, host.name, agent.id, user.id
-| WHERE count >= 2
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
+    powershell.file.script_block_text,
+    powershell.file.script_block_id,
+    file.path,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for scripts that match the pattern at least twice
+| where Esql.script_block_pattern_count >= 2
 '''
 
 

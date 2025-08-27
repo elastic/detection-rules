@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/08/26"
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -15,52 +15,6 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Service Quotas Multi-Region `GetServiceQuota` Requests"
-references = [
-    "https://www.sentinelone.com/labs/exploring-fbot-python-based-malware-targeting-cloud-and-payment-services/",
-    "https://docs.aws.amazon.com/servicequotas/2019-06-24/apireference/API_GetServiceQuota.html",
-]
-risk_score = 21
-rule_id = "19be0164-63d2-11ef-8e38-f661ea17fbce"
-severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Service Quotas",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "esql"
-
-query = '''
-from logs-aws.cloudtrail-*
-
-// filter for GetServiceQuota API calls
-| where event.dataset == "aws.cloudtrail" and event.provider == "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
-
-// truncate the timestamp to a 30-second window
-| eval target_time_window = DATE_TRUNC(30 seconds, @timestamp)
-
-// pre-process the request parameters to extract the service code and quota code
-| dissect aws.cloudtrail.request_parameters "{%{?service_code_key}=%{service_code}, %{?quota_code_key}=%{quota_code}}"
-
-// filter for EC2 service quota L-1216C47A (vCPU on-demand instances)
-| where service_code == "ec2" and quota_code == "L-1216C47A"
-
-// keep only the relevant fields
-| keep target_time_window, aws.cloudtrail.user_identity.arn, cloud.region, service_code, quota_code
-
-// count the number of unique regions and total API calls within the 30-second window
-| stats region_count = count_distinct(cloud.region), window_count = count(*) by target_time_window, aws.cloudtrail.user_identity.arn
-
-// filter for resources making DescribeInstances API calls in more than 10 regions within the 30-second window
-| where region_count >= 10 and window_count >= 10
-
-// sort the results by time windows in descending order
-| sort target_time_window desc
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -95,6 +49,66 @@ AWS Service Quotas manage resource limits across AWS services, crucial for maint
 - Notify the security operations team and relevant stakeholders about the potential compromise and the steps being taken to remediate the issue.
 - If evidence of compromise is confirmed, consider engaging AWS Support or a third-party incident response team for further investigation and assistance.
 - Review and update IAM policies and permissions to ensure the principle of least privilege is enforced, reducing the risk of future unauthorized access attempts."""
+references = [
+    "https://www.sentinelone.com/labs/exploring-fbot-python-based-malware-targeting-cloud-and-payment-services/",
+    "https://docs.aws.amazon.com/servicequotas/2019-06-24/apireference/API_GetServiceQuota.html",
+]
+risk_score = 21
+rule_id = "19be0164-63d2-11ef-8e38-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Service Quotas",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+
+// filter for GetServiceQuota API calls
+| where
+  event.dataset == "aws.cloudtrail"
+  and event.provider == "servicequotas.amazonaws.com"
+  and event.action == "GetServiceQuota"
+
+// truncate the timestamp to a 30-second window
+| eval Esql.time_window_date_trunc = date_trunc(30 seconds, @timestamp)
+
+// dissect request parameters to extract service and quota code
+| dissect aws.cloudtrail.request_parameters "{%{?Esql.aws_cloudtrail_request_parameters_service_code_key}=%{Esql.aws_cloudtrail_request_parameters_service_code}, %{?quota_code_key}=%{Esql.aws_cloudtrail_request_parameters_quota_code}}"
+
+// filter for EC2 service quota L-1216C47A (vCPU on-demand instances)
+| where Esql.aws_cloudtrail_request_parameters_service_code == "ec2" and Esql.aws_cloudtrail_request_parameters_quota_code == "L-1216C47A"
+
+// keep only the relevant fields
+| keep
+    Esql.time_window_date_trunc,
+    aws.cloudtrail.user_identity.arn,
+    cloud.region,
+    Esql.aws_cloudtrail_request_parameters_service_code,
+    Esql.aws_cloudtrail_request_parameters_quota_code
+
+// count the number of unique regions and total API calls within the time window
+| stats
+    Esql.cloud_region_count_distinct = count_distinct(cloud.region),
+    Esql.event_count = count(*)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
+
+// filter for API calls in more than 10 regions within the 30-second window
+| where
+  Esql.cloud_region_count_distinct >= 10
+  and Esql.event_count >= 10
+
+// sort by time window descending
+| sort Esql.time_window_date_trunc desc
+'''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

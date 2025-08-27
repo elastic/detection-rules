@@ -2,7 +2,7 @@
 creation_date = "2024/08/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -89,30 +89,35 @@ query = '''
 from logs-aws.cloudtrail-*
 
 // filter for DescribeInstances API calls
-| where event.dataset == "aws.cloudtrail" and event.provider == "ec2.amazonaws.com" and event.action == "DescribeInstances"
+| where event.dataset == "aws.cloudtrail"
+  and event.provider == "ec2.amazonaws.com"
+  and event.action == "DescribeInstances"
 
 // truncate the timestamp to a 30-second window
-| eval target_time_window = DATE_TRUNC(30 seconds, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(30 seconds, @timestamp)
 
-// keep only the relevant fields
-| keep target_time_window, aws.cloudtrail.user_identity.arn, cloud.region
+// keep only the relevant raw fields
+| keep Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn, cloud.region
 
 // count the number of unique regions and total API calls within the 30-second window
-| stats region_count = count_distinct(cloud.region), window_count = count(*) by target_time_window, aws.cloudtrail.user_identity.arn
+| stats
+    Esql.cloud_region_count_distinct = count_distinct(cloud.region),
+    Esql.event_count = count(*)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for resources making DescribeInstances API calls in more than 10 regions within the 30-second window
-| where region_count >= 10 and window_count >= 10
+| where Esql.cloud_region_count_distinct >= 10 and Esql.event_count >= 10
 
-// sort the results by time windows in descending order
-| sort target_time_window desc
+// sort the results by time window in descending order
+| sort Esql.time_window_date_trunc desc
 '''
 
 [rule.investigation_fields]
 field_names = [
-    "aws.cloudtrail.user_identity.arn",
-    "target_time_window",
-    "region_count",
-    "window_count"
+  "aws.cloudtrail.user_identity.arn",
+  "target_time_window",
+  "region_count",
+  "window_count"
 ]
 
 [[rule.threat]]

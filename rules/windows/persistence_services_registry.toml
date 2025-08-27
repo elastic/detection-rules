@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/18"
 
 [rule]
 author = ["Elastic"]
@@ -92,7 +92,13 @@ registry where host.os.type == "windows" and event.type == "change" and
       "\\SystemRoot\\System32\\drivers\\*.sys",
       "\\??\\?:\\Windows\\system32\\Drivers\\*.SYS",
       "\\??\\?:\\Windows\\syswow64\\*.sys",
-      "system32\\DRIVERS\\USBSTOR") and
+      "system32\\DRIVERS\\USBSTOR", 
+      "system32\\drivers\\*.sys", 
+      "C:\\WindowsAzure\\GuestAgent*.exe", 
+      "\"C:\\Program Files\\Common Files\\McAfee\\*", 
+      "C:\\Program Files (x86)\\VERITAS\\VxPBX\\bin\\pbx_exchange.exe", 
+      "\"C:\\Program Files (x86)\\VERITAS\\VxPBX\\bin\\pbx_exchange.exe\"",
+      "\"C:\\ProgramData\\McAfee\\Agent\\Current\\*") and
   not (process.name : "procexp??.exe" and registry.data.strings : "?:\\*\\procexp*.sys") and
   not process.executable : (
       "?:\\Program Files\\*.exe",
@@ -103,7 +109,8 @@ registry where host.os.type == "windows" and event.type == "change" and
       "?:\\Windows\\System32\\services.exe",
       "?:\\Windows\\System32\\msiexec.exe",
       "?:\\Windows\\System32\\regsvr32.exe",
-      "?:\\Windows\\System32\\WaaSMedicAgent.exe"
+      "?:\\Windows\\System32\\WaaSMedicAgent.exe", 
+      "?:\\Windows\\UUS\\amd64\\WaaSMedicAgent.exe"
   )
 '''
 

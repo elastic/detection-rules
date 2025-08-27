@@ -10,7 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import kql  # type: ignore[reportMissingTypeStubs]
@@ -40,8 +40,9 @@ from .generic_loader import GenericCollection, GenericCollectionTypes
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
-from .rule_loader import RuleCollection, update_metadata_from_file
-from .utils import format_command_options, rulename_to_filename
+from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
+from .schemas import definitions  # noqa: TC001
+from .utils import CUSTOM_RULES_KQL, format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
@@ -505,6 +506,12 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         '"alert.attributes.tags: \\"test\\"" to filter for rules that have the tag "test"'
     ),
 )
+@click.option(
+    "--load-rule-loading",
+    "-lr",
+    is_flag=True,
+    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
+)
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
@@ -529,6 +536,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     local_updated_date: bool = False,
     custom_rules_only: bool = False,
     export_query: str | None = None,
+    load_rule_loading: bool = False,
 ) -> list[TOMLRule]:
     """Export custom rules from Kibana."""
     directory = directory or get_default_rule_dir()
@@ -542,11 +550,15 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     default_author = default_author or RULES_CONFIG.default_author
     if export_value_lists and not export_exceptions:
         raise click.UsageError("--export-value-lists requires --export-exceptions")
-    kibana_include_details = export_exceptions or export_action_connectors
+    kibana_include_details = export_exceptions or export_action_connectors or custom_rules_only or export_query
 
     # Only allow one of rule_id or rule_name
     if rule_name and rule_id:
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
+
+    raw_rule_collection = RawRuleCollection()
+    if load_rule_loading:
+        raw_rule_collection = raw_rule_collection.default()
 
     with kibana:
         # Look up rule IDs by name if --rule-name was provided
@@ -556,12 +568,16 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 found = RuleResource.find(filter=f"alert.attributes.name:{name}")  # type: ignore[reportUnknownMemberType]
                 found_ids.extend([r["rule_id"] for r in found])  # type: ignore[reportUnknownVariableType]
             rule_id = list(dict.fromkeys(found_ids))
+            if not rule_id:
+                click.echo(
+                    f"No rules found to export matching the provided name '{rule_name}' "
+                    f"using filter 'alert.attributes.name:{rule_name}'"
+                )
+                return []
         query = (
             export_query
             if not custom_rules_only
-            else (
-                f'alert.attributes.params.ruleSource.type: "internal"{f" and ({export_query})" if export_query else ""}'
-            )
+            else (f"({CUSTOM_RULES_KQL}){f' and ({export_query})' if export_query else ''}")
         )
 
         results = (  # type: ignore[reportUnknownVariableType]
@@ -606,8 +622,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     rules_results = results  # type: ignore[reportUnknownVariableType]
     action_connector_results = []
     exception_results = []
+    results_len = len(results)  # type: ignore[reportUnknownVariableType]
     if kibana_include_details:
         # Assign counts to variables
+        results_len = results_len - 1
         rules_count = results[-1]["exported_rules_count"]  # type: ignore[reportUnknownVariableType]
         exception_list_count = results[-1]["exported_exception_list_count"]  # type: ignore[reportUnknownVariableType]
         exception_list_item_count = results[-1]["exported_exception_list_item_count"]  # type: ignore[reportUnknownVariableType]
@@ -649,6 +667,16 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=tactic_name)  # type: ignore[reportUnknownMemberType]
 
             save_path = directory / f"{rule_name}"
+
+            # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
+            local_rule: dict[str, Any] = params.get("rule", {})
+            input_rule_id: str | None = None
+
+            if local_rule:
+                input_rule_id = cast("definitions.UUIDString", local_rule.get("rule_id"))
+
+            if input_rule_id and input_rule_id in raw_rule_collection.id_map:
+                save_path = raw_rule_collection.id_map[input_rule_id].path or save_path
             params.update(
                 update_metadata_from_file(
                     save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
@@ -842,7 +870,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         saved_action_connectors.append(action)
 
-    click.echo(f"{len(results)} results exported")  # type: ignore[reportUnknownArgumentType]
+    click.echo(f"{results_len} results exported")  # type: ignore[reportUnknownArgumentType]
     click.echo(f"{len(exported)} rules converted")
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(action_connectors)} action connectors exported")

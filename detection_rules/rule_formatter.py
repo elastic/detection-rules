@@ -123,7 +123,6 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create the encoder but override some default functions."""
         super().__init__(*args, **kwargs)  # type: ignore[reportUnknownMemberType]
-        self._old_dump_str = toml.TomlEncoder().dump_funcs[str]
         self._old_dump_list = toml.TomlEncoder().dump_funcs[list]
         self.dump_funcs[str] = self.dump_str
         self.dump_funcs[str] = self.dump_str
@@ -148,10 +147,12 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         if multiline:
             if raw:
                 return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
-            return "\n".join([TRIPLE_SQ] + [self._old_dump_str(line)[1:-1] for line in lines] + [TRIPLE_SQ])
+            return "\n".join([TRIPLE_SQ] + [json.dumps(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
-        return self._old_dump_str(v)
+        # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
+        # Also addresses an issue where backslashes in certain strings are not properly escaped in self._old_dump_str(v)
+        return json.dumps(v)
 
     def _dump_flat_list(self, v: Iterable[Any]) -> str:
         """A slightly tweaked version of original dump_list, removing trailing commas."""
