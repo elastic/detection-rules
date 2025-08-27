@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/01/17"
-integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/08/26"
 
 [transform]
 [[transform.osquery]]
@@ -44,6 +44,7 @@ index = [
     "endgame-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -111,6 +112,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -141,6 +143,36 @@ file where host.os.type == "windows" and event.type != "deletion" and file.path 
       "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
       "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
       "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
+    )
+  ) and
+  /* Crowdstrike specific exclusion as it uses NT Object paths */
+  not
+  (
+    data_stream.dataset == "crowdstrike.fdr" and
+    (
+      file.path : (
+          "\\Device\\HarddiskVolume?\\$SysReset\\CloudImage\\Package_for_RollupFix*",
+          "\\Device\\HarddiskVolume?\\Windows\\system32\\amsi.dll",
+          "\\Device\\HarddiskVolume?\\Windows\\Syswow64\\amsi.dll",
+          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\DUImageSandbox\\*",
+          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
+          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
+          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\Work\\*\\*",
+          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\Store\\Offline\\File\\C$\\Windows\\SoftwareDistribution\\Download.bak\\*",
+          "\\Device\\HarddiskVolume?\\Windows\\CbsTemp\\*\\f\\amsi.dll",
+          "\\Device\\HarddiskVolume?\\Windows\\SoftwareDistribution\\Download\\*",
+          "\\Device\\HarddiskVolume?\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
+      ) or
+      (
+        process.name : "wbengine.exe" and
+        file.path : (
+          "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
+          "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
+          "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll",
+          "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
+          "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
+          "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
+      )
     )
   )
 '''
