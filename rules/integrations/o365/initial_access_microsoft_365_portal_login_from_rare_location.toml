@@ -60,7 +60,7 @@ tags = [
     "Domain: SaaS",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft 365 Audit Logs",
-    "User Case: Threat Detection",
+    "Use Case: Threat Detection",
     "Use Case: Identity and Access Audit",
     "Tactic: Initial Access",
     "Resources: Investigation Guide",
@@ -69,28 +69,25 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "o365.audit"
-    and event.provider: "AzureActiveDirectory"
-    and event.action: "UserLoggedIn"
-    and event.outcome: "success"
-    and not o365.audit.UserId: "Not Available"
-    and o365.audit.UserId: *
-    and source.geo.country_iso_code: *
-    and o365.audit.Target.ID: (
-        "00000006-0000-0ff1-ce00-000000000000" or
-        "4765445b-32c6-49b0-83e6-1d93765276ca"
-    )
-    and o365.audit.Target.Type: ("0" or "2" or "3" or "5" or "6" or "10")
-    and not o365.audit.ApplicationId: (
-        "38aa3b87-a06d-4817-b275-7a316988d93b" or
-        "29d9ed98-a469-4536-ade2-f981bc1d605e" or
-        "a809996b-059e-42e2-9866-db24b99a9782"
-    )
-    and not o365.audit.ExtendedProperties.RequestType: (
-        "Login:resume" or
-        "Login:reprocess" or
-        "Consent:Set" or
+event.dataset:o365.audit and
+    event.provider:AzureActiveDirectory and
+    event.action:UserLoggedIn and
+    event.outcome:success and
+    o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
+    o365.audit.UserId:(not "Not Available" and *) and
+    source.geo.geo_region_iso_code:* and
+    o365.audit.Target.ID:(
+        00000006-0000-0ff1-ce00-000000000000 or
+        4765445b-32c6-49b0-83e6-1d93765276ca
+    ) and not o365.audit.ApplicationId:(
+        29d9ed98-a469-4536-ade2-f981bc1d605e or
+        38aa3b87-a06d-4817-b275-7a316988d93b or
+        a809996b-059e-42e2-9866-db24b99a9782
+    ) and not o365.audit.ExtendedProperties.RequestType:(
         "Cmsi:Cmsi" or
+        "Consent:Set" or
+        "Login:reprocess" or
+        "Login:resume" or
         "MessagePrompt:MessagePrompt" or
         "SAS:EndAuth"
     )
