@@ -264,6 +264,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         skipped_exception_lists: list[str] = []
 
         for list_id, edicts in exception_list_map.items():
+            # todo handle errors here
             existing = ExceptionListResource.get(list_id)
             # decide whether to skip or overwrite existing exception lists
             if existing and not overwrite_exceptions:
@@ -281,6 +282,8 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         value_list_dir = RULES_CONFIG.value_list_dir
         if value_list_map:
             # the value list APIs expect an index to exist, so ensure it's created once
+            # todo it returns error now if it already exists. So handle this specific error here and be fine if its already there,
+                # maybe that was a 409, but check the docs-api again for this.
             ValueListResource.create_index()
         for list_id, list_type in value_list_map.items():
             file_path = value_list_dir / list_id if value_list_dir else None
@@ -288,6 +291,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 missing_value_lists.append(list_id)
                 continue
             text = file_path.read_text()
+            # todo handle errors here too
             existing = ValueListResource.get(list_id)
             if existing and not overwrite_value_lists:
                 # skip existing lists unless --overwrite-value-lists is provided
@@ -297,11 +301,14 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 # Deleting the list itself fails when it is referenced by
                 # active exception items. Instead clear its contents and
                 # re-import to avoid duplicate entries.
+                # todo handle errors here too
                 ValueListResource.delete_list_items(list_id)
             else:
                 # /items/_import only uploads items and does not create the list itself
+                # todo handle errors here too
                 ValueListResource.create(list_id, list_type)
             # now populate the value list with its newline-delimited contents
+            # todo handle errors here too
             ValueListResource.import_list_items(list_id, text, list_type)
             imported_value_lists.append(list_id)
 
@@ -319,6 +326,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 missing_timeline_templates.append(t_id)
                 continue
             text = file_path.read_text()
+            # todo handle errors here too
             existing = TimelineTemplateResource.get(t_id)
             if existing and not overwrite_timeline_templates:
                 skipped_timeline_templates.append(t_id)
@@ -332,6 +340,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     TimelineTemplateResource.delete(t_id)
                     TimelineTemplateResource.import_template(text)
             else:
+                # todo handle errors here too
                 TimelineTemplateResource.import_template(text)
             imported_timeline_templates.append(t_id)
 
