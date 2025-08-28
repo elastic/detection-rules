@@ -81,7 +81,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
+  (?process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
   (
     process.args : ("IT_RebrowseForFile=*", "ms-msdt:/id", "ms-msdt:-id", "*FromBase64*") or
 
@@ -94,13 +94,13 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.pe.original_file_name == "msdt.exe" and not process.name : "msdt.exe" and process.name != null) or
 
     (
-      process.pe.original_file_name == "msdt.exe" and
+      ?process.pe.original_file_name == "msdt.exe" and
       not process.executable : (
         "?:\\Windows\\system32\\msdt.exe",
         "?:\\Windows\\SysWOW64\\msdt.exe",
         /* Crowdstrike specific exclusion as it uses NT Object paths */
-        "\\Device\\HarddiskVolume?\\Windows\\system32\\msdt.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\msdt.exe"
+        "\\Device\\HarddiskVolume*\\Windows\\system32\\msdt.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\msdt.exe"
       )
     )
   )
