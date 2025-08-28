@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/07/07"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
@@ -19,6 +19,7 @@ index = [
     "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -61,14 +62,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "053a0387-f3b5-4ba5-8245-8002cca2bd08"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -80,6 +73,7 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -89,12 +83,23 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
 (
   (process.pe.original_file_name == "MsMpEng.exe" and not process.name : "MsMpEng.exe") or
-  (process.name : "MsMpEng.exe" and not
-        process.executable : ("?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
-                              "?:\\Program Files\\Windows Defender\\*.exe",
-                              "?:\\Program Files (x86)\\Windows Defender\\*.exe",
-                              "?:\\Program Files\\Microsoft Security Client\\*.exe",
-                              "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
+  (
+    process.name : "MsMpEng.exe" and
+    not process.executable : (
+            "?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+            "?:\\Program Files\\Windows Defender\\*.exe",
+            "?:\\Program Files (x86)\\Windows Defender\\*.exe",
+            "?:\\Program Files\\Microsoft Security Client\\*.exe",
+            "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe",
+
+            /* Crowdstrike specific exclusion as it uses NT Object paths */
+            "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files (x86)\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Security Client\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files (x86)\\Microsoft Security Client\\*.exe"
+    )
+  )
 )
 '''
 
