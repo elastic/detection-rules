@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/19"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -71,6 +72,7 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -78,8 +80,19 @@ type = "eql"
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and file.extension : "exe" and
   file.name regex~ """.*\.(vbs|vbe|bat|js|cmd|wsh|ps1|pdf|docx?|xlsx?|pptx?|txt|rtf|gif|jpg|png|bmp|hta|txt|img|iso)\.exe""" and
-  not (process.executable : ("?:\\Windows\\System32\\msiexec.exe", "C:\\Users\\*\\QGIS_SCCM\\Files\\QGIS-OSGeo4W-*-Setup-x86_64.exe") and
-       file.path : "?:\\Program Files\\QGIS *\\apps\\grass\\*.exe")
+  not (
+      process.executable : (
+          "?:\\Windows\\System32\\msiexec.exe",
+          "\\Device\\HarddiskVolume*\\Windows\\System32\\msiexec.exe",
+          "*\\Users\\*\\QGIS_SCCM\\Files\\QGIS-OSGeo4W-*-Setup-x86_64.exe"
+      ) and
+      file.path : ("?:\\Program Files\\QGIS *\\apps\\grass\\*.exe", "\\Device\\HarddiskVolume*\\Program Files\\QGIS *\\apps\\grass\\*.exe")
+  ) and 
+  not process.executable : 
+                             ("C:\\Program Files\\dotnet\\dotnet.exe", 
+                              "C:\\Program Files\\Microsoft Visual Studio\\*.exe",
+                              "\\Device\\HarddiskVolume*\\Program Files\\dotnet\\dotnet.exe", 
+                              "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Visual Studio\\*.exe")
 '''
 
 
