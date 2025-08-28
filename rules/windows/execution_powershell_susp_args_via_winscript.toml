@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2024/09/09"
-integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe.\n"
+description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe."
 from = "now-9m"
 index = [
     "logs-m365_defender.event-*",
@@ -15,6 +15,8 @@ index = [
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -61,19 +63,21 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
+    "Resources: Investigation Guide",
     "Data Source: Windows Security Event Logs",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.action == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.name : ("powershell.exe", "pwsh.exe", "cmd.exe") and
-  process.parent.name : ("wscript.exe", "mshta.exe") and ?process.parent.args : "?:\\Users\\*"
+  process.parent.name : ("wscript.exe", "mshta.exe")
 '''
 
 
