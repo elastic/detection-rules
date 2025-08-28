@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/19"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [transform]
 [[transform.osquery]]
@@ -46,6 +46,7 @@ index = [
     "winlogbeat-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -115,6 +116,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -122,15 +124,11 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-  registry.path: (
-    "HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
-    "MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
-  ) and
+  registry.path: "*\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*" and
   registry.data.strings:"*.dll" and
   not
   (
-    process.executable : "?:\\Windows\\System32\\msiexec.exe" and
+    process.executable : ("?:\\Windows\\System32\\msiexec.exe", "\\Device\\HarddiskVolume*\\Windows\\System32\\msiexec.exe") and
     registry.data.strings : "?:\\Program Files\\VMware\\VMware Tools\\vmwTimeProvider\\vmwTimeProvider.dll"
   ) and
   not registry.data.strings : "C:\\Windows\\SYSTEM32\\w32time.DLL"
