@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/10/18"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/27"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Austin Songer"]
@@ -19,6 +19,7 @@ index = [
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -85,6 +86,7 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -109,7 +111,11 @@ registry where host.os.type == "windows" and event.type == "change" and process.
     "?:\\Windows\\system32\\svchost.exe", 
     "?:\\Windows\\CCM\\CcmExec.exe", 
     "?:\\Windows\\System32\\DeviceEnroller.exe", 
-    "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe"
+    "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\system32\\svchost.exe", 
+    "\\Device\\HarddiskVolume*\\Windows\\CCM\\CcmExec.exe", 
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\DeviceEnroller.exe", 
+    "\\Device\\HarddiskVolume*\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe"
   )
 
 /*
