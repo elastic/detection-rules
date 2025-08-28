@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/06/05"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "crowdstrike", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,15 @@ privileges from groups like Server Operators may change the ImagePath of service
 to execute commands.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "endgame-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Service ImagePath Modification"
@@ -63,14 +71,18 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and process.executable != null and
-  event.action == "modification" and registry.value == "ImagePath" and
+  registry.value == "ImagePath" and
   registry.key : (
     "*\\ADWS", "*\\AppHostSvc", "*\\AppReadiness", "*\\AudioEndpointBuilder", "*\\AxInstSV", "*\\camsvc", "*\\CertSvc",
     "*\\COMSysApp", "*\\CscService", "*\\defragsvc", "*\\DeviceAssociationService", "*\\DeviceInstall", "*\\DevQueryBroker",

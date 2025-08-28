@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/05/31"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,8 @@ index = [
     "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -72,6 +74,8 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -79,18 +83,29 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-   (process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
-   (
+  (?process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
+  (
     process.args : ("IT_RebrowseForFile=*", "ms-msdt:/id", "ms-msdt:-id", "*FromBase64*") or
 
-    (process.args : "-af" and process.args : "/skip" and
-     process.parent.name : ("explorer.exe", "cmd.exe", "powershell.exe", "cscript.exe", "wscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe") and
-     process.args : ("?:\\WINDOWS\\diagnostics\\index\\PCWDiagnostic.xml", "PCWDiagnostic.xml", "?:\\Users\\Public\\*", "?:\\Windows\\Temp\\*")) or
+    (
+      process.args : "-af" and process.args : "/skip" and
+      process.parent.name : ("explorer.exe", "cmd.exe", "powershell.exe", "cscript.exe", "wscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe") and
+      process.args : ("?:\\WINDOWS\\diagnostics\\index\\PCWDiagnostic.xml", "PCWDiagnostic.xml", "?:\\Users\\Public\\*", "?:\\Windows\\Temp\\*")
+    ) or
 
     (process.pe.original_file_name == "msdt.exe" and not process.name : "msdt.exe" and process.name != null) or
 
-    (process.pe.original_file_name == "msdt.exe" and not process.executable : ("?:\\Windows\\system32\\msdt.exe", "?:\\Windows\\SysWOW64\\msdt.exe"))
+    (
+      ?process.pe.original_file_name == "msdt.exe" and
+      not process.executable : (
+        "?:\\Windows\\system32\\msdt.exe",
+        "?:\\Windows\\SysWOW64\\msdt.exe",
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Windows\\system32\\msdt.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\msdt.exe"
+      )
     )
+  )
 '''
 
 
