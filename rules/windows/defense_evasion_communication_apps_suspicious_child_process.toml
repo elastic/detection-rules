@@ -33,23 +33,24 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and 
+ not process.executable : 
+             ("?:\\Program Files\\*.exe", 
+              "?:\\Program Files (x86)\\*.exe", 
+              "?:\\Windows\\System32\\WerFault.exe", 
+              "?:\\Windows\\SysWOW64\\WerFault.exe") and 
   (
     /* Slack */
     (process.parent.name : "slack.exe" and not
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
             "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin*\\Zoom.exe",
             "?:\\Windows\\System32\\rundll32.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Windows\\System32\\notepad.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
           ) and process.code_signature.trusted == true
         ) or
@@ -71,10 +72,6 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
@@ -95,13 +92,10 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\BrowserCore\\BrowserCore.exe",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe"
+            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe", 
+            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -121,13 +115,9 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Windows\\System32\\reg.exe",
             "?:\\Windows\\SysWOW64\\reg.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -157,10 +147,6 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\System32\\reg.exe",
             "?:\\Windows\\SysWOW64\\reg.exe"
           ) and process.code_signature.trusted == true
@@ -183,13 +169,9 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -205,11 +187,8 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
-            "?:\\Windows\\splwow64.exe"
+            "?:\\Windows\\splwow64.exe", 
+            "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.EXE"
           ) and process.code_signature.trusted == true
         ) or
         (
