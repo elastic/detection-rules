@@ -119,63 +119,31 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and file.path != null and
-  file.name : ("amsi.dll", "amsi") and
+  file.name : ("amsi.dll", "amsi") and 
+  event.action != "A process changed a file creation time" and 
   not file.path : (
-    "?:\\$SysReset\\CloudImage\\Package_for_RollupFix*",
+    "?:\\$SysReset\\CloudImage\\Package_for_RollupFix*\\amsi.dll",
     "?:\\Windows\\system32\\amsi.dll",
     "?:\\Windows\\Syswow64\\amsi.dll",
-    "?:\\$WINDOWS.~BT\\DUImageSandbox\\*",
-    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
-    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
-    "?:\\$WINDOWS.~BT\\Work\\*\\*",
-    "?:\\$WINDOWS.~BT\\Store\\Offline\\File\\C$\\Windows\\SoftwareDistribution\\Download.bak\\*",
-    "?:\\Windows\\CbsTemp\\*\\f\\amsi.dll",
+    "?:\\$WINDOWS.~BT\\*\\amsi.dll",
+    "?:\\Windows\\CbsTemp\\*\\amsi.dll",
     "?:\\Windows\\SoftwareDistribution\\Download\\*",
-    "?:\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
-  ) and
-  not
-  (
-    process.executable : "C:\\Windows\\System32\\wbengine.exe" and
-    file.path : (
-      "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
-      "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
-      "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
-    )
-  ) and
-  /* Crowdstrike specific exclusion as it uses NT Object paths */
-  not
-  (
-    data_stream.dataset == "crowdstrike.fdr" and
-    (
-      file.path : (
-          "\\Device\\HarddiskVolume?\\$SysReset\\CloudImage\\Package_for_RollupFix*",
-          "\\Device\\HarddiskVolume?\\Windows\\system32\\amsi.dll",
-          "\\Device\\HarddiskVolume?\\Windows\\Syswow64\\amsi.dll",
-          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\DUImageSandbox\\*",
-          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
-          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
-          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\Work\\*\\*",
-          "\\Device\\HarddiskVolume?\\$WINDOWS.~BT\\Store\\Offline\\File\\C$\\Windows\\SoftwareDistribution\\Download.bak\\*",
-          "\\Device\\HarddiskVolume?\\Windows\\CbsTemp\\*\\f\\amsi.dll",
-          "\\Device\\HarddiskVolume?\\Windows\\SoftwareDistribution\\Download\\*",
-          "\\Device\\HarddiskVolume?\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
-      ) or
-      (
-        process.name : "wbengine.exe" and
-        file.path : (
-          "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
-          "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
-          "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll",
-          "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
-          "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
-          "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
-        )
-      )
-    )
-  )
+    "?:\\Windows\\WinSxS\\*\\amsi.dll", 
+    "?:\\Windows\\servicing\\*\\amsi.dll",
+    "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll", 
+    "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll", 
+    "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll",
+
+    /* Crowdstrike specific exclusion as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Windows\\system32\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\syswow64\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\WinSxS\\*\\amsi.dll",
+    "\\Device\\HarddiskVolume*\\$SysReset\\CloudImage\\Package_for_RollupFix*\\amsi.dll",
+    "\\Device\\HarddiskVolume*\\$WINDOWS.~BT\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\SoftwareDistribution\\Download\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\CbsTemp\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\servicing\\*\\amsi.dll"
+  ) 
 '''
 
 
