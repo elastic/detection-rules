@@ -818,7 +818,7 @@ class ThresholdQueryRuleData(QueryRuleData):
         cutoff = Version.parse("9.2.0")
 
         default_cap_lt_9_2 = 3
-        default_cap_ge_9_2 = self.alert_suppression.duration.value  # type: ignore[reportAttributeAccessIssue]
+        default_cap_ge_9_2 = 5
         max_fields_allowed = default_cap_ge_9_2 if (min_stack and min_stack >= cutoff) else default_cap_lt_9_2
 
         fields = self.threshold.field or []
