@@ -810,10 +810,10 @@ class ThresholdQueryRuleData(QueryRuleData):
     threshold: ThresholdMapping
     alert_suppression: ThresholdAlertSuppression | None = field(metadata={"metadata": {"min_compat": "8.12"}})  # type: ignore[reportIncompatibleVariableOverride]
 
-    def validate(self, metadata: "RuleMeta") -> None:
+    def validate(self, meta: RuleMeta) -> None:
         """Validate threshold fields count based on stack version."""
         current_min_stack = load_current_package_version()
-        min_stack_raw = metadata.min_stack_version or current_min_stack
+        min_stack_raw = meta.min_stack_version or current_min_stack
         min_stack = Version.parse(min_stack_raw, optional_minor_and_patch=True)
         cutoff = Version.parse("9.2.0")
 
