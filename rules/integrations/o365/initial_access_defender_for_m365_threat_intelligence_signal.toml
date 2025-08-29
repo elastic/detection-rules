@@ -22,8 +22,7 @@ index = ["filebeat-*", "logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 1000
-name = "Threat Intelligence Signal - Microsoft Defender for Office 365"
-note = "For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).\n"
+name = "M365 Threat Intelligence Signal"
 references = [
     "https://learn.microsoft.com/en-us/purview/audit-supported-services",
     "https://www.octiga.io/en-gb/insights/nist-csf-for-office-365",
@@ -31,19 +30,26 @@ references = [
 ]
 risk_score = 47
 rule_id = "60c814fc-7d06-11f0-b326-f661ea17fbcd"
+setup = """### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: SaaS",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Defender",
+    "Data Source: Microsoft Defender Threat Intelligence",
     "Use Case: Threat Detection",
+    "Tactic: Initial Access",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "o365.audit" and event.code: "ThreatIntelligence"
+event.dataset: "o365.audit" and event.provider: "ThreatIntelligence"
 '''
 
 
