@@ -969,10 +969,14 @@ class ThreatMatchRuleData(QueryRuleData):
     @dataclass(frozen=True)
     class Entries:
         @dataclass(frozen=True)
-        class ThreatMapEntry:
+        class ThreatMapEntry(StackCompatMixin):
             field: definitions.NonEmptyStr
             type: Literal["mapping"]
             value: definitions.NonEmptyStr
+            # Use dataclasses.field to avoid shadowing by attribute name "field"
+            negate: bool | None = dataclasses.field(  # type: ignore[reportIncompatibleVariableOverride]
+                metadata={"metadata": {"min_compat": "9.2"}}
+            )
 
         entries: list[ThreatMapEntry]
 
@@ -1004,6 +1008,20 @@ class ThreatMatchRuleData(QueryRuleData):
                 return
 
             threat_query_validator.validate(self, meta)
+
+    def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
+        """Validate negate usage and group semantics for threat mapping."""
+
+        for idx, group in enumerate(self.threat_mapping or []):
+            entries = group.entries or []
+            neg_count = sum(1 for e in entries if getattr(e, "negate", False))
+            pos_count = len(entries) - neg_count
+
+            # Single DOES NOT MATCH (all-negate group) is not allowed
+            if neg_count > 0 and pos_count == 0:
+                raise ValidationError(
+                    f"threat_mapping group {idx}: at least one non-negated (MATCH) entry is required when using DOES NOT MATCH."  # noqa: E501
+                )
 
 
 # All of the possible rule types
