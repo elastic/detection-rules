@@ -539,23 +539,21 @@ class TimelineTemplateResource(BaseResource):
             params={"template_timeline_id": timeline_id},
             error=False
         )
-        print("DEBUG: ")
-        print(response)
-        # if not response:
-        #     raise RuntimeError(
-        #         f"Unexpected empty response when resolving timeline {timeline_id}"
-        #     )
-        # status = response.get("status_code")
-        # if status == 404:
-        #     return None
-        # elif status:
-        #     msg = response.get("message", f"Error querying timeline resolve API for id {timeline_id}")
-        #     raise HTTPError(f"HTTP {status}: {msg}")
-        # timeline = response.get("timeline")
-        # if not timeline:
-        #     raise RuntimeError(f"Malformed response from timeline resolve API for id {timeline_id}: {response}")
-        # saved_id = timeline.get("savedObjectId")
-        # return saved_id
+        if not response:
+            raise RuntimeError(
+                f"Unexpected empty response when resolving timeline {timeline_id}"
+            )
+        status = response.get("status_code")
+        if status == 404:
+            return None
+        elif status:
+            msg = response.get("message", f"Error querying timeline resolve API for id {timeline_id}: {response}")
+            raise HTTPError(f"HTTP {status}: {msg}")
+        timeline = response.get("timeline") or response.get("data")
+        if not timeline:
+            raise RuntimeError(f"Malformed response from timeline resolve API for id {timeline_id}: {response}")
+        saved_id = timeline.get("savedObjectId")
+        return saved_id
 
     @classmethod
     def export_template(cls, timeline_id: str) -> dict:
@@ -567,13 +565,7 @@ class TimelineTemplateResource(BaseResource):
         Raises HTTPError if the timeline resolve API returns an error status code.
         """
         # Resolve the saved object ID for the timeline template
-        cls.resolve_saved_object_id(timeline_id)
-        response = cls.get(timeline_id)
-        print("DEBUG2: ")
-        print(response)
-        if not response:
-            raise RuntimeError(f"timeline {timeline_id} not found")
-        saved_id = response.get("savedObjectId")
+        saved_id = cls.resolve_saved_object_id(timeline_id)
         if not saved_id:
             raise RuntimeError(f"timeline {timeline_id} missing savedObjectId field")
 
