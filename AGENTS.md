@@ -70,6 +70,9 @@ python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules
 Focus on building new CLI commands and helpers. Avoid running arbitrary commands
 from the repository. For linting use ruff, e.g:
 - `python -m ruff check --exit-non-zero-on-fix`
+- For running unit tests, use the lightweight rules in `rules-test`:
+  `CUSTOM_RULES_DIR=./rules-test python -m detection_rules test`. Running the full
+  suite without `CUSTOM_RULES_DIR` is slow and expects an `origin/main` remote.
 
 Never commit any secrets or sensitive information like environment variables!
 
