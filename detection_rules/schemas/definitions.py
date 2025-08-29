@@ -230,7 +230,7 @@ AlertSuppressionValue = Annotated[int, fields.Integer(validate=validate.Range(mi
 BranchVer = Annotated[str, fields.String(validate=validate.Regexp(BRANCH_PATTERN))]
 CardinalityFields = Annotated[
     list[NonEmptyStr],
-    fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=0, max=3)),
+    fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=0, max=5)),
 ]
 ConditionSemVer = Annotated[str, fields.String(validate=validate.Regexp(CONDITION_VERSION_PATTERN))]
 Date = Annotated[str, fields.String(validate=validate.Regexp(DATE_PATTERN))]
