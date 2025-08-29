@@ -316,9 +316,7 @@ class ExceptionListResource(BaseResource):
         params = {"list_id": list_id, "namespace_type": namespace_type}
         response = Kibana.current().delete(cls.BASE_URI, params=params, error=False)
         if not response:
-            raise RuntimeError(
-                f"Unexpected empty response when deleting exception list {list_id}"
-            )
+            return
         status = response.get("status_code")
         if status == 404:
             # list already missing
@@ -362,7 +360,7 @@ class ValueListResource(BaseResource):
         """Delete a value list by ID. Silently succeed if the list is missing."""
         response = Kibana.current().delete(cls.BASE_URI, params={"id": list_id}, error=False)
         if not response:
-            raise RuntimeError(f"Unexpected empty response when deleting value list {list_id}")
+            return
         status = response.get("status_code")
         if status == 404:
             # list already missing
@@ -378,10 +376,10 @@ class ValueListResource(BaseResource):
         if not response:
             raise RuntimeError("Unexpected empty response when creating value list index")
         status = response.get("status_code")
-        if status == 200 or status == 409:
-            # index created or already exists
+        if status == 409:
+            # index already exists
             return
-        else:
+        elif status:
             msg = response.get("message", "Error creating value list index")
             raise HTTPError(f"HTTP {status}: {msg}")
 
@@ -418,7 +416,25 @@ class ValueListResource(BaseResource):
         response = Kibana.current().post(
             f"{cls.BASE_URI}/items/_import", params=params, raw_data=body, headers=headers
         )
-        return response
+        if not response:
+            raise RuntimeError("Unexpected empty response when importing value list items")
+        errors = response.get("errors")
+        if not errors:
+            # If no errors, the response is the value list
+            return response
+        # Build a readable error summary from the API response
+        if not isinstance(errors, list):
+            raise HTTPError("Value list import failed: malformed error response")
+        lines = []
+        for e in errors:
+            e = e or {}
+            eid = e.get("id", "<unknown>")
+            err = e.get("error") or {}
+            msg = err.get("message", "Unknown error")
+            code = err.get("status_code", "unknown")
+            lines.append(f"{eid}: ({code}) {msg}")
+        details = "\n - " + "\n - ".join(lines)
+        raise HTTPError(f"Value list import failed with {len(errors)} errors:{details}")
 
     @classmethod
     def export_list_items(cls, list_id: str) -> str:
@@ -509,75 +525,66 @@ class TimelineTemplateResource(BaseResource):
         """Resolve the saved object ID for a timeline template by its ``templateTimelineId``.
 
         The timeline export API requires the saved object ID rather than the
-        ``templateTimelineId`` stored on rules. This method calls the timeline
-        resolve endpoint to retrieve the saved object ID.
-        Returns ``None`` if the template cannot be found. The API returns
+        ``templateTimelineId`` stored on rules. This method queries the
+        timeline resolve API to retrieve the saved object ID.
+        Returns ``None`` if the timeline cannot be found. The API returns
         ``status_code: 404`` when a timeline is missing, so this method
         checks for that and returns ``None``. Other error status codes raise
-        a RuntimeError. If no status code is present the timeline was found
+        the HTTP error. If no status code is present the timeline was found
         and its saved object ID is returned.
         """
 
-        resolved = Kibana.current().get(
+        response = Kibana.current().get(
             f"{cls.BASE_URI}/resolve",
             params={"template_timeline_id": timeline_id},
             error=False
         )
-        if not resolved:
+        if not response:
             raise RuntimeError(
                 f"Unexpected empty response when resolving timeline {timeline_id}"
             )
-        status = resolved.get("status_code")
+        status = response.get("status_code")
         if status == 404:
             return None
         elif status:
-            raise RuntimeError(
-                resolved.get("message", f"Error resolving timeline via API for id {timeline_id}")
-            )
-        saved_id = resolved.get("savedObjectId")
+            msg = response.get("message", f"Error querying timeline resolve API for id {timeline_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
+        timeline = response.get("timeline")
+        if not timeline:
+            raise RuntimeError(f"Malformed response from timeline resolve API for id {timeline_id}")
+        saved_id = timeline.get("savedObjectId")
         return saved_id
 
     @classmethod
-    def export_template(cls, timeline_id: str) -> str:
+    def export_template(cls, timeline_id: str) -> dict:
         """Export a timeline template referenced by ``timeline_id``.
-
-        The ``timeline_id`` stored on rules corresponds to the template's
-        ``templateTimelineId`` rather than the saved object ID required by the
-        export API.  The saved object ID is retrieved via
-        :meth:`resolve_saved_object_id` before calling the export endpoint.
-
-        An error is raised if the export API returns an unexpected status code or
-        if the response payload contains a ``statusCode`` field (which Kibana uses
-        to report errors while still responding with HTTP 200).
+        The export API requires the saved object ID rather than the
+        ``templateTimelineId`` stored on rules. This method first resolves
+        the saved object ID and then invokes the export API.
+        Raises RuntimeError if the timeline cannot be found.
+        Raises HTTPError if the timeline resolve API returns an error status code.
         """
-
-        kibana = Kibana.current()
+        # Resolve the saved object ID for the timeline template
         saved_id = cls.resolve_saved_object_id(timeline_id)
         if not saved_id:
             raise RuntimeError(f"timeline {timeline_id} not found")
 
         # Export the timeline template using the saved object ID
-        # todo I test and want to get error here...
-        response = kibana.post(
+        response = Kibana.current().post(
             f"{cls.BASE_URI}/_export",
-            params={"file_name": "timeline_id"},
-            data={"ids": [saved_id]},
-            raw=True
+            params={"file_name": timeline_id},
+            data={"ids": [saved_id]}
         )
-
-        first_line = response.text.splitlines()[0] if response.text else ""
-        try:
-            payload = json.loads(first_line)
-        except json.JSONDecodeError:
-            payload = None
-
-        if isinstance(payload, dict) and payload.get("statusCode"):
-            raise RuntimeError(response.text)
-
-        return response.text
+        if not response:
+            raise RuntimeError(f"Unexpected empty response when exporting timeline {timeline_id}")
+        status = response.get("status_code")
+        if status:
+            msg = response.get("message", f"Error exporting timeline via API for id {timeline_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
+        return response
 
     @classmethod
-    def import_template(cls, text: str) -> dict:
+    def import_template(cls, text: str) -> None:
         """Import a timeline template from its ndjson representation.
 
         The import API requires ``version`` along with ``created`` and ``updated``
@@ -588,12 +595,33 @@ class TimelineTemplateResource(BaseResource):
 
         payload = json.loads(text)
         payload.setdefault("version", "1")
+        payload.setdefault("templateTimelineVersion", 1)
         now_ms = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
         payload.setdefault("created", now_ms)
         payload.setdefault("updated", now_ms)
         headers, raw_data = Kibana.ndjson_file_data_prep([payload], "timeline.ndjson")
         response = Kibana.current().post(f"{cls.BASE_URI}/_import", headers=headers, raw_data=raw_data)
-        return response
+        if not response:
+            raise RuntimeError("Unexpected empty response when importing timeline")
+        success = bool(response.get("success"))
+        if success:
+            return None
+        # Build a readable error summary from the API response
+        errors = response.get("errors") or []
+        if not isinstance(errors, list):
+            raise HTTPError("Timeline import failed: unexpected error format from API")
+        if not errors:
+            raise HTTPError("Timeline import failed with no error details provided")
+        lines = []
+        for e in errors:
+            e = e or {}
+            eid = e.get("id", "<unknown>")
+            err = e.get("error") or {}
+            msg = err.get("message", "Unknown error")
+            code = err.get("status_code", "unknown")
+            lines.append(f"{eid}: ({code}) {msg}")
+        details = "\n - " + "\n - ".join(lines)
+        raise HTTPError(f"Timeline import failed:{details}")
 
     @classmethod
     def delete(cls, timeline_id: str) -> None:
@@ -604,12 +632,14 @@ class TimelineTemplateResource(BaseResource):
         if not saved_id:
             # timeline already missing
             return
-        response = Kibana.current().request(
-            "DELETE", cls.BASE_URI, data={"savedObjectIds": [saved_id]},
+        response = Kibana.current().delete(
+            cls.BASE_URI,
+            data={"savedObjectIds": [saved_id]},
             error=False
         )
         if not response:
-            raise RuntimeError(f"Unexpected empty response when deleting timeline {timeline_id}")
+            # Doesnt return anything if successful
+            return None
         status = response.get("status_code")
         if status == 404:
             # timeline already missing

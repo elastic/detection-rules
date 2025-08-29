@@ -291,7 +291,8 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             try:
                 ValueListResource.create_index()
             except Exception as exc:  # noqa: BLE001
-                failed_value_lists.append(f"index: {exc}")
+                # Failed to create the value list index
+                failed_value_lists.append(f"Failed to create value list index: {exc}")
         for list_id, list_type in value_list_map.items():
             file_path = value_list_dir / list_id if value_list_dir else None
             if not file_path or not file_path.exists():
@@ -356,16 +357,18 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
             if existing and overwrite_timeline_templates:
                 try:
-                    # importing over an existing template may fail if a conflict occurs
-                    TimelineTemplateResource.import_template(text)
-                except Exception:  # noqa: BLE001
-                    try:
-                        # fall back to deleting and re-importing to fully replace the template
+                    payload = json.loads(text)
+                    # Prefer the current version from existing and increment it
+                    existing_version = existing.get("templateTimelineVersion") if isinstance(existing, dict) else None
+                    if isinstance(existing_version, int):
+                        payload["templateTimelineVersion"] = existing_version + 1
+                    else:
+                        # If existing does not expose version, delete and re-import to avoid conflicts
                         TimelineTemplateResource.delete(t_id)
-                        TimelineTemplateResource.import_template(text)
-                    except Exception as exc:  # noqa: BLE001
-                        failed_timeline_templates.append(f"{t_id}: {exc}")
-                        continue
+                    TimelineTemplateResource.import_template(json.dumps(payload))
+                except Exception as exc:  # noqa: BLE001
+                    failed_timeline_templates.append(f"{t_id}: {exc}")
+                    continue
             else:
                 try:
                     TimelineTemplateResource.import_template(text)
@@ -829,22 +832,22 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         with kibana:
             for t_id in sorted(timeline_ids):
                 try:
-                    text = TimelineTemplateResource.export_template(t_id)
+                    payload = TimelineTemplateResource.export_template(t_id)
 
                     # Optionally strip version and date fields from the exported JSON
-                    if strip_version or strip_dates:
-                        lines = text.splitlines()
-                        if lines:
-                            template_obj = json.loads(lines[0])
-                            if strip_version:
-                                template_obj.pop("version", None)
-                            if strip_dates:
-                                template_obj.pop("created", None)
-                                template_obj.pop("updated", None)
-                            lines[0] = json.dumps(template_obj)
-                            text = "\n".join(lines)
-                            if text and not text.endswith("\n"):
-                                text += "\n"
+                    if strip_version:
+                        payload.pop("version", None)
+                        payload.pop("templateTimelineVersion", None)
+                    if strip_dates:
+                        payload.pop("created", None)
+                        payload.pop("updated", None)
+
+                    # todo: We want to handle this like we handle rules, and have a real nice way to store it as abstraction
+                    # so that stored as toml and so on, and validation possible with our standard rules...
+                    text = json.dumps(payload)
+                    # ensure newline at end for consistency
+                    if text and not text.endswith("\n"):
+                        text += "\n"
 
                     timeline_template_exported.append(t_id)
                     if timeline_templates_directory:
