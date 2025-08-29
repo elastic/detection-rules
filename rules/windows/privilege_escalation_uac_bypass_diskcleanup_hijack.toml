@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -90,9 +90,11 @@ process where host.os.type == "windows" and event.type == "start" and
         "C:\\Windows\\System32\\cleanmgr.exe",
         "C:\\Windows\\SysWOW64\\cleanmgr.exe",
         "C:\\Windows\\System32\\taskhostw.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\cleanmgr.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\cleanmgr.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\taskhostw.exe"
+
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\cleanmgr.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\cleanmgr.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\taskhostw.exe"
 )
 '''
 

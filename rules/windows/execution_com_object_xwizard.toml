@@ -2,7 +2,7 @@
 creation_date = "2021/01/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -93,8 +93,10 @@ process where host.os.type == "windows" and event.type == "start" and
      not process.executable : (
         "C:\\Windows\\SysWOW64\\xwizard.exe",
         "C:\\Windows\\System32\\xwizard.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\xwizard.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\xwizard.exe"
+
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\xwizard.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\xwizard.exe"
      )
    )
  )
