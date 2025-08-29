@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/20"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -13,6 +13,7 @@ index = [
     "logs-endpoint.events.network-*",
     "winlogbeat-*",
     "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -57,6 +58,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
@@ -69,7 +71,7 @@ sequence by host.id, process.entity_id with maxspan = 1m
    source.ip != "127.0.0.1" and source.ip != "::1"
    ]
    [registry where host.os.type == "windows" and event.type == "change" and registry.value : "Actions" and
-    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
+    registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 '''
 
 
