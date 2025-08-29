@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2025/07/23"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2025/07/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects potential remote code execution (RCE) attempts targeting IIS web servers running SharePoint via malicious
+VIEWSTATE payloads in HTTP POST requests. Attackers may exploit insecure deserialization in the VIEWSTATE parameter to
+execute arbitrary code. This rule identifies suspicious requests containing VIEWSTATE data and other indicators of
+exploitation, specifically those associated with the Toolshell exploit chain. Toolshell leverages vulnerabilities
+(CVE-2025-53770 and CVE-2025-53771) for initial access, enabling adversaries to deploy a webshell, steal machine keys,
+sign VIEWSTATE payloads offline, and subsequently send signed payloads to the server to achieve code execution.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-network_traffic.http*"]
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 100
+name = "Potential VIEWSTATE RCE Attempt on SharePoint/IIS"
+references = [
+    "https://research.eye.security/sharepoint-under-siege/",
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-53771",
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-53770",
+    "https://msrc.microsoft.com/blog/2025/07/customer-guidance-for-sharepoint-vulnerability-cve-2025-53770/",
+]
+risk_score = 47
+rule_id = "99c9af5a-67cf-11f0-b69e-f661ea17fbcd"
+setup = """### Network Traffic Setup
+
+This rule requires network traffic logs to be collected from HTTP endpoints, focusing on IIS web servers and SharePoint sites. Ensure logging captures HTTP request and response details, including headers and request bodies for POST requests. Monitoring VIEWSTATE content is critical for detecting deserialization attacks.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Tactic: Initial Access",
+    "Use Case: Exploit Detection",
+    "Data Source: Network Traffic",
+    "Data Source: Network Traffic HTTP Logs",
+    "Rule Type: BBR"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "network_traffic.http" and
+    network.direction: "ingress" and
+    http.request.method: "POST" and
+    http.request.referrer: *SignOut.aspx and
+    http.request.body.content: *__VIEWSTATE=* and
+    http.request.body.bytes >= 500 and
+    http.response.headers.server: Microsoft-IIS*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
