@@ -2,7 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/08/20"
+updated_date = "2025/08/29"
 
 [rule]
 author = ["Elastic"]
@@ -14,10 +14,10 @@ from = "now-9m"
 index = ["filebeat-*", "logs-azure.auditlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Multi-Factor Authentication Disabled for User"
+name = "Entra ID MFA Disabled for User"
 note = """## Triage and analysis
 
-### Investigating Multi-Factor Authentication Disabled for User
+### Investigating Entra ID MFA Disabled for User
 
 Multi-factor authentication is a process in which users are prompted during the sign-in process for an additional form of identification, such as a code on their cellphone or a fingerprint scan.
 
@@ -59,9 +59,9 @@ This rule identifies the deactivation of MFA for an Entra ID user account. This 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 21
+risk_score = 47
 rule_id = "dafa3235-76dc-40e2-9f71-1773b96d24cf"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
@@ -77,9 +77,11 @@ type = "query"
 
 query = '''
 event.dataset: "azure.auditlogs" and
-    azure.auditlogs.operation_name: "Disable Strong Authentication" or
-    azure.auditlogs.operation_name: "User deleted security info" and azure.auditlogs.properties.additional_details.key: "AuthenticationMethod" and
-    event.outcome: (Success or success)
+    (azure.auditlogs.operation_name: "Disable Strong Authentication" or
+    (
+        azure.auditlogs.operation_name: "User deleted security info" and
+        azure.auditlogs.properties.additional_details.key: "AuthenticationMethod"
+    )) and event.outcome: (Success or success)
 '''
 
 [[rule.threat]]
