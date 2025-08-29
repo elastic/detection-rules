@@ -8,9 +8,9 @@ from typing import List, Optional, Type
 from uuid import uuid4
 
 import json
-import requests
 
 from .connector import Kibana
+from requests import HTTPError
 from . import definitions
 
 DEFAULT_PAGE_SIZE = 10
@@ -289,26 +289,43 @@ class ExceptionListResource(BaseResource):
     def get(cls, list_id: str, namespace_type: str = "single") -> dict | None:
         """Retrieve an exception list by its ``list_id``.
 
-        The API returns ``status_code: 404`` in the body when a list is
+        The API returns ``status_code: 404`` when a list is
         missing, so return ``None`` to make existence checks straightforward.
+        It returns the list content without any status_code if found.
         """
         params = {"list_id": list_id, "namespace_type": namespace_type}
-        response = Kibana.current().get(cls.BASE_URI, params=params)
+        response = Kibana.current().get(cls.BASE_URI, params=params, error=False)
         if not response:
             raise RuntimeError(
                 f"Unexpected empty response when fetching exception list {list_id}"
             )
-        # Kibana may embed errors in the body while responding with HTTP 200
-        status = response.get("status_code") or response.get("statusCode")
+        # If the status_code exists, its either 404 or some other error
+        status = response.get("status_code")
         if status == 404:
+            # Indicate the list is missing
             return None
+        elif status:
+            # Raise an HTTPError with status and message (fallback included)
+            msg = response.get("message", f"Error querying exception list via API for list_id {list_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
         return response
 
     @classmethod
     def delete(cls, list_id: str, namespace_type: str = "single") -> None:
-        """Delete an exception list."""
+        """Delete an exception list. Silently succeed if the list is missing."""
         params = {"list_id": list_id, "namespace_type": namespace_type}
-        Kibana.current().delete(cls.BASE_URI, params=params)
+        response = Kibana.current().delete(cls.BASE_URI, params=params, error=False)
+        if not response:
+            raise RuntimeError(
+                f"Unexpected empty response when deleting exception list {list_id}"
+            )
+        status = response.get("status_code")
+        if status == 404:
+            # list already missing
+            return
+        elif status:
+            msg = response.get("message", f"Error deleting exception list via API for list_id {list_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
 
 
 class ValueListResource(BaseResource):
@@ -322,38 +339,51 @@ class ValueListResource(BaseResource):
 
         The API returns a JSON body with ``status_code: 404`` when the list is
         missing. In that case return ``None`` so callers can treat the list as
-        nonexistent.
+        nonexistent. Other error status codes raise an HTTPError. If no status
+        code is present the list was found and its JSON representation is
+        returned.
         """
-        response = Kibana.current().get(cls.BASE_URI, params={"id": list_id})
+        response = Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
         if not response:
-            raise RuntimeError(
-                f"Unexpected empty response when fetching value list {list_id}"
-            )
-        status = response.get("status_code") or response.get("statusCode")
+            raise RuntimeError(f"Unexpected empty response when fetching value list {list_id}")
+        # If the status_code exists, its either 404 or some other error
+        status = response.get("status_code")
         if status == 404:
+            # Indicate the list is missing
             return None
+        if status:
+            # Raise an HTTPError with status and message (fallback included)
+            msg = response.get("message", f"Error querying value list via API for id {list_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
         return response
 
     @classmethod
     def delete(cls, list_id: str) -> None:
-        """Delete a value list by ID."""
-        Kibana.current().delete(cls.BASE_URI, params={"id": list_id})
+        """Delete a value list by ID. Silently succeed if the list is missing."""
+        response = Kibana.current().delete(cls.BASE_URI, params={"id": list_id}, error=False)
+        if not response:
+            raise RuntimeError(f"Unexpected empty response when deleting value list {list_id}")
+        status = response.get("status_code")
+        if status == 404:
+            # list already missing
+            return
+        elif status:
+            msg = response.get("message", f"Error deleting value list via API for id {list_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
 
     @classmethod
     def create_index(cls) -> None:
         """Ensure the value list index exists."""
-        try:
-            response = Kibana.current().post(f"{cls.BASE_URI}/index")
-        except requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 409:
-                # index already exists
-                return
-            raise
-        if isinstance(response, dict) and (
-            response.get("status_code") == 409 or response.get("statusCode") == 409
-        ):
-            # index already exists
+        response = Kibana.current().post(f"{cls.BASE_URI}/index", error=False)
+        if not response:
+            raise RuntimeError("Unexpected empty response when creating value list index")
+        status = response.get("status_code")
+        if status == 200 or status == 409:
+            # index created or already exists
             return
+        else:
+            msg = response.get("message", "Error creating value list index")
+            raise HTTPError(f"HTTP {status}: {msg}")
 
     @classmethod
     def create(cls, list_id: str, list_type: str, name: str | None = None, description: str | None = None) -> dict:
@@ -364,7 +394,8 @@ class ValueListResource(BaseResource):
             "name": name or list_id,
             "description": description or name or list_id,
         }
-        return Kibana.current().post(cls.BASE_URI, data=payload)
+        response = Kibana.current().post(cls.BASE_URI, data=payload)
+        return response
 
     @classmethod
     def import_list_items(cls, list_id: str, text: str, list_type: str) -> dict:
@@ -384,9 +415,10 @@ class ValueListResource(BaseResource):
         ).encode("utf-8")
         headers = {"content-type": f"multipart/form-data; boundary={boundary}"}
         params = {"list_id": list_id, "type": list_type}
-        return Kibana.current().post(
+        response = Kibana.current().post(
             f"{cls.BASE_URI}/items/_import", params=params, raw_data=body, headers=headers
         )
+        return response
 
     @classmethod
     def export_list_items(cls, list_id: str) -> str:
@@ -407,12 +439,22 @@ class ValueListResource(BaseResource):
         params = {"list_id": list_id, "per_page": per_page}
         if cursor:
             params["cursor"] = cursor
-        return Kibana.current().get(f"{cls.BASE_URI}/items/_find", params=params)
+        response = Kibana.current().get(f"{cls.BASE_URI}/items/_find", params=params)
+        return response
 
     @classmethod
     def delete_list_item(cls, item_id: str) -> None:
-        """Delete a single value list item by its ``id``."""
-        Kibana.current().delete(f"{cls.BASE_URI}/items", params={"id": item_id})
+        """Delete a single value list item by its ``id``. Silently succeed if the item is missing."""
+        response = Kibana.current().delete(f"{cls.BASE_URI}/items", params={"id": item_id}, error=False)
+        if not response:
+            raise RuntimeError(f"Unexpected empty response when deleting value list item {item_id}")
+        status = response.get("status_code")
+        if status == 404:
+            # item already missing
+            return
+        elif status:
+            msg = response.get("message", f"Error deleting value list item via API for id {item_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
 
     @classmethod
     def delete_list_items(cls, list_id: str) -> None:
@@ -426,13 +468,7 @@ class ValueListResource(BaseResource):
         for item in response.get("data", []):
             item_id = item.get("id")
             if item_id:
-                try:
-                    cls.delete_list_item(item_id)
-                except requests.HTTPError as exc:
-                    if exc.response is not None and exc.response.status_code == 404:
-                        # idempotent delete: ignore missing
-                        continue
-                    raise
+                cls.delete_list_item(item_id)
 
 
 class TimelineTemplateResource(BaseResource):
@@ -445,44 +481,60 @@ class TimelineTemplateResource(BaseResource):
         """Retrieve a timeline template by its ``templateTimelineId``.
 
         Returns ``None`` if the template cannot be found. The API returns
-        ``status_code: 404`` in the body instead of using HTTP 404 when the
-        timeline is missing.
+        ``status_code: 404`` when a timeline is missing, so this method
+        checks for that and returns ``None``. Other error status codes raise
+        a RuntimeError. If no status code is present the timeline was found
+        and its JSON representation is returned.
         """
 
-        kibana = Kibana.current()
-        response = kibana.get(
-            cls.BASE_URI, params={"template_timeline_id": timeline_id}
+        response = Kibana.current().get(
+            cls.BASE_URI, params={"template_timeline_id": timeline_id},
+            error=False
         )
         if not response:
             raise RuntimeError(
                 f"Unexpected empty response when fetching timeline {timeline_id}"
             )
-        status = response.get("status_code") or response.get("statusCode")
+        status = response.get("status_code")
         if status == 404:
             return None
+        elif status:
+            raise RuntimeError(
+                response.get("message", f"Error querying timeline via API for id {timeline_id}")
+            )
         return response
 
     @classmethod
-    def resolve_saved_object_id(cls, timeline_id: str) -> str:
-        """Resolve a timeline's ``templateTimelineId`` to its saved object ID."""
+    def resolve_saved_object_id(cls, timeline_id: str) -> str | None:
+        """Resolve the saved object ID for a timeline template by its ``templateTimelineId``.
 
-        kibana = Kibana.current()
-        resolved = kibana.get(
+        The timeline export API requires the saved object ID rather than the
+        ``templateTimelineId`` stored on rules. This method calls the timeline
+        resolve endpoint to retrieve the saved object ID.
+        Returns ``None`` if the template cannot be found. The API returns
+        ``status_code: 404`` when a timeline is missing, so this method
+        checks for that and returns ``None``. Other error status codes raise
+        a RuntimeError. If no status code is present the timeline was found
+        and its saved object ID is returned.
+        """
+
+        resolved = Kibana.current().get(
             f"{cls.BASE_URI}/resolve",
-            params={"template_timeline_id": timeline_id}
+            params={"template_timeline_id": timeline_id},
+            error=False
         )
         if not resolved:
             raise RuntimeError(
                 f"Unexpected empty response when resolving timeline {timeline_id}"
             )
-        status = resolved.get("status_code") or resolved.get("statusCode")
-        if status:
+        status = resolved.get("status_code")
+        if status == 404:
+            return None
+        elif status:
             raise RuntimeError(
-                resolved.get("message", f"timeline {timeline_id} not found")
+                resolved.get("message", f"Error resolving timeline via API for id {timeline_id}")
             )
-        saved_id = resolved.get("timeline", {}).get("savedObjectId")
-        if not saved_id:
-            raise RuntimeError(f"timeline {timeline_id} not found")
+        saved_id = resolved.get("savedObjectId")
         return saved_id
 
     @classmethod
@@ -505,9 +557,10 @@ class TimelineTemplateResource(BaseResource):
             raise RuntimeError(f"timeline {timeline_id} not found")
 
         # Export the timeline template using the saved object ID
+        # todo I test and want to get error here...
         response = kibana.post(
             f"{cls.BASE_URI}/_export",
-            params={"file_name": timeline_id},
+            params={"file_name": "timeline_id"},
             data={"ids": [saved_id]},
             raw=True
         )
@@ -539,16 +592,31 @@ class TimelineTemplateResource(BaseResource):
         payload.setdefault("created", now_ms)
         payload.setdefault("updated", now_ms)
         headers, raw_data = Kibana.ndjson_file_data_prep([payload], "timeline.ndjson")
-        return Kibana.current().post(f"{cls.BASE_URI}/_import", headers=headers, raw_data=raw_data)
+        response = Kibana.current().post(f"{cls.BASE_URI}/_import", headers=headers, raw_data=raw_data)
+        return response
 
     @classmethod
     def delete(cls, timeline_id: str) -> None:
-        """Delete a timeline template by its ``templateTimelineId``."""
+        """Delete a timeline template by its ``templateTimelineId``.
+        Silently succeed if the template is missing."""
 
         saved_id = cls.resolve_saved_object_id(timeline_id)
-        Kibana.current().request(
-            "DELETE", cls.BASE_URI, data={"savedObjectIds": [saved_id]}
+        if not saved_id:
+            # timeline already missing
+            return
+        response = Kibana.current().request(
+            "DELETE", cls.BASE_URI, data={"savedObjectIds": [saved_id]},
+            error=False
         )
+        if not response:
+            raise RuntimeError(f"Unexpected empty response when deleting timeline {timeline_id}")
+        status = response.get("status_code")
+        if status == 404:
+            # timeline already missing
+            return
+        elif status:
+            msg = response.get("message", f"Error deleting timeline via API for id {timeline_id}")
+            raise HTTPError(f"HTTP {status}: {msg}")
 
 
 class Signal(BaseResource):
