@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,13 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
-  [process where host.os.type == "windows" and event.type == "start" and process.name : "rundll32.exe" and process.args_count == 1]
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "rundll32.exe" and
+  (
+    process.args_count == 1 and
+
+    /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+    not process.command_line regex~ """\".*\.exe[^\"].*"""
+  )]
   [network where host.os.type == "windows" and process.name : "rundll32.exe" and
    not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
        "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32",
