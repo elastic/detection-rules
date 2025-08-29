@@ -2,7 +2,7 @@
 creation_date = "2021/02/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -109,26 +109,45 @@ registry where host.os.type == "windows" and event.type == "change" and registry
       "MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
     ) and
   not process.executable : (
-          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
-          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
-          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MpDefenderCoreService.exe",
-          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
-          "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Program Files\\*.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\sra-pin.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\bomgar-scc.exe",
+          "?:\\ProgramData\\CTES\\Ctes.exe",
+          "?:\\ProgramData\\CTES\\Components\\SNG\\AbtSngSvc.exe",
+          "?:\\ProgramData\\CTES\\Components\\SVC\\CtesHostSvc.exe",
+          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
+          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\*.exe",
+          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
+          "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\*.exe",
+          "?:\\ProgramData\\tychoncloud\\bin\\OVAL\\tvs.exe",
+          "?:\\Windows\\CCM\\CcmEval.exe",
           "?:\\Windows\\CCM\\CcmExec.exe",
+          "?:\\Windows\\ccmsetup\\autoupgrade\\ccmsetup*.exe",
           "?:\\Windows\\ccmsetup\\cache\\ccmsetup.exe",
+          "?:\\Windows\\ccmsetup\\ccmsetup.exe",
           "?:\\Windows\\Cluster\\clussvc.exe",
           "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
           "?:\\Windows\\Lenovo\\ImController\\PluginHost86\\Lenovo.Modern.ImController.PluginHost.Device.exe",
           "?:\\Windows\\Lenovo\\ImController\\Service\\Lenovo.Modern.ImController.exe",
           "?:\\Windows\\Sysmon.exe",
           "?:\\Windows\\Sysmon64.exe",
-          "?:\\Windows\\System32\\*.exe",
-          "?:\\Windows\\SysWOW64\\*.exe",
           "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\UUS\\amd64\\WaaSMedicAgent.exe",
+          "?:\\Windows\\UUS\\Packages\\Preview\\amd64\\MoUsoCoreWorker.exe",
           "?:\\Windows\\WinSxS\\*.exe"
+  ) and
+  not
+  (
+    process.executable : (
+      "?:\\Windows\\System32\\*.exe",
+      "?:\\Windows\\SysWOW64\\*.exe"
+    ) and
+    not process.name : (
+        "rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "expand.exe",
+        "regsvr32.exe", "cscript.exe", "wscript.exe", "wmiprvse.exe", "certutil.exe", "xcopy.exe"
+    )
   )
 '''
 

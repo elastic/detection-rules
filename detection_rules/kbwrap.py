@@ -29,7 +29,7 @@ from .misc import add_params, get_kibana_client, kibana_options, nested_set, rai
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import definitions  # noqa: TC001
-from .utils import format_command_options, rulename_to_filename
+from .utils import CUSTOM_RULES_KQL, format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
@@ -303,9 +303,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         query = (
             export_query
             if not custom_rules_only
-            else (
-                f'alert.attributes.params.ruleSource.type: "internal"{f" and ({export_query})" if export_query else ""}'
-            )
+            else (f"({CUSTOM_RULES_KQL}){f' and ({export_query})' if export_query else ''}")
         )
 
         results = (  # type: ignore[reportUnknownVariableType]
@@ -336,8 +334,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     rules_results = results  # type: ignore[reportUnknownVariableType]
     action_connector_results = []
     exception_results = []
+    results_len = len(results)  # type: ignore[reportUnknownVariableType]
     if kibana_include_details:
         # Assign counts to variables
+        results_len = results_len - 1
         rules_count = results[-1]["exported_rules_count"]  # type: ignore[reportUnknownVariableType]
         exception_list_count = results[-1]["exported_exception_list_count"]  # type: ignore[reportUnknownVariableType]
         exception_list_item_count = results[-1]["exported_exception_list_item_count"]  # type: ignore[reportUnknownVariableType]
@@ -497,7 +497,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         saved_action_connectors.append(action)
 
-    click.echo(f"{len(results)} results exported")  # type: ignore[reportUnknownArgumentType]
+    click.echo(f"{results_len} results exported")  # type: ignore[reportUnknownArgumentType]
     click.echo(f"{len(exported)} rules converted")
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(action_connectors)} action connectors exported")
