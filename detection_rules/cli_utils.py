@@ -167,6 +167,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     skip_errors: bool = False,
     strip_none_values: bool = True,
     strip_dates: bool = False,
+    strip_version: bool = False,
     **kwargs: Any,
 ) -> TOMLRule | str:
     """Prompt loop to build a rule."""
@@ -275,6 +276,11 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     suggested_path: Path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents["name"]
     path = Path(path or input(f"File path for rule [{suggested_path}]: ") or suggested_path).resolve()
     # Inherit maturity and optionally local dates from the rule if it already exists
+    if strip_version:
+        kwargs.pop("version", None)
+        kwargs.pop("revision", None)
+        contents.pop("version", None)
+        contents.pop("revision", None)
     if strip_dates:
         kwargs.pop("creation_date", None)
         kwargs.pop("updated_date", None)

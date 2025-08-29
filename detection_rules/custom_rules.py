@@ -44,6 +44,11 @@ def create_config_content() -> str:
             "version_lock": "etc/version.lock.json",
         },
         "testing": {"config": "etc/test_config.yaml"},
+        "no_tactic_filename": False,
+        "strip_version": False,
+        "strip_dates": False,
+        "strip_exception_list_id": False,
+        "default_author": "",
     }
 
     return yaml.safe_dump(config_content, default_flow_style=False)
