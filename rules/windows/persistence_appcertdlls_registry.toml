@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,7 @@ index = [
     "endgame-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -59,14 +60,6 @@ AppCert DLLs are dynamic link libraries that can be configured to load with ever
 - Implement enhanced monitoring and logging for the specific registry paths and related process creation activities to detect any future unauthorized changes promptly."""
 risk_score = 47
 rule_id = "513f0ffd-b317-4b9c-9494-92ce861f22c7"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -79,6 +72,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -86,11 +80,7 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-  registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*",
-    "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
-  )
+  registry.path : "*\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
 '''
 
 
