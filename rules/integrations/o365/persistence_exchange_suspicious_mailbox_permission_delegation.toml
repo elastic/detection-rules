@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/05/07"
+updated_date = "2025/08/29"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -13,15 +13,16 @@ evade spam/phishing detection mechanisms.
 """
 false_positives = [
     "Assignment of rights to a service account.",
-    "Delegation by first-party applications that require mailbox access."
+    "Delegation by first-party applications that require mailbox access.",
 ]
+from = "now-9m"
 index = ["filebeat-*", "logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Exchange Suspicious Mailbox Permission Delegation"
+name = "M365 Exchange Suspicious Mailbox Permission Delegation"
 note = """## Triage and Analysis
 
-### Investigating Suspicious Mailbox Permission Delegation in Exchange Online
+### Investigating M365 Exchange Suspicious Mailbox Permission Delegation
 
 This rule detects the delegation of mailbox permissions in Microsoft 365 Exchange. This behavior may indicate that an adversary is attempting to gain access to another user's mailbox or send messages on behalf of that user.
 
@@ -68,7 +69,7 @@ If the delegation is determined to be unauthorized or suspicious:
 - Harden delegation policies by requiring approvals, limiting delegation to specific groups, or implementing Just-in-Time (JIT) access for mailboxes.
 """
 references = [
-    "https://learn.microsoft.com/en-us/microsoft-365/admin/add-users/give-mailbox-permissions-to-another-user?view=o365-worldwide"
+    "https://learn.microsoft.com/en-us/microsoft-365/admin/add-users/give-mailbox-permissions-to-another-user?view=o365-worldwide",
 ]
 risk_score = 21
 rule_id = "0ce6487d-8069-4888-9ddd-61b52490cebc"
@@ -76,12 +77,14 @@ severity = "low"
 tags = [
     "Domain: Cloud",
     "Domain: SaaS",
+    "Domain: Email",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft Exchange",
     "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Exchange",
     "Use Case: Configuration Audit",
     "Tactic: Persistence",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -103,16 +106,6 @@ not user.id:(
     )
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "o365.audit.ObjectId",
-    "o365.audit.Parameters.Identity",
-    "user.id",
-    "source.ip",
-    "user_agent.original",
-    "event.action",
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -132,9 +125,22 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "o365.audit.ObjectId",
+    "o365.audit.Parameters.Identity",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+]
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["o365.audit.UserId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
