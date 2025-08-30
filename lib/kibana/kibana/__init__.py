@@ -6,11 +6,20 @@
 """Wrapper around Kibana APIs for the Security Application."""
 
 from .connector import Kibana
-from .resources import RuleResource, Signal
+from .resources import (
+    ExceptionListResource,
+    RuleResource,
+    Signal,
+    TimelineTemplateResource,
+    ValueListResource,
+)
 
-__version__ = '0.4.1'
+__version__ = "0.5.3"
 __all__ = (
     "Kibana",
     "RuleResource",
-    "Signal"
+    "Signal",
+    "TimelineTemplateResource",
+    "ValueListResource",
+    "ExceptionListResource",
 )

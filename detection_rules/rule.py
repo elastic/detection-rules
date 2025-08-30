@@ -108,8 +108,8 @@ class DictRule:
 class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""
 
-    creation_date: definitions.Date
-    updated_date: definitions.Date
+    creation_date: definitions.Date | None = None
+    updated_date: definitions.Date | None = None
     deprecation_date: definitions.Date | None = None
 
     # Optional fields
@@ -958,7 +958,8 @@ class ESQLRuleData(QueryRuleData):
         keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
         if not keep_pattern.search(query_lower):
             raise ValidationError(
-                f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+                f"Rule: {data['name']} does not contain a 'keep' command ->"
+                f" Add a 'keep' command to the query."
             )
 
 
@@ -1479,18 +1480,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def from_rule_resource(
         cls,
         rule: dict[str, Any],
-        creation_date: str = TIME_NOW,
-        updated_date: str = TIME_NOW,
+        creation_date: str | None = TIME_NOW,
+        updated_date: str | None = TIME_NOW,
         maturity: str = "development",
     ) -> "TOMLRuleContents":
         """Create a TOMLRuleContents from a kibana rule resource."""
         integrations = [r["package"] for r in rule["related_integrations"]]
-        meta = {
-            "creation_date": creation_date,
-            "updated_date": updated_date,
-            "maturity": maturity,
-            "integration": integrations,
-        }
+        meta = {"maturity": maturity, "integration": integrations}
+        if creation_date is not None:
+            meta["creation_date"] = creation_date
+        if updated_date is not None:
+            meta["updated_date"] = updated_date
         return cls.from_dict({"metadata": meta, "rule": rule, "transforms": None}, unknown=marshmallow.EXCLUDE)
 
     def to_dict(self, strip_none_values: bool = True) -> dict[str, Any]:
@@ -1587,8 +1587,10 @@ class TOMLRule:
         if self.path is None:
             raise ValueError(f"Can't save rule {self.name} (self.id) without a path")
 
+        metadata = self.contents.metadata.to_dict()
+
         converted = {
-            "metadata": self.contents.metadata.to_dict(),
+            "metadata": metadata,
             "rule": self.contents.data.to_dict(strip_none_values=strip_none_values),
         }
         if self.contents.transform:

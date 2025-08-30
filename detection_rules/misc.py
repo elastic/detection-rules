@@ -399,7 +399,14 @@ def get_kibana_client(
         raise_client_error("Missing required --cloud-id or --kibana-url")
 
     verify = not ignore_ssl_errors
-    return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+    return Kibana(
+        cloud_id=cloud_id,
+        kibana_url=kibana_url,
+        api_key=api_key,
+        space=space,
+        verify=verify,
+        **kwargs,
+    )
 
 
 client_options = {

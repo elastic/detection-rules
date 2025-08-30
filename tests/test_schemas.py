@@ -186,6 +186,8 @@ class TestSchemas(unittest.TestCase):
         if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
+    # Prebuilt-only: validates EQL against Elastics canonical mappings; custom deployments may allow different fields
+    @unittest.skipIf(RULES_CONFIG.bypass_optional_elastic_validation, "Validation bypassed")
     def test_eql_validation(self):
         base_fields = {
             "author": ["Elastic"],

@@ -84,10 +84,29 @@ def root(ctx: click.Context, debug: bool) -> None:
 @click.option(
     "--rule-type", "-t", type=click.Choice(sorted(TOMLRuleContents.all_rule_types())), help="Type of rule to create"
 )
-def create_rule(path: Path, config: Path, required_only: bool, rule_type: str):  # noqa: ANN201
+@click.option("--strip-dates/--keep-dates", default=None, is_flag=True, help="Strip creation and updated date fields")
+@click.option("--strip-version/--keep-version", default=None, is_flag=True, help="Strip version and revision fields")
+def create_rule(  # noqa: PLR0913
+    path: Path,
+    config: Path,
+    required_only: bool,
+    rule_type: str,
+    strip_dates: bool | None,
+    strip_version: bool | None,
+) -> TOMLRule | str:
     """Create a detection rule."""
     contents: dict[str, Any] = load_rule_contents(config, single_only=True)[0] if config else {}
-    return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
+    strip_dates = RULES_CONFIG.strip_dates if strip_dates is None else strip_dates
+    strip_version = RULES_CONFIG.strip_version if strip_version is None else strip_version
+    return rule_prompt(
+        path,
+        rule_type=rule_type,
+        required_only=required_only,
+        save=True,
+        strip_dates=strip_dates,
+        strip_version=strip_version,
+        **contents,
+    )
 
 
 @root.command("generate-rules-index")
@@ -155,6 +174,9 @@ def generate_rules_index(
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
+@click.option("--strip-dates", "-sd", is_flag=True, help="Strip creation and updated date fields from imported rules")
+@click.option("--strip-version", "-sv", is_flag=True, help="Strip version and revision fields from imported rules")
+@click.option("--strip-exception-list-id", "-sli", is_flag=True, help="Strip id fields from rule exceptions list")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 @click.option(
@@ -175,11 +197,19 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     skip_errors: bool,
     default_author: str,
     strip_none_values: bool,
+    strip_dates: bool,
+    strip_version: bool,
+    strip_exception_list_id: bool,
     local_creation_date: bool,
     local_updated_date: bool,
     load_rule_loading: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
+    default_author = default_author or RULES_CONFIG.default_author
+    strip_version = strip_version or RULES_CONFIG.strip_version
+    strip_dates = strip_dates or RULES_CONFIG.strip_dates
+    strip_exception_list_id = strip_exception_list_id or RULES_CONFIG.strip_exception_list_id
+
     errors: list[str] = []
 
     rule_files: list[Path] = []
@@ -246,6 +276,18 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             )
         )
 
+        if strip_dates:
+            contents.pop("creation_date", None)
+            contents.pop("updated_date", None)
+
+        if strip_version:
+            contents.pop("version", None)
+            contents.pop("revision", None)
+
+        if strip_exception_list_id and contents.get("exceptions_list"):
+            for exc in contents["exceptions_list"]:
+                exc.pop("id", None)
+
         output = rule_prompt(
             rule_path,
             required_only=required_only,
@@ -254,6 +296,8 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             additional_required=additional,
             skip_errors=skip_errors,
             strip_none_values=strip_none_values,
+            strip_dates=strip_dates,
+            strip_version=strip_version,
             **contents,
         )
         # If output is not a TOMLRule
@@ -288,6 +332,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=True,
             skip_errors=skip_errors,
             verbose=True,
+            strip_dates=strip_dates,
         )
         for line in e_output:
             click.echo(line)
@@ -302,6 +347,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             save_toml=True,
             skip_errors=skip_errors,
             verbose=True,
+            strip_dates=strip_dates,
         )
         for line in ac_output:
             click.echo(line)
