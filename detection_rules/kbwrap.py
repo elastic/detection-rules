@@ -715,12 +715,45 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             rules_and_exceptions_count : rules_and_exceptions_count + action_connector_count
         ]
 
+    # ------------------------------------------------------------------
+    # Helper data structures for consistent log formatting
+    # ------------------------------------------------------------------
+
+    @dataclass
+    class ItemLog:
+        """Container for human friendly log output."""
+
+        name: str  # human readable name of the item
+        identifier: str  # unique identifier such as id or list_id
+        message: str | None = None  # optional error message
+
+    def _format_item(item: ItemLog) -> str:
+        """Return a standardized 'name - id' string with optional message."""
+
+        base = f"{item.name} - {item.identifier}"
+        return f"{base}: {item.message}" if item.message else base
+
+    # Keep a running list of errors for the final summary report
     errors: list[str] = []
+    # Store exported rule objects for later processing and logging
     exported: list[TOMLRule] = []
     exception_list_rule_table: dict[str, list[dict[str, Any]]] = {}
     action_connector_rule_table: dict[str, list[dict[str, Any]]] = {}
     value_list_ids: set[str] = set()  # value lists referenced across all exceptions
     timeline_ids: set[str] = set()  # timeline templates referenced by rules
+
+    # Collect detailed logs for rules and dependent resources
+    rule_logs: list[ItemLog] = []
+    rule_error_logs: list[ItemLog] = []
+    exception_logs: list[ItemLog] = []
+    exception_error_logs: list[ItemLog] = []
+    action_logs: list[ItemLog] = []
+    action_error_logs: list[ItemLog] = []
+    value_list_logs: list[ItemLog] = []
+    value_list_error_logs: list[ItemLog] = []
+    timeline_logs: list[ItemLog] = []
+    timeline_error_logs: list[ItemLog] = []
+
     for rule_resource in rules_results:  # type: ignore[reportUnknownVariableType]
         try:
             if strip_version:
@@ -768,8 +801,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     exc.pop("id", None)
         except Exception as e:
             if skip_errors:
-                print(f"- skipping {rule_resource.get('name')} - {type(e).__name__}")  # type: ignore[reportUnknownMemberType]
-                errors.append(f"- {rule_resource.get('name')} - {e}")  # type: ignore[reportUnknownMemberType]
+                name = cast("str", rule_resource.get("name", "unknown"))
+                rule_id = cast("str", rule_resource.get("rule_id", "unknown"))
+                print(f"- skipping {name} - {rule_id} - {type(e).__name__}")
+                errors.append(f"- {name} - {rule_id} - {e}")
+                rule_error_logs.append(ItemLog(name, rule_id, str(e)))
                 continue
             raise
         if rule.contents.data.exceptions_list:
@@ -845,12 +881,14 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             rule.save_toml()
         except Exception as e:
             if skip_errors:
-                print(f"- skipping {rule.contents.data.name} - {type(e).__name__}")
-                errors.append(f"- {rule.contents.data.name} - {e}")
+                print(f"- skipping {rule.name} - {rule.id} - {type(e).__name__}")
+                errors.append(f"- {rule.name} - {rule.id} - {e}")
+                rule_error_logs.append(ItemLog(rule.name, rule.id, str(e)))
                 continue
             raise
 
         saved.append(rule)
+        rule_logs.append(ItemLog(rule.name, rule.id))
 
     saved_exceptions: list[TOMLException] = []
 
@@ -867,12 +905,17 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             exception.save_toml()
         except Exception as e:
             if skip_errors:
-                print(f"- skipping {exception.rule_name} - {type(e).__name__}")  # type: ignore[reportUnknownMemberType]
-                errors.append(f"- {exception.rule_name} - {e}")  # type: ignore[reportUnknownMemberType]
+                list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+                name = exception.name
+                print(f"- skipping {name} - {list_id} - {type(e).__name__}")
+                errors.append(f"- {name} - {list_id} - {e}")
+                exception_error_logs.append(ItemLog(name, list_id, str(e)))
                 continue
             raise
 
         saved_exceptions.append(exception)
+        list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+        exception_logs.append(ItemLog(exception.name, list_id))
         if export_value_lists:
             # Gather list IDs for each successfully saved exception
             list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
@@ -889,13 +932,15 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     # Call Kibana API to fetch the list's items in export format
                     text = ValueListResource.export_list_items(list_id)
                     value_list_exported.append(list_id)
+                    value_list_logs.append(ItemLog(list_id, list_id))
                     if value_list_directory:
                         (value_list_directory / list_id).write_text(text)
                         saved_value_lists.append(list_id)
                 except Exception as e:
                     if skip_errors:
-                        print(f"- skipping value list {list_id} - {type(e).__name__}")
-                        errors.append(f"- {list_id} - {e}")
+                        print(f"- skipping {list_id} - {list_id} - {type(e).__name__}")
+                        errors.append(f"- {list_id} - {list_id} - {e}")
+                        value_list_error_logs.append(ItemLog(list_id, list_id, str(e)))
                         continue
                     raise
 
@@ -929,25 +974,31 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     if timeline_templates_directory:
                         tt_object.save_toml()
                         saved_timeline_templates.append(t_id)
+                    title = tt_object.contents.metadata.timeline_template_title
+                    timeline_logs.append(ItemLog(title, t_id))
                 except Exception as e:
                     if skip_errors:
-                        print(f"- skipping timeline template {t_id} - {type(e).__name__}")
-                        errors.append(f"- {t_id} - {e}")
+                        print(f"- skipping {t_id} - {t_id} - {type(e).__name__}")
+                        errors.append(f"- {t_id} - {t_id} - {e}")
+                        timeline_error_logs.append(ItemLog(t_id, t_id, str(e)))
                         continue
                     raise
 
     saved_action_connectors: list[TOMLActionConnector] = []
     for action in action_connectors:
+        action_id = action.contents.action_connectors[0].id  # type: ignore[reportUnknownMemberType]
         try:
             action.save_toml()
         except Exception as e:
             if skip_errors:
-                print(f"- skipping {action.name} - {type(e).__name__}")
-                errors.append(f"- {action.name} - {e}")
+                print(f"- skipping {action.name} - {action_id} - {type(e).__name__}")
+                errors.append(f"- {action.name} - {action_id} - {e}")
+                action_error_logs.append(ItemLog(action.name, action_id, str(e)))
                 continue
             raise
 
         saved_action_connectors.append(action)
+        action_logs.append(ItemLog(action.name, action_id))
 
     click.echo(f"{results_len} results exported")  # type: ignore[reportUnknownArgumentType]
     click.echo(f"{len(exported)} rules converted")
@@ -960,6 +1011,44 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
     click.echo(f"{len(saved_value_lists)} value lists saved to {value_list_directory}")
     click.echo(f"{len(saved_timeline_templates)} timeline templates saved to {timeline_templates_directory}")
+
+    # ------------------------------------------------------------------
+    # Detailed log output for saved and skipped items
+    # ------------------------------------------------------------------
+    if rule_logs:
+        click.echo("\nRules saved:")
+        click.echo("\n".join(f" - {_format_item(r)}" for r in rule_logs))
+    if rule_error_logs:
+        click.echo("\nRules skipped:")
+        click.echo("\n".join(f" - {_format_item(r)}" for r in rule_error_logs))
+
+    if exception_logs:
+        click.echo("\nExceptions saved:")
+        click.echo("\n".join(f" - {_format_item(e)}" for e in exception_logs))
+    if exception_error_logs:
+        click.echo("\nExceptions skipped:")
+        click.echo("\n".join(f" - {_format_item(e)}" for e in exception_error_logs))
+
+    if action_logs:
+        click.echo("\nAction connectors saved:")
+        click.echo("\n".join(f" - {_format_item(a)}" for a in action_logs))
+    if action_error_logs:
+        click.echo("\nAction connectors skipped:")
+        click.echo("\n".join(f" - {_format_item(a)}" for a in action_error_logs))
+
+    if value_list_logs:
+        click.echo("\nValue lists saved:")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in value_list_logs))
+    if value_list_error_logs:
+        click.echo("\nValue lists skipped:")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in value_list_error_logs))
+
+    if timeline_logs:
+        click.echo("\nTimeline templates saved:")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in timeline_logs))
+    if timeline_error_logs:
+        click.echo("\nTimeline templates skipped:")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in timeline_error_logs))
     if errors:
         err_file = directory / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
