@@ -34,6 +34,8 @@ def create_config_content() -> str:
             "action_dir": "actions",
             "action_connector_dir": "action_connectors",
             "exception_dir": "exceptions",
+            "value_list_dir": "value_lists",
+            "timeline_template_dir": "timeline_templates",
         },
         "files": {
             "deprecated_rules": "etc/deprecated_rules.json",
@@ -42,6 +44,11 @@ def create_config_content() -> str:
             "version_lock": "etc/version.lock.json",
         },
         "testing": {"config": "etc/test_config.yaml"},
+        "no_tactic_filename": False,
+        "strip_version": False,
+        "strip_dates": False,
+        "strip_exception_list_id": False,
+        "default_author": "",
     }
 
     return yaml.safe_dump(config_content, default_flow_style=False)
@@ -104,6 +111,8 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_p
         directory / "actions",
         directory / "action_connectors",
         directory / "exceptions",
+        directory / "value_lists",
+        directory / "timeline_templates",
         directory / "rules",
         directory / "rules_building_block",
         etc_dir,
