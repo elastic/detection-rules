@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Load generic toml formatted files for exceptions and actions."""
+"""Load generic toml formatted files for exceptions, actions and timelines."""
 
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
@@ -16,14 +16,27 @@ from .action_connector import TOMLActionConnector, TOMLActionConnectorContents
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
 from .rule_loader import dict_filter
+from .timeline import TOMLTimelineTemplate, TOMLTimelineTemplateContents
 
 if TYPE_CHECKING:
     from .schemas import definitions
 
 RULES_CONFIG = parse_rules_config()
 
-GenericCollectionTypes = TOMLAction | TOMLActionConnector | TOMLException
-GenericCollectionContentTypes = TOMLActionContents | TOMLActionConnectorContents | TOMLExceptionContents
+# Extend the unions of supported collection item types so that timeline
+# templates are handled in the same generic way as actions and exceptions.
+GenericCollectionTypes = (
+    TOMLAction
+    | TOMLActionConnector
+    | TOMLException
+    | TOMLTimelineTemplate
+)
+GenericCollectionContentTypes = (
+    TOMLActionContents
+    | TOMLActionConnectorContents
+    | TOMLExceptionContents
+    | TOMLTimelineTemplateContents
+)
 
 
 def metadata_filter(**metadata: Any) -> Callable[[GenericCollectionTypes], bool]:
@@ -137,6 +150,12 @@ class GenericCollection:
                 raise ValueError("No path value provided")
             contents = TOMLActionConnectorContents.from_dict(obj)
             item = TOMLActionConnector(path=path, contents=contents)
+        elif "timeline" in obj:
+            # When the root object contains a ``timeline`` key it represents a
+            # timeline template file.  Loading it into the collection allows the
+            # CLI to treat templates like other auxiliary resources.
+            contents = TOMLTimelineTemplateContents.from_dict(obj)
+            item = TOMLTimelineTemplate(path=path, contents=contents)
         else:
             raise ValueError("Invalid object type")
 
@@ -204,6 +223,10 @@ class GenericCollection:
                 collection.load_directory(RULES_CONFIG.action_dir)
             if RULES_CONFIG.action_connector_dir:
                 collection.load_directory(RULES_CONFIG.action_connector_dir)
+            if RULES_CONFIG.timeline_template_dir:
+                # Load timeline templates so that import operations can resolve
+                # them in the same pass as other generic resources.
+                collection.load_directory(RULES_CONFIG.timeline_template_dir)
             collection.freeze()
             cls.__default = collection
 

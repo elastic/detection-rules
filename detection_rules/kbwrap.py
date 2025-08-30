@@ -42,6 +42,7 @@ from .misc import add_params, get_kibana_client, kibana_options, nested_set, rai
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import definitions  # noqa: TC001
+from .timeline import TOMLTimelineTemplate, TOMLTimelineTemplateContents
 from .utils import CUSTOM_RULES_KQL, format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -241,6 +242,9 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         # iterate over collection items and separate exception lists/action connectors
         excluded_exception_lists: list[str] = []
         excluded_list_ids: set[str] = set()
+        # Map of timeline template IDs to their exported dictionaries.  Using a
+        # map makes it easy to resolve the template for a given rule later on.
+        timeline_template_map: dict[str, dict[str, Any]] = {}
         for d in cl.items:
             if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
                 name = d.contents.metadata.list_name
@@ -253,6 +257,10 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 exception_list_map[list_id] = edicts
             elif isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids):
                 action_connectors_dicts.append(d.contents.to_api_format())
+            elif isinstance(d.contents, TOMLTimelineTemplateContents):
+                t_id = d.contents.metadata.timeline_template_id
+                if t_id in timeline_ids:
+                    timeline_template_map[t_id] = d.contents.to_api_format()
 
         if excluded_list_ids:
             for rd in rule_dicts:
@@ -337,16 +345,14 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
         skipped_timeline_templates: list[str] = []
         missing_timeline_templates: list[str] = []
         failed_timeline_templates: list[str] = []
-        timeline_template_dir = RULES_CONFIG.timeline_template_dir
         for t_id in timeline_ids:
-            # resolve each timeline ID to a file within the configured directory
-            file_path = (
-                timeline_template_dir / f"{t_id}.json" if timeline_template_dir else None
-            )
-            if not file_path or not file_path.exists():
+            # Resolve each timeline ID to a previously loaded template.  When a
+            # template is missing from the collection we record the ID so the
+            # user can supply the file.
+            payload = timeline_template_map.get(t_id)
+            if payload is None:
                 missing_timeline_templates.append(t_id)
                 continue
-            text = file_path.read_text()
             try:
                 existing = TimelineTemplateResource.get(t_id)
             except Exception as exc:  # noqa: BLE001
@@ -357,7 +363,6 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
             if existing and overwrite_timeline_templates:
                 try:
-                    payload = json.loads(text)
                     # Prefer the current version from existing and increment it
                     existing_version = existing.get("templateTimelineVersion") if isinstance(existing, dict) else None
                     if isinstance(existing_version, int):
@@ -371,7 +376,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     continue
             else:
                 try:
-                    TimelineTemplateResource.import_template(text)
+                    TimelineTemplateResource.import_template(json.dumps(payload))
                 except Exception as exc:  # noqa: BLE001
                     failed_timeline_templates.append(f"{t_id}: {exc}")
                     continue
@@ -841,17 +846,20 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     if strip_dates:
                         payload.pop("created", None)
                         payload.pop("updated", None)
-
-                    # todo: We want to handle this like we handle rules, and have a real nice way to store it as abstraction
-                    # so that stored as toml and so on, and validation possible with our standard rules...
-                    text = json.dumps(payload)
-                    # ensure newline at end for consistency
-                    if text and not text.endswith("\n"):
-                        text += "\n"
-
+                    contents = TOMLTimelineTemplateContents.from_timeline_dict(
+                        payload, strip_dates=strip_dates
+                    )
+                    tt_object = TOMLTimelineTemplate(
+                        contents=contents,
+                        path=(
+                            timeline_templates_directory / f"{t_id}.toml"
+                            if timeline_templates_directory
+                            else Path(f"{t_id}.toml")
+                        ),
+                    )
                     timeline_template_exported.append(t_id)
                     if timeline_templates_directory:
-                        (timeline_templates_directory / f"{t_id}.json").write_text(text)
+                        tt_object.save_toml()
                         saved_timeline_templates.append(t_id)
                 except Exception as e:
                     if skip_errors:
