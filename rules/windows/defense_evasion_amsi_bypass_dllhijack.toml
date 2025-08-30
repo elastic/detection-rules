@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/01/17"
-integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/08/26"
 
 [transform]
 [[transform.osquery]]
@@ -44,6 +44,7 @@ index = [
     "endgame-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -111,38 +112,38 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and file.path != null and
-  file.name : ("amsi.dll", "amsi") and
+  file.name : ("amsi.dll", "amsi") and 
+  event.action != "A process changed a file creation time" and 
   not file.path : (
-    "?:\\$SysReset\\CloudImage\\Package_for_RollupFix*",
+    "?:\\$SysReset\\CloudImage\\Package_for_RollupFix*\\amsi.dll",
     "?:\\Windows\\system32\\amsi.dll",
     "?:\\Windows\\Syswow64\\amsi.dll",
-    "?:\\$WINDOWS.~BT\\DUImageSandbox\\*",
-    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
-    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
-    "?:\\$WINDOWS.~BT\\Work\\*\\*",
-    "?:\\$WINDOWS.~BT\\Store\\Offline\\File\\C$\\Windows\\SoftwareDistribution\\Download.bak\\*",
-    "?:\\Windows\\CbsTemp\\*\\f\\amsi.dll",
+    "?:\\$WINDOWS.~BT\\*\\amsi.dll",
+    "?:\\Windows\\CbsTemp\\*\\amsi.dll",
     "?:\\Windows\\SoftwareDistribution\\Download\\*",
-    "?:\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
-  ) and
-  not
-  (
-    process.executable : "C:\\Windows\\System32\\wbengine.exe" and
-    file.path : (
-      "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
-      "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
-      "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
-      "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
-    )
-  )
+    "?:\\Windows\\WinSxS\\*\\amsi.dll", 
+    "?:\\Windows\\servicing\\*\\amsi.dll",
+    "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll", 
+    "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll", 
+    "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll",
+
+    /* Crowdstrike specific exclusion as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Windows\\system32\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\syswow64\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\WinSxS\\*\\amsi.dll",
+    "\\Device\\HarddiskVolume*\\$SysReset\\CloudImage\\Package_for_RollupFix*\\amsi.dll",
+    "\\Device\\HarddiskVolume*\\$WINDOWS.~BT\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\SoftwareDistribution\\Download\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\CbsTemp\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\servicing\\*\\amsi.dll"
+  ) 
 '''
 
 
