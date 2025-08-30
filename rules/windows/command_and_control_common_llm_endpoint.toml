@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2025/08/28"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/08/28"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may implement command and control (C2) communications that use common web services to hide their activity.
+This attack technique is typically targeted at an organization and uses web services common to the victim network, which
+allows the adversary to blend into legitimate traffic activity. These popular services are typically targeted since they
+have most likely been used before compromise, which helps malicious traffic blend in.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Connection to Common Large Language Model Endpoints"
+note = """## Triage and analysis
+
+### Investigating Connection to Commonly Abused Web Services
+
+Adversaries may use an existing, legitimate external Web service as a means for relaying data to/from a compromised system. Popular websites and social media acting as a mechanism for C2 may give a significant amount of cover due to the likelihood that hosts within a network are already communicating with them prior to a compromise.
+
+This rule looks for processes outside known legitimate program locations communicating with a list of services that can be abused for exfiltration or command and control.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+  - $investigate_0
+  - $investigate_1
+- Verify whether the digital signature exists in the executable.
+- Identify the operation type (upload, download, tunneling, etc.).
+- Examine the host for derived artifacts that indicate suspicious activities:
+  - Analyze the process executable using a private sandboxed analysis system.
+  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+        - $investigate_2
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - $osquery_0
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
+  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This rule has a high chance to produce false positives because it detects communication with legitimate services. Noisy false positives can be added as exceptions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://malpedia.caad.fkie.fraunhofer.de/details/py.lamehug"]
+risk_score = 43
+rule_id = "54aa452c-a997-4f8d-b7f0-c69e56d4c05a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and network.protocol == "dns" and
+    process.name != null and not ?user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+    dns.question.name : (
+    // Major LLM APIs
+    "api.openai.com",
+    "*.openai.azure.com",
+    "api.anthropic.com",
+    "api.mistral.ai",
+    "api.cohere.ai",
+    "api.ai21.com",
+    "api.groq.com",
+    "api.perplexity.ai",
+    "api.x.ai",
+    "api.deepseek.com",
+    "api.gemini.google.com",
+    "generativelanguage.googleapis.com",
+    "api.azure.com",
+    "api.bedrock.aws",
+    "bedrock-runtime.amazonaws.com",
+
+    // Hugging Face & other ML infra
+    "api-inference.huggingface.co",
+    "inference-endpoint.huggingface.cloud",
+    "*.hf.space",
+    "*.replicate.com",
+    "api.replicate.com",
+    "api.runpod.ai",
+    "*.runpod.io",
+    "api.modal.com",
+    "*.forefront.ai",
+
+    // Consumer-facing AI chat portals
+    "chat.openai.com",
+    "chatgpt.com",
+    "copilot.microsoft.com",
+    "bard.google.com",
+    "gemini.google.com",
+    "claude.ai",
+    "perplexity.ai",
+    "poe.com",
+    "chat.forefront.ai",
+    "chat.deepseek.com"
+  )
+    /* Insert noisy false positives here */
+    not process.executable : (
+          "?:\\Program Files\\*.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "C:\\Windows\\System32\\svchost.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
+          "?:\\Windows\\SystemApps\\Microsoft.LockApp_*\\LockApp.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe"
+        ) and
+    not ?process.code_signature.subject_name like ("Anthropic, PBC", "Developer ID Application: Google LLC (*)", "Google LLC",
+         "Brave Software, Inc.", "Developer ID Application: Mozilla Corporation (*)", "Developer ID Application: Island Technology, Inc. (*)")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+
