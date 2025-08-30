@@ -9,6 +9,7 @@ import fnmatch
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -139,7 +140,7 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     help="Exclude exception lists by name (supports wildcards)",
 )
 @click.pass_context
-def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
+def kibana_import_rules(
     ctx: click.Context,
     rules: RuleCollection,
     overwrite: bool = False,
@@ -149,310 +150,378 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     overwrite_timeline_templates: bool = False,
     exclude_exceptions: tuple[str, ...] = (),
 ) -> tuple[dict[str, Any], list[RuleResource]]:
-    """Import custom rules into Kibana."""
+    """Import custom rules into Kibana.
 
-    def _handle_response_errors(response: dict[str, Any]) -> None:
-        """Handle errors from the import response."""
+    The original implementation for this command grew over time and became
+    hard to follow.  The refactored version below breaks the workflow into
+    small, well documented helper functions that closely mirror the required
+    import phases.  Each phase focuses on a single responsibility which makes
+    the data dependencies explicit and greatly simplifies future changes.
+    """
 
-        def _parse_list_id(s: str) -> str | None:
-            """Parse the list ID from the error message."""
-            match = re.search(r'list_id: "(.*?)"', s)
-            return match.group(1) if match else None
+    # ------------------------------------------------------------------
+    # Helper data structures
+    # ------------------------------------------------------------------
 
-        # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
-        workaround_errors: list[str] = []
-        workaround_error_types: set[str] = set()
+    @dataclass
+    class ItemLog:
+        """Small container to keep track of name/id/message triples."""
 
-        flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
-        all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
+        name: str
+        identifier: str
+        message: str | None = None
 
-        click.echo(f"{len(response['errors'])} rule(s) failed to import!")
-
-        action_connector_validation_error = "Error validating create data"
-        action_connector_type_error = "expected value of type [string] but got [undefined]"
-        for error in response["errors"]:
-            error_message = error["error"]["message"]
-            click.echo(f" - {error['rule_id']}: ({error['error']['status_code']}) {error_message}")
-
-            if "references a non existent exception list" in error_message:
-                list_id = _parse_list_id(error_message)
-                if list_id in all_exception_list_ids:
-                    workaround_errors.append(error["rule_id"])
-                    workaround_error_types.add("non existent exception list")
-
-            if action_connector_validation_error in error_message and action_connector_type_error in error_message:
-                workaround_error_types.add("connector still being built")
-
-        if workaround_errors:
-            workaround_errors = list(set(workaround_errors))
-            if "non existent exception list" in workaround_error_types:
-                click.echo(
-                    f"Missing exception list errors detected for {len(workaround_errors)} rules. "
-                    "Try re-importing using the following command and rule IDs:\n"
-                )
-                click.echo("python -m detection_rules kibana import-rules -o ", nl=False)
-                click.echo(" ".join(f"-id {rule_id}" for rule_id in workaround_errors))
-                click.echo()
-            if "connector still being built" in workaround_error_types:
-                click.echo(
-                    f"Connector still being built errors detected for {len(workaround_errors)} rules. "
-                    "Please try re-importing the rules again."
-                )
-                click.echo()
+    # ------------------------------------------------------------------
+    # Utility helpers
+    # ------------------------------------------------------------------
 
     def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
-        """Check if the item matches any of the rule IDs in the provided set."""
+        """Return True when a TOML object belongs to one of the rules."""
+
         return any(rule_id in rule_ids for rule_id in item.contents.metadata.get("rule_ids", []))
 
-    def _process_imported_items(
-        imported_items_list: list[list[dict[str, Any]]],
-        item_type_description: str,
-        item_key: str,
-    ) -> None:
-        """Displays appropriately formatted success message that all items imported successfully."""
-        all_ids = {item[item_key] for sublist in imported_items_list for item in sublist}
-        if all_ids:
-            click.echo(f"{len(all_ids)} {item_type_description} successfully imported")
-            ids_str = "\n - ".join(all_ids)
-            click.echo(f" - {ids_str}")
+    def _format_item(item: ItemLog) -> str:
+        """Format a log entry as 'name - id' with optional message."""
+
+        base = f"{item.name} - {item.identifier}"
+        return f"{base}: {item.message}" if item.message else base
+
+    def _suggest_reimport(response: dict[str, Any]) -> None:
+        """Provide re-import hints for known transient failures."""
+
+        def _parse_list_id(msg: str) -> str | None:
+            match = re.search(r'list_id: "(.*?)"', msg)
+            return match.group(1) if match else None
+
+        workaround_ids: list[str] = []
+        workaround_types: set[str] = set()
+        flattened = [e for sub in exception_dicts for e in sub]
+        all_list_ids = {e["list_id"] for e in flattened}
+
+        connector_validation_error = "Error validating create data"
+        connector_type_error = "expected value of type [string] but got [undefined]"
+
+        for error in response.get("errors", []):
+            message = error["error"]["message"]
+            if "references a non existent exception list" in message:
+                list_id = _parse_list_id(message)
+                if list_id in all_list_ids:
+                    workaround_ids.append(error["rule_id"])
+                    workaround_types.add("non existent exception list")
+            if connector_validation_error in message and connector_type_error in message:
+                workaround_types.add("connector still being built")
+
+        if workaround_ids:
+            workaround_ids = list(set(workaround_ids))
+            if "non existent exception list" in workaround_types:
+                click.echo(
+                    f"Missing exception list errors detected for {len(workaround_ids)} rules. "
+                    "Try re-importing using the following command and rule IDs:\n",
+                )
+                click.echo("python -m detection_rules kibana import-rules -o ", nl=False)
+                click.echo(" ".join(f"-id {r_id}" for r_id in workaround_ids))
+                click.echo()
+            if "connector still being built" in workaround_types:
+                click.echo(
+                    f"Connector still being built errors detected for {len(workaround_ids)} rules. "
+                    "Please try re-importing the rules again.",
+                )
+                click.echo()
+
+    # ------------------------------------------------------------------
+    # Phase 1 – prepare rule payloads and collect referenced objects
+    # ------------------------------------------------------------------
 
     kibana = ctx.obj["kibana"]
+
+    # Convert the TOML rule objects into dictionaries understood by the API
     rule_dicts = [r.contents.to_api_format() for r in rules]
-    rule_ids = {rule["rule_id"] for rule in rule_dicts}
-    timeline_ids = {rule["timeline_id"] for rule in rule_dicts if rule.get("timeline_id")}
+
+    # Keep a mapping of rule_id -> rule_name for nicer logging later on
+    rule_id_name_map = {r["rule_id"]: r["name"] for r in rule_dicts}
+
+    # Collect identifiers for quick membership checks during dependency
+    # resolution.  ``timeline_ids`` is used when importing timeline templates.
+    rule_ids = set(rule_id_name_map)
+    timeline_ids = {r["timeline_id"] for r in rule_dicts if r.get("timeline_id")}
+
+    # Load all supporting TOML resources (exceptions, connectors, templates)
+    # from the repository.  We use a generic loader which crawls the default
+    # directories and yields strongly typed objects.
+    cl = GenericCollection.default()
+
+    # Track which items should actually be imported.  The structures below are
+    # filled in the collection loop and later consumed by the individual
+    # import phases.
+    exception_map: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+    action_connectors: list[list[dict[str, Any]]] = []
+    timeline_template_map: dict[str, tuple[str, dict[str, Any]]] = {}
+
+    # Exception lists can be excluded via patterns.  Pre-compile the regexes so
+    # the check is cheap when walking through the loaded objects.
+    exclusion_regexes = [re.compile(fnmatch.translate(p), re.IGNORECASE) for p in exclude_exceptions]
+
+    def _is_excluded(name: str) -> bool:
+        """Return True when a list name matches any exclusion pattern."""
+
+        return any(rx.match(name) for rx in exclusion_regexes)
+
+    # Lists that were excluded completely.  We record both name and id so we
+    # can present a user friendly summary at the end of the run.
+    excluded_lists: list[ItemLog] = []
+    excluded_list_ids: set[str] = set()
+
+    for item in cl.items:
+        # Handle exception lists that are referenced by the selected rules
+        if isinstance(item.contents, TOMLExceptionContents) and _matches_rule_ids(item, rule_ids):
+            name = item.contents.metadata.list_name
+            edicts = item.contents.to_api_format()
+            list_id = edicts[0]["list_id"]
+            if _is_excluded(name):
+                excluded_lists.append(ItemLog(name=name, identifier=list_id))
+                excluded_list_ids.add(list_id)
+                continue
+            exception_map[list_id] = (name, edicts)
+
+        # Gather action connectors referenced by the rules.  They will be
+        # bundled into the rule import request later on.
+        elif isinstance(item.contents, TOMLActionConnectorContents) and _matches_rule_ids(item, rule_ids):
+            action_connectors.append(item.contents.to_api_format())
+
+        # Capture timeline templates so they can be imported before the rules
+        elif isinstance(item.contents, TOMLTimelineTemplateContents):
+            t_id = item.contents.metadata.timeline_template_id
+            if t_id in timeline_ids:
+                title = item.contents.metadata.timeline_template_title
+                timeline_template_map[t_id] = (title, item.contents.to_api_format())
+
+    # Remove references to excluded exception lists from the rule payloads so
+    # Kibana never sees them during import.
+    if excluded_list_ids:
+        for rd in rule_dicts:
+            if "exceptions_list" in rd:
+                rd["exceptions_list"] = [
+                    e for e in rd["exceptions_list"] if e.get("list_id") not in excluded_list_ids
+                ]
+
+    # ------------------------------------------------------------------
+    # The remaining phases communicate with Kibana and therefore require the
+    # API client context.  All network requests are performed within the
+    # ``with kibana`` block so that the helper functions in ``resources.py``
+    # can access the active client via ``Kibana.current()``.
+    # ------------------------------------------------------------------
+
     with kibana:
-        cl = GenericCollection.default()
-        exception_list_map: dict[str, list[dict[str, Any]]] = {}
-        action_connectors_dicts: list[list[dict[str, Any]]] = []
-        value_list_map: dict[str, str] = {}
-        exclusion_regexes = [re.compile(fnmatch.translate(pat), re.IGNORECASE) for pat in exclude_exceptions]
+        # ------------------------------------------------------------------
+        # Phase 2 – prepare exception list import and collect value list IDs
+        # ------------------------------------------------------------------
 
-        def _is_excluded(name: str) -> bool:
-            return any(rx.match(name) for rx in exclusion_regexes)
+        def _collect_list_ids(entries: list[dict[str, Any]], dest: dict[str, tuple[str, str]]) -> None:
+            """Recursively collect value list IDs used by exception entries."""
 
-        # helper to gather all referenced value list IDs from exception entries
-        def _collect_list_ids(entries: list[dict[str, Any]]) -> None:
             for entry in entries:
                 if entry.get("type") == "list" and entry.get("list"):
-                    value_list_map[entry["list"]["id"]] = entry["list"].get("type", "keyword")
+                    list_id = entry["list"]["id"]
+                    list_type = entry["list"].get("type", "keyword")
+                    dest[list_id] = (list_type, list_id)  # name defaults to ID
                 elif entry.get("type") == "nested":
-                    # recurse into nested entries to find any further value list references
-                    _collect_list_ids(entry.get("entries", []))
-
-        # iterate over collection items and separate exception lists/action connectors
-        excluded_exception_lists: list[str] = []
-        excluded_list_ids: set[str] = set()
-        # Map of timeline template IDs to their exported dictionaries.  Using a
-        # map makes it easy to resolve the template for a given rule later on.
-        timeline_template_map: dict[str, dict[str, Any]] = {}
-        for d in cl.items:
-            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids):
-                name = d.contents.metadata.list_name
-                edicts = d.contents.to_api_format()
-                list_id = edicts[0]["list_id"]
-                if _is_excluded(name):
-                    excluded_exception_lists.append(name)
-                    excluded_list_ids.add(list_id)
-                    continue
-                exception_list_map[list_id] = edicts
-            elif isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids):
-                action_connectors_dicts.append(d.contents.to_api_format())
-            elif isinstance(d.contents, TOMLTimelineTemplateContents):
-                t_id = d.contents.metadata.timeline_template_id
-                if t_id in timeline_ids:
-                    timeline_template_map[t_id] = d.contents.to_api_format()
-
-        if excluded_list_ids:
-            for rd in rule_dicts:
-                if "exceptions_list" in rd:
-                    rd["exceptions_list"] = [
-                        e for e in rd["exceptions_list"] if e.get("list_id") not in excluded_list_ids
-                    ]
+                    _collect_list_ids(entry.get("entries", []), dest)
 
         exception_dicts: list[list[dict[str, Any]]] = []
-        skipped_exception_lists: list[str] = []
-        failed_exception_lists: list[str] = []
+        exception_imported: list[ItemLog] = []
+        skipped_exception_lists: list[ItemLog] = []
+        failed_exception_lists: list[ItemLog] = []
+        value_list_map: dict[str, tuple[str, str]] = {}
 
-        for list_id, edicts in exception_list_map.items():
+        for list_id, (name, edicts) in exception_map.items():
             try:
                 existing = ExceptionListResource.get(list_id)
             except Exception as exc:  # noqa: BLE001
-                failed_exception_lists.append(f"{list_id}: {exc}")
+                failed_exception_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
-            # decide whether to skip or overwrite existing exception lists
             if existing and not overwrite_exceptions:
-                skipped_exception_lists.append(list_id)
+                skipped_exception_lists.append(ItemLog(name, list_id))
                 continue
             for item in edicts:
-                # collect value list IDs from each exception item for later processing
-                _collect_list_ids(item.get("entries", []))
+                _collect_list_ids(item.get("entries", []), value_list_map)
             exception_dicts.append(edicts)
+            exception_imported.append(ItemLog(name, list_id))
 
-        # begin handling value lists referenced by the exceptions above
-        imported_value_lists: list[str] = []
-        skipped_value_lists: list[str] = []
-        missing_value_lists: list[str] = []
-        failed_value_lists: list[str] = []
+        # ------------------------------------------------------------------
+        # Phase 3 – import required value lists
+        # ------------------------------------------------------------------
+
+        imported_value_lists: list[ItemLog] = []
+        skipped_value_lists: list[ItemLog] = []
+        missing_value_lists: list[ItemLog] = []
+        failed_value_lists: list[ItemLog] = []
+
         value_list_dir = RULES_CONFIG.value_list_dir
         if value_list_map:
-            # the value list APIs expect an index to exist, so ensure it's created once
             try:
                 ValueListResource.create_index()
             except Exception as exc:  # noqa: BLE001
-                # Failed to create the value list index
-                failed_value_lists.append(f"Failed to create value list index: {exc}")
-        for list_id, list_type in value_list_map.items():
+                failed_value_lists.append(ItemLog("index", "value-lists", f"Failed to create: {exc}"))
+
+        for list_id, (list_type, name) in value_list_map.items():
             file_path = value_list_dir / list_id if value_list_dir else None
             if not file_path or not file_path.exists():
-                missing_value_lists.append(list_id)
+                missing_value_lists.append(ItemLog(name, list_id))
                 continue
             text = file_path.read_text()
             try:
                 existing = ValueListResource.get(list_id)
             except Exception as exc:  # noqa: BLE001
-                failed_value_lists.append(f"{list_id}: {exc}")
+                failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
             if existing and not overwrite_value_lists:
-                # skip existing lists unless --overwrite-value-lists is provided
-                skipped_value_lists.append(list_id)
+                skipped_value_lists.append(ItemLog(name, list_id))
                 continue
             if existing and overwrite_value_lists:
-                # Deleting the list itself fails when it is referenced by
-                # active exception items. Instead clear its contents and
-                # re-import to avoid duplicate entries.
                 try:
                     ValueListResource.delete_list_items(list_id)
                 except Exception as exc:  # noqa: BLE001
-                    failed_value_lists.append(f"{list_id}: {exc}")
+                    failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                     continue
             else:
-                # /items/_import only uploads items and does not create the list itself
                 try:
-                    ValueListResource.create(list_id, list_type)
+                    ValueListResource.create(list_id, list_type, name)
                 except Exception as exc:  # noqa: BLE001
-                    failed_value_lists.append(f"{list_id}: {exc}")
+                    failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                     continue
-            # now populate the value list with its newline-delimited contents
             try:
                 ValueListResource.import_list_items(list_id, text, list_type)
             except Exception as exc:  # noqa: BLE001
-                failed_value_lists.append(f"{list_id}: {exc}")
+                failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
-            imported_value_lists.append(list_id)
+            imported_value_lists.append(ItemLog(name, list_id))
 
-        # begin handling timeline templates referenced in the rules
-        imported_timeline_templates: list[str] = []
-        skipped_timeline_templates: list[str] = []
-        missing_timeline_templates: list[str] = []
-        failed_timeline_templates: list[str] = []
+        # ------------------------------------------------------------------
+        # Phase 4 – import timeline templates
+        # ------------------------------------------------------------------
+
+        imported_timeline_templates: list[ItemLog] = []
+        skipped_timeline_templates: list[ItemLog] = []
+        missing_timeline_templates: list[ItemLog] = []
+        failed_timeline_templates: list[ItemLog] = []
+
         for t_id in timeline_ids:
-            # Resolve each timeline ID to a previously loaded template.  When a
-            # template is missing from the collection we record the ID so the
-            # user can supply the file.
-            payload = timeline_template_map.get(t_id)
+            title, payload = timeline_template_map.get(t_id, (t_id, None))
             if payload is None:
-                missing_timeline_templates.append(t_id)
+                missing_timeline_templates.append(ItemLog(title, t_id))
                 continue
             try:
                 existing = TimelineTemplateResource.get(t_id)
             except Exception as exc:  # noqa: BLE001
-                failed_timeline_templates.append(f"{t_id}: {exc}")
+                failed_timeline_templates.append(ItemLog(title, t_id, str(exc)))
                 continue
             if existing and not overwrite_timeline_templates:
-                skipped_timeline_templates.append(t_id)
+                skipped_timeline_templates.append(ItemLog(title, t_id))
                 continue
             if existing and overwrite_timeline_templates:
                 try:
-                    # Prefer the current version from existing and increment it
                     existing_version = existing.get("templateTimelineVersion") if isinstance(existing, dict) else None
                     if isinstance(existing_version, int):
                         payload["templateTimelineVersion"] = existing_version + 1
                     else:
-                        # If existing does not expose version, delete and re-import to avoid conflicts
                         TimelineTemplateResource.delete(t_id)
                     TimelineTemplateResource.import_template(json.dumps(payload))
                 except Exception as exc:  # noqa: BLE001
-                    failed_timeline_templates.append(f"{t_id}: {exc}")
+                    failed_timeline_templates.append(ItemLog(title, t_id, str(exc)))
                     continue
             else:
                 try:
                     TimelineTemplateResource.import_template(json.dumps(payload))
                 except Exception as exc:  # noqa: BLE001
-                    failed_timeline_templates.append(f"{t_id}: {exc}")
+                    failed_timeline_templates.append(ItemLog(title, t_id, str(exc)))
                     continue
-            imported_timeline_templates.append(t_id)
+            imported_timeline_templates.append(ItemLog(title, t_id))
 
-        response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
+        # ------------------------------------------------------------------
+        # Phase 5 – import rules, exceptions and action connectors
+        # ------------------------------------------------------------------
+
+        response, rule_resources = RuleResource.import_rules(
             rule_dicts,
             exception_dicts,
-            action_connectors_dicts,
+            action_connectors,
             overwrite=overwrite,
             overwrite_exceptions=overwrite_exceptions,
             overwrite_action_connectors=overwrite_action_connectors,
         )
 
-    if successful_rule_ids:
-        click.echo(
-            f"{len(successful_rule_ids)} rule(s) successfully imported"
-        )  # type: ignore[reportUnknownArgumentType]
-        rule_str = "\n - ".join(successful_rule_ids)  # type: ignore[reportUnknownArgumentType]
-        click.echo(f" - {rule_str}")
-    if response["errors"]:
-        _handle_response_errors(response)  # type: ignore[reportUnknownArgumentType]
-    else:
-        _process_imported_items(exception_dicts, "exception list(s)", "list_id")
-        _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
+        successful_rules = [ItemLog(r.get("name", r.get("rule_id", "")), r.get("rule_id", "")) for r in rule_resources]
 
-    if excluded_exception_lists:
+        error_items: list[ItemLog] = []
+        if response.get("errors"):
+            for error in response["errors"]:
+                r_id = error.get("rule_id", "")
+                name = rule_id_name_map.get(r_id, r_id)
+                msg = f"({error['error']['status_code']}) {error['error']['message']}"
+                error_items.append(ItemLog(name, r_id, msg))
+
+    # ------------------------------------------------------------------
+    # Final logging
+    # ------------------------------------------------------------------
+
+    if successful_rules:
+        click.echo(f"{len(successful_rules)} rule(s) successfully imported")
+        click.echo("\n".join(f" - {_format_item(r)}" for r in successful_rules))
+    if error_items:
+        click.echo(f"{len(error_items)} rule(s) failed to import!")
+        click.echo("\n".join(f" - {_format_item(e)}" for e in error_items))
+        _suggest_reimport(response)
+    else:
+        if exception_imported:
+            click.echo(f"{len(exception_imported)} exception list(s) successfully imported")
+            click.echo("\n".join(f" - {_format_item(i)}" for i in exception_imported))
+        if action_connectors:
+            connector_logs = [
+                ItemLog(c.get("name", c.get("id", "")), c.get("id", ""))
+                for group in action_connectors
+                for c in group
+            ]
+            if connector_logs:
+                click.echo(f"{len(connector_logs)} action connector(s) successfully imported")
+                click.echo("\n".join(f" - {_format_item(c)}" for c in connector_logs))
+
+    if excluded_lists:
         click.echo("Exception lists excluded from import:")
-        ids_str = "\n - ".join(excluded_exception_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(e)}" for e in excluded_lists))
     if skipped_exception_lists:
         click.echo("Exception lists already exist and were not overwritten:")
-        ids_str = "\n - ".join(skipped_exception_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(s)}" for s in skipped_exception_lists))
     if failed_exception_lists:
         click.echo("Exception list errors:")
-        ids_str = "\n - ".join(failed_exception_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(f)}" for f in failed_exception_lists))
 
     if imported_value_lists:
         click.echo(f"{len(imported_value_lists)} value list(s) successfully imported")
-        ids_str = "\n - ".join(imported_value_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in imported_value_lists))
     if skipped_value_lists:
         click.echo("Value lists already exist and were not overwritten:")
-        ids_str = "\n - ".join(skipped_value_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in skipped_value_lists))
     if missing_value_lists:
         click.echo("Value list files not found:")
-        ids_str = "\n - ".join(missing_value_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in missing_value_lists))
     if failed_value_lists:
         click.echo("Value list errors:")
-        ids_str = "\n - ".join(failed_value_lists)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(v)}" for v in failed_value_lists))
 
     if imported_timeline_templates:
-        click.echo(
-            f"{len(imported_timeline_templates)} timeline template(s) successfully imported"
-        )
-        ids_str = "\n - ".join(imported_timeline_templates)
-        click.echo(f" - {ids_str}")
+        click.echo(f"{len(imported_timeline_templates)} timeline template(s) successfully imported")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in imported_timeline_templates))
     if skipped_timeline_templates:
         click.echo("Timeline templates already exist and were not overwritten:")
-        ids_str = "\n - ".join(skipped_timeline_templates)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in skipped_timeline_templates))
     if missing_timeline_templates:
         click.echo("Timeline template files not found:")
-        ids_str = "\n - ".join(missing_timeline_templates)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in missing_timeline_templates))
     if failed_timeline_templates:
         click.echo("Timeline template errors:")
-        ids_str = "\n - ".join(failed_timeline_templates)
-        click.echo(f" - {ids_str}")
+        click.echo("\n".join(f" - {_format_item(t)}" for t in failed_timeline_templates))
 
-    return response, results  # type: ignore[reportUnknownVariableType]
+    return response, rule_resources
 
 
 @kibana_group.command("export-rules")
