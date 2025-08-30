@@ -235,8 +235,15 @@ class RuleResource(BaseResource):
         overwrite: bool = False,
         overwrite_exceptions: bool = False,
         overwrite_action_connectors: bool = False,
-    ) -> (dict, list, List[Optional["RuleResource"]]):
-        """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
+    ) -> tuple[dict, list["RuleResource"]]:
+        """Import a list of rules into Kibana using the _import API.
+
+        The helper returns the full :class:`RuleResource` objects for
+        successful imports.  This makes it easier
+        for callers to access the rule names and any other metadata without
+        performing additional lookups.  Callers can still derive the IDs from
+        the returned resources if needed.
+        """
         url = f'{cls.BASE_URI}/_import'
         params = dict(
             overwrite=stringify_bool(overwrite),
@@ -258,10 +265,12 @@ class RuleResource(BaseResource):
         errors = response.get("errors", [])
         error_rule_ids = [e['rule_id'] for e in errors]
 
-        # successful rule_ids are not returned, so they must be implicitly inferred from errored rule_ids
+        # Successful rule IDs are not returned directly by the API.  We infer
+        # them by subtracting the errored IDs from the original list and then
+        # fetch the full rule resources for the remaining IDs.
         successful_rule_ids = [r for r in rule_ids if r not in error_rule_ids]
-        rule_resources = cls.export_rules(successful_rule_ids) if successful_rule_ids else []
-        return response, successful_rule_ids, rule_resources
+        successful_rules = cls.export_rules(successful_rule_ids) if successful_rule_ids else []
+        return response, successful_rules
 
     @classmethod
     def export_rules(cls, rule_ids: Optional[List[str]] = None,
