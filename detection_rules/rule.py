@@ -299,9 +299,9 @@ class AlertSuppressionDuration:
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
 
-    group_by: definitions.AlertSuppressionGroupBy | None = None
+    group_by: definitions.AlertSuppressionGroupBy
     duration: AlertSuppressionDuration | None = None
-    missing_fields_strategy: definitions.AlertSuppressionMissing | None = None
+    missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
 @dataclass(frozen=True)

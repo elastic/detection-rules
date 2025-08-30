@@ -154,8 +154,6 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
-  --kibana-user TEXT
-  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
   -h, --help                Show this message and exit.
@@ -184,8 +182,6 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
-  --kibana-user TEXT
-  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -247,8 +243,6 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
-  --kibana-user TEXT
-  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -464,8 +458,6 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
-  --kibana-user TEXT
-  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 
@@ -502,8 +494,6 @@ Options:
   --ignore-ssl-errors TEXT
   --space TEXT              Kibana space
   --api-key TEXT
-  --kibana-user TEXT
-  --kibana-password TEXT
   --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
 

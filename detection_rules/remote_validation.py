@@ -42,8 +42,7 @@ class RemoteConnector:
 
     def __init__(self, parse_config: bool = False, **kwargs: Any) -> None:
         es_args = ["cloud_id", "ignore_ssl_errors", "elasticsearch_url", "es_user", "es_password", "timeout"]
-        kibana_args = ["cloud_id", "ignore_ssl_errors", "kibana_url", "api_key",
-                       "kibana_user", "kibana_password", "space"]
+        kibana_args = ["cloud_id", "ignore_ssl_errors", "kibana_url", "api_key", "space"]
 
         if parse_config:
             es_kwargs = {arg: getdefault(arg)() for arg in es_args}
@@ -89,9 +88,7 @@ class RemoteConnector:
     def auth_kibana(  # noqa: PLR0913
         self,
         *,
-        api_key: str | None = None,
-        kibana_user: str | None = None,
-        kibana_password: str | None = None,
+        api_key: str,
         cloud_id: str | None = None,
         kibana_url: str | None = None,
         space: str | None = None,
@@ -104,8 +101,6 @@ class RemoteConnector:
             ignore_ssl_errors=ignore_ssl_errors,
             kibana_url=kibana_url,
             api_key=api_key,
-            kibana_user=kibana_user,
-            kibana_password=kibana_password,
             space=space,
             **kwargs,
         )
