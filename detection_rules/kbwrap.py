@@ -140,7 +140,7 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     help="Exclude exception lists by name (supports wildcards)",
 )
 @click.pass_context
-def kibana_import_rules(
+def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
     rules: RuleCollection,
     overwrite: bool = False,
@@ -228,7 +228,7 @@ def kibana_import_rules(
                 click.echo()
 
     # ------------------------------------------------------------------
-    # Phase 1 – prepare rule payloads and collect referenced objects
+    # Phase 1 - prepare rule payloads and collect referenced objects
     # ------------------------------------------------------------------
 
     kibana = ctx.obj["kibana"]
@@ -312,7 +312,7 @@ def kibana_import_rules(
 
     with kibana:
         # ------------------------------------------------------------------
-        # Phase 2 – prepare exception list import and collect value list IDs
+        # Phase 2 - prepare exception list import and collect value list IDs
         # ------------------------------------------------------------------
 
         def _collect_list_ids(entries: list[dict[str, Any]], dest: dict[str, tuple[str, str]]) -> None:
@@ -347,7 +347,7 @@ def kibana_import_rules(
             exception_imported.append(ItemLog(name, list_id))
 
         # ------------------------------------------------------------------
-        # Phase 3 – import required value lists
+        # Phase 3 - import required value lists
         # ------------------------------------------------------------------
 
         imported_value_lists: list[ItemLog] = []
@@ -396,7 +396,7 @@ def kibana_import_rules(
             imported_value_lists.append(ItemLog(name, list_id))
 
         # ------------------------------------------------------------------
-        # Phase 4 – import timeline templates
+        # Phase 4 - import timeline templates
         # ------------------------------------------------------------------
 
         imported_timeline_templates: list[ItemLog] = []
@@ -437,7 +437,7 @@ def kibana_import_rules(
             imported_timeline_templates.append(ItemLog(title, t_id))
 
         # ------------------------------------------------------------------
-        # Phase 5 – import rules, exceptions and action connectors
+        # Phase 5 - import rules, exceptions and action connectors
         # ------------------------------------------------------------------
 
         response, rule_resources = RuleResource.import_rules(
