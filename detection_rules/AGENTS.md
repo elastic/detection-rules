@@ -27,5 +27,3 @@ details from environment variables prefixed with `DR_`. For example export
 `DR_API_KEY` to match the provided test instance variables. The same options can
 also be stored in `.detection-rules-cfg.json` or passed as command arguments.
 Credentials files should never be committed.
-
-When adding a new CLI subcommand, start in `main.py` to register it with the root group, then implement logic in a dedicated module or an existing one listed above.

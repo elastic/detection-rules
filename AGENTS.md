@@ -22,15 +22,15 @@ When implementing or fixing CLI features, follow these steps and always test you
 # test connection to Kibana
 # DR_KIBANA_URL and DR_API_KEY are already set in the environment, so you can directly use them
 python -m detection_rules kibana search-alerts
-# the result doesnt matter as long as you do not get an error
+# this command is only ussed to check the connection, we are not interested in the alerts
 ```
--  Once you implemented or fixed CLI features test those. An example is given here on how to test a simple import and export. To avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
+-  Once you implemented or fixed CLI features, test those! An example is given here on how to test a simple import and export. To avoid long executions, it is recommended to use a custom rules folder for testing like the `rules-test` folder in this repository. But mind that the elastic instance is reused by many contributors so the state might change at any time. Thus it is recommended to create a own space for testing, and deleting it aferwards again once you are done with testing. This way you can do all you need without affecting the other contributors.
 ```sh
 # IMPORTANT: If you changed lib/* files, you need to install the new version of the package
 pip install --upgrade --force-reinstall --no-deps lib/kibana # or whatever package you changed
 
 # create a new space with some unique name, where you adjust the number to some random 4 digit number
-export SPACE=test-6371
+export SPACE=test-XXXX # adjust the XXXX to some random number!
 
 curl -X POST "$DR_KIBANA_URL/api/spaces/space" \
   -H "kbn-xsrf: true" \
@@ -55,9 +55,6 @@ export CUSTOM_RULES_DIR=./rules-test
 python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
     --overwrite --overwrite-action-connectors --overwrite-exceptions --overwrite-value-lists \
     --overwrite-timeline-templates
-# optionally skip importing specific exception lists by name
-# python -m detection_rules import-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
-#     --exclude-exceptions "Some List*"
 
 # test rule export
 python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules \
@@ -67,21 +64,24 @@ python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules
 ```
 
 ## Genereal Information
-Focus on building new CLI commands and helpers. Avoid running arbitrary commands
-from the repository. For linting use ruff, e.g:
-- `python -m ruff check --exit-non-zero-on-fix`
-- For running unit tests, use the lightweight rules in `rules-test`:
-  `CUSTOM_RULES_DIR=./rules-test python -m detection_rules test`. Running the full
-  suite without `CUSTOM_RULES_DIR` is slow and expects an `origin/main` remote.
+- Focus on building new CLI commands and helpers.
+- For linting use ruff, e.g: `python -m ruff check --exit-non-zero-on-fix`
+- You normally DONT need to run rule unit tests via `CUSTOM_RULES_DIR=./rules-test python -m detection_rules test` since this is not relevant to CLI changes under normal circumstances.
+- Never commit any secrets or sensitive information like environment variables!
 
-Never commit any secrets or sensitive information like environment variables!
+## Comments
+Always add excessive commenting to your code. It will be removed later when merging but it's curicial for the PR to better follow the changes. Since it's reduced later you don't see many examples in the existing code. It's on purpose desired to have very detailed and excessive commenting for the PR phase to understand why new code is added and why it's not implemented in another way. In practice that means that you write one to two line comments for almost all new code lines you add, except super obvious once where one extended two to three line comment can explain multiple code lines instead. In addition it is always recommended to write a two to four line comment before introducing a new code block. The comment itself should not be generic but must be thought of very well and focus on incorporating those three points where applicable:
+1. Why is this new code important and needed?
+2. Where are we right now regarding the execution flow of the code and how does this new code come into play here.?
+3. Why is this particular implementation chosen and not another solution or implementation at another place in the code?
+
 
 ## Network Restrictions
 The container has limited outbound network access. You cannot access the remote github repo on your own. If you miss something, adjust this AGENTS file and write it down in the issues block below.
 
 ## Documentation
 
-When developing new CLI features or fixes, always look at the `AGENTS.md` files for general information on the repository and its structure. Also take a look at the `docs*/` folders for more detailed documentation. Especially interesting is also the `docs-logs/` folder which contains markdown files on old feature or bug fix implementations which are sometimes super useful when implementing similar features or fixes to already know where to look for or how to approach a task.
+When developing new CLI features or fixes, always look at the `AGENTS.md` files for general information on the repository and its structure. Also take a look at the `docs*/` folders for more detailed documentation. Especially interesting is also the `docs-logs/` folder which contains markdown files on old feature or bug fix implementations which are sometimes super useful when implementing similar features or fixes to already know where to look for or how to approach a task. But mind that those be outdated!
 
 One always active task which should not be neglected is to keep the `AGENTS.md` files up to date. If you encounter issues when using functions or the cli and found a fix on how to use it, please directly document it. Basically for every issue you encounter or where you have to iterate to figure out the correct approach, just document it. The main goal of the AGENTS.md files is to reduce the time it takes to contribute to this repository and reduce the iterations needed to figure out nice workflows or how things work and are structured or how to approach new tasks. So document issues and solutions which you come across your way. This will help you and others to not run into the same issues again and again.
 
