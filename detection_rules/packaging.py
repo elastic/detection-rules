@@ -133,8 +133,8 @@ class Package:
         """Convert and save index file with package."""
         sorted_rules = sorted(
             self.rules,
-            key=lambda k: (k.contents.metadata.creation_date or "", k.path.name),
-        )  # type: ignore[reportOptionalMemberAccess]
+            key=lambda k: (k.contents.metadata.creation_date or "", k.path.name),  # type: ignore[reportOptionalMemberAccess]
+        )
         comments = [
             "// Auto generated file from either:",
             "// - scripts/regen_prepackage_rules_index.sh",

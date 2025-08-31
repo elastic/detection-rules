@@ -4,13 +4,13 @@
 # 2.0.
 
 import datetime
-from typing import List, Optional, Type
+from typing import Any, List, Optional, Type
 from uuid import uuid4
 
 import json
 
 from .connector import Kibana
-from requests import HTTPError
+from requests import HTTPError, Response
 from . import definitions
 
 DEFAULT_PAGE_SIZE = 10
@@ -229,13 +229,13 @@ class RuleResource(BaseResource):
     @classmethod
     def import_rules(
         cls,
-        rules: List[dict],
-        exceptions: List[List[dict]] = [],
-        action_connectors: List[List[dict]] = [],
+        rules: List[dict[str, Any]],
+        exceptions: List[List[dict[str, Any]]] = [],
+        action_connectors: List[List[dict[str, Any]]] = [],
         overwrite: bool = False,
         overwrite_exceptions: bool = False,
         overwrite_action_connectors: bool = False,
-    ) -> tuple[dict, list["RuleResource"]]:
+    ) -> tuple[dict[str, Any], list["RuleResource"]]:
         """Import a list of rules into Kibana using the _import API.
 
         The helper returns the full :class:`RuleResource` objects for
@@ -295,7 +295,7 @@ class ExceptionListResource(BaseResource):
     BASE_URI = "/api/exception_lists"
 
     @classmethod
-    def get(cls, list_id: str, namespace_type: str = "single") -> dict | None:
+    def get(cls, list_id: str, namespace_type: str = "single") -> dict[str, Any] | None:
         """Retrieve an exception list by its ``list_id``.
 
         The API returns ``status_code: 404`` when a list is
@@ -303,7 +303,7 @@ class ExceptionListResource(BaseResource):
         It returns the list content without any status_code if found.
         """
         params = {"list_id": list_id, "namespace_type": namespace_type}
-        response = Kibana.current().get(cls.BASE_URI, params=params, error=False)
+        response: dict[str, Any] = Kibana.current().get(cls.BASE_URI, params=params, error=False)
         if not response:
             raise RuntimeError(
                 f"Unexpected empty response when fetching exception list {list_id}"
@@ -341,7 +341,7 @@ class ValueListResource(BaseResource):
     BASE_URI = "/api/lists"
 
     @classmethod
-    def get(cls, list_id: str) -> dict | None:
+    def get(cls, list_id: str) -> dict[str, Any] | None:
         """Retrieve a value list by ID.
 
         The API returns a JSON body with ``status_code: 404`` when the list is
@@ -350,7 +350,7 @@ class ValueListResource(BaseResource):
         code is present the list was found and its JSON representation is
         returned.
         """
-        response = Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
+        response: dict[str, Any] = Kibana.current().get(cls.BASE_URI, params={"id": list_id}, error=False)
         if not response:
             raise RuntimeError(f"Unexpected empty response when fetching value list {list_id}")
         # If the status_code exists, its either 404 or some other error
@@ -393,7 +393,7 @@ class ValueListResource(BaseResource):
             raise HTTPError(f"HTTP {status}: {msg}")
 
     @classmethod
-    def create(cls, list_id: str, list_type: str, name: str | None = None, description: str | None = None) -> dict:
+    def create(cls, list_id: str, list_type: str, name: str | None = None, description: str | None = None) -> dict[str, Any]:
         """Create a value list."""
         payload = {
             "id": list_id,
@@ -401,11 +401,11 @@ class ValueListResource(BaseResource):
             "name": name or list_id,
             "description": description or name or list_id,
         }
-        response = Kibana.current().post(cls.BASE_URI, data=payload)
+        response: dict[str, Any] = Kibana.current().post(cls.BASE_URI, data=payload)
         return response
 
     @classmethod
-    def import_list_items(cls, list_id: str, text: str, list_type: str) -> dict:
+    def import_list_items(cls, list_id: str, text: str, list_type: str) -> dict[str, Any]:
         """Import newline-delimited items into an existing value list.
 
         The `/api/lists/items/_import` endpoint only adds items to a list that
@@ -422,7 +422,7 @@ class ValueListResource(BaseResource):
         ).encode("utf-8")
         headers = {"content-type": f"multipart/form-data; boundary={boundary}"}
         params = {"list_id": list_id, "type": list_type}
-        response = Kibana.current().post(
+        response: dict[str, Any] = Kibana.current().post(
             f"{cls.BASE_URI}/items/_import", params=params, raw_data=body, headers=headers
         )
         if not response:
@@ -448,7 +448,7 @@ class ValueListResource(BaseResource):
     @classmethod
     def export_list_items(cls, list_id: str) -> str:
         """Export the contents of a value list as newline-delimited text."""
-        response = Kibana.current().post(
+        response: Response = Kibana.current().post(
             f"{cls.BASE_URI}/items/_export", params={"list_id": list_id}, raw=True
         )
         return response.text
@@ -502,7 +502,7 @@ class TimelineTemplateResource(BaseResource):
     BASE_URI = "/api/timeline"
 
     @classmethod
-    def get(cls, timeline_id: str) -> dict | None:
+    def get(cls, timeline_id: str) -> dict[str, Any] | None:
         """Retrieve a timeline template by its ``templateTimelineId``.
 
         Returns ``None`` if the template cannot be found. The API returns
@@ -512,7 +512,7 @@ class TimelineTemplateResource(BaseResource):
         and its JSON representation is returned.
         """
 
-        response = Kibana.current().get(
+        response: dict[str, Any] = Kibana.current().get(
             cls.BASE_URI, params={"template_timeline_id": timeline_id},
             error=False
         )
@@ -565,7 +565,7 @@ class TimelineTemplateResource(BaseResource):
         return saved_id
 
     @classmethod
-    def export_template(cls, timeline_id: str) -> dict:
+    def export_template(cls, timeline_id: str) -> dict[str, Any]:
         """Export a timeline template referenced by ``timeline_id``.
         The export API requires the saved object ID rather than the
         ``templateTimelineId`` stored on rules. This method first resolves
@@ -579,7 +579,7 @@ class TimelineTemplateResource(BaseResource):
             raise RuntimeError(f"timeline {timeline_id} missing savedObjectId field")
 
         # Export the timeline template using the saved object ID
-        response = Kibana.current().post(
+        response: dict[str, Any] = Kibana.current().post(
             f"{cls.BASE_URI}/_export",
             params={"file_name": timeline_id},
             data={"ids": [saved_id]}

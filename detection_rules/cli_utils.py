@@ -140,12 +140,12 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
             tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            expected_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
             if not rule.path:
-                click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+                click.secho(f"WARNING: Rule path for rule not found: {expected_name}", fg="yellow")
+            elif rule.path.name != expected_name:
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected_name}", fg="yellow"
                 )
 
         kwargs["rules"] = rules

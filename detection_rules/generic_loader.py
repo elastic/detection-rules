@@ -141,6 +141,8 @@ class GenericCollection:
             contents = TOMLActionConnectorContents.from_dict(obj)
             item = TOMLActionConnector(path=path, contents=contents)
         elif "timeline" in obj:
+            if path is None:
+                raise ValueError("No path value provided")
             contents = TOMLTimelineTemplateContents.from_dict(obj)
             item = TOMLTimelineTemplate(path=path, contents=contents)
         else:

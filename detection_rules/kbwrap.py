@@ -15,13 +15,13 @@ from typing import Any, cast
 
 import click
 import kql  # type: ignore[reportMissingTypeStubs]
-from kibana import (
+from kibana import (  # type: ignore[reportMissingTypeStubs]
     ExceptionListResource,
     RuleResource,
     Signal,
     TimelineTemplateResource,
     ValueListResource,
-)  # type: ignore[reportMissingTypeStubs]
+)
 
 from .action_connector import (
     TOMLActionConnector,
@@ -332,7 +332,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
         for list_id, (name, edicts) in exception_map.items():
             try:
-                existing = ExceptionListResource.get(list_id)
+                existing: dict[str, Any] | None = ExceptionListResource.get(list_id)
             except Exception as exc:  # noqa: BLE001
                 failed_exception_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
@@ -367,7 +367,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
             text = file_path.read_text()
             try:
-                existing = ValueListResource.get(list_id)
+                existing: dict[str, Any] | None = ValueListResource.get(list_id)
             except Exception as exc:  # noqa: BLE001
                 failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
@@ -382,12 +382,12 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     continue
             else:
                 try:
-                    ValueListResource.create(list_id, list_type, name)
+                    _ = ValueListResource.create(list_id, list_type, name)
                 except Exception as exc:  # noqa: BLE001
                     failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                     continue
             try:
-                ValueListResource.import_list_items(list_id, text, list_type)
+                _ = ValueListResource.import_list_items(list_id, text, list_type)
             except Exception as exc:  # noqa: BLE001
                 failed_value_lists.append(ItemLog(name, list_id, str(exc)))
                 continue
@@ -417,7 +417,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
             if existing and overwrite_timeline_templates:
                 try:
-                    existing_version = existing.get("templateTimelineVersion") if isinstance(existing, dict) else None
+                    existing_version = cast("int | None", existing.get("templateTimelineVersion") if existing else None)
                     if isinstance(existing_version, int):
                         payload["templateTimelineVersion"] = existing_version + 1
                     else:
@@ -447,14 +447,20 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             overwrite_action_connectors=overwrite_action_connectors,
         )
 
-        successful_rules = [ItemLog(r.get("name", r.get("rule_id", "")), r.get("rule_id", "")) for r in rule_resources]
+        successful_rules: list[ItemLog] = []
+        for r in rule_resources:
+            r_dict = cast("dict[str, Any]", r)
+            name_val = cast("str", r_dict.get("name") or r_dict.get("rule_id") or "")
+            rule_id_val = cast("str", r_dict.get("rule_id") or "")
+            successful_rules.append(ItemLog(name_val, rule_id_val))
 
         error_items: list[ItemLog] = []
         if response.get("errors"):
-            for error in response["errors"]:
-                r_id = error.get("rule_id", "")
+            for error in cast("list[dict[str, Any]]", response["errors"]):
+                r_id = cast("str", error.get("rule_id", ""))
                 name = rule_id_name_map.get(r_id, r_id)
-                msg = f"({error['error']['status_code']}) {error['error']['message']}"
+                err = cast("dict[str, Any]", error.get("error", {}))
+                msg = f"({err.get('status_code')}) {err.get('message')}"
                 error_items.append(ItemLog(name, r_id, msg))
 
     # ------------------------------------------------------------------
@@ -691,7 +697,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         click.echo("No rules found to export")
         return []
 
-    rules_results = results  # type: ignore[reportUnknownVariableType]
+    rules_results = cast("list[dict[str, Any]]", results)
     action_connector_results = []
     exception_results = []
     results_len = len(results)  # type: ignore[reportUnknownVariableType]
@@ -704,7 +710,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         action_connector_count = results[-1]["exported_action_connector_count"]  # type: ignore[reportUnknownVariableType]
 
         # Parse rules results and exception results from API return
-        rules_results = results[:rules_count]  # type: ignore[reportUnknownVariableType]
+        rules_results = cast("list[dict[str, Any]]", results[:rules_count])
         exception_results = results[rules_count : rules_count + exception_list_count + exception_list_item_count]  # type: ignore[reportUnknownVariableType]
         rules_and_exceptions_count = rules_count + exception_list_count + exception_list_item_count  # type: ignore[reportUnknownVariableType]
         action_connector_results = results[  # type: ignore[reportUnknownVariableType]
@@ -794,14 +800,14 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             rule = TOMLRule(contents=contents, path=save_path)
             if strip_exception_list_id and rule.contents.data.exceptions_list:
                 for exc in rule.contents.data.exceptions_list:
-                    exc.pop("id", None)
+                    _ = exc.pop("id", None)
         except Exception as e:
             if skip_errors:
                 name = cast("str", rule_resource.get("name", "unknown"))
-                rule_id = cast("str", rule_resource.get("rule_id", "unknown"))
-                print(f"- skipping {name} - {rule_id} - {type(e).__name__}")
-                errors.append(f"- {name} - {rule_id} - {e}")
-                rule_error_logs.append(ItemLog(name, rule_id, str(e)))
+                rule_id_str = cast("str", rule_resource.get("rule_id", "unknown"))
+                print(f"- skipping {name} - {rule_id_str} - {type(e).__name__}")
+                errors.append(f"- {name} - {rule_id_str} - {e}")
+                rule_error_logs.append(ItemLog(name, rule_id_str, str(e)))
                 continue
             raise
         if rule.contents.data.exceptions_list:
@@ -829,10 +835,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         exported.append(rule)
 
     # Parse exceptions results from API return
-    exceptions = []
+    exceptions: list[TOMLException] = []
+    exceptions_items: dict[str, list[dict[str, Any]]] = {}
     if export_exceptions:
-        exceptions_containers = {}
-        exceptions_items = {}
+        exceptions_containers: dict[str, Any] = {}
 
         exceptions_containers, exceptions_items, parse_errors, _ = parse_exceptions_results_from_api(exception_results)  # type: ignore[reportArgumentType]
         errors.extend(parse_errors)
@@ -901,7 +907,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             exception.save_toml()
         except Exception as e:
             if skip_errors:
-                list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+                list_id = cast("str", exception.contents.exceptions[0].container.list_id)  # type: ignore[reportUnknownMemberType]
                 name = exception.name
                 print(f"- skipping {name} - {list_id} - {type(e).__name__}")
                 errors.append(f"- {name} - {list_id} - {e}")
@@ -910,13 +916,14 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             raise
 
         saved_exceptions.append(exception)
-        list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+        list_id = cast("str", exception.contents.exceptions[0].container.list_id)  # type: ignore[reportUnknownMemberType]
         exception_logs.append(ItemLog(exception.name, list_id))
         if export_value_lists:
             # Gather list IDs for each successfully saved exception
-            list_id = exception.contents.exceptions[0].container.list_id  # type: ignore[reportUnknownMemberType]
+            list_id = cast("str", exception.contents.exceptions[0].container.list_id)  # type: ignore[reportUnknownMemberType]
             for item in exceptions_items.get(list_id, []):
-                _collect_list_ids(item.get("entries", []))
+                entries = cast("list[dict[str, Any]]", item.get("entries", []))
+                _collect_list_ids(entries)
 
     value_list_exported: list[str] = []
     saved_value_lists: list[str] = []
@@ -930,7 +937,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     value_list_exported.append(list_id)
                     value_list_logs.append(ItemLog(list_id, list_id))
                     if value_list_directory:
-                        (value_list_directory / list_id).write_text(text)
+                        _ = (value_list_directory / list_id).write_text(text)
                         saved_value_lists.append(list_id)
                 except Exception as e:
                     if skip_errors:

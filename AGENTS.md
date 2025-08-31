@@ -65,7 +65,13 @@ python -m detection_rules export-rules --space $SPACE -d $CUSTOM_RULES_DIR/rules
 
 ## Genereal Information
 - Focus on building new CLI commands and helpers.
-- For linting use ruff, e.g: `python -m ruff check --exit-non-zero-on-fix`
+- For every code change run the following lint commands and ensure they pass:
+
+```
+python -m ruff check --exit-non-zero-on-fix
+python -m ruff format --check
+python -m pyright
+```
 - You normally DONT need to run rule unit tests via `CUSTOM_RULES_DIR=./rules-test python -m detection_rules test` since this is not relevant to CLI changes under normal circumstances.
 - Never commit any secrets or sensitive information like environment variables!
 
