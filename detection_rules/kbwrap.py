@@ -299,9 +299,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
     if excluded_list_ids:
         for rd in rule_dicts:
             if "exceptions_list" in rd:
-                rd["exceptions_list"] = [
-                    e for e in rd["exceptions_list"] if e.get("list_id") not in excluded_list_ids
-                ]
+                rd["exceptions_list"] = [e for e in rd["exceptions_list"] if e.get("list_id") not in excluded_list_ids]
 
     # ------------------------------------------------------------------
     # The remaining phases communicate with Kibana and therefore require the
@@ -476,9 +474,7 @@ def kibana_import_rules(  # noqa: PLR0912, PLR0913, PLR0915
             click.echo("\n".join(f" - {_format_item(i)}" for i in exception_imported))
         if action_connectors:
             connector_logs = [
-                ItemLog(c.get("name", c.get("id", "")), c.get("id", ""))
-                for group in action_connectors
-                for c in group
+                ItemLog(c.get("name", c.get("id", "")), c.get("id", "")) for group in action_connectors for c in group
             ]
             if connector_logs:
                 click.echo(f"{len(connector_logs)} action connector(s) successfully imported")
@@ -959,9 +955,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
                     if strip_dates:
                         payload.pop("created", None)
                         payload.pop("updated", None)
-                    contents = TOMLTimelineTemplateContents.from_timeline_dict(
-                        payload, strip_dates=strip_dates
-                    )
+                    contents = TOMLTimelineTemplateContents.from_timeline_dict(payload, strip_dates=strip_dates)
                     tt_object = TOMLTimelineTemplate(
                         contents=contents,
                         path=(

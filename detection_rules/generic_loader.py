@@ -23,17 +23,9 @@ if TYPE_CHECKING:
 
 RULES_CONFIG = parse_rules_config()
 
-GenericCollectionTypes = (
-    TOMLAction
-    | TOMLActionConnector
-    | TOMLException
-    | TOMLTimelineTemplate
-)
+GenericCollectionTypes = TOMLAction | TOMLActionConnector | TOMLException | TOMLTimelineTemplate
 GenericCollectionContentTypes = (
-    TOMLActionContents
-    | TOMLActionConnectorContents
-    | TOMLExceptionContents
-    | TOMLTimelineTemplateContents
+    TOMLActionContents | TOMLActionConnectorContents | TOMLExceptionContents | TOMLTimelineTemplateContents
 )
 
 
