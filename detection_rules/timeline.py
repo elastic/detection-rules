@@ -71,13 +71,9 @@ class TOMLTimelineTemplateContents(MarshmallowDataclassMixin):
             created = timeline_dict.get("created")
             updated = timeline_dict.get("updated")
             if isinstance(created, int):
-                metadata["creation_date"] = datetime.fromtimestamp(
-                    created / 1000, UTC
-                ).strftime("%Y/%m/%d")
+                metadata["creation_date"] = datetime.fromtimestamp(created / 1000, UTC).strftime("%Y/%m/%d")
             if isinstance(updated, int):
-                metadata["updated_date"] = datetime.fromtimestamp(
-                    updated / 1000, UTC
-                ).strftime("%Y/%m/%d")
+                metadata["updated_date"] = datetime.fromtimestamp(updated / 1000, UTC).strftime("%Y/%m/%d")
 
         return cls.from_dict({"metadata": metadata, "timeline": timeline_dict})
 

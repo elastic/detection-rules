@@ -82,8 +82,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
         multiple=True,
         required=False,
         help=(
-            "Optional Rule name to restrict to (case-insensitive, supports wildcards). "
-            "May be specified multiple times."
+            "Optional Rule name to restrict to (case-insensitive, supports wildcards). May be specified multiple times."
         ),
     )
     @click.option(
@@ -109,9 +108,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
             if default_dir:
                 directories = [str(default_dir)]
             elif not (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
-                raise_client_error(
-                    "Required: at least one of --rule-id, --rule-name, --rule-file, or --directory"
-                )
+                raise_client_error("Required: at least one of --rule-id, --rule-name, --rule-file, or --directory")
 
         rules = RuleCollection()
         rules.load_files(Path(p) for p in rule_files)
@@ -143,12 +140,12 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
             tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            expected_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
             if not rule.path:
-                click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+                click.secho(f"WARNING: Rule path for rule not found: {expected_name}", fg="yellow")
+            elif rule.path.name != expected_name:
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected_name}", fg="yellow"
                 )
 
         kwargs["rules"] = rules

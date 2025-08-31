@@ -12,7 +12,7 @@ import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 from uuid import uuid4
 
 import click
@@ -96,8 +96,8 @@ def create_rule(  # noqa: PLR0913
 ) -> TOMLRule | str:
     """Create a detection rule."""
     contents: dict[str, Any] = load_rule_contents(config, single_only=True)[0] if config else {}
-    strip_dates = RULES_CONFIG.strip_dates if strip_dates is None else strip_dates
-    strip_version = RULES_CONFIG.strip_version if strip_version is None else strip_version
+    strip_dates = cast("bool", RULES_CONFIG.strip_dates if strip_dates is None else strip_dates)
+    strip_version = cast("bool", RULES_CONFIG.strip_version if strip_version is None else strip_version)
     return rule_prompt(
         path,
         rule_type=rule_type,

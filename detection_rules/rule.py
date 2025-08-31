@@ -958,8 +958,7 @@ class ESQLRuleData(QueryRuleData):
         keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
         if not keep_pattern.search(query_lower):
             raise ValidationError(
-                f"Rule: {data['name']} does not contain a 'keep' command ->"
-                f" Add a 'keep' command to the query."
+                f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
 
 
