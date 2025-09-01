@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/09/06"
-integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/04"
+updated_date = "2025/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -12,6 +12,7 @@ installation leveraging PowerShell.
 """
 from = "now-9m"
 index = [
+    "logs-endpoint.events.process-*",
     "logs-crowdstrike.fdr*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
@@ -19,6 +20,7 @@ index = [
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "endgame-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -67,10 +69,12 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Windows Security Event Logs",
+    "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
