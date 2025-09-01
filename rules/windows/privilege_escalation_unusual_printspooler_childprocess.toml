@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/07/06"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "crowdstrike", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,17 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "winlogbeat-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Print Spooler Child Process"
@@ -71,6 +81,11 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
     "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Elastic Endgame",
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -89,7 +104,11 @@ process where host.os.type == "windows" and event.type == "start" and
  not (process.name : "regsvr32.exe" and process.command_line : "*PrintConfig.dll*") and
  not process.executable : (
     "?:\\Program Files (x86)\\CutePDF Writer\\CPWriter2.exe",
-    "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe"
+    "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe",
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Program Files (x86)\\CutePDF Writer\\CPWriter2.exe",
+    "\\Device\\HarddiskVolume*\\Program Files (x86)\\GPLGS\\gswin32c.exe"
  )
 '''
 
