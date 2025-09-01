@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/09/01"
 
 [transform]
 [[transform.osquery]]
@@ -33,8 +33,8 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious AutoIt process execution. Malware written as an AutoIt script tends to rename the AutoIt
-executable to avoid detection.
+Identifies renamed Automation Script Interpreter process. Malware written as an AutoIt/AutoHotKey script tends to rename
+the main executable to avoid detection.
 """
 from = "now-9m"
 index = [
@@ -47,10 +47,10 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Renamed AutoIt Scripts Interpreter"
+name = "Renamed Automation Script Interpreter"
 note = """## Triage and analysis
 
-### Investigating Renamed AutoIt Scripts Interpreter
+### Investigating Renamed Automation Script Interpreter
 
 The OriginalFileName attribute of a PE (Portable Executable) file is a metadata field that contains the original name of the executable file when compiled or linked. By using this attribute, analysts can identify renamed instances that attackers can use with the intent of evading detections, application allowlists, and other security protections.
 
@@ -98,9 +98,9 @@ This rule checks for renamed instances of AutoIt, which can indicate an attempt 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 47
+risk_score = 73
 rule_id = "2e1e835d-01e5-48ca-b9fc-7a61f7f11902"
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -111,14 +111,18 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Crowdstrike",
+    "Data Source: Crowdstrike"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.pe.original_file_name : "AutoIt*.exe" and not process.name : "AutoIt*.exe"
+  (
+   (process.pe.original_file_name : "AutoIt*.exe" and not process.name : "AutoIt*.exe") or
+   (process.pe.original_file_name == "AutoHotkey.exe" and not process.name : ("AutoHotkey*.exe", "InternalAHK.exe")) or
+   (process.pe.original_file_name == "KIX32.EXE" and not process.name : "KIX*.exe" and process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe"))
+   )
 '''
 
 
