@@ -1,31 +1,35 @@
 [metadata]
-creation_date = "2024/09/09"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+creation_date = "2025/08/19"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/21"
+updated_date = "2025/08/19"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of an MsiExec service child process followed by network or dns lookup activity. Adversaries may
-abuse Windows Installers for initial access and delivery of malware.
+Identifies attempts to install a file from a remote server using MsiExec. Adversaries may abuse Windows Installers for initial access and delivery of malware.
 """
 from = "now-9m"
 index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process-*",
-    "logs-endpoint.events.network-*",
-    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "MsiExec Service Child Process With Network Connection"
+name = "Potential Remote Install via MsiExec"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating MsiExec Service Child Process With Network Connection
+### Investigating Potential Remote Install via MsiExec
 
 MsiExec is a Windows utility for installing, maintaining, and removing software. Adversaries exploit it to execute malicious payloads by disguising them as legitimate installations. The detection rule identifies suspicious child processes spawned by MsiExec that initiate network activity, which is atypical for standard installations. By focusing on unusual executable paths and network connections, the rule helps uncover potential misuse indicative of malware delivery or initial access attempts.
 
@@ -55,52 +59,34 @@ MsiExec is a Windows utility for installing, maintaining, and removing software.
 - Reset credentials and review access permissions for any accounts that may have been compromised or used during the attack.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and detection rules to identify similar threats in the future, focusing on unusual MsiExec activity and network connections."""
-risk_score = 47
-rule_id = "65432f4a-e716-4cc1-ab11-931c4966da2d"
-severity = "medium"
+risk_score = 73
+rule_id = "c9847fe9-3bed-4e6b-b319-f9956d6dd02a"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=1m
- [process where host.os.type == "windows" and event.type : "start" and
-  process.parent.name : "msiexec.exe" and process.parent.args : "/v" and
-  not process.executable :
-        ("?:\\Windows\\System32\\msiexec.exe",
-         "?:\\Windows\\sysWOW64\\msiexec.exe",
-         "?:\\Windows\\system32\\srtasks.exe",
-         "?:\\Windows\\syswow64\\srtasks.exe",
-         "?:\\Windows\\sys*\\taskkill.exe",
-         "?:\\Program Files\\*.exe",
-         "?:\\Program Files (x86)\\*.exe",
-         "?:\\Windows\\Installer\\MSI*.tmp",
-         "?:\\Windows\\Microsoft.NET\\Framework*\\RegSvcs.exe",
-         "C:\\Windows\\System32\\regsvr32.exe",
-         "C:\\Windows\\Sys?????\\certutil.exe",
-         "C:\\Windows\\System32\\WerFault.exe",
-         "C:\\Windows\\System32\\wevtutil.exe",
-         "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe") and
- not (process.name : ("rundll32.exe", "regsvr32.exe", "powershell.exe", "regasm.exe", "wscript.exe") and process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")) and
- not (?process.code_signature.subject_name : ("Bruno Software Inc", "Proton AG", "Axis Communications AB", "Citrix Systems, Inc.", "NSUS Limited", "Action1 Corporation", "Solarwinds Worldwide, LLC") and
-      ?process.code_signature.trusted == true) and
- not (?process.pe.original_file_name in ("dxsetup.exe", "MofCompiler.exe", "ShellApp.exe") and
-      ?process.code_signature.subject_name : "Microsoft Corporation" and ?process.code_signature.trusted == true) and
- not ?process.hash.sha256 in ("cfaef8c711db04d6c4a4381c66ac21b9e234e57febedb77fedc9316898b214bc",
-                              "2f26f37cce780ca76f0dbac0de233f4c8d84c31b3f37380b9d5faacc3ee2d03e",
-                              "7d9c691bfbf3beb78919dfd940fa6d325c3437425d5b0371df39aef6accf858d")
- ]
-[network where host.os.type == "windows" and process.name != null and
- not dns.question.name : ("core.bdec.microsoft.com", "go.microsoft.com", "ocsp.digicert.com", "localhost", "www.google-analytics.com",
-                          "ocsp.verisign.com", "*.symcb.com")]
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "msiexec.exe" and process.args : ("-i", "/i") and process.command_line : "*http*" and
+  process.args : ("/qn", "-qn", "-q", "/q", "/quiet") and
+  process.parent.name : ("sihost.exe", "explorer.exe", "cmd.exe", "wscript.exe", "mshta.exe", "powershell.exe", "wmiprvse.exe", "pcalua.exe", "forfiles.exe", "conhost.exe") and
+  not process.command_line : ("*--set-server=*", "*UPGRADEADD=*" , "*--url=*",
+                              "*USESERVERCONFIG=*", "*RCTENTERPRISESERVER=*", "*app.ninjarmm.com*", "*zoom.us/client*",
+                              "*SUPPORTSERVERSTSURI=*", "*START_URL=*", "*AUTOCONFIG=*", "*awscli.amazonaws.com*")
 '''
 
 
