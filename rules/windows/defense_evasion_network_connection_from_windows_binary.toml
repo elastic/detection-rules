@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/08/19"
 
 [transform]
 [[transform.osquery]]
@@ -139,7 +139,14 @@ sequence by process.entity_id with maxspan=5m
       process.name : "odbcconf.exe" or
       process.name : "rcsi.exe" or
       process.name : "regsvr32.exe" or
-      process.name : "xwizard.exe")]
+      process.name : "xwizard.exe") and
+
+  not (process.name : "mshta.exe" and
+       process.parent.executable : ("C:\\Program Files (x86)\\Bentley\\*.exe",
+                                    "C:\\Program Files\\Bentley\\*.exe",
+                                    "C:\\Program Files (x86)\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
+                                    "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe"))
+  ]
   [network where
      (process.name : "bginfo.exe" or
       process.name : "cdb.exe" or
@@ -177,7 +184,11 @@ sequence by process.entity_id with maxspan=5m
       not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
         "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
         "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
-        "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com") and 
+        "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com", "_ldap._tcp.*", "..localmachine", "secure.globalsign.com",
+        "acroipm2.adobe.com", "www.ssl.com") and
+
+      not (process.name : "mshta.exe" and
+           dns.question.name : ("client.teamviewer.com", "www.teamviewer.com", "images-na.ssl-images-amazon.com", "searcherbar.tilda.ws")) and
 
       /* host query itself */
       not startswith~(dns.question.name, host.name)
