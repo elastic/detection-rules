@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/02/28"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -67,14 +68,24 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.action != "deletion" and
- file.path : ("?:\\Windows\\System32\\CodeIntegrity\\*.p7b", "?:\\Windows\\System32\\CodeIntegrity\\CiPolicies\\Active\\*.cip") and
- not process.executable : "C:\\Windows\\System32\\poqexec.exe"
+  file.extension : ("p7b", "cip") and
+  file.path : (
+    "?:\\Windows\\System32\\CodeIntegrity\\*.p7b",
+    "?:\\Windows\\System32\\CodeIntegrity\\CiPolicies\\Active\\*.cip",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\CodeIntegrity\\*.p7b",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\CodeIntegrity\\CiPolicies\\Active\\*.cip"
+  ) and
+  not process.executable : (
+    "C:\\Windows\\System32\\poqexec.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\poqexec.exe"
+  )
 '''
 
 
