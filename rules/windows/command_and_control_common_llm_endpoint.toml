@@ -1,94 +1,91 @@
 [metadata]
-creation_date = "2025/08/28"
-integration = ["endpoint"]
+creation_date = "2025/09/01"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2025/09/01"
 
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may implement command and control (C2) communications that use common web services to hide their activity.
-This attack technique is typically targeted at an organization and uses web services common to the victim network, which
-allows the adversary to blend into legitimate traffic activity. These popular services are typically targeted since they
-have most likely been used before compromise, which helps malicious traffic blend in.
+Identifies DNS queries known Large Language Model domains by unsigned binaries or common Windows scripting utilities.
+Malwares may leverage the capabilities of LLM to perform actions in the affected system in a dynamic way.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network-*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.network-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Connection to Common Large Language Model Endpoints"
 note = """## Triage and analysis
 
-### Investigating Connection to Commonly Abused Web Services
-
-Adversaries may use an existing, legitimate external Web service as a means for relaying data to/from a compromised system. Popular websites and social media acting as a mechanism for C2 may give a significant amount of cover due to the likelihood that hosts within a network are already communicating with them prior to a compromise.
-
-This rule looks for processes outside known legitimate program locations communicating with a list of services that can be abused for exfiltration or command and control.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+### Investigating Connection to Common Large Language Model Endpoints
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes or malicious scripts.
+- Verify if the executed process is persistent on the host like common mechanisms Startup folder, task or Run key.
+- Review any unusual network, files or registry events by the same process.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-  - $investigate_0
-  - $investigate_1
-- Verify whether the digital signature exists in the executable.
-- Identify the operation type (upload, download, tunneling, etc.).
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-        - $investigate_2
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
 
 ### False positive analysis
 
-- This rule has a high chance to produce false positives because it detects communication with legitimate services. Noisy false positives can be added as exceptions.
+- Trusted applications from an expected process running in the environment.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
+- Immediately block the identified indicators of compromise (IoCs).
+- Implement any temporary network rules, procedures, and segmentation required to contain the attack.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Update firewall rules to be more restrictive.
+- Reimage the host operating system or restore the compromised files to clean versions.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = ["https://malpedia.caad.fkie.fraunhofer.de/details/py.lamehug"]
 risk_score = 43
-rule_id = "54aa452c-a997-4f8d-b7f0-c69e56d4c05a"
+rule_id = "4ae94fc1-f08f-419f-b692-053d28219380"
 severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
+    "Tactic: Discovery",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and network.protocol == "dns" and
-    process.name != null and not ?user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+network where host.os.type == "windows" and dns.question.name != null and
+(
+  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
+  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+
+  ?process.code_signature.exists == false or ?process.code_signature.trused == false or
+
+  ?process.code_signature.subject_name in ("AUTOIT CONSULTING LTD", "AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+
+  ?process.executable : ("?:\\Users\\*.exe", "", "?:\\ProgramData\\*.exe",  "?\\Device\\HarddiskVolume?\\Users\\*.exe",  "?\\Device\\HarddiskVolume?\\ProgramData\\*.exe")
+ ) and
     dns.question.name : (
     // Major LLM APIs
     "api.openai.com",
@@ -129,21 +126,21 @@ network where host.os.type == "windows" and network.protocol == "dns" and
     "poe.com",
     "chat.forefront.ai",
     "chat.deepseek.com"
-  )
-    /* Insert noisy false positives here */
-    not process.executable : (
+  ) and
+
+  not ?process.executable : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
-          "C:\\Windows\\System32\\svchost.exe",
+          "?:\\Windows\\System32\\svchost.exe",
+          "?:\\Windows\\SystemApps\\Microsoft.LockApp_*\\LockApp.exe",
           "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
           "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
-          "?:\\Windows\\SystemApps\\Microsoft.LockApp_*\\LockApp.exe",
           "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe"
         ) and
-    not ?process.code_signature.subject_name like ("Anthropic, PBC", "Developer ID Application: Google LLC (*)", "Google LLC",
-         "Brave Software, Inc.", "Developer ID Application: Mozilla Corporation (*)", "Developer ID Application: Island Technology, Inc. (*)")
+    not (?process.code_signature.trusted == true and
+         ?process.code_signature.subject_name in ("Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.", "Opera Norway AS"))
 '''
 
 
