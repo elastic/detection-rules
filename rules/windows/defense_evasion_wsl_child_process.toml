@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -94,15 +94,16 @@ process where host.os.type == "windows" and event.type : "start" and
         "?:\\Windows\\Sys?????\\wslconfig.exe"
   ) and
   not (
+    /* Crowdstrike specific exclusion as it uses NT Object paths */
     event.dataset == "crowdstrike.fdr" and
       process.executable : (
-        "\\Device\\HarddiskVolume?\\Program Files (x86)\\*",
-        "\\Device\\HarddiskVolume?\\Program Files\\*",
-        "\\Device\\HarddiskVolume?\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\conhost.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\lxss\\wslhost.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\System32\\WerFault.exe",
-        "\\Device\\HarddiskVolume?\\Windows\\Sys?????\\wslconfig.exe"
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\*",
+        "\\Device\\HarddiskVolume*\\Program Files\\*",
+        "\\Device\\HarddiskVolume*\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\conhost.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\lxss\\wslhost.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\WerFault.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\Sys?????\\wslconfig.exe"
       )
   )
 '''
