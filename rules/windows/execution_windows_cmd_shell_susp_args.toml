@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -109,7 +109,7 @@ process where host.os.type == "windows" and event.type == "start" and
 
   /* false positives */
   not (process.args : "%TEMP%\\Spiceworks\\*" and process.parent.name : "wmiprvse.exe") and
-  not process.parent.executable : (
+  not ?process.parent.executable : (
         "?:\\Perl64\\bin\\perl.exe",
         "?:\\Program Files\\nodejs\\node.exe",
         "?:\\Program Files\\HP\\RS\\pgsql\\bin\\pg_dumpall.exe",
@@ -133,6 +133,15 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\jumpcloud-agent-app\\jumpcloud-agent-app.exe",
         "?:\\Program Files\\PostgreSQL\\*\\bin\\pg_dumpall.exe",
         "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
+  not (
+        /* Crowdstrike doesn't populate process.parent.executable */
+        event.dataset == "crowdstrike.fdr" and
+        process.parent.name : (
+          "perl.exe", "node.exe", "pg_dumpall.exe", "PRTG Server.exe", "spiceworks-finder.exe", "leds.exe", "twexec.exe",
+          "SonarScanner.MSBuild.exe", "Code.exe", "netbeans64.exe", "javaw.exe", "Bot Framework Composer.exe", "SessionMgr.exe",
+          "Craneware.Pricing.Shell.exe", "jumpcloud-agent-app.exe", "vimrun.exe"
+        )
+      ) and
   not (process.args :  "?:\\Program Files\\Citrix\\Secure Access Client\\nsauto.exe" and process.parent.name : "userinit.exe") and
   not process.args : (
         "?:\\Program Files (x86)\\PCMatic\\PCPitstopScheduleService.exe",
