@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/09/01"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of ADExplorer utility. Active Directory Explorer (AD Explorer) is an advanced Active Directory (AD)
+viewer and editor. AD Explorer also includes the ability to save snapshots of an AD database for off-line viewing and comparisons.
+Adversaries may abuse this utility to perform domain reconnaissance.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Active Directory Discovery using AdExplorer"
+note = """## Triage and analysis
+
+### Investigating Active Directory Discovery using AdExplorer
+
+Active Directory Explorer (AD Explorer) is an advanced Active Directory (AD) viewer and editor. AD Explorer also includes the ability to save snapshots of an AD database for off-line viewing and comparisons.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Verify any file creation, this may indicate the creation of an AD snapshot.
+- Identify when the AdExplorer binary was dropped and by what process reviewing file creation events.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- This rule has a high chance to produce false positives as it is a legitimate tool used by system administrators.
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and process path conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://learn.microsoft.com/en-us/sysinternals/downloads/adexplorer"]
+risk_score = 21
+rule_id = "ff46eb26-0684-4da3-9dd6-21032c9878e1"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "ADExplorer*.exe" or ?process.pe.original_file_name == "AdExp")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.002"
+name = "Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1069/002/"
+
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
+
+[[rule.threat.technique]]
+id = "T1482"
+name = "Domain Trust Discovery"
+reference = "https://attack.mitre.org/techniques/T1482/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
