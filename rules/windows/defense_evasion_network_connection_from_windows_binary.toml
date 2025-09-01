@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/08/19"
+updated_date = "2025/09/01"
 
 [transform]
 [[transform.osquery]]
@@ -40,8 +40,8 @@ from = "now-9m"
 index = [
     "logs-endpoint.events.process-*",
     "logs-endpoint.events.network-*",
-    "winlogbeat-*",
     "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -115,7 +115,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=5m
+sequence by process.entity_id with maxspan=1m
   [process where host.os.type == "windows" and event.type == "start" and
 
      /* known applocker bypasses */
@@ -147,45 +147,13 @@ sequence by process.entity_id with maxspan=5m
                                     "C:\\Program Files (x86)\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
                                     "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe"))
   ]
-  [network where
-     (process.name : "bginfo.exe" or
-      process.name : "cdb.exe" or
-      process.name : "control.exe" or
-      process.name : "cmstp.exe" or
-      process.name : "csi.exe" or
-      process.name : "dnx.exe" or
-      process.name : "fsi.exe" or
-      process.name : "ieexec.exe" or
-      process.name : "iexpress.exe" or
-      process.name : "installutil.exe" or
-      process.name : "Microsoft.Workflow.Compiler.exe" or
-      (
-        process.name : "msbuild.exe" and
-          destination.ip != "127.0.0.1"
-      ) or
-      process.name : "msdt.exe" or
-      process.name : "mshta.exe" or
-      (
-        process.name : "msiexec.exe" and not
-        dns.question.name : (
-           "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
-           "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local"
-        ) and
-        /* Localhost, DigiCert and Comodo CA IP addresses */
-        not cidrmatch(destination.ip, "127.0.0.1", "192.229.211.108/32", "192.229.221.95/32",
-                      "152.195.38.76/32", "104.18.14.101/32")
-      ) or
-      process.name : "msxsl.exe" or
-      process.name : "odbcconf.exe" or
-      process.name : "rcsi.exe" or
-      process.name : "regsvr32.exe" or
-      process.name : "xwizard.exe") and 
-      
+  [network where dns.question.name != null and
       not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
         "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
         "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
         "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com", "_ldap._tcp.*", "..localmachine", "secure.globalsign.com",
-        "acroipm2.adobe.com", "www.ssl.com") and
+        "acroipm2.adobe.com", "www.ssl.com", "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
+        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local") and
 
       not (process.name : "mshta.exe" and
            dns.question.name : ("client.teamviewer.com", "www.teamviewer.com", "images-na.ssl-images-amazon.com", "searcherbar.tilda.ws")) and
