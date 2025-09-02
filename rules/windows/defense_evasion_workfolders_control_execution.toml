@@ -2,7 +2,7 @@
 creation_date = "2022/03/02"
 integration = ["windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -85,8 +85,10 @@ process where host.os.type == "windows" and event.type == "start" and
   not process.executable : (
     "?:\\Windows\\System32\\control.exe",
     "?:\\Windows\\SysWOW64\\control.exe",
-    "\\Device\\HarddiskVolume?\\Windows\\System32\\control.exe",
-    "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\control.exe"
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\control.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\control.exe"
   )
 '''
 
