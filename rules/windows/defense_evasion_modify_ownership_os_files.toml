@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2025/09/02"
 
 
 [rule]
@@ -22,10 +22,10 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "System File Onwership Change"
+name = "System File Ownership Change"
 note = """## Triage and analysis
 
-### Investigating System File Onwership Change
+### Investigating System File Ownership Change
 
 Adversaries may modify file or directory ownership to evade access control lists (ACLs) and access protected files.
 
@@ -83,7 +83,7 @@ process where host.os.type == "windows" and event.type == "start" and
   (
    (process.name : "icacls.exe" and process.args : "/reset") or
    (process.name : "takeown.exe" and process.args : "/f") or
-   (process.name : "/grant" and process.args : "grant" and process.args : "Everyone:F")
+   (process.name : "icacls.exe" and process.args : "/grant" and process.args : "Everyone:F")
    ) and
    process.command_line : "*.exe *C:\\Windows\\*"
 '''
