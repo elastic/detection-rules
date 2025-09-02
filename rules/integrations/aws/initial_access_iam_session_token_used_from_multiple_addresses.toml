@@ -2,7 +2,7 @@
 creation_date = "2025/04/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/02"
 
 [rule]
 author = ["Elastic"]
@@ -86,16 +86,20 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   and aws.cloudtrail.user_identity.arn is not null
   and aws.cloudtrail.user_identity.type == "IAMUser"
   and source.ip is not null
+  and aws.cloudtrail.user_identity.access_key_id is not null
   and not (
-    user_agent.original like "%Terraform%" or
-    user_agent.original like "%Ansible%" or
-    user_agent.original like "%Pulumni%"
+    user_agent.original like "*Terraform*" or
+    user_agent.original like "*Ansible*" or
+    user_agent.original like "*Pulumi*"
   )
   and `source.as.organization.name` != "AMAZON-AES"
+  and not ((
+    `source.as.organization.name` == "AMAZON-02" and aws.cloudtrail.event_category == "Data"))
   and event.provider not in (
     "health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com",
     "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com",
-    "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com"
+    "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com"//, 
+    "account.amazonaws.com", "budgets.amazonaws.com", "freetier.amazonaws.com"
   )
 
 | eval
@@ -108,8 +112,9 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_ip_user_agent_pair = concat(Esql.source_ip_string, " - ", user_agent.original),
   Esql.source_ip_city_pair = concat(Esql.source_ip_string, " - ", source.geo.city_name),
   Esql.source_geo_city_name = source.geo.city_name,
-  Esql.event_timestamp = @timestamp,
-  Esql.source_network_org_name = `source.as.organization.name`
+  Esql.source_network_org_name = `source.as.organization.name`,
+  Esql.source_ip_network_pair = concat(Esql.source_ip_string, "-", `source.as.organization.name`),
+  Esql.event_timestamp = @timestamp
 
 | stats
   Esql.event_action_values = values(event.action),
@@ -122,6 +127,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_geo_city_name_values = values(Esql.source_geo_city_name),
   Esql.source_ip_city_pair_values = values(Esql.source_ip_city_pair),
   Esql.source_network_org_name_values = values(Esql.source_network_org_name),
+  Esql.source_ip_network_pair_values = values(Esql.source_ip_network_pair),
   Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
   Esql.user_agent_original_count_distinct = count_distinct(Esql.user_agent_original),
   Esql.source_geo_city_name_count_distinct = count_distinct(Esql.source_geo_city_name),
@@ -165,6 +171,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_geo_city_name_values,
   Esql.source_ip_city_pair_values,
   Esql.source_network_org_name_values,
+  Esql.source_ip_network_pair_values,
   Esql.source_ip_count_distinct,
   Esql.user_agent_original_count_distinct,
   Esql.source_geo_city_name_count_distinct,
@@ -172,6 +179,30 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
 
 | where Esql.activity_type != "normal_activity"
 '''
+
+[rule.investigation_fields]
+field_names = [
+      Esql.timestamp_first_seen,
+      Esql.timestamp_last_seen,
+      Esql.activity_type,
+      Esql.activity_fidelity_score,
+      Esql.event_count,
+      Esql.aws_cloudtrail_user_identity_arn_values,
+      Esql.aws_cloudtrail_user_identity_access_key_id_values,
+      Esql.event_action_values,
+      Esql.event_provider_values,
+      Esql.source_ip_values,
+      Esql.user_agent_original_values,
+      Esql.source_ip_user_agent_pair_values,
+      Esql.source_geo_city_name_values,
+      Esql.source_ip_city_pair_values,
+      Esql.source_network_org_name_values,
+      Esql.source_ip_network_pair_values,
+      Esql.source_ip_count_distinct,
+      Esql.user_agent_original_count_distinct,
+      Esql.source_geo_city_name_count_distinct,
+      Esql.source_network_org_name_count_distinct
+]
 
 
 [[rule.threat]]
