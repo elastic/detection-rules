@@ -88,10 +88,10 @@ class TestEQLInSet(BaseRuleTest):
 
 
 class TestEQLSequencePerIntegration(BaseRuleTest):
-    """Tests for per-stage EQL validation against the correct integration.package schema."""
+    """Tests for per-subquery EQL validation against the correct integration.package schema."""
 
     def test_sequence_valid_per_package(self) -> None:
-        """Test that a sequence with stages from different packages validates correctly."""
+        """Test that a sequence with subquerys from different packages validates correctly."""
         rc = RuleCollection()
         query = """
         sequence with maxspan=30m
@@ -99,16 +99,16 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
           [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
         """
         rule = {
-            "metadata": mk_metadata(["azure"], comments="Per-stage integration validation"),
+            "metadata": mk_metadata(["azure"], comments="Per-subquery integration validation"),
             "rule": mk_rule(
                 name="EQL sequence per integration test",
                 rule_id="1b6e2f77-8e1f-4f8d-9f72-1d8e5f3e5f11",
-                description="Validate per-stage integration.package schemas.",
+                description="Validate per-subquery integration.package schemas.",
                 risk_score=40,
                 query=query,
             ),
         }
-        # Should load without error because each stage validates against its own package schema
+        # Should load without error because each subquery validates against its own package schema
         rc.load_dict(rule)
 
     def test_sequence_invalid_join_field_wrong_package(self) -> None:
@@ -120,15 +120,56 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
           [any where event.dataset == "azure.identity_protection"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
         """
         bad_rule = {
-            "metadata": mk_metadata(["azure"], comments="Per-stage integration validation"),
+            "metadata": mk_metadata(["azure"], comments="Per-subquery integration validation"),
             "rule": mk_rule(
                 name="EQL sequence per integration test",
                 rule_id="1b6e2f77-8e1f-4f8d-9f72-1d8e5f3e5f11",
-                description="Validate per-stage integration.package schemas.",
+                description="Validate per-subquery integration.package schemas.",
                 risk_score=40,
                 query=query,
             ),
         }
-        # Expect failure: join field belongs to a different package than the stage dataset
+        # Expect failure: join field belongs to a different package than the subquery dataset
+        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+            rc.load_dict(bad_rule)
+
+    def test_sequence_across_integrations_valid(self) -> None:
+        """Sequence uses azure and crowdstrike datasets; each subquery validates against its own integration."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+          [any where event.dataset == "crowdstrike.fdr"] by process.executable
+        """
+        rule = {
+            "metadata": mk_metadata(["azure", "crowdstrike"], comments="Cross-integration per-subquery validation"),
+            "rule": mk_rule(
+                name="EQL sequence across integrations valid",
+                rule_id="2a3b4c55-1234-4f8d-9f72-1d8e5f3e5f11",
+                description="Validate sequence subquerys across azure and crowdstrike integrations.",
+                risk_score=35,
+                query=query,
+            ),
+        }
+        rc.load_dict(rule)
+
+    def test_sequence_across_integrations_invalid_crowdstrike_subquery_azure_field(self) -> None:
+        """CrowdStrike subquery incorrectly uses an azure join field, which should fail validation."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+          [any where event.dataset == "crowdstrike.fdr"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        """
+        bad_rule = {
+            "metadata": mk_metadata(["azure", "crowdstrike"], comments="Cross-integration per-subquery validation"),
+            "rule": mk_rule(
+                name="EQL sequence across integrations invalid",
+                rule_id="2a3b4c55-1234-4f8d-9f72-1d8e5f3e5f12",
+                description="CrowdStrike subquery incorrectly uses an azure join field.",
+                risk_score=35,
+                query=query,
+            ),
+        }
         with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
             rc.load_dict(bad_rule)
