@@ -22,9 +22,10 @@ from marshmallow import ValidationError
 from semver import Version
 
 from . import ecs, endgame
+from .beats import get_datasets_and_modules
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import get_integration_schema_data, load_integrations_manifests, parse_datasets
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_stack_schemas
 
@@ -445,88 +446,201 @@ class EQLValidator(QueryValidator):
                     raise exc
         return None
 
-    def validate_integration(  # noqa: PLR0912
+    def validate_integration(  # noqa: PLR0912, PLR0915, PLR0911
         self,
         data: QueryRuleData,
         meta: RuleMeta,
         package_integrations: list[dict[str, Any]],
     ) -> EQL_ERROR_TYPES | None | ValueError:
-        """Validate an EQL query while checking TOMLRule against integration schemas."""
+        """Validate an EQL query while checking TOMLRule against integration schemas.
+
+        If the EQL query is a sequence, validate each subquery against the schema of the dataset's
+        integration.package referenced within that subquery. This avoids cross-integration field
+        mismatches when multiple datasets from the same integration are used in different subqueries.
+        """
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return None
 
-        error_fields = {}
+        error_fields: dict[str, dict[str, Any]] = {}
         package_schemas: dict[str, Any] = {}
 
-        # Initialize package_schemas with a nested structure
-        for integration_data in package_integrations:
-            package = integration_data["package"]
-            integration = integration_data["integration"]
-            if integration:
-                package_schemas.setdefault(package, {}).setdefault(integration, {})
-            else:
-                package_schemas.setdefault(package, {})
-
-        # Process each integration schema
-        for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            ecs_version = integration_schema_data["ecs_version"]
-            package, integration = (
-                integration_schema_data["package"],
-                integration_schema_data["integration"],
-            )
-            package_version = integration_schema_data["package_version"]
-            integration_schema = integration_schema_data["schema"]
-            stack_version = integration_schema_data["stack_version"]
-
-            # add non-ecs-schema fields for edge cases not added to the integration
+        # Function to extract the field name from an error message
+        def _prepare_integration_schema(schema_dict: dict[str, Any], stack_version: str) -> dict[str, Any]:
+            """Add index/custom/endpoint fields to the base integration schema."""
             if data.index_or_dataview:
                 for index_name in data.index_or_dataview:
-                    integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+                    schema_dict.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
-            # Add custom schema fields for appropriate stack version
             if data.index_or_dataview and CUSTOM_RULES_DIR:
                 for index_name in data.index_or_dataview:
-                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
+                    schema_dict.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
-            # add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
-            package_schemas[package].update(**integration_schema)
+            schema_dict.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+            return schema_dict
 
-            eql_schema = ecs.KqlSchema2Eql(integration_schema)
-            err_trailer = (
-                f"stack: {stack_version}, integration: {integration},"
-                f"ecs: {ecs_version}, package: {package}, package_version: {package_version}"
-            )
+        # Function to validate against a list of packaged integrations
+        def _validate_against_packaged_integrations(
+            query_text: str,
+            packaged: list[dict[str, Any]],
+            trailer_builder: Callable[[str, str | None, str, str, str], str],
+            join_values: list[Any] | None = None,
+            *,
+            accumulate_schemas: bool = True,
+        ) -> EQL_ERROR_TYPES | ValueError | None:
+            """Validate a query text against a set of packaged integrations, collect field errors.
 
-            # Validate the query against the schema
-            exc = self.validate_query_with_schema(
-                data=data,
-                schema=eql_schema,
-                err_trailer=err_trailer,
-                min_stack_version=meta.min_stack_version,  # type: ignore[reportArgumentType]
-            )
+            - query_text: EQL snippet to validate (full query or a subquery's event query).
+            - packaged: list of {package, integration} dicts to build schemas for.
+            - trailer_builder: function to build error trailer text for context.
+            - join_values: optional join/group-by fields to validate exist in the schema.
+            """
+            for integration_schema_data in get_integration_schema_data(data, meta, packaged):
+                ecs_version = integration_schema_data["ecs_version"]
+                package, integration = (
+                    integration_schema_data["package"],
+                    integration_schema_data["integration"],
+                )
+                package_version = integration_schema_data["package_version"]
+                integration_schema = integration_schema_data["schema"]
+                stack_version = integration_schema_data["stack_version"]
 
-            if isinstance(exc, eql.EqlParseError):
-                message = exc.error_msg  # type: ignore[reportUnknownVariableType]
-                if message == "Unknown field" or "Field not recognized" in message:
-                    field = extract_error_field(self.query, exc)
-                    trailer = (
-                        f"\n\tTry adding event.module or data_stream.dataset to specify integration module\n\t"
-                        f"Will check against integrations {meta.integration} combined.\n\t"
-                        f"{package=}, {integration=}, {package_version=}, "
-                        f"{stack_version=}, {ecs_version=}"
-                    )
-                    error_fields[field] = {
+                # Prepare schema with index/custom/endpoint additions
+                integration_schema = _prepare_integration_schema(integration_schema, stack_version)
+                if accumulate_schemas:
+                    package_schemas.setdefault(package, {}).update(**integration_schema)
+
+                # Build trailer and validate the query text
+                err_trailer = trailer_builder(package, integration, package_version, stack_version, ecs_version)
+                exc = self.validate_query_text_with_schema(
+                    query_text,
+                    ecs.KqlSchema2Eql(integration_schema),
+                    err_trailer=err_trailer,
+                    min_stack_version=meta.min_stack_version,  # type: ignore[reportArgumentType]
+                )
+                if isinstance(exc, eql.EqlParseError):
+                    field = extract_error_field(query_text, exc)
+                    error_fields[field or "<unknown field>"] = {
                         "error": exc,
-                        "trailer": trailer,
+                        "trailer": exc.trailer if hasattr(exc, "trailer") else err_trailer,  # type: ignore[reportUnknownArgumentType]
                         "package": package,
                         "integration": integration,
                     }
                     if data.get("notify", False):
-                        print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
-                else:
+                        print(
+                            f"\nWarning: `{field}` in `{data.name}` not found in schema. "
+                            f"{error_fields[field or '<unknown field>']['trailer']}"
+                        )
+                elif exc is not None:
                     return exc
+
+                # Validate join/group-by fields exist in this integration schema (if provided)
+                for jf in join_values or []:
+                    jf_str = str(jf)
+                    if jf_str not in integration_schema:
+                        trailer = (
+                            f"\n\tJoin field not found in schema.\n\t"
+                            f"package: {package}, integration: {integration}, package_version: {package_version}, "
+                            f"stack: {stack_version}, ecs: {ecs_version}"
+                        )
+                        error_fields[jf_str] = {
+                            "error": ValueError(f"Unknown field: {jf_str}"),
+                            "trailer": trailer,
+                            "package": package,
+                            "integration": integration,
+                        }
+
+            return None
+
+        # Function to extract the field name from an error message
+        def _subquery_trailer_builder(pkg: str, integ: str | None, pkg_ver: str, stk_ver: str, ecs_ver: str) -> str:
+            return (
+                f"Subquery schema mismatch. "
+                f"package: {pkg}, integration: {integ}, package_version: {pkg_ver}, "
+                f"stack: {stk_ver}, ecs: {ecs_ver}"
+            )
+
+        # Non-sequence: validate full query against each integration schema
+        def _full_query_trailer_builder(pkg: str, integ: str | None, pkg_ver: str, stk_ver: str, ecs_ver: str) -> str:
+            return (
+                f"Try adding event.module or event.dataset to specify integration module\n\t"
+                f"Will check against integrations {meta.integration} combined.\n\t"
+                f"package: {pkg}, integration: {integ}, package_version: {pkg_ver}, stack: {stk_ver}, ecs: {ecs_ver}"
+            )
+
+        # Determine if this is a sequence query via rule data flag
+        if data.is_sequence:  # type: ignore[reportAttributeAccessIssue]
+            sequence: ast.Sequence = self.ast.first  # type: ignore[reportAttributeAccessIssue]
+
+            did_subquery_validation = False
+            packages_manifest = load_integrations_manifests()
+            # Validate each subquery against the corresponding integration.package schema
+            for subquery in sequence.queries:  # type: ignore[reportUnknownVariableType]
+                # Get datasets used in this subquery only
+                subquery_datasets, _ = get_datasets_and_modules(subquery)  # type: ignore[reportUnknownVariableType]
+                if not subquery_datasets:
+                    # If dataset isn't specified in the subquery, skip to avoid false positives here
+                    # The stack schema validation will provide generic guidance
+                    continue
+
+                # Build subquery-specific package_integrations
+                subquery_pkg_ints = parse_datasets(list(subquery_datasets), packages_manifest)
+
+                # Validate the subquery's event query (without the "by" fields)
+                subquery_query_str = subquery.query.render()  # type: ignore[reportUnknownVariableType]
+
+                # Only mark as validated if there are subquery-specific integrations to check
+                if subquery_pkg_ints:
+                    did_subquery_validation = True
+
+                exc = _validate_against_packaged_integrations(
+                    subquery_query_str,  # type: ignore[reportUnknownVariableType]
+                    subquery_pkg_ints,
+                    _subquery_trailer_builder,
+                    join_values=list(getattr(subquery, "join_values", []) or []),  # type: ignore[reportUnknownVariableType]
+                    accumulate_schemas=False,
+                )
+                if exc is not None:
+                    return exc
+
+            # If no subquery specified a dataset/module (nothing validated),
+            # fall back to validating the full query against provided integrations
+            if not did_subquery_validation:
+                exc = _validate_against_packaged_integrations(
+                    self.query,
+                    package_integrations,
+                    _full_query_trailer_builder,
+                    join_values=None,
+                )
+                if exc is not None:
+                    return exc
+
+            # Raise the first error across subqueries
+            if error_fields:
+                _, data_ = next(iter(error_fields.items()))
+                err = data_["error"]
+                # If it's an EQL error, wrap with trailer for better context
+                if isinstance(err, eql.EqlParseError):
+                    return err.__class__(
+                        err.error_msg,  # type: ignore[reportUnknownArgumentType]
+                        err.line,  # type: ignore[reportUnknownArgumentType]
+                        err.column,  # type: ignore[reportUnknownArgumentType]
+                        err.source,  # type: ignore[reportUnknownArgumentType]
+                        len(err.caret.lstrip()),
+                        trailer=data_["trailer"],  # type: ignore[reportUnknownArgumentType]
+                    )
+                return err
+
+            return None
+
+        exc = _validate_against_packaged_integrations(
+            self.query,
+            package_integrations,
+            _full_query_trailer_builder,
+            join_values=None,
+        )
+        if exc is not None:
+            return exc
 
         # Check error fields against schemas of different packages or different integrations
         for field, error_data in list(error_fields.items()):  # type: ignore[reportUnknownArgumentType]
@@ -562,17 +676,34 @@ class EQLValidator(QueryValidator):
         min_stack_version: str,
         beat_types: list[str] | None = None,
     ) -> EQL_ERROR_TYPES | ValueError | None:
-        """Validate the query against the schema."""
+        """Validate the query against the schema (delegates to validate_query_text_with_schema)."""
+        return self.validate_query_text_with_schema(
+            self.query,
+            schema,
+            err_trailer=err_trailer,
+            min_stack_version=min_stack_version,
+            beat_types=beat_types,
+        )
+
+    def validate_query_text_with_schema(
+        self,
+        query_text: str,
+        schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
+        err_trailer: str,
+        min_stack_version: str,
+        beat_types: list[str] | None = None,
+    ) -> EQL_ERROR_TYPES | ValueError | None:
+        """Validate the provided EQL query text against the schema (variant of validate_query_with_schema)."""
         try:
             config = set_eql_config(min_stack_version)
             with config, schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                _ = eql.parse_query(self.query)  # type: ignore[reportUnknownMemberType]
+                _ = eql.parse_query(query_text)  # type: ignore[reportUnknownMemberType]
         except eql.EqlParseError as exc:
             message = exc.error_msg
             trailer = err_trailer
             if "Unknown field" in message and beat_types:
-                trailer = f"\nTry adding event.module or data_stream.dataset to specify beats module\n\n{trailer}"
-            elif "Field not recognized" in message:
+                trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+            elif "Field not recognized" in message and isinstance(schema, ecs.KqlSchema2Eql):
                 text_fields = self.text_fields(schema)
                 if text_fields:
                     fields_str = ", ".join(text_fields)
@@ -586,7 +717,6 @@ class EQLValidator(QueryValidator):
                 len(exc.caret.lstrip()),
                 trailer=trailer,
             )
-
         except Exception as exc:  # noqa: BLE001
             print(err_trailer)
             return exc  # type: ignore[reportReturnType]

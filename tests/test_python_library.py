@@ -8,59 +8,127 @@ from detection_rules.rule_loader import RuleCollection
 from .base import BaseRuleTest
 
 
-class TestEQLInSet(BaseRuleTest):
-    """Test EQL rule query in set override."""
+def mk_metadata(integrations: list[str], comments: str = "Test metadata") -> dict:
+    """Create rule metadata dictionary."""
+    return {
+        "creation_date": "2020/12/15",
+        "integration": integrations,
+        "maturity": "production",
+        "min_stack_comments": comments,
+        "min_stack_version": "8.3.0",
+        "updated_date": "2024/08/30",
+    }
 
-    def test_eql_in_set(self):
-        """Test that the query validation is working correctly."""
+
+def mk_rule(
+    *,
+    name: str,
+    rule_id: str,
+    description: str,
+    risk_score: int,
+    query: str,
+) -> dict:
+    """Create rule dictionary."""
+    return {
+        "author": ["Elastic"],
+        "description": description,
+        "language": "eql",
+        "name": name,
+        "risk_score": risk_score,
+        "rule_id": rule_id,
+        "severity": "low",
+        "type": "eql",
+        "query": query,
+    }
+
+
+class TestEQLInSet(BaseRuleTest):
+    """Test EQL rule query in_set override (separate failing and passing cases)."""
+
+    def test_eql_in_set_invalid_ip(self) -> None:
         rc = RuleCollection()
-        eql_rule = {
-            "metadata": {
-                "creation_date": "2020/12/15",
-                "integration": ["endpoint", "windows"],
-                "maturity": "production",
-                "min_stack_comments": "New fields added: required_fields, related_integrations, setup",
-                "min_stack_version": "8.3.0",
-                "updated_date": "2024/03/26",
-            },
-            "rule": {
-                "author": ["Elastic"],
-                "description": """
-                Test Rule.
-                """,
-                "false_positives": ["Fake."],
-                "from": "now-9m",
-                "index": ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*"],
-                "language": "eql",
-                "license": "Elastic License v2",
-                "name": "Fake Test Rule",
-                "references": [
-                    "https://example.com",
-                ],
-                "risk_score": 47,
-                "rule_id": "4fffae5d-8b7d-4e48-88b1-979ed42fd9a3",
-                "severity": "medium",
-                "tags": [
-                    "Domain: Endpoint",
-                    "OS: Windows",
-                    "Use Case: Threat Detection",
-                    "Tactic: Execution",
-                    "Data Source: Elastic Defend",
-                    "Data Source: Sysmon",
-                ],
-                "type": "eql",
-                "query": """
-                sequence by host.id, process.entity_id with maxspan = 5s
-                [network where destination.ip in ("127.0.0.1", "::1")]
-                """,
-            },
+        query = """
+        sequence by host.id, process.entity_id with maxspan = 5s
+        [network where destination.ip in ("127.0.0.1", "::1")]
+        """
+        rule_dict = {
+            "metadata": mk_metadata(
+                ["endpoint", "windows"], comments="New fields added: required_fields, related_integrations, setup"
+            ),
+            "rule": mk_rule(
+                name="Fake Test Rule",
+                rule_id="4fffae5d-8b7d-4e48-88b1-979ed42fd9a3",
+                description="Test Rule.",
+                risk_score=47,
+                query=query,
+            ),
         }
-        expected_error_message = r"Error in both stack and integrations checks"
-        with self.assertRaisesRegex(ValueError, expected_error_message):
-            rc.load_dict(eql_rule)
-        # Change to appropriate destination.address field
-        eql_rule["rule"]["query"] = """
+        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+            rc.load_dict(rule_dict)
+
+    def test_eql_in_set_valid_address(self) -> None:
+        rc = RuleCollection()
+        query = """
         sequence by host.id, process.entity_id with maxspan = 10s
         [network where destination.address in ("192.168.1.1", "::1")]
         """
-        rc.load_dict(eql_rule)
+        rule_dict = {
+            "metadata": mk_metadata(
+                ["endpoint", "windows"], comments="New fields added: required_fields, related_integrations, setup"
+            ),
+            "rule": mk_rule(
+                name="Fake Test Rule",
+                rule_id="4fffae5d-8b7d-4e48-88b1-979ed42fd9a3",
+                description="Test Rule.",
+                risk_score=47,
+                query=query,
+            ),
+        }
+        rc.load_dict(rule_dict)
+
+
+class TestEQLSequencePerIntegration(BaseRuleTest):
+    """Tests for per-stage EQL validation against the correct integration.package schema."""
+
+    def test_sequence_valid_per_package(self) -> None:
+        """Test that a sequence with stages from different packages validates correctly."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
+          [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        """
+        rule = {
+            "metadata": mk_metadata(["azure"], comments="Per-stage integration validation"),
+            "rule": mk_rule(
+                name="EQL sequence per integration test",
+                rule_id="1b6e2f77-8e1f-4f8d-9f72-1d8e5f3e5f11",
+                description="Validate per-stage integration.package schemas.",
+                risk_score=40,
+                query=query,
+            ),
+        }
+        # Should load without error because each stage validates against its own package schema
+        rc.load_dict(rule)
+
+    def test_sequence_invalid_join_field_wrong_package(self) -> None:
+        """Test that a sequence with a join field from a different package fails validation."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
+          [any where event.dataset == "azure.identity_protection"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        """
+        bad_rule = {
+            "metadata": mk_metadata(["azure"], comments="Per-stage integration validation"),
+            "rule": mk_rule(
+                name="EQL sequence per integration test",
+                rule_id="1b6e2f77-8e1f-4f8d-9f72-1d8e5f3e5f11",
+                description="Validate per-stage integration.package schemas.",
+                risk_score=40,
+                query=query,
+            ),
+        }
+        # Expect failure: join field belongs to a different package than the stage dataset
+        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+            rc.load_dict(bad_rule)
