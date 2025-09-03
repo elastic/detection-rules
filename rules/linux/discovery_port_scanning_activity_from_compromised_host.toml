@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/02"
 
 [rule]
 author = ["Elastic"]
@@ -93,14 +93,27 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
-
 query = '''
 from logs-endpoint.events.network-*
 | where
     @timestamp > now() - 1h and
     host.os.type == "linux" and
     event.type == "start" and
-    event.action == "connection_attempted"
+    event.action == "connection_attempted" and
+    not (
+      cidr_match(destination.ip, "127.0.0.0/8", "::1", "FE80::/10", "FF00::/8") or
+      process.executable in (
+        "/opt/dbtk/bin/jsvc", "/usr/lib/dotnet/dotnet", "/usr/share/elasticsearch/jdk/bin/java", "/usr/sbin/haproxy",
+        "/usr/bin/java", "/opt/kaspersky/kesl/libexec/kesl", "/usr/bin/dotnet", "/opt/java/openjdk/bin/java"
+      ) or
+      process.executable like "/var/opt/kaspersky/kesl/*kesl" or
+      process.executable like "/usr/lib/jvm/*/java" or
+      process.executable like "/opt/google/chrome*" or
+      process.executable like "/var/lib/docker/*/java" or
+      process.executable like "/usr/lib64/jvm/*/java" or
+      process.executable like "/snap/*" or
+      process.executable like "/home/*/.local/share/JetBrains/*"
+    )
 | keep
     @timestamp,
     host.os.type,
@@ -125,17 +138,15 @@ from logs-endpoint.events.network-*
 | limit 100
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

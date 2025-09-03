@@ -2,7 +2,7 @@
 creation_date = "2021/03/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -105,15 +105,17 @@ process where host.os.type == "windows" and event.type == "start" and
           "D:\\Exchange\\Bin\\UMWorkerProcess.exe",
           "D:\\Exchange Server\\Bin\\UMWorkerProcess.exe",
           "E:\\Exchange Server\\V15\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Windows\\System32\\werfault.exe",
-          "\\Device\\HarddiskVolume?\\Windows\\System32\\wermgr.exe",
-          "\\Device\\HarddiskVolume?\\Program Files\\Microsoft\\Exchange Server\\V??\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Program Files\\Microsoft\\Exchange Server\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Exchange 2016\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\ExchangeServer\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Exchange\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Exchange Server\\Bin\\UMWorkerProcess.exe",
-          "\\Device\\HarddiskVolume?\\Exchange Server\\V15\\Bin\\UMWorkerProcess.exe"
+
+          /* Crowdstrike specific exclusion as it uses NT Object paths */
+          "\\Device\\HarddiskVolume*\\Windows\\System32\\werfault.exe",
+          "\\Device\\HarddiskVolume*\\Windows\\System32\\wermgr.exe",
+          "\\Device\\HarddiskVolume*\\Program Files\\Microsoft\\Exchange Server\\V??\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\Program Files\\Microsoft\\Exchange Server\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\Exchange 2016\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\ExchangeServer\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\Exchange\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\Exchange Server\\Bin\\UMWorkerProcess.exe",
+          "\\Device\\HarddiskVolume*\\Exchange Server\\V15\\Bin\\UMWorkerProcess.exe"
     )
 '''
 
