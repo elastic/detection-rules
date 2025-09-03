@@ -1010,18 +1010,38 @@ class ThreatMatchRuleData(QueryRuleData):
             threat_query_validator.validate(self, meta)
 
     def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
-        """Validate negate usage and group semantics for threat mapping."""
+        """Validate negate usage and group semantics for threat mapping.
+
+        Conditions:
+        1) Allow multiple DOES NOT MATCH (negate) entries.
+        2) If a group has only a single entry and it's DOES NOT MATCH -> error.
+        3) Forbid MATCH and DOES NOT MATCH on the same source/indicator fields within the same group.
+        """
 
         for idx, group in enumerate(self.threat_mapping or []):
             entries = group.entries or []
-            neg_count = sum(1 for e in entries if getattr(e, "negate", False))
-            pos_count = len(entries) - neg_count
 
-            # Single DOES NOT MATCH (all-negate group) is not allowed
-            if neg_count > 0 and pos_count == 0:
-                raise ValidationError(
-                    f"threat_mapping group {idx}: at least one non-negated (MATCH) entry is required when using DOES NOT MATCH."  # noqa: E501
+            # 2) Single negate-only entry is not allowed
+            if len(entries) == 1 and bool(getattr(entries[0], "negate", False)):
+                msg = (
+                    f"threat_mapping group {idx}: single DOES NOT MATCH condition is not allowed. "
+                    "Add a MATCH condition or remove the negate."
                 )
+                raise ValidationError(msg)
+
+            # 3) Track negate presence per (source.field, indicator.field) pair
+            pair_to_negates: dict[tuple[str, str], set[bool]] = {}
+            for e in entries:
+                is_neg = bool(getattr(e, "negate", False))
+                pair_to_negates.setdefault((e.field, e.value), set()).add(is_neg)
+
+            for (src_field, ind_field), flags in pair_to_negates.items():
+                if True in flags and False in flags:
+                    msg = (
+                        f"threat_mapping group {idx}: cannot define both MATCH and DOES NOT MATCH for the same "
+                        f"source and indicator fields: '{src_field}' <-> '{ind_field}'."
+                    )
+                    raise ValidationError(msg)
 
 
 # All of the possible rule types
