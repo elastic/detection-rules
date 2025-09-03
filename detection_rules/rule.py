@@ -819,16 +819,18 @@ class ThresholdQueryRuleData(QueryRuleData):
 
         default_cap_lt_9_2 = 3
         default_cap_ge_9_2 = 5
-        max_fields_allowed = default_cap_ge_9_2 if (min_stack and min_stack >= cutoff) else default_cap_lt_9_2
+        is_ge_9_2 = min_stack >= cutoff
+        max_fields_allowed = default_cap_ge_9_2 if is_ge_9_2 else default_cap_lt_9_2
 
         fields = self.threshold.field or []
         if len(fields) > max_fields_allowed:
             # Tailored hint based on stack cap in effect
-            if min_stack and min_stack >= cutoff:
+            if is_ge_9_2:
                 hint = f" Reduce to {max_fields_allowed} or fewer fields."
             else:
                 hint = (
-                    f" Reduce to {max_fields_allowed} or fewer fields, or set metadata.min_stack_version to 9.2.0+ "
+                    f" Reduce to {max_fields_allowed} or fewer fields, or set "
+                    "metadata.min_stack_version to 9.2.0+ "
                     f"to allow up to {default_cap_ge_9_2}."
                 )
 
