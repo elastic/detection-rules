@@ -133,6 +133,29 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
             rc.load_dict(bad_rule)
 
+    def test_sequence_okta_missing_in_metadata_but_present_in_dataset(self) -> None:
+        """Okta dataset appears in a subquery but is not listed in metadata; dataset should drive schema selection."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+        [any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
+        [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by okta.actor.id
+        """
+        rule = {
+            # Intentionally do not include "okta" in metadata.integrations
+            "metadata": mk_metadata(["azure"], comments="Okta present via dataset only"),
+            "rule": mk_rule(
+                name="EQL sequence with okta dataset only",
+                rule_id="3c4d5e77-2345-4f8d-9f72-1d8e5f3e5f13",
+                description="Validate that dataset usage includes okta schema even if not in metadata.",
+                risk_score=50,
+                query=query,
+            ),
+        }
+        # Should load without error because get_packaged_integrations includes packages parsed from datasets
+        rc.load_dict(rule)
+
     def test_sequence_across_integrations_valid(self) -> None:
         """Sequence uses azure and crowdstrike datasets; each subquery validates against its own integration."""
         rc = RuleCollection()
@@ -173,3 +196,23 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         }
         with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
             rc.load_dict(bad_rule)
+
+    def test_sequence_datasetless_subquery_with_metadata_integration_valid(self) -> None:
+        """Datasetless azure subquery uses azure.* fields with metadata including azure; should validate and pass."""
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where azure.identityprotection.properties.user_principal_name != null] by azure.identityprotection.properties.user_principal_name
+          [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        """
+        rule = {
+            "metadata": mk_metadata(["azure"], comments="Datasetless subquery with azure fields"),
+            "rule": mk_rule(
+                name="EQL sequence datasetless azure subquery",
+                rule_id="3d4e5f88-3456-4f8d-9f72-1d8e5f3e5f14",
+                description="Datasetless azure subquery relies on metadata/field inference for package schema.",
+                risk_score=30,
+                query=query,
+            ),
+        }
+        rc.load_dict(rule)
