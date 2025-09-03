@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/02"
 
 [rule]
 author = ["Elastic"]
@@ -94,7 +94,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
-
 query = '''
 from logs-endpoint.events.process-*
 | keep
@@ -117,23 +116,59 @@ from logs-endpoint.events.process-*
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "exec" and (
+      (
         process.parent.name in (
             "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
             "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
             "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
         ) or
-        process.parent.name like "php-*" or
-        process.parent.name like "python*" or
-        process.parent.name like "ruby*" or
-        process.parent.name like "perl*" or
         user.name in (
             "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
         ) or
         user.id in ("99", "33", "498", "48") or
         process.working_directory like "/var/www/*"
-    ) and not (
+      ) or
+      (
+        (
+          process.parent.name like "php-*" or
+          process.parent.name like "python*" or
+          process.parent.name like "ruby*" or
+          process.parent.name like "perl*"
+        ) and (
+          process.working_directory like "/var/www/*" or
+          process.working_directory like "/srv/www/*" or
+          process.working_directory like "/usr/share/nginx/*"
+        )
+      )
+    ) and (
+        process.name in (
+          "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "openssl", "busybox",
+          "nc", "ncat", "netcat", "nc.openbsd", "nc.traditional", "nohup", "setsid", "mkfifo", "mknod",
+          "node", "socket"
+        ) or
+        process.name like "python*" or
+        process.name like "php*" or
+        process.name like "perl" or
+        process.name like "ruby*" or
+        process.name like "lua*" or
+        process.executable like "/tmp/*" or
+        process.executable like "/var/tmp/*" or
+        process.executable like "/dev/shm/*" or
+        process.executable like "/var/log/*" or
+        process.executable like "/sys/*" or
+        process.executable like "/media/*" or
+        process.executable like "/proc/*" or
+        process.executable like "/var/backups/*" or
+        process.executable like "/var/mail/*" or
+        process.executable like "/var/spool/*" or
+        process.executable like "/var/www/*" or
+        process.executable like "./*" or
+        process.name like ".*"
+    ) and    
+    not (
         process.working_directory like "/home/*" or
         process.working_directory == "/" or
+        process.working_directory like "/var/www/*.ch" or
         process.parent.executable like "/vscode/vscode-server/*"
     )
 | stats
@@ -149,51 +184,51 @@ from logs-endpoint.events.process-*
 | limit 100
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
