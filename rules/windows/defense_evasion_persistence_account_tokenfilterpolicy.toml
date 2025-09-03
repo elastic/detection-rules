@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/11/01"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/03"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ index = [
     "endgame-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -76,6 +77,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -92,7 +94,11 @@ registry where host.os.type == "windows" and event.type == "change" and
   not process.executable : (
     /* Intune */
     "C:\\Windows\\system32\\deviceenroller.exe",
-    "C:\\Windows\\system32\\omadmclient.exe"
+    "C:\\Windows\\system32\\omadmclient.exe",
+
+    /* Crowdstrike specific exclusion as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\system32\\deviceenroller.exe",
+    "\\Device\\HarddiskVolume*\\system32\\omadmclient.exe"
   )
 '''
 
