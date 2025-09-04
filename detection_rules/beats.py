@@ -128,7 +128,11 @@ def _flatten_schema(schema: list[dict[str, Any]] | None, prefix: str = "") -> li
 
             flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
-            flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
+            if s.get("name") and s.get("type") == "nested":
+                nested_prefix = prefix + s["name"] + "."
+                flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
+            else:
+                flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
         elif "name" in s:
             _s = s.copy()
             # type is implicitly keyword if not defined
