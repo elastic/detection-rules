@@ -810,6 +810,36 @@ class ThresholdQueryRuleData(QueryRuleData):
     threshold: ThresholdMapping
     alert_suppression: ThresholdAlertSuppression | None = field(metadata={"metadata": {"min_compat": "8.12"}})  # type: ignore[reportIncompatibleVariableOverride]
 
+    def validate(self, meta: RuleMeta) -> None:
+        """Validate threshold fields count based on stack version."""
+        current_min_stack = load_current_package_version()
+        min_stack_raw = meta.min_stack_version or current_min_stack
+        min_stack = Version.parse(min_stack_raw, optional_minor_and_patch=True)
+        cutoff = Version.parse("9.2.0")
+
+        default_cap_lt_9_2 = 3
+        default_cap_ge_9_2 = 5
+        is_ge_9_2 = min_stack >= cutoff
+        max_fields_allowed = default_cap_ge_9_2 if is_ge_9_2 else default_cap_lt_9_2
+
+        fields = self.threshold.field or []
+        if len(fields) > max_fields_allowed:
+            # Tailored hint based on stack cap in effect
+            if is_ge_9_2:
+                hint = f" Reduce to {max_fields_allowed} or fewer fields."
+            else:
+                hint = (
+                    f" Reduce to {max_fields_allowed} or fewer fields, or set "
+                    "metadata.min_stack_version to 9.2.0+ "
+                    f"to allow up to {default_cap_ge_9_2}."
+                )
+
+            raise ValidationError(
+                f"threshold field supports at most {max_fields_allowed} field(s) for min_stack_version "
+                f"{min_stack_raw or 'unspecified (<9.2 assumed)'}. "
+                f"Received {len(fields)} group_by fields." + hint
+            )
+
 
 @dataclass(frozen=True, kw_only=True)
 class NewTermsRuleData(QueryRuleData):
