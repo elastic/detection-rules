@@ -484,7 +484,6 @@ class EQLValidator(QueryValidator):
             query_text: str,
             packaged: list[dict[str, Any]],
             trailer_builder: Callable[[str, str | None, str, str, str], str],
-            join_values: list[Any] | None = None,
             *,
             accumulate_schemas: bool = True,
         ) -> EQL_ERROR_TYPES | ValueError | None:
@@ -510,7 +509,7 @@ class EQLValidator(QueryValidator):
                 if accumulate_schemas:
                     package_schemas.setdefault(package, {}).update(**integration_schema)
 
-                # Build trailer and validate the query text
+                # Build trailer and validate provided text (already synthetic if needed by caller)
                 err_trailer = trailer_builder(package, integration, package_version, stack_version, ecs_version)
                 exc = self.validate_query_text_with_schema(
                     query_text,
@@ -534,22 +533,6 @@ class EQLValidator(QueryValidator):
                 elif exc is not None:
                     return exc
 
-                # Validate join/group-by fields exist in this integration schema (if provided)
-                for jf in join_values or []:
-                    jf_str = str(jf)
-                    if jf_str not in integration_schema:
-                        trailer = (
-                            f"\n\tJoin field not found in schema.\n\t"
-                            f"package: {package}, integration: {integration}, package_version: {package_version}, "
-                            f"stack: {stack_version}, ecs: {ecs_version}"
-                        )
-                        error_fields[jf_str] = {
-                            "error": ValueError(f"Unknown field: {jf_str}"),
-                            "trailer": trailer,
-                            "package": package,
-                            "integration": integration,
-                        }
-
             return None
 
         # Function to extract the field name from an error message
@@ -567,6 +550,13 @@ class EQLValidator(QueryValidator):
                 f"Will check against integrations {meta.integration} combined.\n\t"
                 f"package: {pkg}, integration: {integ}, package_version: {pkg_ver}, stack: {stk_ver}, ecs: {ecs_ver}"
             )
+
+        # Function to build a minimal synthetic sequence containing the subquery
+        def _build_synthetic_sequence_from_subquery(subquery: "ast.SubqueryBy") -> str:
+            subquery_text = str(subquery)
+            join_fields = [str(j) for j in (getattr(subquery, "join_values", []) or [])]
+            dummy_by = f" by {', '.join(join_fields)}" if join_fields else ""
+            return f"sequence\n  {subquery_text}\n  [any where true]{dummy_by}"
 
         # Determine if this is a sequence query via rule data flag
         if data.is_sequence:  # type: ignore[reportAttributeAccessIssue]
@@ -586,18 +576,17 @@ class EQLValidator(QueryValidator):
                 # Build subquery-specific package_integrations
                 subquery_pkg_ints = parse_datasets(list(subquery_datasets), packages_manifest)
 
-                # Validate the subquery's event query (without the "by" fields)
-                subquery_query_str = subquery.query.render()  # type: ignore[reportUnknownVariableType]
+                # Validate the entire subquery by wrapping it in a minimal sequence so EQL validates any join fields
+                synthetic_sequence: str = _build_synthetic_sequence_from_subquery(subquery)  # type: ignore[reportUnknownVariableType]
 
                 # Only mark as validated if there are subquery-specific integrations to check
                 if subquery_pkg_ints:
                     did_subquery_validation = True
 
                 exc = _validate_against_packaged_integrations(
-                    subquery_query_str,  # type: ignore[reportUnknownVariableType]
+                    synthetic_sequence,  # validate as a minimal sequence to enforce join field checks
                     subquery_pkg_ints,
                     _subquery_trailer_builder,
-                    join_values=list(getattr(subquery, "join_values", []) or []),  # type: ignore[reportUnknownVariableType]
                     accumulate_schemas=False,
                 )
                 if exc is not None:
@@ -610,7 +599,6 @@ class EQLValidator(QueryValidator):
                     self.query,
                     package_integrations,
                     _full_query_trailer_builder,
-                    join_values=None,
                 )
                 if exc is not None:
                     return exc
@@ -637,7 +625,6 @@ class EQLValidator(QueryValidator):
             self.query,
             package_integrations,
             _full_query_trailer_builder,
-            join_values=None,
         )
         if exc is not None:
             return exc

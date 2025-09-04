@@ -133,6 +133,47 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
             rc.load_dict(bad_rule)
 
+    def test_sequence_top_level_by_and_runs_across_integrations_valid(self) -> None:
+        """Sequence-level by and per-subquery runs; subqueries use different integrations and validate correctly."""
+        rc = RuleCollection()
+        query = """
+        sequence by host.id, user.id with maxspan=1s
+          [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
+          [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by okta.actor.id
+        """
+        rule = {
+            "metadata": mk_metadata(["azure", "okta"], comments="Top-level sequence by and runs"),
+            "rule": mk_rule(
+                name="EQL sequence with top-level by and runs",
+                rule_id="4e5f6a99-4567-4f8d-9f72-1d8e5f3e5f15",
+                description="Validate top-level sequence by and per-subquery runs across integrations.",
+                risk_score=42,
+                query=query,
+            ),
+        }
+        rc.load_dict(rule)
+
+    def test_sequence_top_level_by_and_runs_across_integrations_invalid_join(self) -> None:
+        """Sequence-level by with runs; okta subquery incorrectly uses an azure join field causing validation failure."""
+        rc = RuleCollection()
+        query = """
+        sequence by host.id, user.id with maxspan=1s
+          [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
+          [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        """
+        bad_rule = {
+            "metadata": mk_metadata(["azure", "okta"], comments="Top-level sequence by and runs invalid join"),
+            "rule": mk_rule(
+                name="EQL sequence with top-level by and runs invalid",
+                rule_id="4e5f6a99-4567-4f8d-9f72-1d8e5f3e5f16",
+                description="Invalid: okta subquery uses azure join field.",
+                risk_score=42,
+                query=query,
+            ),
+        }
+        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+            rc.load_dict(bad_rule)
+
     def test_sequence_okta_missing_in_metadata_but_present_in_dataset(self) -> None:
         """Okta dataset appears in a subquery but is not listed in metadata; dataset should drive schema selection."""
         rc = RuleCollection()
