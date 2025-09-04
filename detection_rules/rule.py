@@ -1013,23 +1013,27 @@ class ThreatMatchRuleData(QueryRuleData):
         """Validate negate usage and group semantics for threat mapping.
 
         Conditions:
-        1) Allow multiple DOES NOT MATCH (negate) entries.
-        2) If a group has only a single entry and it's DOES NOT MATCH -> error.
-        3) Forbid MATCH and DOES NOT MATCH on the same source/indicator fields within the same group.
+        - Allow DOES NOT MATCH (negate) entries only when the group also contains at least one
+          MATCH (non-negated) entry. Single negate-only and multi-negate-only groups are invalid.
+        - Forbid MATCH and DOES NOT MATCH for the same source/indicator field pair within the same group.
         """
 
         for idx, group in enumerate(self.threat_mapping or []):
             entries = group.entries or []
 
-            # 2) Single negate-only entry is not allowed
-            if len(entries) == 1 and bool(getattr(entries[0], "negate", False)):
+            # Enforce: DOES NOT MATCH entries are allowed only if there is at least
+            # one MATCH (non-negated) entry in the same group
+            has_negate = any(bool(getattr(e, "negate", False)) for e in entries)
+            has_match = any(not bool(getattr(e, "negate", False)) for e in entries)
+            if has_negate and not has_match:
                 msg = (
-                    f"threat_mapping group {idx}: single DOES NOT MATCH condition is not allowed. "
-                    "Add a MATCH condition or remove the negate."
+                    f"threat_mapping group {idx}: DOES NOT MATCH entries require at least one MATCH "
+                    "(non-negated) entry in the same group."
                 )
                 raise ValidationError(msg)
 
-            # 3) Track negate presence per (source.field, indicator.field) pair
+            # Track negate presence per (source.field, indicator.field) pair to detect
+            # conflicts where both MATCH and DOES NOT MATCH are defined for the same pair
             pair_to_negates: dict[tuple[str, str], set[bool]] = {}
             for e in entries:
                 is_neg = bool(getattr(e, "negate", False))
