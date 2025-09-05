@@ -1,13 +1,11 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/03"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies PowerShell scripts containing cmdlets and parameters that attackers can abuse to disable Windows Defender
 features. Attackers can tamper with antivirus to reduce the risk of detection when executing their payloads.
@@ -44,7 +42,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: PowerShell Logs",
-    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -67,7 +64,8 @@ not powershell.file.script_block_text : (
   ("cmdletization" and "cdxml-Help.xml") or
   ("function Set-MpPreference" and "Microsoft.PowerShell.Cmdletization.GeneratedTypes.MpPreference.SubmitSamplesConsentType")
 ) and
-not file.directory : "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\SenseCM"
+not file.directory : "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\SenseCM" and
+not user.id : "S-1-5-18"
 '''
 
 

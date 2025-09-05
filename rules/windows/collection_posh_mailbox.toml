@@ -2,7 +2,7 @@
 creation_date = "2023/01/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/03"
 
 [rule]
 author = ["Elastic"]
@@ -93,16 +93,23 @@ type = "query"
 query = '''
 event.category:process and host.os.type:windows and
   (
-   powershell.file.script_block_text : (
-      "Microsoft.Office.Interop.Outlook" or
-      "Interop.Outlook.olDefaultFolders" or
-      "::olFolderInBox"
-   ) or
-   powershell.file.script_block_text : (
-      "Microsoft.Exchange.WebServices.Data.Folder" or
-      "Microsoft.Exchange.WebServices.Data.FileAttachment"
-   )
-  ) and not user.id : "S-1-5-18"
+    (
+      powershell.file.script_block_text : (
+        "Microsoft.Office.Interop.Outlook" or
+        "Interop.Outlook.olDefaultFolders" or
+        "olFolderInBox" or
+        "Outlook.Application"
+      ) and powershell.file.script_block_text : ("MAPI" or "GetDefaultFolder" or "GetNamespace" or "Session" or "GetSharedDefaultFolder")
+    ) or
+    (
+      powershell.file.script_block_text : (
+        "Microsoft.Exchange.WebServices.Data.Folder" or
+        "Microsoft.Exchange.WebServices.Data.FileAttachment" or
+        "Microsoft.Exchange.WebServices.Data.ExchangeService"
+      ) and
+      powershell.file.script_block_text : ("FindItems" or "Bind" or "WellKnownFolderName" or "FolderId" or "ItemView" or "PropertySet" or "SearchFilter" or "Attachments")
+    )
+  )
 '''
 
 
