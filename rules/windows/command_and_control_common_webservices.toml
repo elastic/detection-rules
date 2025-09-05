@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/13"
+updated_date = "2025/09/04"
 
 [transform]
 [[transform.investigate]]
@@ -70,7 +70,7 @@ allows the adversary to blend into legitimate traffic activity. These popular se
 have most likely been used before compromise, which helps malicious traffic blend in.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network-*"]
+index = ["logs-endpoint.events.network-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Connection to Commonly Abused Web Services"
@@ -141,13 +141,15 @@ tags = [
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and network.protocol == "dns" and
-    process.name != null and user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+network where host.os.type == "windows" and
+    dns.question.name != null and process.name != null and
+    not (?user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") or user.domain == "NT AUTHORITY") and
     /* Add new WebSvc domains here */
     dns.question.name :
        (
@@ -240,23 +242,23 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         process.executable : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
-          "?:\\Windows\\system32\\svchost.exe",
-          "?:\\Windows\\System32\\WWAHost.exe",
-          "?:\\Windows\\System32\\smartscreen.exe",
-          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
           "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
           "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
-          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-          "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Users\\*\\AppData\\Local\\PowerToys\\PowerToys.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Zen Browser\\zen.exe",
+          "?:\\Users\\*\\Wavesor Software\\WaveBrowser\\wavebrowser.exe",
+          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
           "?:\\Windows\\system32\\mobsync.exe",
           "?:\\Windows\\SysWOW64\\mobsync.exe", 
+          "?:\\Windows\\system32\\svchost.exe",
+          "?:\\Windows\\System32\\smartscreen.exe",
           "?:\\Windows\\System32\\wsl.exe", 
-          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe"
+          "?:\\Windows\\System32\\WWAHost.exe"
         )
       ) or
     
@@ -265,19 +267,9 @@ network where host.os.type == "windows" and network.protocol == "dns" and
        process.code_signature.trusted == true) and dns.question.name : ("discord.com", "cdn.discordapp.com", "discordapp.com")
       ) or 
 
-      /* MS Sharepoint */
-      (process.name : "Microsoft.SharePoint.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
-       process.code_signature.trusted == true) and dns.question.name : "onedrive.live.com"
-      ) or 
-
-      /* Firefox */
-      (process.name : "firefox.exe" and (process.code_signature.subject_name : "Mozilla Corporation" and
-       process.code_signature.trusted == true)
-      ) or 
-
-      /* Dropbox */
-      (process.name : "Dropbox.exe" and (process.code_signature.subject_name : "Dropbox, Inc" and
-       process.code_signature.trusted == true) and dns.question.name : ("api.dropboxapi.com", "*.dropboxusercontent.com")
+      /* MS Sharepoint / OneDrive */
+      (process.name : ("Microsoft.SharePoint.exe", "OneDrive.Sync.Service.exe") and dns.question.name : "onedrive.live.com" and
+       (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
       ) or 
 
       /* Obsidian - Plugins are stored on raw.githubusercontent.com */
@@ -290,16 +282,37 @@ network where host.os.type == "windows" and network.protocol == "dns" and
        process.code_signature.trusted == true) and dns.question.name : ("onedrive.live.com", "skyapi.onedrive.live.com")
       ) or
 
-      /* IntelliJ IDEA connecting to raw.githubusercontent.com m */
+      /* IntelliJ IDEA connecting to raw.githubusercontent.com */
       (process.code_signature.subject_name : "JetBrains s.r.o." and
-       process.code_signature.trusted == true and dns.question.name : "raw.githubusercontent.com")  or 
+       process.code_signature.trusted == true and dns.question.name : ("api.github.com", "raw.githubusercontent.com")
+      ) or 
 
       (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
-       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com", "login.live.com")) or
+       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com")
+      ) or
 
-      (process.code_signature.trusted == true and
-       process.code_signature.subject_name :
-                             ("Johannes Schindelin",
+      (process.code_signature.subject_name : "Python Software Foundation" and process.code_signature.trusted == true and
+       dns.question.name : "files.pythonhosted.org") or 
+
+      /* Zoom */
+      (process.name : "Zoom.exe" and (process.code_signature.subject_name : "Zoom Video Communications, Inc." and
+       process.code_signature.trusted == true) and dns.question.name : ("www.googleapis.com", "graph.microsoft.com")
+      ) or
+
+      /* VSCode */
+      (process.name : "Code.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
+       process.code_signature.trusted == true) and dns.question.name : ("api.github.com", "raw.githubusercontent.com")
+      ) or
+
+      /* Terraform */
+      (process.name : "terraform-provider*.exe" and (process.code_signature.subject_name : "HashiCorp, Inc." and
+       process.code_signature.trusted == true) and dns.question.name : "graph.microsoft.com"
+      ) or
+
+      (
+        process.code_signature.trusted == true and
+        process.code_signature.subject_name : (
+                              "Johannes Schindelin",
                               "Redis Inc.",
                               "Slack Technologies, LLC",
                               "Cisco Systems, Inc.",
@@ -307,7 +320,10 @@ network where host.os.type == "windows" and network.protocol == "dns" and
                               "Amazon.com Services LLC", 
                               "Island Technology Inc.", 
                               "GitHub, Inc.", 
-                              "Red Hat, Inc"))
+                              "Red Hat, Inc",
+                              "Mozilla Corporation"
+        )
+      )
     )
 '''
 
