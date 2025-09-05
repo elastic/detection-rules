@@ -727,8 +727,14 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
 
     existing_mappings: dict[str, Any] = {}
 
+    # TODO do we need an index mapping for each index in the query? This is accomplished via index_lookup: dict[str, Any] = {}
+    # Do we also need separate indexes for each integration? Probably, at least it is dynamic for each rule (do we really want to load these per rule?)
+    index_lookup: dict[str, Any] = {}
+    # NOTE do we need to cache what integration indexes have been loaded to prevent pushing tons into the evaluation?
+
     for index in indices:
         index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
+        index_lookup[index] = index_tmpl_mappings
         combine_dicts(existing_mappings, index_tmpl_mappings)
 
     log(f"Collected mappings: {len(existing_mappings)}")
@@ -769,7 +775,14 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         for stream in package_schema:
             flat_schema = package_schema[stream]
             stream_mappings = flat_schema_to_mapping(flat_schema)
+            # NOTE perhaps we need to actually create many test indexes for this to work properly
+            # TODO update this for double defined cases like integration_mappings["aws"]["properties"]["inspector"]["properties"]["remediation"]
+            # FIXED VIA NESTED FIELDS
+            # which is both a keyword, and has fields
+            # "aws.properties.inspector.properties.remediation.type": "keyword",
+            # "aws.properties.inspector.properties.remediation.fields.recommendation.properties.text.type": "keyword",
             combine_dicts(integration_mappings, stream_mappings)
+            index_lookup[f"{integration}-{stream}"] = stream_mappings
 
     log(f"Integration mappings prepared: {len(integration_mappings)}")
 
@@ -777,26 +790,47 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
     combine_dicts(combined_mappings, existing_mappings)
     combine_dicts(combined_mappings, integration_mappings)
     # NOTE non-ecs schema needs to have formatting updates prior to merge
-    # NOTE non-ecs schema uses Kibana reserved word "properties" as a field name
-    # e.g. "azure.auditlogs.properties.target_resources.0.display_name": "keyword",
+    # NOTE non-ecs and ecs schema can conflict e.g. 'authentication_details': {'type': 'flattened'}
+    # FIXED VIA NESTED FIELDS
+    # "azure.signinlogs.properties.authentication_details.authentication_method": "keyword"
+    # FAILURE: BadRequestError(400, 'illegal_argument_exception', "can't merge a non object mapping [azure.signinlogs.properties.authentication_details] with an object mapping")
     non_ecs_mapping = {}
     non_ecs = ecs.get_non_ecs_schema()
     for index in indices:
         non_ecs_mapping.update(non_ecs.get(index, {}))
     non_ecs_mapping = ecs.flatten(non_ecs_mapping)
     non_ecs_mapping = convert_to_nested_schema(non_ecs_mapping)
-    if non_ecs_mapping:
-        combine_dicts(combined_mappings, non_ecs_mapping)
-
-    if not combined_mappings:
+    if not combined_mappings and not non_ecs_mapping:
         log("ERROR: no mappings found for the rule")
         raise ValueError("No mappings found")
 
     # Creating a test index with the test name
     suffix = str(int(time.time() * 1000))
     test_index = f"rule-test-index-{suffix}"
+    test_non_ecs_index = f"rule-test-non-ecs-index-{suffix}"
+    # TODO if works, switch to non-ecs index only
+    # NOTE we will always have to have a base test index
+    # This test index could have the index_tmpl_mappings for example
+    full_index_str = test_index
+    if non_ecs_mapping:
+        full_index_str = test_non_ecs_index
 
-    # creating an index
+    for index in index_lookup:
+        # log(f"Mappings for `{index}`: {index_lookup[index]}")
+        ind_index_str = f"test-{index.rstrip('*')}{suffix}"
+        response = elastic_client.indices.create(
+            index=ind_index_str,
+            mappings={"properties": index_lookup[index]},
+            settings={
+                "index.mapping.total_fields.limit": 10000,
+                "index.mapping.nested_fields.limit": 500,
+                "index.mapping.nested_objects.limit": 10000,
+            },
+        )
+        log(f"Index `{test_non_ecs_index}` created: {response}")
+        full_index_str = f"{full_index_str}, {ind_index_str}"
+
+    # create indexes
     response = elastic_client.indices.create(
         index=test_index,
         mappings={"properties": combined_mappings},
@@ -807,19 +841,39 @@ def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, con
         },
     )
     log(f"Index `{test_index}` created: {response}")
+    test_index_str = test_index
+    if non_ecs_mapping:
+        response = elastic_client.indices.create(
+            index=test_non_ecs_index,
+            mappings={"properties": non_ecs_mapping},
+            settings={
+                "index.mapping.total_fields.limit": 10000,
+                "index.mapping.nested_fields.limit": 500,
+                "index.mapping.nested_objects.limit": 10000,
+            },
+        )
+        log(f"Index `{test_non_ecs_index}` created: {response}")
+        test_index_str = f"{test_index}, {test_non_ecs_index}"
 
     # Replace all sources with the test index
     query = contents.data.query
-    query = query.replace(indices_str, test_index)
+    query = query.replace(indices_str, full_index_str)
 
     try:
-        log(f"Executing a query against `{test_index}`")
+        log(f"Executing a query against `{test_index_str}`")
         response = elastic_client.esql.query(query=query)
         log(f"Got query response: {response}")
         query_columns = response.get("columns", [])
     finally:
         response = elastic_client.indices.delete(index=test_index)
         log(f"Test index `{test_index}` deleted: {response}")
+        if non_ecs_mapping:
+            response = elastic_client.indices.delete(index=test_non_ecs_index)
+            log(f"Test index `{test_non_ecs_index}` deleted: {response}")
+        for index in index_lookup:
+            ind_index_str = f"test-{index.rstrip('*')}{suffix}"
+            response = elastic_client.indices.delete(index=ind_index_str)
+            log(f"Test index `{ind_index_str}` deleted: {response}")
 
     query_column_names = [c["name"] for c in query_columns]
     log(f"Got query columns: {', '.join(query_column_names)}")
