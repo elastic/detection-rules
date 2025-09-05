@@ -7,6 +7,7 @@ import unittest
 
 from detection_rules.misc import get_default_config, get_elasticsearch_client, get_kibana_client, getdefault
 from detection_rules.rule_validators import ESQLValidator
+from elasticsearch import BadRequestError
 
 from .base import BaseRuleTest
 
@@ -40,14 +41,17 @@ class TestRemoteRules(BaseRuleTest):
             ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
         )
 
+        # Retrieve verbosity level from pytest
+        verbosity = self._outcome.result.config.get_verbosity()
+
         failed_count = 0
         fail_list = []
         for r in esql_rules:
             print()
             try:
                 validator = ESQLValidator(r.contents.data.query)
-                validator.remote_validate_rule(kibana_client, elastic_client, r.contents)
-            except Exception as e:
+                validator.remote_validate_rule(kibana_client, elastic_client, r.contents, verbosity)
+            except (ValueError, BadRequestError) as e:
                 print(f"FAILURE: {e}")
                 fail_list.append(f"FAILURE: {e}")
                 failed_count += 1
