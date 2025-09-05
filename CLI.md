@@ -34,7 +34,7 @@ Authenticating to Kibana is only available using api_key.
 #### Using environment variables
 
 Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will be parsed in commands which expect it.
-EX: `DR_USER=joe`
+EX: `DR_ES_USER=joe`
 
 
 Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
@@ -104,6 +104,8 @@ Options:
   -ske, --skip-errors             Skip rule import errors
   -da, --default-author TEXT      Default author for rules missing one
   -snv, --strip-none-values       Strip None values from the rule
+  -sd, --strip-dates              Strip creation and updated date fields from imported rules
+  -sli, --strip-exception-list-id Strip id fields from rule exceptions list
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
@@ -226,7 +228,8 @@ Running the following command will print out a table showing any alerts that hav
 
 ### Using `kibana import-rules`
 
-To directly load Toml formatted rule files into Kibana, one can use the `kibana import-rules` command as shown below.
+To directly load Toml formatted rule files into Kibana, one can use the `kibana import-rules` command as shown below. If the
+`-d/--directory` option is omitted, the first path listed in the `rule_dirs` array of `_config.yaml` is used.
 
 ```
 python -m detection_rules kibana import-rules -h
@@ -251,11 +254,17 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
+  -rn, --rule-name TEXT           Optional Rule name to restrict import to (case-insensitive,
+                                  supports wildcards). May be specified multiple times.
   -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -o, --overwrite                 Overwrite existing rules
-  -e, --overwrite-exceptions      Overwrite exceptions in existing rules
+  -e, --overwrite-exceptions      Overwrite existing exception lists instead of skipping them
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
+  -vl, --overwrite-value-lists    Overwrite value lists referenced in exceptions
+  -tt, --overwrite-timeline-templates
+                                  Overwrite timeline templates referenced in rules
+  -ee, --exclude-exceptions TEXT  Exception list names to exclude (supports wildcards)
   -h, --help                      Show this message and exit.
 ```
 
@@ -401,7 +410,8 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 ### Using `export-rules-from-repo`
 
 Toml formatted rule files can also be imported into Kibana through Kibana security app via a consolidated ndjson file
-which is exported from detection rules.
+which is exported from detection rules. If the `-d/--directory` option is omitted, the first path listed in the
+`rule_dirs` array of `_config.yaml` is used.
 
 ```console
 Usage: detection_rules export-rules-from-repo [OPTIONS]
@@ -431,7 +441,7 @@ the `Load prebuilt detection rules and timeline templates` button on the `detect
 
 ### Deprecated Methods
 
-Toml formatted rule files can also be uploaded as custom rules using the `kibana upload-rule` command. This command is 
+Toml formatted rule files can also be uploaded as custom rules using the `kibana upload-rule` command. This command is
 deprecated as of Elastic Stack version 9.0, but is included for compatibility with older stacks. To upload more than one
 file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of
 rules and is not intended for production use in its current state.
@@ -470,6 +480,8 @@ This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way prop
 
 Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `-cro` flag to only export custom rules, or the `-eq` flag to filter by query.
 
+If the `-d/--directory` option is omitted, the first path in the `rule_dirs` list of `_config.yaml` is used as the export destination.
+
 ```
 python -m detection_rules kibana export-rules -h
 
@@ -490,19 +502,27 @@ Usage: detection_rules kibana export-rules [OPTIONS]
   Export custom rules from Kibana.
 
 Options:
-  -d, --directory PATH            Directory to export rules to  [required]
+  -d, --directory PATH            Directory to export rules to
   -acd, --action-connectors-directory PATH
                                   Directory to export action connectors to
   -ed, --exceptions-directory PATH
                                   Directory to export exceptions to
+  -vld, --value-list-directory PATH  Directory to export value lists to
+  -ttd, --timeline-templates-directory PATH
+                                   Directory to export timeline templates to
   -da, --default-author TEXT      Default author for rules missing one
   -r, --rule-id TEXT              Optional Rule IDs to restrict export to
-  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)
+  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards). May be specified multiple times.
   -ac, --export-action-connectors
                                   Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
+  -vl, --export-value-lists       Include value lists referenced in exceptions
+  -tt, --export-timeline-templates
+                                   Include timeline templates referenced in rules
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
+  -sd, --strip-dates              Strip creation and updated date fields from exported rules
+  -sli, --strip-exception-list-id Strip id fields from rule exceptions list
   -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule

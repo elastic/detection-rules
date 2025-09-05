@@ -206,9 +206,15 @@ class RulesConfig:
     bbr_rules_dirs: list[Path] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
+    value_list_dir: Path | None = None
+    timeline_template_dir: Path | None = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
     no_tactic_filename: bool = False
+    strip_version: bool = False
+    strip_dates: bool = False
+    strip_exception_list_id: bool = False
+    default_author: str | None = None
 
     def __post_init__(self) -> None:
         """Perform post validation on packages.yaml file."""
@@ -299,6 +305,10 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
             contents["action_dir"] = base_dir.joinpath(directories.get("action_dir")).resolve()
         if directories.get("action_connector_dir"):
             contents["action_connector_dir"] = base_dir.joinpath(directories.get("action_connector_dir")).resolve()
+        if directories.get("value_list_dir"):
+            contents["value_list_dir"] = base_dir.joinpath(directories.get("value_list_dir")).resolve()
+        if directories.get("timeline_template_dir"):
+            contents["timeline_template_dir"] = base_dir.joinpath(directories.get("timeline_template_dir")).resolve()
 
     # version strategy
     contents["bypass_version_lock"] = loaded.get("bypass_version_lock", False)
@@ -328,6 +338,18 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
     # no_tactic_filename
     contents["no_tactic_filename"] = loaded.get("no_tactic_filename", False)
 
+    # strip_version
+    contents["strip_version"] = loaded.get("strip_version", False)
+
+    # strip_dates
+    contents["strip_dates"] = loaded.get("strip_dates", False)
+
+    # strip_exception_list_id
+    contents["strip_exception_list_id"] = loaded.get("strip_exception_list_id", False)
+
+    # default_author
+    contents["default_author"] = loaded.get("default_author")
+
     # return the config
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)  # type: ignore[reportArgumentType]
@@ -335,6 +357,13 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
         raise SystemExit(f"Error parsing packages.yaml: {e!s}") from e
 
     return rules_config
+
+
+@cached
+def get_default_rule_dir() -> Path | None:
+    """Get the first rule directory configured in `_config.yaml`, if any."""
+    rule_dirs = parse_rules_config().rule_dirs
+    return rule_dirs[0] if rule_dirs else None
 
 
 @cached

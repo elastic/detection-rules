@@ -5,8 +5,10 @@
 
 import copy
 import datetime
+import fnmatch
 import functools
 import os
+import re
 import typing
 from collections.abc import Callable
 from pathlib import Path
@@ -17,7 +19,7 @@ import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
-from .config import parse_rules_config
+from .config import get_default_rule_dir, parse_rules_config
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
@@ -75,6 +77,15 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     )
     @click.option("--rule-id", "-id", multiple=True, required=False)
     @click.option(
+        "--rule-name",
+        "-rn",
+        multiple=True,
+        required=False,
+        help=(
+            "Optional Rule name to restrict to (case-insensitive, supports wildcards). May be specified multiple times."
+        ),
+    )
+    @click.option(
         "--no-tactic-filename",
         "-nt",
         is_flag=True,
@@ -84,15 +95,22 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(f)
     def get_collection(*args: Any, **kwargs: Any) -> Any:
         rule_id: list[str] = kwargs.pop("rule_id", [])
+        rule_name: list[str] = kwargs.pop("rule_name", [])
         rule_files: list[str] = kwargs.pop("rule_file")
-        directories: list[str] = kwargs.pop("directory")
+        directories: list[str] = list(kwargs.pop("directory"))
         no_tactic_filename: bool = kwargs.pop("no_tactic_filename", False)
 
+        if rule_id and rule_name:
+            raise_client_error("Cannot use --rule-id and --rule-name together. Please choose one.")
+
+        if not (directories or rule_id or rule_files or rule_name):
+            default_dir = get_default_rule_dir()
+            if default_dir:
+                directories = [str(default_dir)]
+            elif not (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
+                raise_client_error("Required: at least one of --rule-id, --rule-name, --rule-file, or --directory")
+
         rules = RuleCollection()
-
-        if not (directories or rule_id or rule_files or (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)):
-            raise_client_error("Required: at least one of --rule-id, --rule-file, or --directory")
-
         rules.load_files(Path(p) for p in rule_files)
         rules.load_directories(Path(d) for d in directories)
 
@@ -108,6 +126,10 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
         elif not rule_files and not directories:
             rules.load_directories(Path(d) for d in (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS))
 
+        if rule_name:
+            patterns = [re.compile(fnmatch.translate(name), re.IGNORECASE) for name in rule_name]
+            rules = rules.filter(lambda r: any(pat.match(r.name) for pat in patterns))
+
         if len(rules) == 0:
             raise_client_error("No rules found")
 
@@ -118,12 +140,12 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
             tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            expected_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
             if not rule.path:
-                click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+                click.secho(f"WARNING: Rule path for rule not found: {expected_name}", fg="yellow")
+            elif rule.path.name != expected_name:
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected_name}", fg="yellow"
                 )
 
         kwargs["rules"] = rules
@@ -141,6 +163,8 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     additional_required: list[str] | None = None,
     skip_errors: bool = False,
     strip_none_values: bool = True,
+    strip_dates: bool = False,
+    strip_version: bool = False,
     **kwargs: Any,
 ) -> TOMLRule | str:
     """Prompt loop to build a rule."""
@@ -249,11 +273,18 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     suggested_path: Path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents["name"]
     path = Path(path or input(f"File path for rule [{suggested_path}]: ") or suggested_path).resolve()
     # Inherit maturity and optionally local dates from the rule if it already exists
-    meta = {
-        "creation_date": kwargs.get("creation_date") or creation_date,
-        "updated_date": kwargs.get("updated_date") or creation_date,
-        "maturity": "development",
-    }
+    if strip_version:
+        kwargs.pop("version", None)
+        kwargs.pop("revision", None)
+        contents.pop("version", None)
+        contents.pop("revision", None)
+    if strip_dates:
+        kwargs.pop("creation_date", None)
+        kwargs.pop("updated_date", None)
+    meta = {"maturity": "development"}
+    if not strip_dates:
+        meta["creation_date"] = kwargs.get("creation_date") or creation_date
+        meta["updated_date"] = kwargs.get("updated_date") or creation_date
 
     try:
         rule_contents = TOMLRuleContents.from_dict({"rule": contents, "metadata": meta})

@@ -7,6 +7,7 @@
 
 import os
 import re
+import subprocess
 import unittest
 import uuid
 from collections import defaultdict
@@ -97,6 +98,8 @@ class TestValidRules(BaseRuleTest):
         """Test that a rule type did not change for a locked version"""
         loaded_version_lock.manage_versions(self.rc)
 
+    # Prebuilt-only: validates Elastic Building Block Rule semantics not required for custom rules
+    @unittest.skipIf(RULES_CONFIG.bypass_optional_elastic_validation, "Validation bypassed")
     def test_bbr_validation(self):
         base_fields = {
             "author": ["Elastic"],
@@ -540,6 +543,8 @@ class TestRuleTags(BaseRuleTest):
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
 
+    # Prebuilt-only: enforces use of Elastic Security timeline templates; custom rules may use arbitrary timelines
+    @unittest.skipIf(RULES_CONFIG.bypass_optional_elastic_validation, "Validation bypassed")
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
         from detection_rules.schemas.definitions import TIMELINE_TEMPLATES
@@ -635,9 +640,11 @@ class TestRuleMetadata(BaseRuleTest):
         invalid = []
 
         for rule in self.all_rules:
-            created = rule.contents.metadata.creation_date.split("/")
-            updated = rule.contents.metadata.updated_date.split("/")
-            if updated < created:
+            created = rule.contents.metadata.creation_date
+            updated = rule.contents.metadata.updated_date
+            if not created or not updated:
+                continue
+            if updated.split("/") < created.split("/"):
                 invalid.append(rule)
 
         if invalid:
@@ -712,7 +719,11 @@ class TestRuleMetadata(BaseRuleTest):
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+        # Local clones may lack an `origin` remote; gracefully skip if diffing fails
+        try:
+            result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+        except subprocess.CalledProcessError:
+            self.skipTest("origin/main not available")
 
         # If the output is not empty, then file(s) have changed in the directory
         if result:
@@ -731,16 +742,24 @@ class TestRuleMetadata(BaseRuleTest):
         # is not required as there is a specific test for deprecated rules.
 
         detection_rules_git = make_git()
-        result = detection_rules_git(
-            "diff", "--diff-filter=M", "origin/main", "--name-only", rules_path, rules_bbr_path
-        )
+        # Skip when the repository does not have the upstream branch to compare against
+        try:
+            result = detection_rules_git(
+                "diff", "--diff-filter=M", "origin/main", "--name-only", rules_path, rules_bbr_path
+            )
+        except subprocess.CalledProcessError:
+            self.skipTest("origin/main not available")
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
             modified_rules = result.splitlines()
             failed_rules = []
             for modified_rule_path in modified_rules:
-                diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
+                try:
+                    diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
+                except subprocess.CalledProcessError:
+                    # Without an upstream reference we cannot verify per-file changes
+                    self.skipTest("origin/main not available")
                 if not re.search(r"\+\s*updated_date =", diff_output):
                     # Rule has been modified but updated_date has not been changed, add to list of failed rules
                     failed_rules.append(f"{modified_rule_path}")
@@ -881,6 +900,8 @@ class TestRuleMetadata(BaseRuleTest):
                 """
             self.fail(err_msg + "\n".join(failures))
 
+    # Prebuilt-only: guards Elastic-shipped queries against forbidden fields/patterns; custom schemas may differ
+    @unittest.skipIf(RULES_CONFIG.bypass_optional_elastic_validation, "Validation bypassed")
     def test_invalid_queries(self):
         invalid_queries_eql = [
             """file where file.fake: (
