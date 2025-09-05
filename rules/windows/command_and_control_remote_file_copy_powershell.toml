@@ -2,7 +2,7 @@
 creation_date = "2020/11/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/09/04"
 
 [transform]
 [[transform.osquery]]
@@ -133,18 +133,29 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=30s
-
-[network where host.os.type == "windows" and
-  process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and network.protocol == "dns" and
-   not dns.question.name : (
-          "localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com",
-          "*.windowsupdate.com", "metadata.google.internal", "dist.nuget.org",
-          "artifacts.elastic.co", "*.digicert.com", "packages.chocolatey.org",
-          "outlook.office365.com"
-       ) and not user.id : "S-1-5-18"]
+[network where host.os.type == "windows" and 
+  process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and
+  network.protocol == "dns" and
+  not dns.question.name : (
+        "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com", "*.windowsupdate.com",
+        "metadata.google.internal", "dist.nuget.org", "artifacts.elastic.co", "*.digicert.com",
+        "*.chocolatey.org", "outlook.office365.com", "cdn.oneget.org", "ci.dot.net",
+        "packages.icinga.com", "login.microsoftonline.com", "*.gov", "*.azure.com", "*.python.org",
+        "dl.google.com", "sensor.cloud.tenable.com", "*.azurefd.net", "*.office.net", "*.anac*",
+        "aka.ms", "dot.net", "*.visualstudio.com", "*.local") and
+  not user.id == "S-1-5-18" and
+  /* Filter out NetBIOS/LLMNR-style names (e.g. host, localhost, etc.) */
+  dns.question.name regex """.*\.[a-zA-Z]{2,5}"""]
 [file where host.os.type == "windows" and event.type == "creation" and
-  process.name : "powershell.exe" and file.extension : ("exe", "dll", "ps1", "bat") and
-  not file.name : "__PSScriptPolicy*.ps1"]
+  process.name : "powershell.exe" and 
+  (file.extension : ("exe", "dll", "ps1", "bat") or file.Ext.header_bytes : "4d5a*") and
+  not file.name : "__PSScriptPolicy*.ps1" and
+  not file.path : (
+        "?:\\Users\\*\\AppData\\Local\\Temp\\????????.dll",
+        "?:\\Users\\*\\AppData\\Local\\Temp\\*\\????????.dll",
+        "?:\\Windows\\TEMP\\ansible-tmp-*\\AnsiballZ*.ps1"
+  ) and
+  not user.id == "S-1-5-18"]
 '''
 
 
