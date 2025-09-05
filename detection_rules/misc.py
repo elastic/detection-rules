@@ -489,3 +489,16 @@ def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: b
         return _wrapped
 
     return _wrapper
+
+
+def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
+    """
+    Return the mappings from the index configuration that would be applied
+    to the specified index from an existing index template
+
+    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
+    """
+    template = elastic_client.indices.simulate_index_template(name=name)
+    if not template:
+        return {}
+    return template["template"]["mappings"]["properties"]

@@ -24,7 +24,7 @@ from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 from marshmallow import ValidationError
 from semver import Version
 
-from . import ecs, endgame, integrations, utils
+from . import ecs, endgame, integrations, misc, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
 from .integrations import get_integration_schema_data, load_integrations_manifests, load_integrations_schemas
@@ -641,21 +641,212 @@ class ESQLValidator(QueryValidator):
         # Disabling self.validate(data, meta)
         pass
 
+    def validate_columns_index_mapping(self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]):
+        """Validate that the columns in the ESQL query match the provided mappings."""
+        mismatched_columns: list[str] = []
 
-def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
-    """Convert a flat schema to a nested schema with 'properties' for each sub-key."""
-    nested_schema = {}
+        for column in query_columns:
+            column_name = column["name"]
+            if column_name.startswith("Esql.") or column_name.startswith("Esql_priv."):
+                continue
+            column_type = column["type"]
 
-    for key, value in flat_schemas.items():
-        parts = key.split(".")
-        current_level = nested_schema
+            # Check if the column exists in combined_mappings or a valid field generated from a function or operator
+            keys = column_name.split(".")
+            schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
 
-        for part in parts[:-1]:
-            current_level = current_level.setdefault(part, {}).setdefault("properties", {})
+            # Validate the type
+            if not schema_type or column_type != schema_type:
+                mismatched_columns.append(
+                    f"Dynamic field `{column_name}` is not correctly mapped. "
+                    f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
+                )
 
-        current_level[parts[-1]] = {"type": value}
+        # Raise an error if there are mismatches
+        if mismatched_columns:
+            raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
 
-    return nested_schema
+        return True
+
+    def remote_validate_rule(
+        self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents
+    ) -> None:
+        """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
+        rule_id = contents.data.rule_id
+
+        # FIXME perhaps move this to utils
+        def log(val: str) -> None:
+            print(f"{rule_id}:", val)
+
+        kibana_details = kibana_client.get("/api/status")
+        stack_version = kibana_details["version"]["number"]
+
+        log(f"Validating against {stack_version} stack")
+
+        indices_str, indices = utils.get_esql_query_indices(contents.data.query)
+        log(f"Extracted indices from query: {', '.join(indices)}")
+
+        # Get mappings for all matching existing index templates
+
+        existing_mappings: dict[str, Any] = {}
+
+        # TODO do we need an index mapping for each index in the query? This is accomplished via index_lookup: dict[str, Any] = {}
+        # Do we also need separate indexes for each integration? Probably, at least it is dynamic for each rule (do we really want to load these per rule?)
+        index_lookup: dict[str, Any] = {}
+        # NOTE do we need to cache what integration indexes have been loaded to prevent pushing tons into the evaluation?
+
+        for index in indices:
+            index_tmpl_mappings = misc.get_simulated_index_template_mappings(elastic_client, index)
+            index_lookup[index] = index_tmpl_mappings
+            utils.combine_dicts(existing_mappings, index_tmpl_mappings)
+
+        log(f"Collected mappings: {len(existing_mappings)}")
+
+        # Collect mappings for the integrations
+
+        rule_integrations = []
+        if contents.metadata.integration:
+            if isinstance(contents.metadata.integration, list):
+                rule_integrations = contents.metadata.integration
+            else:
+                rule_integrations = [contents.metadata.integration]
+
+        if len(rule_integrations) > 0:
+            log(f"Working with rule integrations: {', '.join(rule_integrations)}")
+        else:
+            log("No integrations found in the rule")
+
+        package_manifests = load_integrations_manifests()
+        integration_schemas = load_integrations_schemas()
+
+        integration_mappings = {}
+
+        for integration in rule_integrations:
+            # Assume the integration value is a package name
+            package = integration
+
+            package_version, _ = integrations.find_latest_compatible_version(
+                package,
+                "",
+                Version.parse(stack_version),
+                package_manifests,
+            )
+
+            package_schema = integration_schemas[package][package_version]
+
+            # Add schemas for all streams in the package
+            for stream in package_schema:
+                flat_schema = package_schema[stream]
+                stream_mappings = utils.flat_schema_to_index_mapping(flat_schema)
+                # NOTE perhaps we need to actually create many test indexes for this to work properly
+                # TODO update this for double defined cases like integration_mappings["aws"]["properties"]["inspector"]["properties"]["remediation"]
+                # FIXED VIA NESTED FIELDS
+                # which is both a keyword, and has fields
+                # "aws.properties.inspector.properties.remediation.type": "keyword",
+                # "aws.properties.inspector.properties.remediation.fields.recommendation.properties.text.type": "keyword",
+                utils.combine_dicts(integration_mappings, stream_mappings)
+                index_lookup[f"{integration}-{stream}"] = stream_mappings
+
+        log(f"Integration mappings prepared: {len(integration_mappings)}")
+
+        combined_mappings = {}
+        utils.combine_dicts(combined_mappings, existing_mappings)
+        utils.combine_dicts(combined_mappings, integration_mappings)
+        # NOTE non-ecs schema needs to have formatting updates prior to merge
+        # NOTE non-ecs and ecs schema can conflict e.g. 'authentication_details': {'type': 'flattened'}
+        # FIXED VIA NESTED FIELDS
+        # "azure.signinlogs.properties.authentication_details.authentication_method": "keyword"
+        # FAILURE: BadRequestError(400, 'illegal_argument_exception', "can't merge a non object mapping [azure.signinlogs.properties.authentication_details] with an object mapping")
+        non_ecs_mapping = {}
+        non_ecs = ecs.get_non_ecs_schema()
+        for index in indices:
+            non_ecs_mapping.update(non_ecs.get(index, {}))
+        non_ecs_mapping = ecs.flatten(non_ecs_mapping)
+        non_ecs_mapping = utils.convert_to_nested_schema(non_ecs_mapping)
+        if not combined_mappings and not non_ecs_mapping:
+            log("ERROR: no mappings found for the rule")
+            raise ValueError("No mappings found")
+
+        # Creating a test index with the test name
+        suffix = str(int(time.time() * 1000))
+        test_index = f"rule-test-index-{suffix}"
+        test_non_ecs_index = f"rule-test-non-ecs-index-{suffix}"
+        # TODO if works, switch to non-ecs index only
+        # NOTE we will always have to have a base test index
+        # This test index could have the index_tmpl_mappings for example
+        full_index_str = test_index
+        if non_ecs_mapping:
+            full_index_str = test_non_ecs_index
+
+        for index in index_lookup:
+            # log(f"Mappings for `{index}`: {index_lookup[index]}")
+            ind_index_str = f"test-{index.rstrip('*')}{suffix}"
+            response = elastic_client.indices.create(
+                index=ind_index_str,
+                mappings={"properties": index_lookup[index]},
+                settings={
+                    "index.mapping.total_fields.limit": 10000,
+                    "index.mapping.nested_fields.limit": 500,
+                    "index.mapping.nested_objects.limit": 10000,
+                },
+            )
+            log(f"Index `{test_non_ecs_index}` created: {response}")
+            full_index_str = f"{full_index_str}, {ind_index_str}"
+
+        # create indexes
+        response = elastic_client.indices.create(
+            index=test_index,
+            mappings={"properties": combined_mappings},
+            settings={
+                "index.mapping.total_fields.limit": 10000,
+                "index.mapping.nested_fields.limit": 500,
+                "index.mapping.nested_objects.limit": 10000,
+            },
+        )
+        log(f"Index `{test_index}` created: {response}")
+        test_index_str = test_index
+        if non_ecs_mapping:
+            response = elastic_client.indices.create(
+                index=test_non_ecs_index,
+                mappings={"properties": non_ecs_mapping},
+                settings={
+                    "index.mapping.total_fields.limit": 10000,
+                    "index.mapping.nested_fields.limit": 500,
+                    "index.mapping.nested_objects.limit": 10000,
+                },
+            )
+            log(f"Index `{test_non_ecs_index}` created: {response}")
+            test_index_str = f"{test_index}, {test_non_ecs_index}"
+
+        # Replace all sources with the test index
+        query = contents.data.query
+        query = query.replace(indices_str, full_index_str)
+
+        try:
+            log(f"Executing a query against `{test_index_str}`")
+            response = elastic_client.esql.query(query=query)
+            log(f"Got query response: {response}")
+            query_columns = response.get("columns", [])
+        finally:
+            response = elastic_client.indices.delete(index=test_index)
+            log(f"Test index `{test_index}` deleted: {response}")
+            if non_ecs_mapping:
+                response = elastic_client.indices.delete(index=test_non_ecs_index)
+                log(f"Test index `{test_non_ecs_index}` deleted: {response}")
+            for index in index_lookup:
+                ind_index_str = f"test-{index.rstrip('*')}{suffix}"
+                response = elastic_client.indices.delete(index=ind_index_str)
+                log(f"Test index `{ind_index_str}` deleted: {response}")
+
+        query_column_names = [c["name"] for c in query_columns]
+        log(f"Got query columns: {', '.join(query_column_names)}")
+
+        # FIXME Perhaps update rule_validator's get_required_fields as well
+        # to everything needs to either be directly mapped to schema or be annotated as dynamic field
+        if self.validate_columns_index_mapping(query_columns, combined_mappings):
+            log("All dynamic columns have proper formatting.")
+        else:
+            log("Dynamic column(s) have improper formatting.")
 
 
 def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:
@@ -666,287 +857,3 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError)
     start = exc.column  # type: ignore[reportUnknownMemberType]
     stop = start + len(exc.caret.strip())  # type: ignore[reportUnknownVariableType]
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
-
-
-def traverse_schema(keys: list[str], current_schema: dict[str, Any] | None) -> str | None:
-    """Recursively traverse the schema to find the type of the column."""
-    key = keys[0]
-    if not current_schema:
-        return None
-    column = current_schema.get(key) or {}
-    column_type = column.get("type") if column else None
-    if not column_type and len(keys) > 1:
-        return traverse_schema(keys[1:], current_schema=column.get("properties"))
-    return column_type
-
-
-def validate_columns_input_mapping(query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]):
-    """Validate that the columns in the ESQL query match the provided mappings."""
-    mismatched_columns: list[str] = []
-
-    for column in query_columns:
-        column_name = column["name"]
-        if column_name.startswith("Esql.") or column_name.startswith("Esql_priv."):
-            continue
-        column_type = column["type"]
-
-        # Check if the column exists in combined_mappings or a valid field generated from a function or operator
-        keys = column_name.split(".")
-        schema_type = traverse_schema(keys, combined_mappings)
-
-        # Validate the type
-        if not schema_type or column_type != schema_type:
-            mismatched_columns.append(
-                f"Dynamic field `{column_name}` is not correctly mapped. "
-                f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
-            )
-
-    # Raise an error if there are mismatches
-    if mismatched_columns:
-        raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
-
-    return True
-
-
-def validate_esql_rule(kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents) -> None:
-    rule_id = contents.data.rule_id
-
-    # FIXME perhaps move this to utils
-    def log(val: str) -> None:
-        print(f"{rule_id}:", val)
-
-    kibana_details = kibana_client.get("/api/status")
-    stack_version = kibana_details["version"]["number"]
-
-    log(f"Validating against {stack_version} stack")
-
-    indices_str, indices = utils.get_esql_query_indices(contents.data.query)
-    log(f"Extracted indices from query: {', '.join(indices)}")
-
-    # Get mappings for all matching existing index templates
-
-    existing_mappings: dict[str, Any] = {}
-
-    # TODO do we need an index mapping for each index in the query? This is accomplished via index_lookup: dict[str, Any] = {}
-    # Do we also need separate indexes for each integration? Probably, at least it is dynamic for each rule (do we really want to load these per rule?)
-    index_lookup: dict[str, Any] = {}
-    # NOTE do we need to cache what integration indexes have been loaded to prevent pushing tons into the evaluation?
-
-    for index in indices:
-        index_tmpl_mappings = get_simulated_template_mappings(elastic_client, index)
-        index_lookup[index] = index_tmpl_mappings
-        combine_dicts(existing_mappings, index_tmpl_mappings)
-
-    log(f"Collected mappings: {len(existing_mappings)}")
-
-    # Collect mappings for the integrations
-
-    rule_integrations = []
-    if contents.metadata.integration:
-        if isinstance(contents.metadata.integration, list):
-            rule_integrations = contents.metadata.integration
-        else:
-            rule_integrations = [contents.metadata.integration]
-
-    if len(rule_integrations) > 0:
-        log(f"Working with rule integrations: {', '.join(rule_integrations)}")
-    else:
-        log("No integrations found in the rule")
-
-    package_manifests = load_integrations_manifests()
-    integration_schemas = load_integrations_schemas()
-
-    integration_mappings = {}
-
-    for integration in rule_integrations:
-        # Assume the integration value is a package name
-        package = integration
-
-        package_version, _ = integrations.find_latest_compatible_version(
-            package,
-            "",
-            Version.parse(stack_version),
-            package_manifests,
-        )
-
-        package_schema = integration_schemas[package][package_version]
-
-        # Add schemas for all streams in the package
-        for stream in package_schema:
-            flat_schema = package_schema[stream]
-            stream_mappings = flat_schema_to_mapping(flat_schema)
-            # NOTE perhaps we need to actually create many test indexes for this to work properly
-            # TODO update this for double defined cases like integration_mappings["aws"]["properties"]["inspector"]["properties"]["remediation"]
-            # FIXED VIA NESTED FIELDS
-            # which is both a keyword, and has fields
-            # "aws.properties.inspector.properties.remediation.type": "keyword",
-            # "aws.properties.inspector.properties.remediation.fields.recommendation.properties.text.type": "keyword",
-            combine_dicts(integration_mappings, stream_mappings)
-            index_lookup[f"{integration}-{stream}"] = stream_mappings
-
-    log(f"Integration mappings prepared: {len(integration_mappings)}")
-
-    combined_mappings = {}
-    combine_dicts(combined_mappings, existing_mappings)
-    combine_dicts(combined_mappings, integration_mappings)
-    # NOTE non-ecs schema needs to have formatting updates prior to merge
-    # NOTE non-ecs and ecs schema can conflict e.g. 'authentication_details': {'type': 'flattened'}
-    # FIXED VIA NESTED FIELDS
-    # "azure.signinlogs.properties.authentication_details.authentication_method": "keyword"
-    # FAILURE: BadRequestError(400, 'illegal_argument_exception', "can't merge a non object mapping [azure.signinlogs.properties.authentication_details] with an object mapping")
-    non_ecs_mapping = {}
-    non_ecs = ecs.get_non_ecs_schema()
-    for index in indices:
-        non_ecs_mapping.update(non_ecs.get(index, {}))
-    non_ecs_mapping = ecs.flatten(non_ecs_mapping)
-    non_ecs_mapping = convert_to_nested_schema(non_ecs_mapping)
-    if not combined_mappings and not non_ecs_mapping:
-        log("ERROR: no mappings found for the rule")
-        raise ValueError("No mappings found")
-
-    # Creating a test index with the test name
-    suffix = str(int(time.time() * 1000))
-    test_index = f"rule-test-index-{suffix}"
-    test_non_ecs_index = f"rule-test-non-ecs-index-{suffix}"
-    # TODO if works, switch to non-ecs index only
-    # NOTE we will always have to have a base test index
-    # This test index could have the index_tmpl_mappings for example
-    full_index_str = test_index
-    if non_ecs_mapping:
-        full_index_str = test_non_ecs_index
-
-    for index in index_lookup:
-        # log(f"Mappings for `{index}`: {index_lookup[index]}")
-        ind_index_str = f"test-{index.rstrip('*')}{suffix}"
-        response = elastic_client.indices.create(
-            index=ind_index_str,
-            mappings={"properties": index_lookup[index]},
-            settings={
-                "index.mapping.total_fields.limit": 10000,
-                "index.mapping.nested_fields.limit": 500,
-                "index.mapping.nested_objects.limit": 10000,
-            },
-        )
-        log(f"Index `{test_non_ecs_index}` created: {response}")
-        full_index_str = f"{full_index_str}, {ind_index_str}"
-
-    # create indexes
-    response = elastic_client.indices.create(
-        index=test_index,
-        mappings={"properties": combined_mappings},
-        settings={
-            "index.mapping.total_fields.limit": 10000,
-            "index.mapping.nested_fields.limit": 500,
-            "index.mapping.nested_objects.limit": 10000,
-        },
-    )
-    log(f"Index `{test_index}` created: {response}")
-    test_index_str = test_index
-    if non_ecs_mapping:
-        response = elastic_client.indices.create(
-            index=test_non_ecs_index,
-            mappings={"properties": non_ecs_mapping},
-            settings={
-                "index.mapping.total_fields.limit": 10000,
-                "index.mapping.nested_fields.limit": 500,
-                "index.mapping.nested_objects.limit": 10000,
-            },
-        )
-        log(f"Index `{test_non_ecs_index}` created: {response}")
-        test_index_str = f"{test_index}, {test_non_ecs_index}"
-
-    # Replace all sources with the test index
-    query = contents.data.query
-    query = query.replace(indices_str, full_index_str)
-
-    try:
-        log(f"Executing a query against `{test_index_str}`")
-        response = elastic_client.esql.query(query=query)
-        log(f"Got query response: {response}")
-        query_columns = response.get("columns", [])
-    finally:
-        response = elastic_client.indices.delete(index=test_index)
-        log(f"Test index `{test_index}` deleted: {response}")
-        if non_ecs_mapping:
-            response = elastic_client.indices.delete(index=test_non_ecs_index)
-            log(f"Test index `{test_non_ecs_index}` deleted: {response}")
-        for index in index_lookup:
-            ind_index_str = f"test-{index.rstrip('*')}{suffix}"
-            response = elastic_client.indices.delete(index=ind_index_str)
-            log(f"Test index `{ind_index_str}` deleted: {response}")
-
-    query_column_names = [c["name"] for c in query_columns]
-    log(f"Got query columns: {', '.join(query_column_names)}")
-
-    # FIXME Perhaps update rule_validator's get_required_fields as well
-    # to everything needs to either be directly mapped to schema or be annotated as dynamic field
-    if validate_columns_input_mapping(query_columns, combined_mappings):
-        log("All dynamic columns have proper formatting.")
-    else:
-        log("Dynamic column(s) have improper formatting.")
-
-
-def get_simulated_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
-    """
-    Return the mappings from the index configuration that would be applied
-    to the specified index from an existing index template
-
-    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
-    """
-    template = elastic_client.indices.simulate_index_template(name=name)
-    if not template:
-        return {}
-    return template["template"]["mappings"]["properties"]
-
-
-def get_indices(elastic_client: Kibana, index: str) -> list[str]:
-    """Fetch indices that match the provided name from Elasticsearch"""
-    # `index` arg here supports wildcards
-    return [i["index"] for i in elastic_client.cat.indices(index=index, format="json")]
-
-
-def combine_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
-    """Combine two dictionaries recursively."""
-    for k, v in src.items():
-        if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
-            combine_dicts(dest[k], v)
-        else:
-            dest[k] = v
-
-
-def flat_schema_to_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
-    """
-    Convert dicts with flat JSON paths and values into a nested mapping with
-    intermediary `properties`, `fields` and `type` fields.
-    """
-
-    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
-    # detect and handle multi-fields.
-    sorted_items = sorted(flat_schema.items())
-    result = {}
-
-    for field_path, field_type in sorted_items:
-        parts = field_path.split(".")
-        current_level = result
-
-        for part in parts[:-1]:
-            node = current_level.setdefault(part, {})
-
-            if "type" in node and node["type"] not in ("nested", "object"):
-                current_level = node.setdefault("fields", {})
-            else:
-                current_level = node.setdefault("properties", {})
-
-        leaf_key = parts[-1]
-        current_level[leaf_key] = {"type": field_type}
-
-        # add `scaling_factor` field missing in the schema
-        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
-        if field_type == "scaled_float":
-            current_level[leaf_key]["scaling_factor"] = 1000
-
-        # add `path` field for `alias` fields, set to a dummy value
-        if field_type == "alias":
-            current_level[leaf_key]["path"] = "@timestamp"
-
-    return result

@@ -534,6 +534,7 @@ FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata
 
 
 def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
+    """Extract indices from an ES|QL query."""
     match = FROM_SOURCES_REGEX.search(query)
 
     if not match:
@@ -541,3 +542,78 @@ def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
 
     sources_str = match.group("sources")
     return sources_str, [source.strip() for source in sources_str.split(",")]
+
+
+def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
+    """Convert a flat schema to a nested schema with 'properties' for each sub-key."""
+    nested_schema = {}
+
+    for key, value in flat_schemas.items():
+        parts = key.split(".")
+        current_level = nested_schema
+
+        for part in parts[:-1]:
+            current_level = current_level.setdefault(part, {}).setdefault("properties", {})
+
+        current_level[parts[-1]] = {"type": value}
+
+    return nested_schema
+
+
+def combine_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
+    """Combine two dictionaries recursively."""
+    for k, v in src.items():
+        if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
+            combine_dicts(dest[k], v)
+        else:
+            dest[k] = v
+
+
+def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
+    """
+    Convert dicts with flat JSON paths and values into a nested mapping with
+    intermediary `properties`, `fields` and `type` fields.
+    """
+
+    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
+    # detect and handle multi-fields.
+    sorted_items = sorted(flat_schema.items())
+    result = {}
+
+    for field_path, field_type in sorted_items:
+        parts = field_path.split(".")
+        current_level = result
+
+        for part in parts[:-1]:
+            node = current_level.setdefault(part, {})
+
+            if "type" in node and node["type"] not in ("nested", "object"):
+                current_level = node.setdefault("fields", {})
+            else:
+                current_level = node.setdefault("properties", {})
+
+        leaf_key = parts[-1]
+        current_level[leaf_key] = {"type": field_type}
+
+        # add `scaling_factor` field missing in the schema
+        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
+        if field_type == "scaled_float":
+            current_level[leaf_key]["scaling_factor"] = 1000
+
+        # add `path` field for `alias` fields, set to a dummy value
+        if field_type == "alias":
+            current_level[leaf_key]["path"] = "@timestamp"
+
+    return result
+
+
+def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[str, Any] | None) -> str | None:
+    """Recursively traverse the schema to find the type of the column."""
+    key = keys[0]
+    if not current_schema:
+        return None
+    column = current_schema.get(key) or {}
+    column_type = column.get("type") if column else None
+    if not column_type and len(keys) > 1:
+        return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))
+    return column_type
