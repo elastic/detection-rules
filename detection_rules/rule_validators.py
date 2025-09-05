@@ -801,12 +801,13 @@ class ESQLValidator(QueryValidator):
                 print(f"{rule_id}:", val)
 
         stack_version = ""
-        kibana_details = kibana_client.get("/api/status")
+        kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
+        if "version" not in kibana_details:
+            raise ValueError("Failed to retrieve Kibana details.")
         stack_version = str(kibana_details["version"]["number"])
-
         log(f"Validating against {stack_version} stack")
 
-        indices_str, indices = utils.get_esql_query_indices(contents.data.query)
+        indices_str, indices = utils.get_esql_query_indices(contents.data.query)  # type: ignore[reportUnknownVariableType]
         log(f"Extracted indices from query: {', '.join(indices)}")
 
         # Get mappings for all matching existing index templates
@@ -820,10 +821,10 @@ class ESQLValidator(QueryValidator):
         full_index_str = self.create_remote_indices(elastic_client, existing_mappings, index_lookup, log)
 
         # Replace all sources with the test indices
-        query = contents.data.query
-        query = query.replace(indices_str, full_index_str)
+        query = contents.data.query  # type: ignore[reportUnknownVariableType]
+        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
 
-        query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)
+        query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
 
         # Validation all fields (columns) are either dynamic fields or correctly mapped
         # against the combined mapping of all the indices

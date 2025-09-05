@@ -553,18 +553,18 @@ def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
         current_level = nested_schema
 
         for part in parts[:-1]:
-            current_level = current_level.setdefault(part, {}).setdefault("properties", {})
+            current_level = current_level.setdefault(part, {}).setdefault("properties", {})  # type: ignore[reportUnknownVariableType]
 
         current_level[parts[-1]] = {"type": value}
 
-    return nested_schema
+    return nested_schema  # type: ignore[reportUnknownVariableType]
 
 
 def combine_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
     """Combine two dictionaries recursively."""
     for k, v in src.items():
         if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
-            combine_dicts(dest[k], v)
+            combine_dicts(dest[k], v)  # type: ignore[reportUnknownVariableType]
         else:
             dest[k] = v
 
@@ -585,12 +585,12 @@ def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
         current_level = result
 
         for part in parts[:-1]:
-            node = current_level.setdefault(part, {})
+            node = current_level.setdefault(part, {})  # type: ignore[reportUnknownVariableType]
 
             if "type" in node and node["type"] not in ("nested", "object"):
-                current_level = node.setdefault("fields", {})
+                current_level = node.setdefault("fields", {})  # type: ignore[reportUnknownVariableType]
             else:
-                current_level = node.setdefault("properties", {})
+                current_level = node.setdefault("properties", {})  # type: ignore[reportUnknownVariableType]
 
         leaf_key = parts[-1]
         current_level[leaf_key] = {"type": field_type}
@@ -604,7 +604,7 @@ def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
         if field_type == "alias":
             current_level[leaf_key]["path"] = "@timestamp"
 
-    return result
+    return result  # type: ignore[reportUnknownVariableType]
 
 
 def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[str, Any] | None) -> str | None:
@@ -612,8 +612,8 @@ def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[s
     key = keys[0]
     if not current_schema:
         return None
-    column = current_schema.get(key) or {}
-    column_type = column.get("type") if column else None
+    column = current_schema.get(key) or {}  # type: ignore[reportUnknownVariableType]
+    column_type = column.get("type") if column else None  # type: ignore[reportUnknownVariableType]
     if not column_type and len(keys) > 1:
-        return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))
-    return column_type
+        return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))  # type: ignore[reportUnknownVariableType]
+    return column_type  # type: ignore[reportUnknownVariableType]

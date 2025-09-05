@@ -5,9 +5,10 @@
 
 import unittest
 
+from elasticsearch import BadRequestError
+
 from detection_rules.misc import get_default_config, get_elasticsearch_client, get_kibana_client, getdefault
 from detection_rules.rule_validators import ESQLValidator
-from elasticsearch import BadRequestError
 
 from .base import BaseRuleTest
 

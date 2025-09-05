@@ -1470,7 +1470,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 
-        rule_integrations = meta.get("integration") or []
+        rule_integrations: str | list[str] = meta.get("integration") or []
         for integration in rule_integrations:
             ineligible_integrations = [
                 *definitions.NON_DATASET_PACKAGES,
