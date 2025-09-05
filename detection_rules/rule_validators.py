@@ -592,8 +592,8 @@ class EQLValidator(QueryValidator):
         def _build_synthetic_sequence_from_subquery(subquery: "ast.SubqueryBy") -> str:
             """Build a minimal synthetic sequence containing the subquery for validation."""
             subquery_text = str(subquery)
-            join_fields = [str(j) for j in (getattr(subquery, "join_values", []) or [])]
-            dummy_by = f" by {', '.join(join_fields)}" if join_fields else ""
+            join_fields = ", ".join(map(str, getattr(subquery, "join_values", []) or []))
+            dummy_by = f" by {join_fields}" if join_fields else ""
             return f"sequence\n  {subquery_text}\n  [any where true]{dummy_by}"
 
         # Handle sequence queries with per-subquery validation
