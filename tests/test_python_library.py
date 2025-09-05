@@ -238,6 +238,30 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
             rc.load_dict(bad_rule)
 
+    def test_sequence_mixed_dataset_and_datasetless_subquery_invalid_field(self) -> None:
+        """First subquery has dataset; second is datasetless with an invalid vendor field; with no metadata integration
+        for the datasetless subquery, integration validation so overall validation should fail.
+        """
+        rc = RuleCollection()
+        query = """
+        sequence with maxspan=30m
+          [any where event.dataset == "azure.auditlogs"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+          [any where foo.invalid_field == "badfield"] by host.id
+        """
+        bad_rule = {
+            # No integrations in metadata: datasetless subquery should not be validated against any integration
+            "metadata": mk_metadata([], comments="Mixed dataset and datasetless invalid field"),
+            "rule": mk_rule(
+                name="EQL sequence mixed dataset and datasetless invalid",
+                rule_id="5f6071aa-5678-4f8d-9f72-1d8e5f3e5f17",
+                description="Second datasetless subquery contains an invalid field; expect failure.",
+                risk_score=33,
+                query=query,
+            ),
+        }
+        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+            rc.load_dict(bad_rule)
+
     def test_sequence_datasetless_subquery_with_metadata_integration_valid(self) -> None:
         """Datasetless azure subquery uses azure.* fields with metadata including azure; should validate and pass."""
         rc = RuleCollection()

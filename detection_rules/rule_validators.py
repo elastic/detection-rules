@@ -711,7 +711,6 @@ class EQLValidator(QueryValidator):
     def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> tuple[list[str | None], bool]:
         """Validate EQL rule type configurations."""
         if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
-            # get a list of rule type configuration fields
             # Get a list of rule type configuration fields
             fields = ["timestamp_field", "event_category_override", "tiebreaker_field"]
             set_fields = list(filter(None, (data.get(field) for field in fields)))  # type: ignore[reportUnknownVariableType]
