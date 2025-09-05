@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2024/09/05"
 
 [rule]
 author = ["Elastic"]
@@ -59,17 +59,9 @@ Adversaries can insert malicious code that can be executed in place of legitimat
 references = [
     "https://bohops.com/2018/08/18/abusing-the-com-registry-structure-part-2-loading-techniques-for-evasion-and-persistence/",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "16a52c14-7883-47af-8745-9357803f0d4c"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -78,7 +70,6 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
@@ -108,34 +99,52 @@ registry where host.os.type == "windows" and event.type == "change" and
         "HKEY_USERS\\*\\DelegateExecute",
         "HKEY_USERS\\*\\TreatAs\\",
         "HKEY_USERS\\*\\ScriptletURL*"
-      )  
+      ) and
+      not registry.data.strings : (
+            /* COM related to Windows Spotlight feature */
+            "{4813071a-41ad-44a2-9835-886d2f63ca30}",
+
+            /* AppX/MSIX DelegateExecute handlers: execute, protocol, file */
+            "{A56A841F-E974-45C1-8001-7E3F8A085917}",
+            "{4ED3A719-CEA8-4BD9-910D-E252F997AFC2}",
+            "{BFEC0C93-0B7D-4F2C-B09C-AFFFC4BDAE78}"
+      )
     )
   ) and 
-
-      not  (
-            process.code_signature.trusted == true and
-            process.code_signature.subject_name in 
-                         ("Island Technology Inc.", "Google LLC", "Grammarly, Inc.", "Dropbox, Inc", "REFINITIV US LLC", "HP Inc.",
-                          "Citrix Systems, Inc.", "Adobe Inc.", "Veeam Software Group GmbH", "Zhuhai Kingsoft Office Software Co., Ltd.",
-                          "Oracle America, Inc.")
-        ) and 
+  
+  not (
+    process.code_signature.trusted == true and
+    process.code_signature.subject_name in (
+        "Island Technology Inc.", "Google LLC", "Grammarly, Inc.", "Dropbox, Inc", "REFINITIV US LLC", "HP Inc.", "Adobe Inc.",
+        "Citrix Systems, Inc.", "Veeam Software Group GmbH", "Zhuhai Kingsoft Office Software Co., Ltd.", "Oracle America, Inc.",
+        "Brave Software, Inc.", "DeepL SE", "Opera Norway AS"
+    )
+  ) and 
 
   /* excludes Microsoft signed noisy processes */
   not
   (
-    process.name : ("OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe", "MicrosoftEdgeUpdate.exe", "msrdcw.exe", "MicrosoftEdgeUpdateComRegisterShell64.exe") and
+    process.name : (
+      "OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe", "MicrosoftEdgeUpdate.exe", "msrdcw.exe",
+      "MicrosoftEdgeUpdateComRegisterShell64.exe", "setup.exe"
+    ) and
     process.code_signature.trusted == true and process.code_signature.subject_name in ("Microsoft Windows", "Microsoft Corporation")
   ) and
   
-  not process.executable : 
-                  ("?:\\Program Files (x86)\\*.exe", 
-                   "?:\\Program Files\\*.exe",
-                   "?:\\Windows\\System32\\svchost.exe", 
-                   "?:\\Windows\\System32\\msiexec.exe", 
-                   "?:\\Windows\\SysWOW64\\regsvr32.exe",
-                   "?:\\Windows\\System32\\regsvr32.exe",
-                   "?:\\Windows\\System32\\DriverStore\\FileRepository\\*.exe", 
-                   "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe")
+  not process.executable : (
+        "?:\\$WINDOWS.~BT\\Sources\\SetupHost.exe",
+        "?:\\Program Files (x86)\\*.exe",
+        "?:\\Program Files\\*.exe",
+        "?:\\ProgramData\\4Team\\4Team-Updater\\4Team-Updater-Helper.exe",
+        "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+        "?:\\Users\\*\\AppData\\Local\\Wondershare\\Wondershare NativePush\\WsToastNotification.exe",
+        "?:\\Windows\\System32\\DriverStore\\FileRepository\\*.exe",
+        "?:\\Windows\\System32\\msiexec.exe",
+        "?:\\Windows\\System32\\svchost.exe",
+        "?:\\Windows\\SysWOW64\\regsvr32.exe",
+        "?:\\Windows\\System32\\regsvr32.exe",
+        "\\Device\\Mup\\*\\Kufer\\KuferSQL\\BasysSQL.exe"
+  )
 '''
 
 
