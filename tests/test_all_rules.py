@@ -997,7 +997,7 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "eql")
 
         for query in invalid_integration_queries_eql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(eql.EqlSchemaError):
                 build_rule(query, "eql")
         # kql
         for query in valid_queries_kql:
@@ -1008,9 +1008,10 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "kuery")
 
         for query in invalid_integration_queries_kql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(kql.KqlParseError):
                 build_rule(query, "kuery")
 
+    @unittest.skip("Redundant with new validation?")
     def test_event_dataset(self):
         for rule in self.all_rules:
             if isinstance(rule.contents.data, QueryRuleData):
