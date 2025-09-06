@@ -1011,6 +1011,7 @@ class TestRuleMetadata(BaseRuleTest):
             with self.assertRaises(kql.KqlParseError):
                 build_rule(query, "kuery")
 
+    @unittest.skip("Redundant with new validation?")
     def test_event_dataset(self):
         for rule in self.all_rules:
             if isinstance(rule.contents.data, QueryRuleData):

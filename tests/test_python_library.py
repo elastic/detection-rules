@@ -3,6 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import eql
+
 from detection_rules.rule_loader import RuleCollection
 
 from .base import BaseRuleTest
@@ -63,7 +65,7 @@ class TestEQLInSet(BaseRuleTest):
                 query=query,
             ),
         }
-        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+        with self.assertRaisesRegex(eql.EqlTypeMismatchError, r"Unable to compare ip to string"):
             rc.load_dict(rule_dict)
 
     def test_eql_in_set_valid_address(self) -> None:
@@ -130,7 +132,7 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
             ),
         }
         # Expect failure: join field belongs to a different package than the subquery dataset
-        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+        with self.assertRaisesRegex(eql.EqlSchemaError, r"Field not recognized"):
             rc.load_dict(bad_rule)
 
     def test_sequence_top_level_by_and_runs_across_integrations_valid(self) -> None:
@@ -171,7 +173,7 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
                 query=query,
             ),
         }
-        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+        with self.assertRaisesRegex(eql.EqlSchemaError, r"Field not recognized"):
             rc.load_dict(bad_rule)
 
     def test_sequence_okta_missing_in_metadata_but_present_in_dataset(self) -> None:
@@ -235,7 +237,7 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
                 query=query,
             ),
         }
-        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+        with self.assertRaisesRegex(eql.EqlSchemaError, r"Field not recognized"):
             rc.load_dict(bad_rule)
 
     def test_sequence_mixed_dataset_and_datasetless_subquery_invalid_field(self) -> None:
@@ -259,7 +261,7 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
                 query=query,
             ),
         }
-        with self.assertRaisesRegex(ValueError, r"Error in both stack and integrations checks"):
+        with self.assertRaisesRegex(eql.EqlSchemaError, r"Field not recognized"):
             rc.load_dict(bad_rule)
 
     def test_sequence_datasetless_subquery_with_metadata_integration_valid(self) -> None:
