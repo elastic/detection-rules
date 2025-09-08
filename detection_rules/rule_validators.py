@@ -698,7 +698,6 @@ class ESQLValidator(QueryValidator):
                     f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
                 )
 
-        # Raise an error if there are mismatches
         if mismatched_columns:
             raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
 
@@ -826,7 +825,7 @@ class ESQLValidator(QueryValidator):
 
         query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
 
-        # Validation all fields (columns) are either dynamic fields or correctly mapped
+        # Validate that all fields (columns) are either dynamic fields or correctly mapped
         # against the combined mapping of all the indices
         if self.validate_columns_index_mapping(query_columns, combined_mappings):
             log("All dynamic columns have proper formatting.")
