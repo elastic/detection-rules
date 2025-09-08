@@ -2,12 +2,12 @@
 creation_date = "2025/03/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/09/08"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an AWS DynamoDB table is exported to S3. Adversaries may use the ExportTableToPointInTime operation to collect sensitive information or exfiltrate data from DynamoDB tables. This rule detects unusual user activity by monitoring for the ExportTableToPointInTime action in CloudTrail logs. This is a New Terms rule that only flags when this behavior is observed by the "user.name" for the first time.
+Identifies when an AWS DynamoDB table is exported to S3. Adversaries may use the ExportTableToPointInTime operation to collect sensitive information or exfiltrate data from DynamoDB tables. This rule detects unusual user activity by monitoring for the ExportTableToPointInTime action in CloudTrail logs. This is a New Terms rule that only flags when this behavior is observed by the user.name for the first time.
 """
 false_positives = [
     """
@@ -50,7 +50,6 @@ For further guidance on managing and securing DynamoDB in AWS environments, refe
 references = ["https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExportTableToPointInTime.html"]
 risk_score = 21
 rule_id = "e8ea6f58-0040-11f0-a243-f661ea17fbcd"
-setup = "DynamoDB data events must be enabled in CloudTrail to capture the ExportTableToPointInTime actions. Ensure that the AWS CloudTrail service is configured to log data events for DynamoDB tables."
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -99,12 +98,13 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",     
+    "aws.cloudtrail.resources.type",   
     "event.action",
     "event.outcome",
     "cloud.account.id",
     "cloud.region",
-    "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
+    "aws.cloudtrail.request_parameters"
 ]
 
 [rule.new_terms]
@@ -112,4 +112,4 @@ field = "new_terms_fields"
 value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
