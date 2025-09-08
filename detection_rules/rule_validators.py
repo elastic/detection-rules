@@ -200,7 +200,8 @@ class KQLValidator(QueryValidator):
                 pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
-                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}"
+                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
                     ValidationTarget(
@@ -225,7 +226,10 @@ class KQLValidator(QueryValidator):
                 beats_version = mapping["beats"]
                 ecs_version = mapping["ecs"]
                 beat_types, _, schema = self.get_beats_schema(data.index_or_dataview, beats_version, ecs_version)
-                err_trailer = f"stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}"
+                err_trailer = (
+                    f"stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}\n"
+                    f"rule: {data.name} - {data.rule_id}"
+                )
                 targets.append(
                     ValidationTarget(
                         query_text=self.query,
@@ -304,8 +308,6 @@ class KQLValidator(QueryValidator):
         except kql.KqlParseError as exc:
             # Compose an informative trailer
             trailer_parts: list[str] = []
-            if err_trailer:
-                trailer_parts.append(err_trailer)
             if exc.error_msg == "Unknown field" and beat_types:
                 trailer_parts.insert(
                     0,
@@ -316,6 +318,9 @@ class KQLValidator(QueryValidator):
                 trailer_parts.append(f"integration_types: [{pkgs}]")
             if beat_types:
                 trailer_parts.append(f"beat_types: [{', '.join(beat_types)}]")
+
+            if err_trailer:
+                trailer_parts.append(err_trailer)
 
             trailer = "\n\n".join(tp for tp in trailer_parts if tp)
 
@@ -417,7 +422,8 @@ class EQLValidator(QueryValidator):
                 pkgs_set = packages_by_stack.get(stack_version, set())
                 pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
-                    f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}"
+                    f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
                     ValidationTarget(
@@ -440,7 +446,8 @@ class EQLValidator(QueryValidator):
 
                 beat_types, _, kql_schema = self.get_beats_schema(data.index_or_dataview, beats_version, ecs_version)
                 err_trailer = (
-                    f"stack: {stack_version}, beats: {beats_version},ecs: {ecs_version}, endgame: {endgame_version}"
+                    f"stack: {stack_version}, beats: {beats_version},ecs: {ecs_version}, endgame: {endgame_version}\n"
+                    f"rule: {data.name} - {data.rule_id}"
                 )
                 # ECS (+beats if present)
                 targets.append(
@@ -501,7 +508,8 @@ class EQLValidator(QueryValidator):
                         err_trailer = (
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
-                            f"stack: {stack_version}, ecs: {ecs_version}"
+                            f"stack: {stack_version}, ecs: {ecs_version}\n"
+                            f"rule: {data.name} - {data.rule_id}"
                         )
                         targets.append(
                             ValidationTarget(
@@ -635,8 +643,6 @@ class EQLValidator(QueryValidator):
         except eql.EqlParseError as exc:
             message = exc.error_msg
             trailer_parts: list[str] = []
-            if err_trailer:
-                trailer_parts.append(err_trailer)
             # If the error is an unknown field and the field was referenced as optional (prefixed with '?'),
             # treat this target as non-fatal to honor EQL optional semantics.
 
@@ -662,6 +668,9 @@ class EQLValidator(QueryValidator):
             # Surface beat types if available (stack plan)
             if beat_types:
                 trailer_parts.append(f"beat_types: [{', '.join(beat_types)}]")
+
+            if err_trailer:
+                trailer_parts.append(err_trailer)
 
             trailer = "\n\n".join(tp for tp in trailer_parts if tp)
             return exc.__class__(
