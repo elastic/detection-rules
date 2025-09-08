@@ -683,7 +683,11 @@ class ESQLValidator(QueryValidator):
 
         for column in query_columns:
             column_name = column["name"]
+            # Skip Dynamic fields
             if column_name.startswith(("Esql.", "Esql_priv.")):
+                continue
+            # Skip internal fields
+            if column_name in ("_id", "_index", "_type"):
                 continue
             column_type = column["type"]
 
