@@ -2,7 +2,7 @@
 creation_date = "2020/05/20"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/08/15"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-12h"
-index = ["logs-okta.system*"]
+index = ["filebeat-*", "logs-okta.system*"]
 interval = "6h"
 language = "eql"
 license = "Elastic License v2"
@@ -35,7 +35,7 @@ This rule fires when an Okta user account has MFA deactivated and no subsequent 
 
 - Identify the entity related to the alert by reviewing `okta.target.alternate_id`, `okta.target.id` or `user.target.full_name` fields. This should give the username of the account being targeted. Verify if MFA is deactivated for the target entity.
 - Using the `okta.target.alternate_id` field, search for MFA re-activation events where `okta.event_type` is `user.mfa.factor.activate`. Note if MFA re-activation attempts were made against the target.
-- Identify the actor performing the deactivation by reviewing `okta.actor.alternate_id`, `okta.actor.id` or `user.full_name` fields. This should give the username of the account performing the action. Determine if deactivation was performed by a separate user.
+- Identify the actor performing the deactivation by reviewing `okta.actor.alternate_id`, `okta.actor.id` or `user.full_name` fields. This should give the username of the account performing the action. Determine if deactivation was performed by a separate user. 
 - Review events where `okta.event_type` is `user.authenticate*` to determine if the actor or target accounts had suspicious login activity.
     - Geolocation details found in `client.geo*` related fields may be useful in determining if the login activity was suspicious for this user.
 - Examine related administrative activity by the actor for privilege misuse or suspicious changes.

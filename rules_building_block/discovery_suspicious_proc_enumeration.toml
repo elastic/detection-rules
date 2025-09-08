@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ activity pattern. Such behavior could be an indicator of a malicious process sca
 running processes, potentially for reconnaissance, privilege escalation, or identifying vulnerable targets.
 """
 from = "now-119m"
-index = ["logs-auditd_manager.auditd-*"]
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
@@ -53,7 +53,7 @@ timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-host.os.type:linux and event.category:file and event.action:"opened-file" and
+host.os.type:linux and event.category:file and event.action:"opened-file" and 
 file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.name : (
   ps or netstat or landscape-sysin or w or pgrep or pidof or needrestart or apparmor_status
 ) and not process.parent.pid : 1
