@@ -3,9 +3,11 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import time
 import unittest
 
 from elasticsearch import BadRequestError
+from elasticsearch import ConnectionError as ESConnectionError
 
 from detection_rules.misc import get_default_config, get_elasticsearch_client, get_kibana_client, getdefault
 from detection_rules.rule_validators import ESQLValidator
@@ -47,15 +49,28 @@ class TestRemoteRules(BaseRuleTest):
 
         failed_count = 0
         fail_list = []
+        max_retries = 3
         for r in esql_rules:
             print()
-            try:
-                validator = ESQLValidator(r.contents.data.query)
-                validator.remote_validate_rule(kibana_client, elastic_client, r.contents, verbosity)
-            except (ValueError, BadRequestError) as e:
-                print(f"FAILURE: {e}")
-                fail_list.append(f"FAILURE: {e}")
-                failed_count += 1
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    validator = ESQLValidator(r.contents.data.query)
+                    validator.remote_validate_rule(kibana_client, elastic_client, r.contents, verbosity)
+                    break
+                except (ValueError, BadRequestError) as e:
+                    print(f"FAILURE: {e}")
+                    fail_list.append(f"FAILURE: {e}")
+                    failed_count += 1
+                    break
+                except ESConnectionError as e:
+                    retry_count += 1
+                    print(f"Connection error: {e}. Retrying {retry_count}/{max_retries}...")
+                    time.sleep(30)
+                    if retry_count == max_retries:
+                        print(f"FAILURE: {e} after {max_retries} retries")
+                        fail_list.append(f"FAILURE: {e} after {max_retries} retries")
+                        failed_count += 1
 
         print(f"Total rules: {len(esql_rules)}")
         print(f"Failed rules: {failed_count}")
