@@ -39,7 +39,6 @@ jobs:
 
       - name: Get API Key and setup auth
         env:
-          DR_KIBANA_URL: "https://localhost:5601"
           DR_ELASTICSEARCH_URL: "https://localhost:9200"
           ES_USER: "elastic"
           ES_PASSWORD: ${{ env.GENERATED_PASSWORD }}
@@ -48,9 +47,9 @@ jobs:
           response=$(curl -k -X POST -u "$ES_USER:$ES_PASSWORD" -H "Content-Type: application/json" -d '{
               "name": "tmp-api-key",
               "expiration": "1d"
-          }' "$ELASTICSEARCH_URL/_security/api_key")
+          }' "$DR_ELASTICSEARCH_URL/_security/api_key")
 
-          DR_API_KEY=$(echo "$response" | jq -r '.api_key')
+          DR_API_KEY=$(echo "$response" | jq -r '.encoded')
           echo "DR_API_KEY=$DR_API_KEY" >> $GITHUB_ENV
 
       - name: Install dependencies
