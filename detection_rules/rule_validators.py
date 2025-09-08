@@ -687,7 +687,7 @@ class ESQLValidator(QueryValidator):
             if column_name.startswith(("Esql.", "Esql_priv.")):
                 continue
             # Skip internal fields
-            if column_name in ("_id", "_index", "_type"):
+            if column_name in ("_id", "_version", "_index"):
                 continue
             column_type = column["type"]
 
