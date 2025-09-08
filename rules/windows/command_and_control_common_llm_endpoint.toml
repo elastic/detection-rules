@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2025/09/05"
 
 
 [rule]
@@ -78,7 +78,10 @@ network where host.os.type == "windows" and dns.question.name != null and
 
   ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
 
-  (process.executable : ("?:\\Users\\*.exe", "", "?:\\ProgramData\\*.exe") and ?process.code_signature.trusted != true)
+  (
+    process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe") and
+    (?process.code_signature.trusted == false or ?process.code_signature.exists == false)
+  )
  ) and
     dns.question.name : (
     // Major LLM APIs
