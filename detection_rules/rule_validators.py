@@ -215,9 +215,11 @@ class KQLValidator(QueryValidator):
                 )
 
         # Build stack targets only when TOML indicates stack-based validation is needed
-        # - If indices/dataview are provided, include stack targets
         # - If no integration packages resolved, include stack targets as fallback
-        should_add_stack_targets = bool(data.index_or_dataview) or not package_integrations
+        # - Or when beats or endgame indices are present
+        beat_types_present = parse_beats_from_index(data.index_or_dataview) if data.index_or_dataview else []
+        endgame_present = bool(data.index_or_dataview and "endgame-*" in data.index_or_dataview)
+        should_add_stack_targets = (not package_integrations) or (bool(beat_types_present) or endgame_present)
         if should_add_stack_targets:
             for stack_version, mapping in meta.get_validation_stack_versions().items():
                 beats_version = mapping["beats"]
@@ -249,10 +251,14 @@ class KQLValidator(QueryValidator):
         all_targets = self.build_validation_plan(data, meta)
         has_integration = any(t.kind == "integration" for t in all_targets)
         # Order targets: integrations first (if any), then stack; otherwise just stack
-        targets = [t for t in all_targets if (not has_integration) or t.kind == "integration"]
+        ordered_targets = (
+            [t for t in all_targets if t.kind == "integration"] + [t for t in all_targets if t.kind == "stack"]
+            if has_integration
+            else [t for t in all_targets if t.kind == "stack"]
+        )
         for _ in range(max_attempts):
             retry = False
-            for t in targets:
+            for t in ordered_targets:
                 exc = self.validate_query_text_with_schema(
                     schema=t.schema,
                     err_trailer=t.err_trailer,
