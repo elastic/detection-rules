@@ -630,8 +630,14 @@ class ESQLValidator(QueryValidator):
 
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
+        # TODO
         # temporarily override to NOP until ES|QL query parsing is supported
+        # if ENV VAR :
+        #     self.remote_validate_rule
+        # else:
+        #     ESQLRuleData validation
 
+    # NOTE will go away
     def validate_integration(
         self,
         _: QueryRuleData,
@@ -652,7 +658,12 @@ class ESQLValidator(QueryValidator):
         return rule_integrations
 
     def prepare_integration_mappings(
-        self, rule_integrations: list[str], stack_version: str, package_manifests: Any, integration_schemas: Any
+        self,
+        rule_integrations: list[str],
+        stack_version: str,
+        package_manifests: Any,
+        integration_schemas: Any,
+        log: Callable[[str], None],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Prepare integration mappings for the given rule integrations."""
         integration_mappings: dict[str, Any] = {}
@@ -670,6 +681,14 @@ class ESQLValidator(QueryValidator):
             for stream in package_schema:
                 flat_schema = package_schema[stream]
                 stream_mappings = utils.flat_schema_to_index_mapping(flat_schema)
+                nested_multifields = self.find_nested_multifields(stream_mappings)
+                for field in nested_multifields:
+                    field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
+                    log(
+                        f"Warning: Nested multi-field `{field}` found in `{integration}-{stream}`. "
+                        f"Removing parent field from schema for ES|QL validation."
+                    )
+                    utils.delete_nested_key_from_dict(stream_mappings, field_name)
                 utils.combine_dicts(integration_mappings, stream_mappings)
                 index_lookup[f"{integration}-{stream}"] = stream_mappings
 
@@ -754,8 +773,58 @@ class ESQLValidator(QueryValidator):
         log(f"Got query columns: {', '.join(query_column_names)}")
         return query_columns
 
+    def find_nested_multifields(self, mapping: dict[str, Any], path: str = "") -> list[Any]:
+        """Recursively search for nested multi-fields in Elasticsearch mappings."""
+        nested_multifields = []
+
+        for field, properties in mapping.items():
+            current_path = f"{path}.{field}" if path else field
+
+            if isinstance(properties, dict):
+                # Check if the field has a `fields` key
+                if "fields" in properties:
+                    # Check if any subfield in `fields` also has a `fields` key
+                    for subfield, subproperties in properties["fields"].items():  # type: ignore[reportUnknownVariableType]
+                        if isinstance(subproperties, dict) and "fields" in subproperties:
+                            nested_multifields.append(f"{current_path}.fields.{subfield}")  # type: ignore[reportUnknownVariableType]
+
+                # Recurse into subfields
+                if "properties" in properties:
+                    nested_multifields.extend(  # type: ignore[reportUnknownVariableType]
+                        self.find_nested_multifields(properties["properties"], current_path)  # type: ignore[reportUnknownVariableType]
+                    )
+
+        return nested_multifields  # type: ignore[reportUnknownVariableType]
+
+    def get_ecs_schema_mappings(self, current_version: Version) -> dict[str, Any]:
+        """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
+        ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
+        ecs_schemas = ecs.get_schemas()
+        ecs_schema_flattened: dict[str, Any] = {}
+        ecs_schema_scaled_floats: dict[str, Any] = {}
+        for index, info in ecs_schemas[ecs_version]["ecs_flat"].items():
+            if info["type"] == "scaled_float":
+                ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
+            ecs_schema_flattened.update({index: info["type"]})
+        ecs_schema = utils.convert_to_nested_schema(ecs_schema_flattened)
+        for index, info in ecs_schema_scaled_floats.items():
+            parts = index.split(".")
+            current = ecs_schema
+
+            # Traverse the ecs_schema to the correct nested dictionary
+            for part in parts[:-1]:  # Traverse all parts except the last one
+                current = current.setdefault(part, {}).setdefault("properties", {})
+
+            current[parts[-1]].update({"scaling_factor": info})
+        return ecs_schema
+
     def prepare_mappings(
-        self, elastic_client: Elasticsearch, indices: list[str], stack_version: str, contents: TOMLRuleContents
+        self,
+        elastic_client: Elasticsearch,
+        indices: list[str],
+        stack_version: str,
+        contents: TOMLRuleContents,
+        log: Callable[[str], None],
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Prepare index mappings for the given indices and rule integrations."""
         existing_mappings, index_lookup = misc.get_existing_mappings(elastic_client, indices)
@@ -768,7 +837,7 @@ class ESQLValidator(QueryValidator):
         integration_schemas = load_integrations_schemas()
 
         integration_mappings, integration_index_lookup = self.prepare_integration_mappings(
-            rule_integrations, stack_version, package_manifests, integration_schemas
+            rule_integrations, stack_version, package_manifests, integration_schemas, log
         )
 
         index_lookup.update(integration_index_lookup)
@@ -788,6 +857,12 @@ class ESQLValidator(QueryValidator):
         if not combined_mappings and not non_ecs_mapping:
             raise ValueError("No mappings found")
         index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
+
+        # Load ECS in an index mapping format (nested schema)
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        ecs_schema = self.get_ecs_schema_mappings(current_version)
+
+        index_lookup.update({"rule-ecs-index": ecs_schema})
 
         return existing_mappings, index_lookup, combined_mappings
 
@@ -815,18 +890,21 @@ class ESQLValidator(QueryValidator):
 
         # Get mappings for all matching existing index templates
         existing_mappings, index_lookup, combined_mappings = self.prepare_mappings(
-            elastic_client, indices, stack_version, contents
+            elastic_client, indices, stack_version, contents, log
         )
         log(f"Collected mappings: {len(existing_mappings)}")
         log(f"Combined mappings prepared: {len(combined_mappings)}")
 
         # Create remote indices
         full_index_str = self.create_remote_indices(elastic_client, existing_mappings, index_lookup, log)
+        utils.combine_dicts(combined_mappings, index_lookup["rule-non-ecs-index"])
+        utils.combine_dicts(combined_mappings, index_lookup["rule-ecs-index"])
 
         # Replace all sources with the test indices
         query = contents.data.query  # type: ignore[reportUnknownVariableType]
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
 
+        # TODO these query_columns are the unique fields
         query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
 
         # Validate that all fields (columns) are either dynamic fields or correctly mapped

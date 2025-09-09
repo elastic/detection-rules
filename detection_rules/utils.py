@@ -617,3 +617,14 @@ def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[s
     if not column_type and len(keys) > 1:
         return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))  # type: ignore[reportUnknownVariableType]
     return column_type  # type: ignore[reportUnknownVariableType]
+
+
+def delete_nested_key_from_dict(d: dict[str, Any], compound_key: str) -> None:
+    """Delete a nested key from a dictionary."""
+    keys = compound_key.split(".")
+    for key in keys[:-1]:
+        if key in d and isinstance(d[key], dict):
+            d = d[key]  # type: ignore[reportUnknownVariableType]
+        else:
+            return
+    d.pop(keys[-1], None)
