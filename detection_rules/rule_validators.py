@@ -618,26 +618,44 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
 
+    esql_unique_fields: list[str]
+
     @cached_property
     def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         return None
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
-        """Return a list of unique fields in the query."""
-        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
-        return []
+        """Return a list of unique fields in the query. Requires remote validation to have occurred."""
+        if not self.esql_unique_fields:
+            return []
+        return self.esql_unique_fields
 
-    def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def validate(self, rule_data: "QueryRuleData", rule_meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
-        # TODO
-        # temporarily override to NOP until ES|QL query parsing is supported
-        # if ENV VAR :
-        #     self.remote_validate_rule
-        # else:
-        #     ESQLRuleData validation
+        if misc.getdefault("remote_esql_validation")():
+            kibana_client = misc.get_kibana_client(
+                api_key=misc.getdefault("api_key")(),
+                cloud_id=misc.getdefault("cloud_id")(),
+                kibana_url=misc.getdefault("kibana_url")(),
+                space=misc.getdefault("space")(),
+                ignore_ssl_errors=misc.getdefault("ignore_ssl_errors")(),
+            )
 
-    # NOTE will go away
+            elastic_client = misc.get_elasticsearch_client(
+                api_key=misc.getdefault("api_key")(),
+                cloud_id=misc.getdefault("cloud_id")(),
+                elasticsearch_url=misc.getdefault("elasticsearch_url")(),
+                ignore_ssl_errors=misc.getdefault("ignore_ssl_errors")(),
+            )
+            self.remote_validate_rule(
+                kibana_client,
+                elastic_client,
+                rule_data.query,
+                rule_meta,
+                rule_data.rule_id,
+            )
+
     def validate_integration(
         self,
         _: QueryRuleData,
@@ -647,14 +665,14 @@ class ESQLValidator(QueryValidator):
         # Disabling self.validate(data, meta)
         pass
 
-    def get_rule_integrations(self, contents: TOMLRuleContents) -> list[str]:
+    def get_rule_integrations(self, metadata: RuleMeta) -> list[str]:
         """Retrieve rule integrations from metadata."""
         rule_integrations: list[str] = []
-        if contents.metadata.integration:
-            if isinstance(contents.metadata.integration, list):
-                rule_integrations = contents.metadata.integration
+        if metadata.integration:
+            if isinstance(metadata.integration, list):
+                rule_integrations = metadata.integration
             else:
-                rule_integrations = [contents.metadata.integration]
+                rule_integrations = [metadata.integration]
         return rule_integrations
 
     def prepare_integration_mappings(
@@ -823,14 +841,14 @@ class ESQLValidator(QueryValidator):
         elastic_client: Elasticsearch,
         indices: list[str],
         stack_version: str,
-        contents: TOMLRuleContents,
+        metadata: RuleMeta,
         log: Callable[[str], None],
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Prepare index mappings for the given indices and rule integrations."""
         existing_mappings, index_lookup = misc.get_existing_mappings(elastic_client, indices)
 
         # Collect mappings for the integrations
-        rule_integrations = self.get_rule_integrations(contents)
+        rule_integrations = self.get_rule_integrations(metadata)
 
         # Collect mappings for all relevant integrations for the given stack version
         package_manifests = load_integrations_manifests()
@@ -866,11 +884,29 @@ class ESQLValidator(QueryValidator):
 
         return existing_mappings, index_lookup, combined_mappings
 
-    def remote_validate_rule(
+    def remote_validate_rule_contents(
         self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
     ) -> None:
+        """Remote validate a rule's ES|QL query using an Elastic Stack."""
+        self.remote_validate_rule(
+            kibana_client=kibana_client,
+            elastic_client=elastic_client,
+            query=contents.data.query,  # type: ignore[reportUnknownVariableType]
+            metadata=contents.metadata,
+            rule_id=contents.data.rule_id,
+            verbosity=verbosity,
+        )
+
+    def remote_validate_rule(  # noqa: PLR0913
+        self,
+        kibana_client: Kibana,
+        elastic_client: Elasticsearch,
+        query: str,
+        metadata: RuleMeta,
+        rule_id: str = "",
+        verbosity: int = 0,
+    ) -> None:
         """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
-        rule_id = contents.data.rule_id
 
         def log(val: str) -> None:
             """Log if verbosity is 1 or greater (1 corresponds to `-v` in pytest)"""
@@ -885,12 +921,12 @@ class ESQLValidator(QueryValidator):
         stack_version = str(kibana_details["version"]["number"])
         log(f"Validating against {stack_version} stack")
 
-        indices_str, indices = utils.get_esql_query_indices(contents.data.query)  # type: ignore[reportUnknownVariableType]
+        indices_str, indices = utils.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         log(f"Extracted indices from query: {', '.join(indices)}")
 
         # Get mappings for all matching existing index templates
         existing_mappings, index_lookup, combined_mappings = self.prepare_mappings(
-            elastic_client, indices, stack_version, contents, log
+            elastic_client, indices, stack_version, metadata, log
         )
         log(f"Collected mappings: {len(existing_mappings)}")
         log(f"Combined mappings prepared: {len(combined_mappings)}")
@@ -901,11 +937,10 @@ class ESQLValidator(QueryValidator):
         utils.combine_dicts(combined_mappings, index_lookup["rule-ecs-index"])
 
         # Replace all sources with the test indices
-        query = contents.data.query  # type: ignore[reportUnknownVariableType]
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
 
-        # TODO these query_columns are the unique fields
         query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
+        self.esql_unique_fields = query_columns
 
         # Validate that all fields (columns) are either dynamic fields or correctly mapped
         # against the combined mapping of all the indices

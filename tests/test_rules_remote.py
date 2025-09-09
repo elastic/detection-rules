@@ -45,18 +45,18 @@ class TestRemoteRules(BaseRuleTest):
         )
 
         # Retrieve verbosity level from pytest
-        verbosity = self._outcome.result.config.get_verbosity()
+        verbosity: int = int(self._outcome.result.config.get_verbosity())  # type: ignore[reportIncompatibleMethodOverride]
 
         failed_count = 0
-        fail_list = []
+        fail_list: list[str] = []
         max_retries = 3
         for r in esql_rules:
             print()
             retry_count = 0
             while retry_count < max_retries:
                 try:
-                    validator = ESQLValidator(r.contents.data.query)
-                    validator.remote_validate_rule(kibana_client, elastic_client, r.contents, verbosity)
+                    validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
+                    validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
                     break
                 except (ValueError, BadRequestError) as e:
                     print(f"FAILURE: {e}")
