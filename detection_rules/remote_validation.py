@@ -19,6 +19,7 @@ from requests import HTTPError
 from .config import load_current_package_version
 from .misc import ClientError, get_elasticsearch_client, get_kibana_client, getdefault
 from .rule import TOMLRule, TOMLRuleContents
+from .rule_validators import ESQLValidator
 from .schemas import definitions
 
 
@@ -180,18 +181,14 @@ class RemoteValidator(RemoteConnector):
     def validate_esql(self, contents: TOMLRuleContents) -> dict[str, Any]:
         query = contents.data.query  # type: ignore[reportAttributeAccessIssue]
         rule_id = contents.data.rule_id
-        headers = {"accept": "application/json", "content-type": "application/json"}
-        body = {"query": f"{query} | LIMIT 0"}
         if not self.es_client:
             raise ValueError("No ES client found")
+
+        if not self.kibana_client:
+            raise ValueError("No Kibana client found")
         try:
-            response = self.es_client.perform_request(
-                "POST",
-                "/_query",
-                headers=headers,
-                params={"pretty": True},
-                body=body,
-            )
+            validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
+            response = validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
         except Exception as exc:
             if isinstance(exc, elasticsearch.BadRequestError):
                 raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc

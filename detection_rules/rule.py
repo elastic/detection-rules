@@ -647,6 +647,10 @@ class QueryValidator:
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:
         raise NotImplementedError
 
+    def get_unique_field_type(self, __: str) -> None:
+        """Used to get unique field types when schema is not used"""
+        raise NotImplementedError
+
     @cached
     def get_required_fields(self, index: str) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
@@ -663,7 +667,9 @@ class QueryValidator:
         # construct integration schemas
         packages_manifest = load_integrations_manifests()
         integrations_schemas = load_integrations_schemas()
-        datasets, _ = beats.get_datasets_and_modules(self.ast)
+        datasets: set[str] = set()
+        if self.ast:
+            datasets, _ = beats.get_datasets_and_modules(self.ast)
         package_integrations = parse_datasets(list(datasets), packages_manifest)
         int_schema: dict[str, Any] = {}
         data = {"notify": False}
@@ -690,6 +696,9 @@ class QueryValidator:
                     field_type = beat_schema.get(fld, {}).get("type")
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
+
+            if not field_type and isinstance(self, ESQLValidator):
+                field_type = self.get_unique_field_type(fld)
 
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 

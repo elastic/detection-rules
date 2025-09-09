@@ -16,6 +16,7 @@ from typing import Any
 import click
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
+from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint  # type: ignore[reportMissingTypeStubs]
@@ -618,18 +619,29 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
 
-    esql_unique_fields: list[str]
+    def __init__(self, query: str) -> None:
+        """Initialize the ESQLValidator with the given query."""
+        super().__init__(query)
+        self.esql_unique_fields: list[dict[str, str]] = []
 
     @cached_property
     def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+        """There is no AST for ESQL until we have an ESQL parser."""
         return None
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         """Return a list of unique fields in the query. Requires remote validation to have occurred."""
-        if not self.esql_unique_fields:
-            return []
-        return self.esql_unique_fields
+        if self.esql_unique_fields:
+            return [field["name"] for field in self.esql_unique_fields]
+        return []
+
+    def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
+        """Get the type of the unique field. Requires remote validation to have occurred."""
+        for field in self.esql_unique_fields:
+            if field["name"] == field_name:
+                return field["type"]
+        return None
 
     def validate(self, rule_data: "QueryRuleData", rule_meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
@@ -648,7 +660,7 @@ class ESQLValidator(QueryValidator):
                 elasticsearch_url=misc.getdefault("elasticsearch_url")(),
                 ignore_ssl_errors=misc.getdefault("ignore_ssl_errors")(),
             )
-            self.remote_validate_rule(
+            _ = self.remote_validate_rule(
                 kibana_client,
                 elastic_client,
                 rule_data.query,
@@ -774,7 +786,7 @@ class ESQLValidator(QueryValidator):
         test_index_str: str,
         log: Callable[[str], None],
         delete_indices: bool = True,
-    ) -> list[Any]:
+    ) -> tuple[list[Any], ObjectApiResponse[Any]]:
         """Execute the ESQL query against the test indices on a remote Stack and return the columns."""
         try:
             log(f"Executing a query against `{test_index_str}`")
@@ -789,7 +801,7 @@ class ESQLValidator(QueryValidator):
 
         query_column_names = [c["name"] for c in query_columns]
         log(f"Got query columns: {', '.join(query_column_names)}")
-        return query_columns
+        return query_columns, response
 
     def find_nested_multifields(self, mapping: dict[str, Any], path: str = "") -> list[Any]:
         """Recursively search for nested multi-fields in Elasticsearch mappings."""
@@ -886,9 +898,9 @@ class ESQLValidator(QueryValidator):
 
     def remote_validate_rule_contents(
         self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
-    ) -> None:
+    ) -> ObjectApiResponse[Any]:
         """Remote validate a rule's ES|QL query using an Elastic Stack."""
-        self.remote_validate_rule(
+        return self.remote_validate_rule(
             kibana_client=kibana_client,
             elastic_client=elastic_client,
             query=contents.data.query,  # type: ignore[reportUnknownVariableType]
@@ -905,7 +917,7 @@ class ESQLValidator(QueryValidator):
         metadata: RuleMeta,
         rule_id: str = "",
         verbosity: int = 0,
-    ) -> None:
+    ) -> ObjectApiResponse[Any]:
         """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
 
         def log(val: str) -> None:
@@ -939,7 +951,7 @@ class ESQLValidator(QueryValidator):
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
 
-        query_columns = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
+        query_columns, response = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
         # Validate that all fields (columns) are either dynamic fields or correctly mapped
@@ -948,6 +960,8 @@ class ESQLValidator(QueryValidator):
             log("All dynamic columns have proper formatting.")
         else:
             log("Dynamic column(s) have improper formatting.")
+
+        return response
 
 
 def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:
