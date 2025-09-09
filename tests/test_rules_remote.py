@@ -9,7 +9,8 @@ import unittest
 from elasticsearch import BadRequestError
 from elasticsearch import ConnectionError as ESConnectionError
 
-from detection_rules.misc import get_default_config, get_elasticsearch_client, get_kibana_client, getdefault
+from detection_rules.misc import get_default_config
+from detection_rules.remote_validation import RemoteConnector
 from detection_rules.rule_validators import ESQLValidator
 
 from .base import BaseRuleTest
@@ -29,20 +30,9 @@ class TestRemoteRules(BaseRuleTest):
         if not esql_rules:
             return
 
-        kibana_client = get_kibana_client(
-            api_key=getdefault("api_key")(),
-            cloud_id=getdefault("cloud_id")(),
-            kibana_url=getdefault("kibana_url")(),
-            space=getdefault("space")(),
-            ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
-        )
-
-        elastic_client = get_elasticsearch_client(
-            api_key=getdefault("api_key")(),
-            cloud_id=getdefault("cloud_id")(),
-            elasticsearch_url=getdefault("elasticsearch_url")(),
-            ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
-        )
+        remote_connector = RemoteConnector()
+        if not remote_connector.es_client or not remote_connector.kibana_client:
+            self.skipTest("Skipping remote validation due to missing client")
 
         # Retrieve verbosity level from pytest
         verbosity: int = int(self._outcome.result.config.get_verbosity())  # type: ignore[reportIncompatibleMethodOverride]
@@ -56,7 +46,9 @@ class TestRemoteRules(BaseRuleTest):
             while retry_count < max_retries:
                 try:
                     validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                    validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
+                    _ = validator.remote_validate_rule_contents(
+                        remote_connector.kibana_client, remote_connector.es_client, r.contents, verbosity
+                    )
                     break
                 except (ValueError, BadRequestError) as e:
                     print(f"FAILURE: {e}")
