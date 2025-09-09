@@ -178,7 +178,7 @@ class RemoteValidator(RemoteConnector):
 
         return responses  # type: ignore[reportUnknownVariableType]
 
-    def validate_esql(self, contents: TOMLRuleContents) -> dict[str, Any]:
+    def validate_esql(self, contents: TOMLRuleContents, index_replacement: bool = False) -> dict[str, Any]:
         query = contents.data.query  # type: ignore[reportAttributeAccessIssue]
         rule_id = contents.data.rule_id
         if not self.es_client:
@@ -186,13 +186,31 @@ class RemoteValidator(RemoteConnector):
 
         if not self.kibana_client:
             raise ValueError("No Kibana client found")
-        try:
-            validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-            response = validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
-        except Exception as exc:
-            if isinstance(exc, elasticsearch.BadRequestError):
-                raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
-            raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
+        if index_replacement:
+            try:
+                validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
+                response = validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
+            except Exception as exc:
+                if isinstance(exc, elasticsearch.BadRequestError):
+                    raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
+                raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
+        else:
+            headers = {"accept": "application/json", "content-type": "application/json"}
+            body = {"query": f"{query} | LIMIT 0"}
+            if not self.es_client:
+                raise ValueError("No ES client found")
+            try:
+                response = self.es_client.perform_request(
+                    "POST",
+                    "/_query",
+                    headers=headers,
+                    params={"pretty": True},
+                    body=body,
+                )
+            except Exception as exc:
+                if isinstance(exc, elasticsearch.BadRequestError):
+                    raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
+                raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
 
         return response.body
 
