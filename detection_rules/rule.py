@@ -1040,13 +1040,7 @@ class ThreatMatchRuleData(QueryRuleData):
             threat_query_validator.validate(self, meta)
 
     def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
-        """Validate negate usage and group semantics for threat mapping.
-
-        Conditions:
-        - Allow DOES NOT MATCH (negate) entries only when the group also contains at least one
-          MATCH (non-negated) entry. Single negate-only and multi-negate-only groups are invalid.
-        - Forbid MATCH and DOES NOT MATCH for the same source/indicator field pair within the same group.
-        """
+        """Validate negate usage and group semantics for threat mapping."""
 
         for idx, group in enumerate(self.threat_mapping or []):
             entries = group.entries or []
