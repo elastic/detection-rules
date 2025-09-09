@@ -179,13 +179,14 @@ class RemoteValidator(RemoteConnector):
         return responses  # type: ignore[reportUnknownVariableType]
 
     def validate_esql(self, contents: TOMLRuleContents, index_replacement: bool = False) -> dict[str, Any]:
+        """Validate query for "esql" rule types. Optionally replace indices and use ESQLValidator."""
         query = contents.data.query  # type: ignore[reportAttributeAccessIssue]
         rule_id = contents.data.rule_id
         if not self.es_client:
             raise ValueError("No ES client found")
-
         if not self.kibana_client:
             raise ValueError("No Kibana client found")
+
         if index_replacement:
             try:
                 validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
