@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -17,17 +17,17 @@ false_positives = [
     be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-25m"
-index = ["filebeat-*", "logs-azure*"]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.activitylogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure Event Hub Deletion"
+name = "Azure Event Hub Deleted"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Azure Event Hub Deletion
+### Investigating Azure Event Hub Deleted
 
 Azure Event Hub is a scalable data streaming platform and event ingestion service, crucial for processing large volumes of data in real-time. Adversaries may target Event Hubs to delete them, aiming to disrupt data flow and evade detection by erasing evidence of their activities. The detection rule monitors Azure activity logs for successful deletion operations, flagging potential defense evasion attempts by identifying unauthorized or suspicious deletions.
 
@@ -69,7 +69,17 @@ references = [
 risk_score = 47
 rule_id = "e0f36de1-0342-453d-95a9-a068b257b053"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Log Auditing", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: Storage",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Log Auditing",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Service: Azure Event Hub",
+    "Platform: Azure",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
