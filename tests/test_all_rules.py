@@ -37,7 +37,7 @@ from detection_rules.rule import (
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
+from detection_rules.utils import ETC_DIR, INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
 from detection_rules.version_lock import loaded_version_lock
 
 from .base import BaseRuleTest
@@ -1044,22 +1044,21 @@ class TestRuleMetadata(BaseRuleTest):
     def test_min_stack_version_supported(self):
         failures = []
         # Load supported stack versions from stack-schema-map.yaml
-        stack_map_path = Path("detection_rules/etc/stack-schema-map.yaml")
+        stack_map_path = Path(f"{ETC_DIR}/stack-schema-map.yaml")
         with Path.open(stack_map_path) as f:
             stack_map = yaml.safe_load(f)
 
         # Get the minimum supported stack version (as string)
         supported_versions = [v for v in stack_map if not v.startswith("#") and isinstance(v, str)]
-        min_supported = min(supported_versions, key=lambda v: tuple(map(int, v.split("."))))
+        def version_tuple(v):
+            return tuple(map(int, v.split(".")))
+        min_supported = min(supported_versions, key=version_tuple)
         # Load all production rules
         for rule in self.all_rules:
             min_stack_version = rule.contents.metadata.get("min_stack_version")
             if not min_stack_version:
                 continue  # skip rules without min_stack_version
             # Compare versions as tuples of ints
-            def version_tuple(v):
-                return tuple(map(int, v.split(".")))
-
             if version_tuple(min_stack_version) < version_tuple(min_supported):
                 failures.append(
                     f"{self.rule_str(rule)}"
