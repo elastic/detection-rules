@@ -1050,8 +1050,10 @@ class TestRuleMetadata(BaseRuleTest):
 
         # Get the minimum supported stack version (as string)
         supported_versions = [v for v in stack_map if not v.startswith("#") and isinstance(v, str)]
+
         def version_tuple(v):
             return tuple(map(int, v.split(".")))
+
         min_supported = min(supported_versions, key=version_tuple)
         # Load all production rules
         for rule in self.all_rules:
@@ -1061,8 +1063,7 @@ class TestRuleMetadata(BaseRuleTest):
             # Compare versions as tuples of ints
             if version_tuple(min_stack_version) < version_tuple(min_supported):
                 failures.append(
-                    f"{self.rule_str(rule)}"
-                    f"min_stack_version={min_stack_version} < supported={min_supported}"
+                    f"{self.rule_str(rule)}min_stack_version={min_stack_version} < supported={min_supported}"
                 )
 
         if failures:
