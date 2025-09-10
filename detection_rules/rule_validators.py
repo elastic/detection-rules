@@ -27,14 +27,18 @@ from eql.parser import (  # type: ignore[reportMissingTypeStubs]
 )
 from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStubs]
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
-from marshmallow import ValidationError
 from semver import Version
 
 from . import ecs, endgame, integrations, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .integrations import get_integration_schema_data, load_integrations_manifests, load_integrations_schemas, parse_datasets
+from .integrations import (
+    get_integration_schema_data,
+    load_integrations_manifests,
+    load_integrations_schemas,
+    parse_datasets,
+)
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_stack_schemas
 
@@ -765,15 +769,6 @@ class ESQLValidator(QueryValidator):
                 rule_meta,
                 rule_data.rule_id,
             )
-
-    def validate_integration(
-        self,
-        _: QueryRuleData,
-        __: RuleMeta,
-        ___: list[dict[str, Any]],
-    ) -> ValidationError | None | ValueError:
-        # Disabling self.validate(data, meta)
-        pass
 
     def get_rule_integrations(self, metadata: RuleMeta) -> list[str]:
         """Retrieve rule integrations from metadata."""
