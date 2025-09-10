@@ -13,10 +13,10 @@ from collections import defaultdict
 from pathlib import Path
 
 import eql
-import kql
 from marshmallow import ValidationError
 from semver import Version
 
+import kql
 from detection_rules import attack
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
@@ -36,7 +36,7 @@ from detection_rules.rule import (
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import load_etc_dump, INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import loaded_version_lock
 
 from .base import BaseRuleTest
