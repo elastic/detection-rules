@@ -13,10 +13,10 @@ from collections import defaultdict
 from pathlib import Path
 
 import eql
+import kql
 from marshmallow import ValidationError
 from semver import Version
 
-import kql
 from detection_rules import attack
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
