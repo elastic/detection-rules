@@ -717,8 +717,8 @@ class QueryValidator:
     @cached
     def get_endgame_schema(self, indices: list[str], endgame_version: str) -> endgame.EndgameSchema | None:
         """Get an assembled flat endgame schema."""
-
-        if indices and "endgame-*" not in indices:
+        # Only include endgame when explicitly requested by TOML via indices
+        if not indices or "endgame-*" not in indices:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
