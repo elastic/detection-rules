@@ -252,15 +252,15 @@ class KQLValidator(QueryValidator):
         if data.language == "lucene":
             return
 
-        all_targets = self.build_validation_plan(data, meta)
-        has_integration = any(t.kind == "integration" for t in all_targets)
-        # Order targets: integrations first (if any), then stack; otherwise just stack
-        ordered_targets = (
-            [t for t in all_targets if t.kind == "integration"] + [t for t in all_targets if t.kind == "stack"]
-            if has_integration
-            else [t for t in all_targets if t.kind == "stack"]
-        )
         for _ in range(max_attempts):
+            all_targets = self.build_validation_plan(data, meta)
+            has_integration = any(t.kind == "integration" for t in all_targets)
+            # Order targets: integrations first (if any), then stack; otherwise just stack
+            ordered_targets = (
+                [t for t in all_targets if t.kind == "integration"] + [t for t in all_targets if t.kind == "stack"]
+                if has_integration
+                else [t for t in all_targets if t.kind == "stack"]
+            )
             retry = False
             for t in ordered_targets:
                 exc = self.validate_query_text_with_schema(
@@ -583,16 +583,15 @@ class EQLValidator(QueryValidator):
         if has_invalid and set_fields:
             raise ValueError(f"Rule type configuration fields not in ECS schema: {', '.join(set_fields)}")
 
-        all_targets = self.build_validation_plan(data, meta)
-        has_integration = any(t.kind == "integration" for t in all_targets)
-        # Order targets: integrations first (if any), then stack; otherwise just stack
-        ordered_targets = (
-            [t for t in all_targets if t.kind == "integration"] + [t for t in all_targets if t.kind == "stack"]
-            if has_integration
-            else [t for t in all_targets if t.kind == "stack"]
-        )
-
         for _ in range(max_attempts):
+            all_targets = self.build_validation_plan(data, meta)
+            has_integration = any(t.kind == "integration" for t in all_targets)
+            # Order targets: integrations first (if any), then stack; otherwise just stack
+            ordered_targets = (
+                [t for t in all_targets if t.kind == "integration"] + [t for t in all_targets if t.kind == "stack"]
+                if has_integration
+                else [t for t in all_targets if t.kind == "stack"]
+            )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
             for t in ordered_targets:
                 exc = self.validate_query_text_with_schema(
