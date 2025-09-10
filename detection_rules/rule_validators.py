@@ -358,7 +358,7 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         return list({str(f) for f in self.ast if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
-    def auto_add_field(self, validation_checks_error: eql.errors.EqlParseError, index_or_dataview: str) -> None:
+    def auto_add_field(self, validation_checks_error: eql.EqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
         field_name = extract_error_field(self.query, validation_checks_error)
         if not field_name:
