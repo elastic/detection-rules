@@ -1293,7 +1293,7 @@ class TestBuildTimeFields(BaseRuleTest):
 
             errors = []
             for build_field, field_versions in build_fields.items():
-                start_ver, end_ver = field_versions
+                start_ver, _ = field_versions
                 # when a _new_ build time field is introduced, _all_ rules _must_ have a min_stack_version for the stack
                 # version in which the field was introduced. This is because the initial change will result in a hash
                 # change which is different because of the build time fields.
