@@ -14,6 +14,7 @@ from pathlib import Path
 
 import eql
 import kql
+import yaml
 from marshmallow import ValidationError
 from semver import Version
 
@@ -1039,6 +1040,35 @@ class TestRuleMetadata(BaseRuleTest):
 
                     if validation_integrations_check and "event.dataset" in rule.contents.data.query:
                         raise validation_integrations_check
+
+    def test_min_stack_version_supported(self):
+        failures = []
+        # Load supported stack versions from stack-schema-map.yaml
+        stack_map_path = Path("detection_rules/etc/stack-schema-map.yaml")
+        with Path.open(stack_map_path) as f:
+            stack_map = yaml.safe_load(f)
+
+        # Get the minimum supported stack version (as string)
+        supported_versions = [v for v in stack_map if not v.startswith("#") and isinstance(v, str)]
+        min_supported = min(supported_versions, key=lambda v: tuple(map(int, v.split("."))))
+        # Load all production rules
+        for rule in self.all_rules:
+            min_stack_version = rule.contents.metadata.get("min_stack_version")
+            if not min_stack_version:
+                continue  # skip rules without min_stack_version
+            # Compare versions as tuples of ints
+            def version_tuple(v):
+                return tuple(map(int, v.split(".")))
+
+            if version_tuple(min_stack_version) < version_tuple(min_supported):
+                failures.append(
+                    f"{self.rule_str(rule)}"
+                    f"min_stack_version={min_stack_version} < supported={min_supported}"
+                )
+
+        if failures:
+            fail_msg = "The following rules have min_stack_version lower than the minimum supported in stack-schema-map.yaml:\n"
+            self.fail(fail_msg + "\n".join(failures))
 
 
 class TestIntegrationRules(BaseRuleTest):
