@@ -1041,6 +1041,7 @@ class TestRuleMetadata(BaseRuleTest):
                         raise validation_integrations_check
 
     def test_min_stack_version_supported(self):
+        """Test that rules have a min_stack_version that is supported in stack-schema-map.yaml."""
         failures = []
         # Load supported stack versions from stack-schema-map.yaml
         stack_map = load_etc_dump(["stack-schema-map.yaml"])
