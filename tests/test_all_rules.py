@@ -36,7 +36,7 @@ from detection_rules.rule import (
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import loaded_version_lock
 
 from .base import BaseRuleTest
@@ -1040,6 +1040,29 @@ class TestRuleMetadata(BaseRuleTest):
 
                     if validation_integrations_check and "event.dataset" in rule.contents.data.query:
                         raise validation_integrations_check
+
+    def test_min_stack_version_supported(self):
+        """Test that rules have a min_stack_version that is supported in stack-schema-map.yaml."""
+        failures = []
+        # Load supported stack versions from stack-schema-map.yaml
+        stack_map = load_etc_dump(["stack-schema-map.yaml"])
+
+        # Get the minimum supported stack version as version object
+        min_supported = min(stack_map.keys(), key=lambda v: Version.parse(v))
+        # Load all production rules
+        for rule in self.all_rules:
+            min_stack_version = rule.contents.metadata.get("min_stack_version")
+            if not min_stack_version:
+                continue  # skip rules without min_stack_version
+            # Compare versions using semantic versioning
+            if Version.parse(min_stack_version) < min_supported:
+                failures.append(
+                    f"{self.rule_str(rule)} min_stack_version={min_stack_version} < supported={min_supported}"
+                )
+
+        if failures:
+            fail_msg = "The following rules have min_stack_version lower than the minimum supported in stack-schema-map.yaml:\n"
+            self.fail(fail_msg + "\n".join(failures))
 
 
 class TestIntegrationRules(BaseRuleTest):
