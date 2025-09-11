@@ -2,13 +2,14 @@
 creation_date = "2025/02/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/02/11"
+updated_date = "2025/09/09"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when an SNS topic is created by a user who does not typically perform this action. Adversaries may create SNS
-topics to stage capabilities for data exfiltration or other malicious activities.
+topics to stage capabilities for data exfiltration or other malicious activities. This is a New Terms rule that only flags
+when this behavior is observed for the first time by a user or role.
 """
 false_positives = [
     """
@@ -16,7 +17,7 @@ false_positives = [
     action.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -27,23 +28,23 @@ note = """## Triage and Analysis
 
 This rule detects the creation of an AWS Simple Notification Service (SNS) topic by a user who does not typically perform this action. Adversaries may create SNS topics to facilitate data exfiltration or other malicious activities.
 
-This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time on a host in the last 10 days.
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time by a user or role.
 
 #### Possible Investigation Steps
 
-### 1. Identify the Actor and Context
+### Identify the Actor and Context
 - **User Identity and Role**:
   - Examine `aws.cloudtrail.user_identity.arn` to determine **who** created the SNS topic.
-  - Identify whether the actor assumed a **privileged IAM role** (`aws.cloudtrail.user_identity.type: "AssumedRole"`).
+  - Identify whether the actor assumed a **privileged IAM role** (`aws.cloudtrail.user_identity.type: "AssumedRole"`) or used a long term access keys (`aws.cloudtrail.user_identity.access_key_id`).
 - **User Agent and Tooling**:
-  - Check `user_agent.name` to determine if this action was performed via the AWS CLI, SDK, or Console.
+  - Check `user_agent.original` to determine if this action was performed via the AWS CLI, SDK, or Console.
   - If `aws-cli` was used, review whether it aligns with typical automation or administrative behavior.
 - **Source IP and Geographic Location**:
   - Review `source.ip` and `source.geo` fields to confirm if the request originated from a **trusted** or **unexpected** location.
 
-### 2. Evaluate the SNS Topic Creation
+### Evaluate the SNS Topic Creation
 - **Topic Name and Purpose**:
-  - Check `aws.cloudtrail.flattened.request_parameters.name` for the **SNS topic name** and determine whether it appears suspicious (e.g., random strings, unusual keywords).
+  - Check `aws.cloudtrail.request_parameters` for the **SNS topic name** and determine whether it appears suspicious (e.g., random strings, unusual keywords).
 - **Target Region and Account**:
   - Verify `cloud.region` and `cloud.account.id` to **ensure the SNS topic was created in an expected environment**.
 - **Associated API Calls**:
@@ -53,7 +54,7 @@ This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-
     - `SetTopicAttributes`
   - These may indicate follow-up steps taken to misuse the SNS topic.
 
-### 3. Analyze Potential Malicious Intent
+### Analyze Potential Malicious Intent
 - **Is This an Isolated Action or a Pattern?**
   - Check if this **user has previously created SNS topics** using historical CloudTrail logs.
   - Look for **multiple topic creations in a short period**, which may suggest an automation script or malicious behavior.
@@ -84,7 +85,11 @@ This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-
 - **Investigate for Persistence**:
   - Check whether the SNS topic is **being used as a notification channel for Lambda, S3, or other AWS services**.
 """
-references = ["https://docs.aws.amazon.com/sns/latest/api/API_CreateTopic.html"]
+references = [
+      "https://docs.aws.amazon.com/sns/latest/api/API_CreateTopic.html",
+      "https://permiso.io/blog/s/smishing-attack-on-aws-sms-new-phone-who-dis/",
+      "https://www.sentinelone.com/labs/sns-sender-active-campaigns-unleash-messaging-spam-through-the-cloud/",
+]
 risk_score = 21
 rule_id = "3c3f65b8-e8b4-11ef-9511-f661ea17fbce"
 severity = "low"
@@ -96,6 +101,7 @@ tags = [
     "Resources: Investigation Guide",
     "Use Case: Threat Detection",
     "Tactic: Resource Development",
+    "Tactic: Impact",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -105,8 +111,6 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "sns.amazonaws.com"
     and event.action: "CreateTopic"
     and event.outcome: "success"
-    and aws.cloudtrail.user_identity.type: "AssumedRole"
-    and aws.cloudtrail.user_identity.arn: *i-*
 '''
 
 
@@ -122,26 +126,42 @@ reference = "https://attack.mitre.org/techniques/T1608/"
 id = "TA0042"
 name = "Resource Development"
 reference = "https://attack.mitre.org/tactics/TA0042/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+[[rule.threat.technique.subtechnique]]
+id = "T1496.004"
+name = "Cloud Service Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/004/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
     "user.name",
-    "source.address",
+    "user_agent.original",
+    "source.ip",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
-    "user_agent.original",
+    "aws.cloudtrail.user_identity.access_key_id",
     "event.action",
     "event.outcome",
+    "cloud.account.id",
     "cloud.region",
-    "aws.cloudtrail.flattened.request_parameters.protocol",
-    "aws.cloudtrail.flattened.request_parameters.topicArn",
     "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
 ]
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
