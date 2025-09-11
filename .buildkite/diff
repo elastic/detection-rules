@@ -1,0 +1,20 @@
+#!/bin/bash
+# Produces a list of changed files between two commits (works for merges and
+# regular commits).
+# Used in conjunction with the monorepo-diff-buildkite-plugin to determine
+# which pipelines to upload/trigger based on the files changed.
+
+[ $# -lt 1 ] && { echo "argument is missing."; exit 1; }
+
+COMMIT=$1
+
+HEAD_BRANCH=$(git remote show origin | awk '/HEAD branch/ {print $NF}')
+BRANCH_POINT_COMMIT=$(git merge-base "$HEAD_BRANCH" "$COMMIT")
+
+if [ "$BUILDKITE_BRANCH" == "$HEAD_BRANCH" ]; then
+	echo "diff between $COMMIT and HEAD~1"
+        git diff --raw HEAD~1 | awk '{print $6; if($7) {print $7}}'
+else
+	echo "diff between $COMMIT and $BRANCH_POINT_COMMIT"
+        git diff --raw "$COMMIT".."$BRANCH_POINT_COMMIT" | awk '{print $6; if($7) {print $7}}'
+fi
