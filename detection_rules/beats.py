@@ -128,7 +128,11 @@ def _flatten_schema(schema: list[dict[str, Any]] | None, prefix: str = "") -> li
 
             flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
-            flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
+            if s.get("name") and s.get("type") == "nested":
+                nested_prefix = prefix + s["name"] + "."
+                flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
+            else:
+                flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
         elif "name" in s:
             _s = s.copy()
             # type is implicitly keyword if not defined
@@ -177,17 +181,20 @@ def get_beats_sub_schema(schema: dict[str, Any], beat: str, module: str, *datase
 
     flattened: list[dict[str, Any]] = []
     beat_dir = schema[beat]
-    module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(module, {})
+    # Normalize module name in case callers include quotes from rendered AST
+    normalized_module = module.strip("\"' ")
+    module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(normalized_module, {})
 
     # if we only have a module then we'll work with what we got
     all_datasets = datasets if datasets else [d for d in module_dir.get("folders", {}) if not d.startswith("_")]
 
     for _dataset in all_datasets:
         # replace aws.s3 -> s3
-        dataset = _dataset[len(module) + 1 :] if _dataset.startswith(module + ".") else _dataset
+        ds = _dataset.strip("\"' ")
+        dataset = ds[len(normalized_module) + 1 :] if ds.startswith(normalized_module + ".") else ds
 
         dataset_dir = module_dir.get("folders", {}).get(dataset, {})
-        flattened.extend(get_field_schema(dataset_dir, prefix=module + ".", include_common=True))
+        flattened.extend(get_field_schema(dataset_dir, prefix=normalized_module + ".", include_common=True))
 
     # we also need to capture (beta?) fields which are directly within the module _meta.files.fields
     flattened.extend(get_field_schema(module_dir, include_common=True))
@@ -264,11 +271,11 @@ def get_datasets_and_modules(tree: eql.ast.BaseNode | kql.ast.BaseNode) -> tuple
             and isinstance(node.right, eql.ast.String)
         ):
             if node.left == eql.ast.Field("event", ["module"]):
-                modules.add(node.right.render())  # type: ignore[reportUnknownMemberType]
+                modules.add(node.right.value)  # type: ignore[reportUnknownMemberType]
             elif node.left == eql.ast.Field("event", ["dataset"]) or node.left == eql.ast.Field(
                 "data_stream", ["dataset"]
             ):
-                datasets.add(node.right.render())  # type: ignore[reportUnknownMemberType]
+                datasets.add(node.right.value)  # type: ignore[reportUnknownMemberType]
         elif isinstance(node, eql.ast.InSet):
             if node.expression == eql.ast.Field("event", ["module"]):
                 modules.update(node.get_literals())  # type: ignore[reportUnknownMemberType]
