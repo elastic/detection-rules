@@ -710,8 +710,8 @@ class QueryValidator:
     @cached
     def get_endgame_schema(self, indices: list[str], endgame_version: str) -> endgame.EndgameSchema | None:
         """Get an assembled flat endgame schema."""
-
-        if indices and "endgame-*" not in indices:
+        # Only include endgame when explicitly requested by TOML via indices
+        if not indices or "endgame-*" not in indices:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
@@ -999,10 +999,14 @@ class ThreatMatchRuleData(QueryRuleData):
     @dataclass(frozen=True)
     class Entries:
         @dataclass(frozen=True)
-        class ThreatMapEntry:
+        class ThreatMapEntry(StackCompatMixin):
             field: definitions.NonEmptyStr
             type: Literal["mapping"]
             value: definitions.NonEmptyStr
+            # Use dataclasses.field to avoid shadowing by attribute name "field"
+            negate: bool | None = dataclasses.field(  # type: ignore[reportIncompatibleVariableOverride]
+                metadata={"metadata": {"min_compat": "9.2"}}
+            )
 
         entries: list[ThreatMapEntry]
 
@@ -1034,6 +1038,38 @@ class ThreatMatchRuleData(QueryRuleData):
                 return
 
             threat_query_validator.validate(self, meta)
+
+    def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
+        """Validate negate usage and group semantics for threat mapping."""
+
+        for idx, group in enumerate(self.threat_mapping or []):
+            entries = group.entries or []
+
+            # Enforce: DOES NOT MATCH entries are allowed only if there is at least
+            # one MATCH (non-negated) entry in the same group
+            has_negate = any(bool(getattr(e, "negate", False)) for e in entries)
+            has_match = any(not bool(getattr(e, "negate", False)) for e in entries)
+            if has_negate and not has_match:
+                msg = (
+                    f"threat_mapping group {idx}: DOES NOT MATCH entries require at least one MATCH "
+                    "(non-negated) entry in the same group."
+                )
+                raise ValidationError(msg)
+
+            # Track negate presence per (source.field, indicator.field) pair to detect
+            # conflicts where both MATCH and DOES NOT MATCH are defined for the same pair
+            pair_to_negates: dict[tuple[str, str], set[bool]] = {}
+            for e in entries:
+                is_neg = bool(getattr(e, "negate", False))
+                pair_to_negates.setdefault((e.field, e.value), set()).add(is_neg)
+
+            for (src_field, ind_field), flags in pair_to_negates.items():
+                if True in flags and False in flags:
+                    msg = (
+                        f"threat_mapping group {idx}: cannot define both MATCH and DOES NOT MATCH for the same "
+                        f"source and indicator fields: '{src_field}' <-> '{ind_field}'."
+                    )
+                    raise ValidationError(msg)
 
 
 # All of the possible rule types

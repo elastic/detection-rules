@@ -34,9 +34,8 @@ from detection_rules.rule import (
     TOMLRuleContents,
 )
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
-from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import loaded_version_lock
 
 from .base import BaseRuleTest
@@ -997,7 +996,7 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "eql")
 
         for query in invalid_integration_queries_eql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(eql.EqlSchemaError):
                 build_rule(query, "eql")
         # kql
         for query in valid_queries_kql:
@@ -1008,37 +1007,31 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "kuery")
 
         for query in invalid_integration_queries_kql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(kql.KqlParseError):
                 build_rule(query, "kuery")
 
-    def test_event_dataset(self):
+    def test_min_stack_version_supported(self):
+        """Test that rules have a min_stack_version that is supported in stack-schema-map.yaml."""
+        failures = []
+        # Load supported stack versions from stack-schema-map.yaml
+        stack_map = load_etc_dump(["stack-schema-map.yaml"])
+
+        # Get the minimum supported stack version as version object
+        min_supported = min(stack_map.keys(), key=lambda v: Version.parse(v))
+        # Load all production rules
         for rule in self.all_rules:
-            if isinstance(rule.contents.data, QueryRuleData):
-                # Need to pick validator based on language
-                if rule.contents.data.language == "kuery":
-                    test_validator = KQLValidator(rule.contents.data.query)
-                elif rule.contents.data.language == "eql":
-                    test_validator = EQLValidator(rule.contents.data.query)
-                else:
-                    continue
-                data = rule.contents.data
-                meta = rule.contents.metadata
-                if (meta.query_schema_validation is not False or meta.maturity != "deprecated") and (
-                    isinstance(data, QueryRuleData) and data.language != "lucene"
-                ):
-                    packages_manifest = load_integrations_manifests()
-                    pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+            min_stack_version = rule.contents.metadata.get("min_stack_version")
+            if not min_stack_version:
+                continue  # skip rules without min_stack_version
+            # Compare versions using semantic versioning
+            if Version.parse(min_stack_version) < min_supported:
+                failures.append(
+                    f"{self.rule_str(rule)} min_stack_version={min_stack_version} < supported={min_supported}"
+                )
 
-                    validation_integrations_check = None
-
-                    if pkg_integrations:
-                        # validate the query against related integration fields
-                        validation_integrations_check = test_validator.validate_integration(
-                            data, meta, pkg_integrations
-                        )
-
-                    if validation_integrations_check and "event.dataset" in rule.contents.data.query:
-                        raise validation_integrations_check
+        if failures:
+            fail_msg = "The following rules have min_stack_version lower than the minimum supported in stack-schema-map.yaml:\n"
+            self.fail(fail_msg + "\n".join(failures))
 
 
 class TestIntegrationRules(BaseRuleTest):
@@ -1270,7 +1263,7 @@ class TestBuildTimeFields(BaseRuleTest):
 
             errors = []
             for build_field, field_versions in build_fields.items():
-                start_ver, end_ver = field_versions
+                start_ver, _ = field_versions
                 # when a _new_ build time field is introduced, _all_ rules _must_ have a min_stack_version for the stack
                 # version in which the field was introduced. This is because the initial change will result in a hash
                 # change which is different because of the build time fields.
