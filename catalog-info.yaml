@@ -1,30 +1,18 @@
-# Declare your Buildkite pipelines below
+# Declare a Backstage Component that represents your application.
 ---
-# yaml-language-server: $schema=https://gist.githubusercontent.com/elasticmachine/988b80dae436cafea07d9a4a460a011d/raw/rre.schema.json
+# yaml-language-server: $schema=https://json.schemastore.org/catalog-info.json
 apiVersion: backstage.io/v1alpha1
-kind: Resource
+kind: Component
 metadata:
-  name: buildkite-pipeline-detection-rules
-  description: Buildkite Pipeline for detection-rules
-  links:
-    - title: Pipeline
-      url: https://buildkite.com/elastic/detection-rules
+  name: detection-rules
+  description: Elastic detection rules Behavioral Protection
+  annotations:
+    backstage.io/source-location: "url:https://github.com/elastic/detection-rules/"
+    github.com/project-slug: "elastic/detection-rules"
+    github.com/team-slug: "elastic/threat-research-and-detection-engineering"
+    buildkite.com/project-slug: "elastic/detection-rules"
 
 spec:
-  type: buildkite-pipeline
+  type: rules
   owner: group:threat-research-and-detection-engineering
-  system: buildkite
-  implementation:
-    apiVersion: buildkite.elastic.dev/v1
-    kind: Pipeline
-    metadata:
-      name: detection-rules
-      description: 
-    spec:
-      repository: elastic/detection-rules
-      pipeline_file: ".buildkite/pipeline.yml"
-      teams:
-        threat-research-and-detection-engineering:
-          access_level: MANAGE_BUILD_AND_READ
-        everyone:
-          access_level: READ_ONLY
+  lifecycle: production
