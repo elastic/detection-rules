@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2025/09/11"
 
@@ -19,6 +19,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -73,13 +74,17 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Resources: Investigation Guide",
     "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and 
+  (
+    process.name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") or
+    ?process.pe.original_file_name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE")
+  ) and
   not process.executable : (
           "\\\\?\\Volume{????????-????-????-????-????????????}\\Windows\\System32\\inetsrv\\w3wp.exe",
           "?:\\PROGRA~?\\MICROS~?\\Office??\\winword.exe",
