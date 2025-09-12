@@ -2,7 +2,7 @@
 creation_date = "2024/06/19"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -60,9 +60,9 @@ Microsoft Management Console (MMC) is a Windows utility that provides a framewor
 - Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 references = ["https://www.elastic.co/security-labs/grimresource"]
-risk_score = 73
+risk_score = 47
 rule_id = "7e23dfef-da2c-4d64-b11d-5f285b638853"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -93,7 +93,13 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Windows\\System32\\*.msc",
         "?:\\Windows\\SysWOW64\\*.msc",
         "?:\\Program files\\*.msc",
-        "?:\\Program Files (x86)\\*.msc"
+        "?:\\Program Files (x86)\\*.msc",
+        "?:\\Windows\\ADFS\\Microsoft.IdentityServer.msc"
+  ) and
+  not process.command_line : (
+    "C:\\Windows\\system32\\mmc.exe eventvwr.msc /s",
+    "mmc.exe eventvwr.msc /s",
+    "\"C:\\Windows\\System32\\mmc.exe\" CompMgmt.msc*"
   )
 '''
 
