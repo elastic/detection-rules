@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,6 @@ index = [
     "logs-endpoint.events.process-*",
     "logs-endpoint.events.file-*",
     "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
     "endgame-*",
 ]
 interval = "60m"
@@ -69,9 +68,9 @@ This rule searches for executable files written by PDF reader software and execu
     - Consider improvements to the security awareness program.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 73
+risk_score = 47
 rule_id = "1defdd62-cd8d-426e-a246-81a37751bb2b"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -80,25 +79,24 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
 ]
 type = "eql"
 
 query = '''
 sequence with maxspan=2h
-  [file where host.os.type == "windows" and event.type != "deletion" and file.extension : "exe" and
-     (process.name : "AcroRd32.exe" or
-      process.name : "rdrcef.exe" or
-      process.name : "FoxitPhantomPDF.exe" or
-      process.name : "FoxitReader.exe") and
-     not (file.name : "FoxitPhantomPDF.exe" or
-          file.name : "FoxitPhantomPDFUpdater.exe" or
-          file.name : "FoxitReader.exe" or
-          file.name : "FoxitReaderUpdater.exe" or
-          file.name : "AcroRd32.exe" or
-          file.name : "rdrcef.exe")
-  ] by host.id, file.path
-  [process where host.os.type == "windows" and event.type == "start"] by host.id, process.executable
+  [file where host.os.type == "windows" and event.type != "deletion" and
+    process.name : ("AcroRd32.exe", "rdrcef.exe", "FoxitPhantomPDF.exe", "FoxitReader.exe", "FoxitPDFEditor.exe") and
+    (file.extension : "exe" or ?file.Ext.header_bytes : "4d5a*")] by host.id, file.path
+  [process where host.os.type == "windows" and event.type == "start" and
+    not (
+      process.code_signature.subject_name in (
+        "Adobe Inc.",
+        "Adobe Systems, Incorporated",
+        "FOXIT SOFTWARE INC.",
+        "Foxit Software Incorporated"
+      ) and
+      process.code_signature.trusted == true
+    )] by host.id, process.executable
 '''
 
 
