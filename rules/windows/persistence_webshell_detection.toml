@@ -98,7 +98,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and
+host.os.type:windows and event.category:process and event.type:start and process.args : * and
   process.parent.name:("w3wp.exe" or "httpd.exe" or "nginx.exe" or "php.exe" or "php-cgi.exe" or "tomcat.exe") and
   (
     process.name : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe") or
@@ -111,11 +111,39 @@ host.os.type:windows and event.category:process and event.type:start and
       "cmd.exe /s /c \"mode CON\"" or
       "cmd.exe /c \"mode\"" or
       "cmd.exe /s /c \"tput colors 2>&1\"" or
-      "cmd.exe /s /c \"stty 2> NUL\""
-    )
+      "cmd.exe /s /c \"stty 2> NUL\"" or
+      "cmd.exe /s /c \"stty 2>&1\"" or
+      "cmd.exe /c \"stty 2>&1\"" or
+      "cmd.exe /s /c \"ipconfig /all 2>&1\"" or
+      "cmd.exe /s /c \"echo '%os%'\"" or
+      *.\\install\\awk.exe*
+    ) or
+    process.args : (\(git or (*artisan* and *queue\:work*) or *rmdir* or "mode CON" or ver or ls or mode or dir)
   )
 '''
 
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files\\\\*"
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
