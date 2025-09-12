@@ -2,7 +2,7 @@
 creation_date = "2021/04/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,7 @@ Remote Desktop Shadowing allows administrators to view or control active RDP ses
 - Implement enhanced monitoring and logging for RDP activities across the network to detect and respond to similar threats more quickly in the future.
 - Review and update RDP access policies and configurations to ensure they align with best practices, such as enforcing multi-factor authentication and limiting RDP access to only necessary users and systems."""
 references = [
-    "https://bitsadm.in/blog/spying-on-users-using-rdp-shadowing",
+    "https://blog.bitsadmin.com/spying-on-users-using-rdp-shadowing",
     "https://swarm.ptsecurity.com/remote-desktop-services-shadowing/",
 ]
 risk_score = 73
@@ -86,12 +86,13 @@ query = '''
 
 any where host.os.type == "windows" and
 (
-  (event.category == "registry" and
-     registry.path : (
-      "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
-      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
-      "MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
-    )
+  (event.category == "registry" and event.type == "change" and
+    registry.value : "Shadow" and
+    registry.path : (
+      "*\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
+    ) and
+    registry.data.strings : ("1", "0x00000001", "2", "0x00000002", "3", "0x00000003", "4", "0x00000004")
+
   ) or
   (event.category == "process" and event.type == "start" and
      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or

@@ -2,7 +2,7 @@
 creation_date = "2024/02/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -88,13 +88,25 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("explorer.exe", "winrar.exe", "7zFM.exe", "Bandizip.exe") and
   (
-    process.args : "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*" or
+    process.args : "*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*" or
     process.executable : (
       "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*",
 
-      /* Crowdstrike specific exclusion as it uses NT Object paths */
+      /* Crowdstrike specific condition as it uses NT Object paths */
       "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*"
     )
+  ) and
+  not process.executable : (
+        "?:\\Program Files\\*.exe",
+        "?:\\Program Files (x86)\\*.exe",
+        "?:\\Windows\\System32\\mspaint.exe",
+        "?:\\Windows\\System32\\notepad.exe",
+
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Program Files\\*.exe",
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\*.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\mspaint.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\notepad.exe"
   )
 '''
 
