@@ -85,7 +85,19 @@ process.parent.name:"sqlservr.exe" and process.command_line : * and
 (
   (
     (process.name.caseless : "cmd.exe" or process.pe.original_file_name : "Cmd.Exe") and
-    not process.args : (\\\\* or "diskfree" or "rmdir" or "mkdir" or "dir" or "del" or "rename" or "bcp" or *XMLNAMESPACES*)
+    not process.args : (
+          \\\\* or diskfree or rmdir or mkdir or dir or DIR or del or rename or bcp or md or ren or REN or send or echo or
+          ECHO or TYPE or type or EXIST or forfiles or sqlcmd or SQLCMD or dtexec or Sort-Object or cat or copy or COPY or
+          move or MOVE or CD\\ or show or rd or powercfg or "C:\SPAN4\DATA\RISKPARAM.SPN" or ("@ECHO" and "@FOR") or
+          ("@echo" and "@for") or (SET and PATH=*) or ("-ExecutionPolicy" and "-File") or MSSQLFDLauncher$DATEV_DBENGINE or
+          (wmic and (cpu or computersystem or logicaldisk or os or ComputerSystem or volume)) or -s\:C\:\\WINDOWS\\SERVIC* or
+          D\:\\* or E\:\\* or F\:\\* or Z\:\\* or "C:\Program Files\Amazon\AWSCLIV2\aws.exe" or C\:\\7-Zip\\7z.exe* or
+          C\:\\FTP* or *\(Get-Item* or C\:\\ProgramData\\Daktronics*
+    ) and
+    not process.command_line : (
+          "\"C:\\Windows\\system32\\cmd.exe\" /c " or
+          "\"C:\\Windows\\System32\\cmd.exe\""
+    )
   ) or
   process.name.caseless:("bitsadmin.exe" or "certutil.exe" or "vpnbridge.exe") or
   process.name:("bitsadmin.exe" or "certutil.exe" or "vpnbridge.exe") or
@@ -131,7 +143,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.command_line", "host.id"]
+value = ["host.id", "process.command_line"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
