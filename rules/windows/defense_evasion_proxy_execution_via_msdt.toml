@@ -2,7 +2,7 @@
 creation_date = "2022/05/31"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -85,8 +85,7 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (?process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
   (
-    process.args : ("IT_RebrowseForFile=*", "ms-msdt:/id", "ms-msdt:-id", "*FromBase64*") or
-
+    process.args : ("IT_RebrowseForFile=*", "*FromBase64*", "*/../../../*", "*PCWDiagnostic*") or
     (
       process.args : "-af" and process.args : "/skip" and
       process.parent.name : ("explorer.exe", "cmd.exe", "powershell.exe", "cscript.exe", "wscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe") and

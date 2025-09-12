@@ -2,7 +2,7 @@
 creation_date = "2024/05/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -68,8 +68,33 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.executable : "?:\\Windows\\System32\\mmc.exe" and endswith~(process.parent.args, ".msc") and
- not process.parent.args : ("?:\\Windows\\System32\\*.msc", "?:\\Windows\\SysWOW64\\*.msc", "?:\\Program files\\*.msc", "?:\\Program Files (x86)\\*.msc")
+  process.parent.executable : "?:\\Windows\\System32\\mmc.exe" and endswith~(process.parent.args, ".msc") and
+  not (
+    process.parent.args : (
+      "?:\\Windows\\System32\\*.msc",
+      "?:\\Windows\\SysWOW64\\*.msc",
+      "?:\\Program files\\*.msc",
+      "?:\\Program Files (x86)\\*.msc"
+    ) or
+    (
+      process.executable : "?:\\Windows\\System32\\mmc.exe" and
+      process.command_line : "\"C:\\WINDOWS\\system32\\mmc.exe\" \"C:\\Windows\\System32\\gpme.msc\" /s /gpobject:\"LDAP://*"
+    ) or
+    (
+      process.executable : (
+        "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        "?:\\Program Files\\Mozilla Firefox\\firefox.exe",
+        "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "?:\\Program Files\\internet explorer\\iexplore.exe"
+      ) and
+      process.args : "http*://go.microsoft.com/fwlink/*"
+    ) or
+    process.executable : (
+      "?:\\Windows\\System32\\vmconnect.exe",
+      "?:\\Windows\\System32\\WerFault.exe",
+      "?:\\Windows\\System32\\wermgr.exe"
+    )
+  )
 '''
 
 
