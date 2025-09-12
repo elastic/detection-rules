@@ -49,6 +49,8 @@ Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will byp
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
 
+Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
