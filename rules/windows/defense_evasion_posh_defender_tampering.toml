@@ -2,7 +2,7 @@
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/09/03"
+updated_date = "2025/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,40 @@ index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Windows Defender Tampering Capabilities"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Windows Defender Tampering Capabilities
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell to disable Windows Defender features, reducing detection risks. The detection rule identifies scripts attempting to modify Defender settings, such as disabling real-time monitoring, by analyzing script block text for specific cmdlets and parameters, while excluding legitimate processes and users.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text to identify any suspicious cmdlets or parameters, such as Set-MpPreference with disabling options like DisableRealtimeMonitoring or DisableScriptScanning.
+- Check the process execution context, including the user ID, to determine if the script was executed by an unauthorized or suspicious user, excluding known safe user IDs like "S-1-5-18".
+- Investigate the file directory from which the script was executed to ensure it is not a known safe directory like "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\SenseCM".
+- Analyze the historical activity of the involved user and host to identify any patterns of suspicious behavior or previous security alerts.
+- Correlate the event with other logs and alerts to determine if this activity is part of a larger attack pattern or campaign targeting the environment.
+
+### False positive analysis
+
+- Legitimate administrative scripts may trigger the rule if they use Set-MpPreference cmdlets for valid configuration changes. To handle this, review the script's purpose and source, and consider adding exceptions for trusted scripts or users.
+- Automated system management tools might use similar cmdlets for routine maintenance. Identify these tools and exclude their processes or directories from the rule to prevent unnecessary alerts.
+- Security software updates or installations could temporarily disable certain Defender features. Monitor these activities and whitelist known update processes to avoid false positives.
+- PowerShell scripts executed by system administrators for troubleshooting may appear suspicious. Verify the user ID and script content, and exclude known administrator accounts from the rule if they frequently perform such tasks.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further tampering or spread of malicious activity.
+- Terminate any suspicious PowerShell processes identified by the detection rule to halt ongoing malicious actions.
+- Restore Windows Defender settings to their default state using a trusted administrative account to ensure antivirus protection is re-enabled.
+- Conduct a full antivirus scan on the affected system to identify and remove any malicious payloads or files that may have been introduced.
+- Review and revoke any unauthorized changes to user permissions or roles that may have facilitated the attack, ensuring only legitimate users have administrative access.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are compromised.
+- Implement enhanced monitoring and logging for PowerShell activities across the network to detect similar tampering attempts in the future.
+"""
 risk_score = 21
 rule_id = "c124dc1b-cef2-4d01-8d74-ff6b0d5096b6"
 setup = """## Setup
@@ -42,6 +76,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
