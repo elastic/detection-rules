@@ -44,13 +44,20 @@ PowerShell is a powerful scripting language used for task automation and configu
 
 ### Response and remediation
 
-- Immediately isolate the affected system from the network to prevent further tampering or spread of malicious activity.
-- Terminate any suspicious PowerShell processes identified by the detection rule to halt ongoing malicious actions.
-- Restore Windows Defender settings to their default state using a trusted administrative account to ensure antivirus protection is re-enabled.
-- Conduct a full antivirus scan on the affected system to identify and remove any malicious payloads or files that may have been introduced.
-- Review and revoke any unauthorized changes to user permissions or roles that may have facilitated the attack, ensuring only legitimate users have administrative access.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are compromised.
-- Implement enhanced monitoring and logging for PowerShell activities across the network to detect similar tampering attempts in the future.
+- Initiate the incident response process based on the outcome of the triage.
+  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Reimage the host operating system or restore the compromised files to clean versions.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 risk_score = 21
 rule_id = "c124dc1b-cef2-4d01-8d74-ff6b0d5096b6"
