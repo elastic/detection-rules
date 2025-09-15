@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -58,9 +59,9 @@ DLL side-loading exploits the DLL search order to load malicious code into trust
 - Update and patch all software on the affected system, focusing on the trusted Microsoft programs identified in the alert, to mitigate vulnerabilities exploited by DLL side-loading.
 - Monitor the network for any signs of lateral movement or additional compromised systems, using the indicators of compromise identified during the investigation.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems or data have been affected."""
-risk_score = 73
+risk_score = 47
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -73,35 +74,47 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Resources: Investigation Guide",
     "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and 
-  not process.executable : ("?:\\Windows\\explorer.exe", 
-                            "?:\\Windows\\SysWOW64\\explorer.exe",
-                            "?:\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-                            "?:\\Program Files (x86)\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-                            "?:\\Windows\\System32\\Dism.exe", 
-                            "?:\\Windows\\SysWOW64\\Dism.exe",  
-                            "?:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
-                            "?:\\Windows\\System32\\inetsrv\\w3wp.exe", 
-                            "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe") and
+  (
+    process.name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") or
+    ?process.pe.original_file_name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE")
+  ) and
+  not process.executable : (
+          "\\\\?\\Volume{????????-????-????-????-????????????}\\Windows\\System32\\inetsrv\\w3wp.exe",
+          "?:\\PROGRA~?\\MICROS~?\\Office??\\winword.exe",
+          "?:\\Program Files\\Microsoft Office\\*\\winword.exe",
+          "?:\\Program Files\\Microsoft Office ??\\*\\winword.exe",
+          "?:\\Program Files\\WindowsApps\\Microsoft.Office.Desktop.*\\Office??\\winword.exe",
+          "?:\\Program Files (x86)\\Microsoft Office\\*\\winword.exe",
+          "?:\\Program Files (x86)\\Windows Kits\\*Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
+          "?:\\Windows\\explorer.exe",
+          "?:\\Windows\\System32\\Dism.exe",
+          "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+          "?:\\Windows\\SysWOW64\\Dism.exe",
+          "?:\\Windows\\SysWOW64\\explorer.exe",
+          "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe"
+  ) and
   /* Crowdstrike specific exclusion as it uses NT Object paths */
   not
   (
     data_stream.dataset == "crowdstrike.fdr" and
     process.executable : (
-        "\\Device\\HarddiskVolume*\\Windows\\explorer.exe", 
-        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\explorer.exe",
-        "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-        "\\Device\\HarddiskVolume*\\Program Files (x86)\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-        "\\Device\\HarddiskVolume*\\Windows\\System32\\Dism.exe", 
-        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\Dism.exe",  
+        "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Office\\*\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Office ??\\*\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files\\WindowsApps\\Microsoft.Office.Desktop.*\\Office??\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\Microsoft Office\\*\\winword.exe",
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
-        "\\Device\\HarddiskVolume*\\Windows\\System32\\inetsrv\\w3wp.exe", 
+        "\\Device\\HarddiskVolume*\\Windows\\explorer.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\Dism.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\inetsrv\\w3wp.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\Dism.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\explorer.exe",
         "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\inetsrv\\w3wp.exe"
     )
   )

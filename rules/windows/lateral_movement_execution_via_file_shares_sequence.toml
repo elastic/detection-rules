@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/05"
+updated_date = "2025/09/04"
 
 [transform]
 [[transform.osquery]]
@@ -113,52 +113,31 @@ sequence with maxspan=1m
    process.pid == 4 and (file.extension : "exe" or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
   [process where host.os.type == "windows" and event.type == "start" and
     not (
-      /* Veeam related processes */
       (
-        process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe",
-          "Veeam.VSS.Sharepoint20??.exe", "OracleProxy.exe", "Veeam.SQL.Service", "VeeamDeploymentSvc.exe"
-        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
+        process.code_signature.trusted == true and
+        process.code_signature.subject_name : (
+              "Veeam Software Group GmbH",
+              "Elasticsearch, Inc.",
+              "PDQ.com Corporation",
+              "CrowdStrike, Inc.",
+              "Microsoft Windows Hardware Compatibility Publisher",
+              "ZOHO Corporation Private Limited",
+              "BeyondTrust Corporation", 
+              "CyberArk Software Ltd.", 
+              "Sophos Ltd"
+        )
       ) or
-      /* PDQ related processes */
-      (
-        process.name : (
-          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe",
-          "PDQInventoryWakeCommand-?.exe", "PDQDeployRunner-?.exe"
-        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
-      ) or
-      /* CrowdStrike related processes */
-      (
-        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*Sensor*.exe" and 
-         process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
-        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
-         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")
-      ) or
-      /* MS related processes */
-      (
-        process.executable == "System" or
-        (process.executable : "?:\\Windows\\ccmsetup\\ccmsetup.exe" and 
-         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation")
-      ) or
-      /* CyberArk processes */
-      (
-        process.executable : "?:\\Windows\\CAInvokerService.exe" and 
-        process.code_signature.trusted == true and process.code_signature.subject_name : "CyberArk Software Ltd."
-      )  or
-      /* Sophos processes */
-      (
-        process.executable : "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe" and 
-        process.code_signature.trusted == true and process.code_signature.subject_name : "Sophos Ltd"
-      )  or
-      /* Elastic processes */
       (
         process.executable : (
-          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\previous\\elastic-endpoint.exe",
-          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\elastic-agent.exe",
-          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\agentbeat.exe"
-        ) and 
-        process.code_signature.trusted == true and process.code_signature.subject_name : "Elasticsearch, Inc."
-      ) 
+          "?:\\Windows\\ccmsetup\\ccmsetup.exe",
+          "?:\\Windows\\SoftwareDistribution\\Download\\Install\\AM_Delta*.exe",
+          "?:\\Windows\\CAInvokerService.exe"
+        ) and process.code_signature.trusted == true
+      ) or
+      (
+        process.executable : "G:\\SMS_*\\srvboot.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation"
+      )
     )
   ] by host.id, process.executable
 '''
