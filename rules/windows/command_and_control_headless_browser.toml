@@ -2,7 +2,7 @@
 creation_date = "2024/05/10"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -73,12 +73,17 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe") and
-  (process.args : "--headless*" or process.args : "data:text/html;base64,*") and
+  process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe") and
+  process.args : "--headless*" and
+  process.args : ("--disable-gpu", "--dump-dom", "*http*", "data:text/html;base64,*") and
   process.parent.name :
      ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe", "mshta.exe", "conhost.exe", "msiexec.exe",
       "explorer.exe", "rundll32.exe", "winword.exe", "excel.exe", "onenote.exe", "hh.exe", "powerpnt.exe", "forfiles.exe",
-      "pcalua.exe", "wmiprvse.exe")
+      "pcalua.exe", "wmiprvse.exe") and
+  not process.executable : (
+        "?:\\inetpub\\wwwroot\\*\\ext\\modules\\html2pdf\\bin\\chrome\\*\\chrome-win64\\chrome.exe",
+        "\\Device\\HarddiskVolume*\\inetpub\\wwwroot\\*\\ext\\modules\\html2pdf\\bin\\chrome\\*\\chrome-win64\\chrome.exe"
+  )
 '''
 
 
