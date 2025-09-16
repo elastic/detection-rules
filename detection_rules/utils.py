@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from collections.abc import Callable, Iterator
-from dataclasses import astuple, is_dataclass
+from dataclasses import astuple, is_dataclass, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
@@ -542,6 +542,42 @@ def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
 
     sources_str = match.group("sources")
     return sources_str, [source.strip() for source in sources_str.split(",")]
+
+
+# NOTE This is done with a dataclass but could also be done with dict, etc.
+# Also other places this is called an <integration.integration> instead.
+# such as in integrations.py def parse_datasets
+@dataclass
+class EventDataset:
+    integration: str
+    datastream: str
+
+
+def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
+    """Extract event.dataset integrations from an ES|QL query and return as EventDataset objects."""
+
+    # Regex to match event.dataset in ("value1", "value2") or event.dataset == "value"
+    dataset_in_regex = re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)")
+    dataset_eq_regex = re.compile(r'event\.dataset\s*==\s*"([^"]+)"')
+
+    # Extract datasets from `event.dataset in (...)`
+    datasets: list[str] = []
+    in_match = dataset_in_regex.search(query)
+    if in_match:
+        datasets.extend([ds.strip().strip('"') for ds in in_match.group(1).split(",")])
+
+    # Extract datasets from `event.dataset == "..."`
+    eq_match = dataset_eq_regex.search(query)
+    if eq_match:
+        datasets.append(eq_match.group(1))
+
+    event_datasets: list[EventDataset] = []
+    for dataset in datasets:
+        parts = dataset.split(".")
+        if len(parts) == 2:  # Ensure there are exactly two parts
+            event_datasets.append(EventDataset(integration=parts[0], datastream=parts[1]))
+
+    return event_datasets
 
 
 def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:

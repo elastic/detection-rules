@@ -402,6 +402,7 @@ class EQLValidator(QueryValidator):
 
         # Helper for union-by-stack integration targets
         def add_accumulated_integration_targets(query_text: str, packaged: list[dict[str, Any]], context: str) -> None:
+            """Add integration-based validation targets by accumulating schemas per stack version."""
             combined_by_stack: dict[str, dict[str, Any]] = {}
             ecs_by_stack: dict[str, str] = {}
             packages_by_stack: dict[str, set[str]] = {}
@@ -725,6 +726,7 @@ class ESQLValidator(QueryValidator):
         """Initialize the ESQLValidator with the given query."""
         super().__init__(query)
         self.esql_unique_fields: list[dict[str, str]] = []
+        self.related_integrations: list[dict[str, str]] = []
 
     @cached_property
     def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -783,6 +785,7 @@ class ESQLValidator(QueryValidator):
     def prepare_integration_mappings(
         self,
         rule_integrations: list[str],
+        event_dataset_integrations: list[utils.EventDataset],
         stack_version: str,
         package_manifests: Any,
         integration_schemas: Any,
@@ -791,6 +794,20 @@ class ESQLValidator(QueryValidator):
         """Prepare integration mappings for the given rule integrations."""
         integration_mappings: dict[str, Any] = {}
         index_lookup: dict[str, Any] = {}
+        dataset_restriction: dict[str, str] = {}
+
+        # Process restrictions, note we need this for loops to be separate
+        for event_dataset in event_dataset_integrations:
+            # Ensure the integration is in rule_integrations
+            if event_dataset.integration not in rule_integrations:
+                dataset_restriction.setdefault(event_dataset.integration, []).append(event_dataset.datastream)  # type: ignore[reportIncompatibleMethodOverride]
+        for event_dataset in event_dataset_integrations:
+            if event_dataset.integration not in rule_integrations:
+                rule_integrations.append(event_dataset.integration)
+
+        # TODO add self setting for list of integrations
+        # perhaps self.related_integrations
+
         for integration in rule_integrations:
             package = integration
             package_version, _ = integrations.find_latest_compatible_version(
@@ -800,6 +817,11 @@ class ESQLValidator(QueryValidator):
                 package_manifests,
             )
             package_schema = integration_schemas[package][package_version]
+
+            # Apply dataset restrictions if any
+            if integration in dataset_restriction:
+                allowed_keys = dataset_restriction[integration]
+                package_schema = {key: value for key, value in package_schema.items() if key in allowed_keys}
 
             for stream in package_schema:
                 flat_schema = package_schema[stream]
@@ -945,6 +967,7 @@ class ESQLValidator(QueryValidator):
         self,
         elastic_client: Elasticsearch,
         indices: list[str],
+        event_dataset_integrations: list[utils.EventDataset],
         stack_version: str,
         metadata: RuleMeta,
         log: Callable[[str], None],
@@ -960,7 +983,7 @@ class ESQLValidator(QueryValidator):
         integration_schemas = load_integrations_schemas()
 
         integration_mappings, integration_index_lookup = self.prepare_integration_mappings(
-            rule_integrations, stack_version, package_manifests, integration_schemas, log
+            rule_integrations, event_dataset_integrations, stack_version, package_manifests, integration_schemas, log
         )
 
         index_lookup.update(integration_index_lookup)
@@ -1029,9 +1052,12 @@ class ESQLValidator(QueryValidator):
         indices_str, indices = utils.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         log(f"Extracted indices from query: {', '.join(indices)}")
 
+        event_dataset_integrations = utils.get_esql_query_event_dataset_integrations(query)
+        log(f"Extracted Event Dataset integrations from query: {', '.join(indices)}")
+
         # Get mappings for all matching existing index templates
         existing_mappings, index_lookup, combined_mappings = self.prepare_mappings(
-            elastic_client, indices, stack_version, metadata, log
+            elastic_client, indices, event_dataset_integrations, stack_version, metadata, log
         )
         log(f"Collected mappings: {len(existing_mappings)}")
         log(f"Combined mappings prepared: {len(combined_mappings)}")
