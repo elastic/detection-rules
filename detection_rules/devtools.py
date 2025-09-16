@@ -1051,8 +1051,13 @@ def update_navigator_gists(
                 "Gist not found: verify the gist_id exists and the token has access to it", exc=exc
             ) from exc
         if exc.response.status_code == requests.status_codes.codes.unauthorized:
+            text = json.loads(exc.response.text).get(
+                "message", "verify the token is valid and has the necessary permissions"
+            )
+            error_message = f"Unauthorized: {text}"
             raise raise_client_error(
-                "Unauthorized: verify the token is valid and has the necessary permissions", exc=exc
+                error_message,
+                exc=exc,
             ) from exc
         raise
 
