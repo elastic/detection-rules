@@ -454,7 +454,9 @@ def mass_update(
 @click.option("--api-format/--rule-format", default=True, help="Print the rule in final api or rule format")
 @click.option("--esql-remote-validation", is_flag=True, default=False, help="Enable remote validation for the rule")
 @click.pass_context
-def view_rule(_: click.Context, rule_file: Path, api_format: str, esql_remote_validation: bool) -> TOMLRule | DeprecatedRule:
+def view_rule(
+    _: click.Context, rule_file: Path, api_format: str, esql_remote_validation: bool
+) -> TOMLRule | DeprecatedRule:
     """View an internal rule or specified rule file."""
     rule = RuleCollection().load_file(rule_file)
     if (
