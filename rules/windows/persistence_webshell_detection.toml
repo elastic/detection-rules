@@ -2,7 +2,7 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ index = [
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
 ]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Web Shell Detection: Script Process Child of Common Web Processes"
 note = """## Triage and analysis
@@ -95,24 +95,55 @@ tags = [
     "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : ("w3wp.exe", "httpd.exe", "nginx.exe", "php.exe", "php-cgi.exe", "tomcat.exe") and
-  process.name : ("cmd.exe", "cscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "wmic.exe", "wscript.exe") and
+host.os.type:windows and event.category:process and event.type:start and process.args : * and
+  process.parent.name:("w3wp.exe" or "httpd.exe" or "nginx.exe" or "php.exe" or "php-cgi.exe" or "tomcat.exe") and
+  (
+    process.name : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe") or
+    process.name.caseless : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe")
+  ) and
   not
   (
-    process.parent.name : ("php.exe", "httpd.exe") and process.name : "cmd.exe" and
     process.command_line : (
-      "cmd.exe /c mode CON",
-      "cmd.exe /s /c \"mode CON\"",
-      "cmd.exe /c \"mode\"",
-      "cmd.exe /s /c \"tput colors 2>&1\""
-    )
+      "cmd.exe /c mode CON" or
+      "cmd.exe /s /c \"mode CON\"" or
+      "cmd.exe /c \"mode\"" or
+      "cmd.exe /s /c \"tput colors 2>&1\"" or
+      "cmd.exe /s /c \"stty 2> NUL\"" or
+      "cmd.exe /s /c \"stty 2>&1\"" or
+      "cmd.exe /c \"stty 2>&1\"" or
+      "cmd.exe /s /c \"ipconfig /all 2>&1\"" or
+      "cmd.exe /s /c \"echo '%os%'\"" or
+      *.\\install\\awk.exe*
+    ) or
+    process.args : (\(git or (*artisan* and *queue\:work*) or *rmdir* or "mode CON" or ver or ls or mode or dir)
   )
 '''
 
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files\\\\*"
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -176,3 +207,10 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
