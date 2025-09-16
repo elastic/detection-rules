@@ -1368,13 +1368,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
-        # TODO self.metadata.integration is blank for ESQL, perhaps populate this from remote validation
+        # TODO self.metadata.integration is blank for ESQL, perhaps populate this from remote validation?
         # type(self.data)
         # <class 'detection_rules.rule.ESQLRuleData'>
         # self.data.validator (grab related integrations from validator)
         # ESQLValidator
-        if self.type == "esql":
-            return
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
             current_stack_version = load_current_package_version()
@@ -1520,7 +1518,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # TODO above for esql
         # Use function from utils? Or have it set?
         # Combine with package_manifeest
-
+        if isinstance(data, ESQLRuleData):
+            dataset_objs = utils.get_esql_query_event_dataset_integrations(data.query)
+            datasets.update(str(obj) for obj in dataset_objs)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages

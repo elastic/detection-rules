@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from collections.abc import Callable, Iterator
-from dataclasses import astuple, is_dataclass, dataclass
+from dataclasses import astuple, dataclass, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
@@ -549,13 +549,18 @@ def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
 # such as in integrations.py def parse_datasets
 @dataclass
 class EventDataset:
+    """Dataclass for event.dataset with integration and datastream parts."""
+
     integration: str
     datastream: str
+
+    def __str__(self) -> str:
+        return f"{self.integration}.{self.datastream}"
 
 
 def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
     """Extract event.dataset integrations from an ES|QL query and return as EventDataset objects."""
-
+    number_of_parts = 2
     # Regex to match event.dataset in ("value1", "value2") or event.dataset == "value"
     dataset_in_regex = re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)")
     dataset_eq_regex = re.compile(r'event\.dataset\s*==\s*"([^"]+)"')
@@ -574,7 +579,7 @@ def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
     event_datasets: list[EventDataset] = []
     for dataset in datasets:
         parts = dataset.split(".")
-        if len(parts) == 2:  # Ensure there are exactly two parts
+        if len(parts) == number_of_parts:  # Ensure there are exactly two parts
             event_datasets.append(EventDataset(integration=parts[0], datastream=parts[1]))
 
     return event_datasets
