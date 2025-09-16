@@ -559,22 +559,37 @@ class EventDataset:
 
 
 def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
-    """Extract event.dataset integrations from an ES|QL query and return as EventDataset objects."""
+    """Extract event.dataset, event.module, and data_stream.dataset integrations from an ES|QL query."""
     number_of_parts = 2
-    # Regex to match event.dataset in ("value1", "value2") or event.dataset == "value"
-    dataset_in_regex = re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)")
-    dataset_eq_regex = re.compile(r'event\.dataset\s*==\s*"([^"]+)"')
+    # Regex patterns for event.dataset, event.module, and data_stream.dataset
+    # This mimics the logic in get_datasets_and_modules but for ES|QL as we do not have an ast
 
-    # Extract datasets from `event.dataset in (...)`
+    regex_patterns = {
+        "in": [
+            re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
+            re.compile(r"event\.module\s+in\s*\(\s*([^)]+)\s*\)"),
+            re.compile(r"data_stream\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
+        ],
+        "eq": [
+            re.compile(r'event\.dataset\s*==\s*"([^"]+)"'),
+            re.compile(r'event\.module\s*==\s*"([^"]+)"'),
+            re.compile(r'data_stream\.dataset\s*==\s*"([^"]+)"'),
+        ],
+    }
+
+    # Extract datasets
     datasets: list[str] = []
-    in_match = dataset_in_regex.search(query)
-    if in_match:
-        datasets.extend([ds.strip().strip('"') for ds in in_match.group(1).split(",")])
-
-    # Extract datasets from `event.dataset == "..."`
-    eq_match = dataset_eq_regex.search(query)
-    if eq_match:
-        datasets.append(eq_match.group(1))
+    for regex_list in regex_patterns.values():
+        for regex in regex_list:
+            matches = regex.findall(query)
+            if matches:
+                for match in matches:
+                    if "," in match:
+                        # Handle `in` case with multiple values
+                        datasets.extend([ds.strip().strip('"') for ds in match.split(",")])
+                    else:
+                        # Handle `==` case
+                        datasets.append(match.strip())
 
     event_datasets: list[EventDataset] = []
     for dataset in datasets:

@@ -430,8 +430,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     def validate_query(self, _: RuleMeta) -> None:
         pass
 
-    # TODO do we need a get_restricted fields for ESQL? I expect no
-
     @cached_property
     def get_restricted_fields(self) -> dict[str, tuple[Version | None, Version | None]] | None:
         """Get stack version restricted fields."""
@@ -1368,11 +1366,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
-        # TODO self.metadata.integration is blank for ESQL, perhaps populate this from remote validation?
-        # type(self.data)
-        # <class 'detection_rules.rule.ESQLRuleData'>
-        # self.data.validator (grab related integrations from validator)
-        # ESQLValidator
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
             current_stack_version = load_current_package_version()
@@ -1400,7 +1393,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             packages_manifest=packages_manifest,
                         )
 
-                        # TODO do we use policy templates in ESQL?
                         # if integration is not a policy template remove
                         if package["version"]:
                             version_data = packages_manifest.get(package["package"], {}).get(
@@ -1515,9 +1507,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     ) -> list[dict[str, Any]] | None:
         packaged_integrations: list[dict[str, Any]] = []
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
-        # TODO above for esql
-        # Use function from utils? Or have it set?
-        # Combine with package_manifeest
         if isinstance(data, ESQLRuleData):
             dataset_objs = utils.get_esql_query_event_dataset_integrations(data.query)
             datasets.update(str(obj) for obj in dataset_objs)

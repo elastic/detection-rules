@@ -727,6 +727,7 @@ class ESQLValidator(QueryValidator):
         super().__init__(query)
         self.esql_unique_fields: list[dict[str, str]] = []
         self.related_integrations: list[dict[str, str]] = []
+        self.stack_version: str = ""
 
     @cached_property
     def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -786,7 +787,6 @@ class ESQLValidator(QueryValidator):
         self,
         rule_integrations: list[str],
         event_dataset_integrations: list[utils.EventDataset],
-        stack_version: str,
         package_manifests: Any,
         integration_schemas: Any,
         log: Callable[[str], None],
@@ -805,15 +805,12 @@ class ESQLValidator(QueryValidator):
             if event_dataset.integration not in rule_integrations:
                 rule_integrations.append(event_dataset.integration)
 
-        # TODO add self setting for list of integrations
-        # perhaps self.related_integrations
-
         for integration in rule_integrations:
             package = integration
             package_version, _ = integrations.find_latest_compatible_version(
                 package,
                 "",
-                Version.parse(stack_version),
+                Version.parse(self.stack_version),
                 package_manifests,
             )
             package_schema = integration_schemas[package][package_version]
@@ -968,7 +965,6 @@ class ESQLValidator(QueryValidator):
         elastic_client: Elasticsearch,
         indices: list[str],
         event_dataset_integrations: list[utils.EventDataset],
-        stack_version: str,
         metadata: RuleMeta,
         log: Callable[[str], None],
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -983,7 +979,7 @@ class ESQLValidator(QueryValidator):
         integration_schemas = load_integrations_schemas()
 
         integration_mappings, integration_index_lookup = self.prepare_integration_mappings(
-            rule_integrations, event_dataset_integrations, stack_version, package_manifests, integration_schemas, log
+            rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, log
         )
 
         index_lookup.update(integration_index_lookup)
@@ -1042,12 +1038,11 @@ class ESQLValidator(QueryValidator):
             if verbosity >= unit_test_verbose_level:
                 print(f"{rule_id}:", val)
 
-        stack_version = ""
         kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
         if "version" not in kibana_details:
             raise ValueError("Failed to retrieve Kibana details.")
-        stack_version = str(kibana_details["version"]["number"])
-        log(f"Validating against {stack_version} stack")
+        self.stack_version = str(kibana_details["version"]["number"])
+        log(f"Validating against {self.stack_version} stack")
 
         indices_str, indices = utils.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         log(f"Extracted indices from query: {', '.join(indices)}")
@@ -1057,7 +1052,7 @@ class ESQLValidator(QueryValidator):
 
         # Get mappings for all matching existing index templates
         existing_mappings, index_lookup, combined_mappings = self.prepare_mappings(
-            elastic_client, indices, event_dataset_integrations, stack_version, metadata, log
+            elastic_client, indices, event_dataset_integrations, metadata, log
         )
         log(f"Collected mappings: {len(existing_mappings)}")
         log(f"Combined mappings prepared: {len(combined_mappings)}")
