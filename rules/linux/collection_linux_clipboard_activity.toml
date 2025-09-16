@@ -2,17 +2,23 @@
 creation_date = "2023/07/27"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the usage of the most common clipboard utilities on unix systems by an uncommon process group
-leader. Adversaries may collect data stored in the clipboard from users copying information within or between
-applications.
+This rule monitors for the usage of the most common clipboard utilities on unix systems by an uncommon process parent.
+Adversaries may collect data stored in the clipboard from users copying information within or between applications.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = [
+          "logs-crowdstrike.fdr*",
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+          "auditbeat-*",
+          "logs-auditd_manager.auditd-*",
+        ]
 language = "kuery"
 license = "Elastic License v2"
 name = "Linux Clipboard Activity Detected"
@@ -27,6 +33,8 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -88,7 +96,7 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.group_leader.executable"]
+value = ["host.id", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

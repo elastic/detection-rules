@@ -2,13 +2,13 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/09/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of the `curl` command-line tool with SOCKS proxy options, launched from an unusual parent
-process. Attackers may use `curl` to establish a SOCKS proxy connection to bypass network restrictions and exfiltrate
+This rule detects the use of the "curl" command-line tool with SOCKS proxy options, launched from an unusual parent
+process. Attackers may use "curl" to establish a SOCKS proxy connection to bypass network restrictions and exfiltrate
 data or communicate with C2 servers.
 """
 from = "now-9m"
@@ -16,7 +16,7 @@ index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Curl SOCKS Proxy Activity from Unusual Parent"
-risk_score = 21
+risk_score = 47
 rule_id = "734239fe-eda8-48c0-bca8-9e3dafd81a88"
 setup = """## Setup
 
@@ -56,7 +56,7 @@ In order to capture this behavior, this rule requires a specific configuration o
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -71,13 +71,18 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.name == "curl" and (
   process.parent.executable like (
-    "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/var/run/*", "/root/*", "/boot/*", "/var/www/html/*", "/opt/.*"
+    "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/var/run/*", "/root/*", "/boot/*", "/var/www/*", "/opt/.*",
+    "/home/*"
   ) or
-  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+  process.parent.name like ".*"
 ) and (
   process.args like ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or
   process.args == "-x" or
-  process.env_vars like ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
+  process.env_vars like~ ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
+) and not (
+  process.parent.args == "/opt/rudder/share/commands/agent-run" or
+  process.args == "http://localhost:8080/rudder/api/status"
 )
 '''
 note = """## Triage and analysis
