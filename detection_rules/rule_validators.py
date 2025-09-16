@@ -748,23 +748,11 @@ class ESQLValidator(QueryValidator):
                 return field["type"]
         return None
 
-    def validate(self, rule_data: "QueryRuleData", rule_meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def validate(self, rule_data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
-        if misc.getdefault("remote_esql_validation")():
-            kibana_client = misc.get_kibana_client(
-                api_key=misc.getdefault("api_key")(),
-                cloud_id=misc.getdefault("cloud_id")(),
-                kibana_url=misc.getdefault("kibana_url")(),
-                space=misc.getdefault("space")(),
-                ignore_ssl_errors=misc.getdefault("ignore_ssl_errors")(),
-            )
-
-            elastic_client = misc.get_elasticsearch_client(
-                api_key=misc.getdefault("api_key")(),
-                cloud_id=misc.getdefault("cloud_id")(),
-                elasticsearch_url=misc.getdefault("elasticsearch_url")(),
-                ignore_ssl_errors=misc.getdefault("ignore_ssl_errors")(),
-            )
+        if misc.getdefault("remote_esql_validation")() or force_remote_validation:
+            kibana_client = misc.get_default_kibana_client()
+            elastic_client = misc.get_default_elasticsearch_client()
             _ = self.remote_validate_rule(
                 kibana_client,
                 elastic_client,

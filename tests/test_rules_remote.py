@@ -9,7 +9,7 @@ import unittest
 from elasticsearch import BadRequestError
 from elasticsearch import ConnectionError as ESConnectionError
 
-from detection_rules.misc import get_default_config
+from detection_rules.misc import get_default_config, getdefault
 from detection_rules.remote_validation import RemoteConnector
 from detection_rules.rule_validators import ESQLValidator
 
@@ -17,6 +17,9 @@ from .base import BaseRuleTest
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
+@unittest.skipIf(
+    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
+)
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
 

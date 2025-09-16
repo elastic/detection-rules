@@ -386,6 +386,16 @@ def get_elasticsearch_client(  # noqa: PLR0913
         return client
 
 
+def get_default_elasticsearch_client() -> Elasticsearch:
+    """Get an default authenticated elasticsearch client."""
+    return get_elasticsearch_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        elasticsearch_url=getdefault("elasticsearch_url")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
+
+
 def get_kibana_client(
     *,
     api_key: str,
@@ -401,6 +411,17 @@ def get_kibana_client(
 
     verify = not ignore_ssl_errors
     return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+
+
+def get_default_kibana_client() -> Kibana:
+    """Get an default authenticated Kibana client."""
+    return get_kibana_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        kibana_url=getdefault("kibana_url")(),
+        space=getdefault("space")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
 
 
 client_options = {
