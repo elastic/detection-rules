@@ -66,6 +66,7 @@ OS_OPTIONS = ["windows", "linux", "macos"]
 NAME_PATTERN = re.compile(r"^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$")
 PR_PATTERN = re.compile(r"^$|\d+$")
 SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
+# NOTE this additional bad UUID pattern is a stop gap until the rule has been deprecated
 UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"  # UUID pattern
     r"|^7eb54028-ca72-4eb7-8185-b6864572347db$"  # Additional pattern of known bad UUID
