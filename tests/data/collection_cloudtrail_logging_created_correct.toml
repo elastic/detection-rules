@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2020/06/10"
+maturity = "production"
+integration = ["aws"]
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = "Rule used for testing."
+false_positives = [
+    """
+    Trail creations may be made by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Trail creations by unfamiliar users or hosts should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-32m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS CloudTrail Testing Rule"
+note = """Rule used for testing."""
+references = [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_CreateTrail.html",
+    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudtrail/create-trail.html",
+]
+risk_score = 21
+rule_id = "1d46d30f-1c66-4d0f-8a53-afeeb455196b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Use Case: Log Auditing",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail* metadata _id, _version, _index
+| where @timestamp > now() - 30 minutes
+  and event.dataset in ("aws.cloudtrail", "aws.billing")
+  and aws.cloudtrail.user_identity.arn is not null
+  and aws.cloudtrail.user_identity.type == "IAMUser"
+| keep
+  aws.cloudtrail.user_identity.type
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+

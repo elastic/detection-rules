@@ -589,7 +589,7 @@ def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
                         datasets.extend([ds.strip().strip('"') for ds in match.split(",")])
                     else:
                         # Handle `==` case
-                        datasets.append(match.strip())
+                        datasets.append(match.strip().strip('"'))
 
     event_datasets: list[EventDataset] = []
     for dataset in datasets:

@@ -6,12 +6,15 @@
 import time
 import unittest
 
+import pytest
 from elasticsearch import BadRequestError
 from elasticsearch import ConnectionError as ESConnectionError
 
 from detection_rules.misc import get_default_config, getdefault
 from detection_rules.remote_validation import RemoteConnector
+from detection_rules.rule_loader import RuleCollection
 from detection_rules.rule_validators import ESQLValidator
+from detection_rules.utils import get_path
 
 from .base import BaseRuleTest
 
@@ -72,3 +75,17 @@ class TestRemoteRules(BaseRuleTest):
 
         if failed_count > 0:
             self.fail(f"Found {failed_count} invalid rules")
+
+    def test_esql_related_integrations(self):
+        """Test an ESQL rule has its related integrations built correctly."""
+        file_path = get_path(["tests", "data", "collection_cloudtrail_logging_created_correct.toml"])
+        rule = RuleCollection().load_file(file_path)
+        related_integrations = rule.contents.to_api_format()["related_integrations"]
+        for integration in related_integrations:
+            assert integration["package"] == "aws", f"Expected 'aws', but got {integration['package']}"
+
+    def test_esql_event_dataset(self):
+        """Test an ESQL rules that uses event.dataset field in the query validated the fields correctly."""
+        file_path = get_path(["tests", "data", "collection_cloudtrail_logging_created.toml"])
+        with pytest.raises(BadRequestError, match="Unknown column .*"):
+            _ = RuleCollection().load_file(file_path)
