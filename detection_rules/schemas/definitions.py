@@ -9,10 +9,9 @@ import os
 import re
 from collections.abc import Callable
 from re import Pattern
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final, Literal, NewType
 
 from marshmallow import fields, validate
-from marshmallow_dataclass import NewType  # type: ignore[reportUnknownMemberType]
 from semver import Version
 
 from detection_rules.config import CUSTOM_RULES_DIR
@@ -196,7 +195,7 @@ EXPECTED_RULE_TAGS = [
 MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
 
 CodeString = NewType("CodeString", str)
-Markdown = NewType("Markdown", CodeString)  # type: ignore[reportUnknownMemberType]
+Markdown = NewType("Markdown", CodeString)
 
 TimeUnits = Literal["s", "m", "h"]
 ExceptionEntryOperator = Literal["included", "excluded"]
@@ -221,33 +220,38 @@ TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
-NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
+NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
 
-AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
-AlertSuppressionMissing = NewType(
-    "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
-)
-AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
-BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
-CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=5))  # type: ignore[reportUnknownMemberType]
-ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
-Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
-Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
-MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
-PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
-RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleName = NewType("RuleName", str, validate=elastic_rule_name_regexp(NAME_PATTERN))
-SemVer = NewType("SemVer", str, validate=validate.Regexp(VERSION_PATTERN))
-SemVerMinorOnly = NewType("SemVerFullStrict", str, validate=validate.Regexp(MINOR_SEMVER))
-Sha256 = NewType("Sha256", str, validate=validate.Regexp(SHA256_PATTERN))
-SubTechniqueURL = NewType("SubTechniqueURL", str, validate=validate.Regexp(SUBTECHNIQUE_URL))
-TacticURL = NewType("TacticURL", str, validate=validate.Regexp(TACTIC_URL))
-TechniqueURL = NewType("TechniqueURL", str, validate=validate.Regexp(TECHNIQUE_URL))
-ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
-TimelineTemplateId = NewType("TimelineTemplateId", str, validate=elastic_timeline_template_id_validator())
-TimelineTemplateTitle = NewType("TimelineTemplateTitle", str, validate=elastic_timeline_template_title_validator())
-UUIDString = NewType("UUIDString", str, validate=validate.Regexp(UUID_PATTERN))
+AlertSuppressionGroupBy = Annotated[
+    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
+]
+AlertSuppressionMissing = Annotated[str, fields.String(validate=validate.OneOf(["suppress", "doNotSuppress"]))]
+AlertSuppressionValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
+BranchVer = Annotated[str, fields.String(validate=validate.Regexp(BRANCH_PATTERN))]
+CardinalityFields = Annotated[
+    list[NonEmptyStr],
+    fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=0, max=5)),
+]
+ConditionSemVer = Annotated[str, fields.String(validate=validate.Regexp(CONDITION_VERSION_PATTERN))]
+Date = Annotated[str, fields.String(validate=validate.Regexp(DATE_PATTERN))]
+Interval = Annotated[str, fields.String(validate=validate.Regexp(INTERVAL_PATTERN))]
+MaxSignals = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
+NewTermsFields = Annotated[
+    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
+]
+PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
+SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
+SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]
+Sha256 = Annotated[str, fields.String(validate=validate.Regexp(SHA256_PATTERN))]
+SubTechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(SUBTECHNIQUE_URL))]
+TacticURL = Annotated[str, fields.String(validate=validate.Regexp(TACTIC_URL))]
+TechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(TECHNIQUE_URL))]
+ThresholdValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
+TimelineTemplateId = Annotated[str, fields.String(validate=elastic_timeline_template_id_validator())]
+TimelineTemplateTitle = Annotated[str, fields.String(validate=elastic_timeline_template_title_validator())]
+UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN))]
 
 # experimental machine learning features and releases
 MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]
