@@ -266,7 +266,6 @@ ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType("TimelineTemplateId", str, validate=elastic_timeline_template_id_validator())
 TimelineTemplateTitle = NewType("TimelineTemplateTitle", str, validate=elastic_timeline_template_title_validator())
 UUIDString = NewType("UUIDString", str, validate=validate.Regexp(UUID_PATTERN))
-BuildingBlockType = Literal["default"]
 
 # experimental machine learning features and releases
 MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]
