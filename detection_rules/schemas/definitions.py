@@ -109,7 +109,7 @@ QUERY = "query"
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
-KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5"]
+KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5", "7eb54028-ca72-4eb7-8185-b6864572347db"]
 KNOWN_BAD_DEPRECATED_DATES = Literal["2021-03-03"]
 # Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
 KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
@@ -222,14 +222,14 @@ BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
 NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
-AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", List[NonEmptyStr], validate=validate.Length(min=1, max=3))
+AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))
 AlertSuppressionMissing = NewType(
     "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
 )
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal["s", "m", "h"]
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
-CardinalityFields = NewType("CardinalityFields", List[NonEmptyStr], validate=validate.Length(min=0, max=3))
+CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
@@ -247,7 +247,7 @@ InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal["development", "experimental", "beta", "production", "deprecated"]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NewTermsFields = NewType("NewTermsFields", List[NonEmptyStr], validate=validate.Length(min=1, max=3))
+NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))
 Operator = Literal["equals"]
 OSType = Literal["windows", "linux", "macos"]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
