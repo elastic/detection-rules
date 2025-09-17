@@ -221,8 +221,8 @@ TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
-
 NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
+
 AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 AlertSuppressionMissing = NewType(
     "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
@@ -238,9 +238,9 @@ Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
 Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)  # type: ignore[reportUnknownMemberType]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-
 NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
+
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType("RuleName", str, validate=elastic_rule_name_regexp(NAME_PATTERN))
 SemVer = NewType("SemVer", str, validate=validate.Regexp(VERSION_PATTERN))
