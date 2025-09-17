@@ -87,5 +87,5 @@ class TestRemoteRules(BaseRuleTest):
     def test_esql_event_dataset(self):
         """Test an ESQL rules that uses event.dataset field in the query validated the fields correctly."""
         file_path = get_path(["tests", "data", "collection_cloudtrail_logging_created.toml"])
-        with pytest.raises(BadRequestError, match="Unknown column .*"):
+        with pytest.raises(BadRequestError, match=r"Unknown column .*"):
             _ = RuleCollection().load_file(file_path)
