@@ -66,8 +66,10 @@ OS_OPTIONS = ["windows", "linux", "macos"]
 NAME_PATTERN = re.compile(r"^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$")
 PR_PATTERN = re.compile(r"^$|\d+$")
 SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
-UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"  # UUID pattern
+    r"|^7eb54028-ca72-4eb7-8185-b6864572347db$"  # Additional pattern of known bad UUID
+)
 _version = r"\d+\.\d+(\.\d+[\w-]*)*"
 CONDITION_VERSION_PATTERN = re.compile(rf"^\^{_version}$")
 VERSION_PATTERN = f"^{_version}$"
