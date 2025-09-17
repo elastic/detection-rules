@@ -221,6 +221,7 @@ TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
+
 NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
 AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 AlertSuppressionMissing = NewType(
@@ -228,6 +229,7 @@ AlertSuppressionMissing = NewType(
 )
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
+
 CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=5))  # type: ignore[reportUnknownMemberType]
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
@@ -236,6 +238,7 @@ Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
 Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)  # type: ignore[reportUnknownMemberType]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
+
 NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
