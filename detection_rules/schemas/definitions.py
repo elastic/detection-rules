@@ -12,7 +12,7 @@ from re import Pattern
 from typing import Any, Final, Literal
 
 from marshmallow import fields, validate
-from marshmallow_dataclass import NewType
+from marshmallow_dataclass import NewType  # type: ignore[reportUnknownMemberType]
 from semver import Version
 
 from detection_rules.config import CUSTOM_RULES_DIR
@@ -196,7 +196,7 @@ EXPECTED_RULE_TAGS = [
 MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
 
 CodeString = NewType("CodeString", str)
-Markdown = NewType("Markdown", CodeString)
+Markdown = NewType("Markdown", CodeString)  # type: ignore[reportUnknownMemberType]
 
 TimeUnits = Literal["s", "m", "h"]
 ExceptionEntryOperator = Literal["included", "excluded"]
@@ -222,14 +222,14 @@ BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
 NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
-AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))
+AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 AlertSuppressionMissing = NewType(
     "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
 )
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal["s", "m", "h"]
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
-CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=3))
+CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=3))  # type: ignore[reportUnknownMemberType]
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
@@ -244,10 +244,10 @@ FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]
 InvestigateProviderValueType = Literal["string", "boolean"]
-Markdown = NewType("MarkdownField", CodeString)
+Markdown = NewType("MarkdownField", CodeString)  # type: ignore[reportUnknownMemberType]
 Maturity = Literal["development", "experimental", "beta", "production", "deprecated"]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))
+NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 Operator = Literal["equals"]
 OSType = Literal["windows", "linux", "macos"]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
