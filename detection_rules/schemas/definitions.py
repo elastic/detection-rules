@@ -9,9 +9,10 @@ import os
 import re
 from collections.abc import Callable
 from re import Pattern
-from typing import Annotated, Any, Final, Literal, NewType
+from typing import Any, Final, Literal
 
 from marshmallow import fields, validate
+from marshmallow_dataclass import NewType
 from semver import Version
 
 from detection_rules.config import CUSTOM_RULES_DIR
@@ -220,38 +221,53 @@ TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
-NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
+NonEmptyStr = NewType("NonEmptyStr", str, validate=validate.Length(min=1))
+AlertSuppressionGroupBy = NewType("AlertSuppressionGroupBy", List[NonEmptyStr], validate=validate.Length(min=1, max=3))
+AlertSuppressionMissing = NewType(
+    "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
+)
+AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
+TimeUnits = Literal["s", "m", "h"]
+BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
+CardinalityFields = NewType("CardinalityFields", List[NonEmptyStr], validate=validate.Length(min=0, max=3))
+CodeString = NewType("CodeString", str)
+ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
+Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
+ExceptionEntryOperator = Literal["included", "excluded"]
+ExceptionEntryType = Literal["match", "match_any", "exists", "list", "wildcard", "nested"]
+ExceptionNamespaceType = Literal["single", "agnostic"]
+ExceptionItemEndpointTags = Literal["endpoint", "os:windows", "os:linux", "os:macos"]
+ExceptionContainerType = Literal["detection", "endpoint", "rule_default"]
+ExceptionItemType = Literal["simple"]
 
-AlertSuppressionGroupBy = Annotated[
-    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
-]
-AlertSuppressionMissing = Annotated[str, fields.String(validate=validate.OneOf(["suppress", "doNotSuppress"]))]
-AlertSuppressionValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-BranchVer = Annotated[str, fields.String(validate=validate.Regexp(BRANCH_PATTERN))]
-CardinalityFields = Annotated[
-    list[NonEmptyStr],
-    fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=0, max=5)),
-]
-ConditionSemVer = Annotated[str, fields.String(validate=validate.Regexp(CONDITION_VERSION_PATTERN))]
-Date = Annotated[str, fields.String(validate=validate.Regexp(DATE_PATTERN))]
-Interval = Annotated[str, fields.String(validate=validate.Regexp(INTERVAL_PATTERN))]
-MaxSignals = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-NewTermsFields = Annotated[
-    list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
-]
-PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
-RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
-SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
-SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]
-Sha256 = Annotated[str, fields.String(validate=validate.Regexp(SHA256_PATTERN))]
-SubTechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(SUBTECHNIQUE_URL))]
-TacticURL = Annotated[str, fields.String(validate=validate.Regexp(TACTIC_URL))]
-TechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(TECHNIQUE_URL))]
-ThresholdValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-TimelineTemplateId = Annotated[str, fields.String(validate=elastic_timeline_template_id_validator())]
-TimelineTemplateTitle = Annotated[str, fields.String(validate=elastic_timeline_template_title_validator())]
-UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN))]
+FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
+Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
+InvestigateProviderQueryType = Literal["phrase", "range"]
+InvestigateProviderValueType = Literal["string", "boolean"]
+Markdown = NewType("MarkdownField", CodeString)
+Maturity = Literal["development", "experimental", "beta", "production", "deprecated"]
+MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
+NewTermsFields = NewType("NewTermsFields", List[NonEmptyStr], validate=validate.Length(min=1, max=3))
+Operator = Literal["equals"]
+OSType = Literal["windows", "linux", "macos"]
+PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
+RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
+RuleName = NewType("RuleName", str, validate=elastic_rule_name_regexp(NAME_PATTERN))
+RuleType = Literal["query", "saved_query", "machine_learning", "eql", "esql", "threshold", "threat_match", "new_terms"]
+SemVer = NewType("SemVer", str, validate=validate.Regexp(VERSION_PATTERN))
+SemVerMinorOnly = NewType("SemVerFullStrict", str, validate=validate.Regexp(MINOR_SEMVER))
+Severity = Literal["low", "medium", "high", "critical"]
+Sha256 = NewType("Sha256", str, validate=validate.Regexp(SHA256_PATTERN))
+SubTechniqueURL = NewType("SubTechniqueURL", str, validate=validate.Regexp(SUBTECHNIQUE_URL))
+StoreType = Literal["appState", "globalState"]
+TacticURL = NewType("TacticURL", str, validate=validate.Regexp(TACTIC_URL))
+TechniqueURL = NewType("TechniqueURL", str, validate=validate.Regexp(TECHNIQUE_URL))
+ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
+TimelineTemplateId = NewType("TimelineTemplateId", str, validate=elastic_timeline_template_id_validator())
+TimelineTemplateTitle = NewType("TimelineTemplateTitle", str, validate=elastic_timeline_template_title_validator())
+TransformTypes = Literal["osquery", "investigate"]
+UUIDString = NewType("UUIDString", str, validate=validate.Regexp(UUID_PATTERN))
+BuildingBlockType = Literal["default"]
 
 # experimental machine learning features and releases
 MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]
