@@ -227,39 +227,23 @@ AlertSuppressionMissing = NewType(
     "AlertSuppressionMissing", str, validate=validate.OneOf(["suppress", "doNotSuppress"])
 )
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
-TimeUnits = Literal["s", "m", "h"]
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=5))  # type: ignore[reportUnknownMemberType]
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
-ExceptionEntryOperator = Literal["included", "excluded"]
-ExceptionEntryType = Literal["match", "match_any", "exists", "list", "wildcard", "nested"]
-ExceptionNamespaceType = Literal["single", "agnostic"]
-ExceptionItemEndpointTags = Literal["endpoint", "os:windows", "os:linux", "os:macos"]
-ExceptionContainerType = Literal["detection", "endpoint", "rule_default"]
-ExceptionItemType = Literal["simple"]
 
-FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
-InvestigateProviderQueryType = Literal["phrase", "range"]
-InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)  # type: ignore[reportUnknownMemberType]
-Maturity = Literal["development", "experimental", "beta", "production", "deprecated"]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
 NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
-Operator = Literal["equals"]
-OSType = Literal["windows", "linux", "macos"]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType("RuleName", str, validate=elastic_rule_name_regexp(NAME_PATTERN))
-RuleType = Literal["query", "saved_query", "machine_learning", "eql", "esql", "threshold", "threat_match", "new_terms"]
 SemVer = NewType("SemVer", str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType("SemVerFullStrict", str, validate=validate.Regexp(MINOR_SEMVER))
-Severity = Literal["low", "medium", "high", "critical"]
 Sha256 = NewType("Sha256", str, validate=validate.Regexp(SHA256_PATTERN))
 SubTechniqueURL = NewType("SubTechniqueURL", str, validate=validate.Regexp(SUBTECHNIQUE_URL))
-StoreType = Literal["appState", "globalState"]
 TacticURL = NewType("TacticURL", str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType("TechniqueURL", str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
