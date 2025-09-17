@@ -236,7 +236,6 @@ ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDI
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
 
 Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
-Markdown = NewType("MarkdownField", CodeString)  # type: ignore[reportUnknownMemberType]
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
 NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
