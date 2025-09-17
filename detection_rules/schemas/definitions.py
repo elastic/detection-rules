@@ -229,7 +229,6 @@ AlertSuppressionMissing = NewType(
 )
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
-
 CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=5))  # type: ignore[reportUnknownMemberType]
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
