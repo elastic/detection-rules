@@ -239,7 +239,6 @@ Interval = NewType("Interval", str, validate=validate.Regexp(INTERVAL_PATTERN))
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
 NewTermsFields = NewType("NewTermsFields", list[NonEmptyStr], validate=validate.Length(min=1, max=3))  # type: ignore[reportUnknownMemberType]
 PositiveInteger = NewType("PositiveInteger", int, validate=validate.Range(min=1))
-
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType("RuleName", str, validate=elastic_rule_name_regexp(NAME_PATTERN))
 SemVer = NewType("SemVer", str, validate=validate.Regexp(VERSION_PATTERN))
