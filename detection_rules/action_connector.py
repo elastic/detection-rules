@@ -24,11 +24,11 @@ RULES_CONFIG = parse_rules_config()
 class ActionConnectorMeta(MarshmallowDataclassMixin):
     """Data stored in an Action Connector's [metadata] section of TOML."""
 
-    creation_date: definitions.Date
     action_connector_name: str
     rule_ids: list[definitions.UUIDString]
     rule_names: list[str]
-    updated_date: definitions.Date
+    creation_date: definitions.Date | None = None
+    updated_date: definitions.Date | None = None
 
     # Optional fields
     deprecation_date: definitions.Date | None = None
@@ -57,7 +57,10 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
 
     @classmethod
     def from_action_connector_dict(
-        cls, actions_dict: dict[str, Any], rule_list: list[dict[str, Any]]
+        cls,
+        actions_dict: dict[str, Any],
+        rule_list: list[dict[str, Any]],
+        strip_dates: bool = False,
     ) -> "TOMLActionConnectorContents":
         """Create a TOMLActionContents from a kibana rule resource."""
         rule_ids: list[str] = []
@@ -68,15 +71,24 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
             rule_names.append(rule["name"])
 
         # Format date to match schema
-        creation_date = datetime.strptime(actions_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
-        updated_date = datetime.strptime(actions_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        creation_date = None
+        updated_date = None
+        if not strip_dates:
+            creation_date = datetime.strptime(  # noqa: DTZ007
+                actions_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
+            updated_date = datetime.strptime(  # noqa: DTZ007
+                actions_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
         metadata = {
-            "creation_date": creation_date,
             "rule_ids": rule_ids,
             "rule_names": rule_names,
-            "updated_date": updated_date,
             "action_connector_name": f"Action Connector {actions_dict.get('id')}",
         }
+        if creation_date is not None:
+            metadata["creation_date"] = creation_date
+        if updated_date is not None:
+            metadata["updated_date"] = updated_date
 
         return cls.from_dict({"metadata": metadata, "action_connectors": [actions_dict]}, unknown=EXCLUDE)
 
@@ -134,6 +146,7 @@ def build_action_connector_objects(  # noqa: PLR0913
     save_toml: bool = False,
     skip_errors: bool = False,
     verbose: bool = False,
+    strip_dates: bool = False,
 ) -> tuple[list[TOMLActionConnector], list[str], list[str]]:
     """Build TOMLActionConnector objects from a list of action connector dictionaries."""
     output: list[str] = []
@@ -146,7 +159,11 @@ def build_action_connector_objects(  # noqa: PLR0913
             if not rule_list:
                 output.append(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                 continue
-            contents = TOMLActionConnectorContents.from_action_connector_dict(action_connector_dict, rule_list)
+            contents = TOMLActionConnectorContents.from_action_connector_dict(
+                action_connector_dict,
+                rule_list,
+                strip_dates=strip_dates,
+            )
             filename = f"{connector_id}_actions.toml"
             if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
                 raise FileNotFoundError(  # noqa: TRY301

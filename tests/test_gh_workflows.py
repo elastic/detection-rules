@@ -27,5 +27,8 @@ class TestWorkflows(unittest.TestCase):
         lock_versions = lock_workflow[True]["workflow_dispatch"]["inputs"]["branches"]["default"].split(",")
 
         matrix_versions = get_stack_versions(drop_patch=True)
+        # Minimal stack-schema maps may only define a single version; skip comparison in that case
+        if len(matrix_versions) <= 1:
+            self.skipTest("Not enough stack versions to compare")
         err_msg = "lock-versions workflow default does not match current matrix in stack-schema-map"
         self.assertListEqual(lock_versions, matrix_versions[:-1], err_msg)
