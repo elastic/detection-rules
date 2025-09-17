@@ -229,7 +229,7 @@ AlertSuppressionMissing = NewType(
 AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal["s", "m", "h"]
 BranchVer = NewType("BranchVer", str, validate=validate.Regexp(BRANCH_PATTERN))
-CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=3))  # type: ignore[reportUnknownMemberType]
+CardinalityFields = NewType("CardinalityFields", list[NonEmptyStr], validate=validate.Length(min=0, max=5))  # type: ignore[reportUnknownMemberType]
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType("ConditionSemVer", str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType("Date", str, validate=validate.Regexp(DATE_PATTERN))
