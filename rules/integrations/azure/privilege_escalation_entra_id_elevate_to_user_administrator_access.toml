@@ -81,8 +81,10 @@ type = "new_terms"
 
 query = '''
 event.dataset: azure.auditlogs
-    and azure.auditlogs.operation_name: "User has elevated their access to User Access Administrator for their Azure Resources"
-    and event.outcome: "success"
+    and (
+      azure.auditlogs.operation_name: "User has elevated their access to User Access Administrator for their Azure Resources" or
+      azure.auditlogs.properties.additional_details.value: "Microsoft.Authorization/elevateAccess/action"
+    ) and event.outcome: "success"
 '''
 
 
