@@ -9,7 +9,7 @@ author = ["Elastic"]
 description = """
 Identifies sequence of events where a Microsoft Entra ID protection alert is followed by an attempt to register a new device by the same user principal. This behavior may indicate an adversary using a compromised account to register a device, potentially leading to unauthorized access to resources or persistence in the environment.
 """
-from = "now-60m"
+from = "now-9m"
 index = ["logs-azure*"]
 language = "eql"
 license = "Elastic License v2"
@@ -73,7 +73,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence with maxspan=30m
+sequence with maxspan=5m
 [any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
 [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
 '''
