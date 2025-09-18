@@ -315,7 +315,7 @@ class TestESQLValidation(unittest.TestCase):
         """Test ESQL rule data validation"""
 
         # A random ESQL rule to deliver a test query
-        rule_path = Path("rules/windows/defense_evasion_posh_obfuscation_index_reversal.toml")
+        rule_path = Path("tests/data/esql_dummy_rule.toml")
         rule_body = rule_path.read_text()
         rule_dict = pytoml.loads(rule_body)
 
