@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2024/09/11"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/09/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts containing cmdlets and parameters that attackers can abuse to disable Windows Defender
+features. Attackers can tamper with antivirus to reduce the risk of detection when executing their payloads.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.powershell*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Script with Windows Defender Tampering Capabilities"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Windows Defender Tampering Capabilities
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell to disable Windows Defender features, reducing detection risks. The detection rule identifies scripts attempting to modify Defender settings, such as disabling real-time monitoring, by analyzing script block text for specific cmdlets and parameters, while excluding legitimate processes and users.
+
+### Possible investigation steps
+
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine the script's execution context, such as the user account, privileges, the role of the system on which it was executed, and any relevant timestamps.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Evaluate whether the user needs to use PowerShell to complete tasks.
+- Investigate the origin of the PowerShell script, including its source, download method, and any associated URLs or IP addresses.
+- Use the Get-MpPreference cmdlet to check defender settings for the host. Revert them to the desired state if needed.
+- Check for Files written and executed after the settings were changed.
+
+### False positive analysis
+
+- Legitimate administrative scripts may trigger the rule if they use Set-MpPreference cmdlets for valid configuration changes. To handle this, review the script's purpose and source, and consider adding exceptions for trusted scripts or users.
+- Automated system management tools might use similar cmdlets for routine maintenance. Identify these tools and exclude their processes or directories from the rule to prevent unnecessary alerts.
+- Security software updates or installations could temporarily disable certain Defender features. Monitor these activities and whitelist known update processes to avoid false positives.
+- PowerShell scripts executed by system administrators for troubleshooting may appear suspicious. Verify the user ID and script content, and exclude known administrator accounts from the rule if they frequently perform such tasks.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Reimage the host operating system or restore the compromised files to clean versions.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 21
+rule_id = "c124dc1b-cef2-4d01-8d74-ff6b0d5096b6"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category: "process" and host.os.type:windows and
+(
+  powershell.file.script_block_text: "Set-MpPreference" and
+  powershell.file.script_block_text: (
+    DisableArchiveScanning or DisableBehaviorMonitoring or
+    DisableIntrusionPreventionSystem or DisableIOAVProtection or
+    DisableRemovableDriveScanning or DisableBlockAtFirstSeen or
+    DisableScanningMappedNetworkDrivesForFullScan or
+    DisableScanningNetworkFiles or DisableScriptScanning or
+    DisableRealtimeMonitoring or LowThreatDefaultAction or
+    ModerateThreatDefaultAction or HighThreatDefaultAction
+  )
+) and
+not powershell.file.script_block_text : (
+  ("cmdletization" and "cdxml-Help.xml") or
+  ("function Set-MpPreference" and "Microsoft.PowerShell.Cmdletization.GeneratedTypes.MpPreference.SubmitSamplesConsentType")
+) and
+not file.directory : "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\SenseCM" and
+not user.id : "S-1-5-18"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
