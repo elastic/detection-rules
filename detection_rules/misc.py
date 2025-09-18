@@ -17,10 +17,11 @@ from typing import IO, Any, NoReturn
 
 import click
 import requests
+from elastic_transport import ObjectApiResponse
 from elasticsearch import AuthenticationException, Elasticsearch
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
-from .utils import add_params, cached, load_etc_dump
+from .utils import add_params, cached, combine_dicts, load_etc_dump
 
 LICENSE_HEADER = """
 Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
@@ -385,6 +386,16 @@ def get_elasticsearch_client(  # noqa: PLR0913
         return client
 
 
+def get_default_elasticsearch_client() -> Elasticsearch:
+    """Get an default authenticated elasticsearch client."""
+    return get_elasticsearch_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        elasticsearch_url=getdefault("elasticsearch_url")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
+
+
 def get_kibana_client(
     *,
     api_key: str,
@@ -400,6 +411,17 @@ def get_kibana_client(
 
     verify = not ignore_ssl_errors
     return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+
+
+def get_default_kibana_client() -> Kibana:
+    """Get an default authenticated Kibana client."""
+    return get_kibana_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        kibana_url=getdefault("kibana_url")(),
+        space=getdefault("space")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
 
 
 client_options = {
@@ -489,3 +511,42 @@ def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: b
         return _wrapped
 
     return _wrapper
+
+
+def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
+    """
+    Return the mappings from the index configuration that would be applied
+    to the specified index from an existing index template
+
+    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
+    """
+    template = elastic_client.indices.simulate_index_template(name=name)
+    if not template:
+        return {}
+    return template["template"]["mappings"]["properties"]
+
+
+def create_index_with_index_mapping(
+    elastic_client: Elasticsearch, index_name: str, mappings: dict[str, Any]
+) -> ObjectApiResponse[Any]:
+    """Create an index with the specified mappings and settings to support large number of fields and nested objects."""
+    return elastic_client.indices.create(
+        index=index_name,
+        mappings={"properties": mappings},
+        settings={
+            "index.mapping.total_fields.limit": 10000,
+            "index.mapping.nested_fields.limit": 500,
+            "index.mapping.nested_objects.limit": 10000,
+        },
+    )
+
+
+def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Retrieve mappings for all matching existing index templates."""
+    existing_mappings: dict[str, Any] = {}
+    index_lookup: dict[str, Any] = {}
+    for index in indices:
+        index_tmpl_mappings = get_simulated_index_template_mappings(elastic_client, index)
+        index_lookup[index] = index_tmpl_mappings
+        combine_dicts(existing_mappings, index_tmpl_mappings)
+    return existing_mappings, index_lookup

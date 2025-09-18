@@ -647,11 +647,13 @@ class QueryValidator:
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:
         raise NotImplementedError
 
+    def get_unique_field_type(self, __: str) -> None:
+        """Used to get unique field types when schema is not used"""
+        raise NotImplementedError
+
     @cached
     def get_required_fields(self, index: str) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        if isinstance(self, ESQLValidator):
-            return []
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
@@ -665,7 +667,9 @@ class QueryValidator:
         # construct integration schemas
         packages_manifest = load_integrations_manifests()
         integrations_schemas = load_integrations_schemas()
-        datasets, _ = beats.get_datasets_and_modules(self.ast)
+        datasets: set[str] = set()
+        if self.ast:
+            datasets, _ = beats.get_datasets_and_modules(self.ast)
         package_integrations = parse_datasets(list(datasets), packages_manifest)
         int_schema: dict[str, Any] = {}
         data = {"notify": False}
@@ -692,6 +696,9 @@ class QueryValidator:
                     field_type = beat_schema.get(fld, {}).get("type")
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
+
+            if not field_type and isinstance(self, ESQLValidator):
+                field_type = self.get_unique_field_type(fld)
 
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 
@@ -1500,21 +1507,22 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     ) -> list[dict[str, Any]] | None:
         packaged_integrations: list[dict[str, Any]] = []
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
-
+        if isinstance(data, ESQLRuleData):
+            dataset_objs = utils.get_esql_query_event_dataset_integrations(data.query)
+            datasets.update(str(obj) for obj in dataset_objs)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 
-        rule_integrations = meta.get("integration", [])
-        if rule_integrations:
-            for integration in rule_integrations:
-                ineligible_integrations = [
-                    *definitions.NON_DATASET_PACKAGES,
-                    *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-                ]
-                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
-                    packaged_integrations.append({"package": integration, "integration": None})
+        rule_integrations: str | list[str] = meta.get("integration") or []
+        for integration in rule_integrations:
+            ineligible_integrations = [
+                *definitions.NON_DATASET_PACKAGES,
+                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
+            ]
+            if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                packaged_integrations.append({"package": integration, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 
@@ -1828,7 +1836,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         else:
             package = value
 
-        if package in list(package_manifest):
+        if package in package_manifest:
             packaged_integrations.append({"package": package, "integration": integration})
     return packaged_integrations
 

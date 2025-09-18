@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from collections.abc import Callable, Iterator
-from dataclasses import astuple, is_dataclass
+from dataclasses import astuple, dataclass, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
@@ -528,3 +528,159 @@ class PatchedTemplate(Template):
                 # another group we're not expecting
                 raise ValueError("Unrecognized named group in pattern", self.pattern)
         return ids
+
+
+FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE)
+
+
+def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
+    """Extract indices from an ES|QL query."""
+    match = FROM_SOURCES_REGEX.search(query)
+
+    if not match:
+        return "", []
+
+    sources_str = match.group("sources")
+    return sources_str, [source.strip() for source in sources_str.split(",")]
+
+
+# NOTE This is done with a dataclass but could also be done with dict, etc.
+# Also other places this is called an <integration.integration> instead.
+# such as in integrations.py def parse_datasets
+@dataclass
+class EventDataset:
+    """Dataclass for event.dataset with integration and datastream parts."""
+
+    integration: str
+    datastream: str
+
+    def __str__(self) -> str:
+        return f"{self.integration}.{self.datastream}"
+
+
+def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
+    """Extract event.dataset, event.module, and data_stream.dataset integrations from an ES|QL query."""
+    number_of_parts = 2
+    # Regex patterns for event.dataset, event.module, and data_stream.dataset
+    # This mimics the logic in get_datasets_and_modules but for ES|QL as we do not have an ast
+
+    regex_patterns = {
+        "in": [
+            re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
+            re.compile(r"event\.module\s+in\s*\(\s*([^)]+)\s*\)"),
+            re.compile(r"data_stream\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
+        ],
+        "eq": [
+            re.compile(r'event\.dataset\s*==\s*"([^"]+)"'),
+            re.compile(r'event\.module\s*==\s*"([^"]+)"'),
+            re.compile(r'data_stream\.dataset\s*==\s*"([^"]+)"'),
+        ],
+    }
+
+    # Extract datasets
+    datasets: list[str] = []
+    for regex_list in regex_patterns.values():
+        for regex in regex_list:
+            matches = regex.findall(query)
+            if matches:
+                for match in matches:
+                    if "," in match:
+                        # Handle `in` case with multiple values
+                        datasets.extend([ds.strip().strip('"') for ds in match.split(",")])
+                    else:
+                        # Handle `==` case
+                        datasets.append(match.strip().strip('"'))
+
+    event_datasets: list[EventDataset] = []
+    for dataset in datasets:
+        parts = dataset.split(".")
+        if len(parts) == number_of_parts:  # Ensure there are exactly two parts
+            event_datasets.append(EventDataset(integration=parts[0], datastream=parts[1]))
+
+    return event_datasets
+
+
+def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
+    """Convert a flat schema to a nested schema with 'properties' for each sub-key."""
+    nested_schema = {}
+
+    for key, value in flat_schemas.items():
+        parts = key.split(".")
+        current_level = nested_schema
+
+        for part in parts[:-1]:
+            current_level = current_level.setdefault(part, {}).setdefault("properties", {})  # type: ignore[reportUnknownVariableType]
+
+        current_level[parts[-1]] = {"type": value}
+
+    return nested_schema  # type: ignore[reportUnknownVariableType]
+
+
+def combine_dicts(dest: dict[Any, Any], src: dict[Any, Any]) -> None:
+    """Combine two dictionaries recursively."""
+    for k, v in src.items():
+        if k in dest and isinstance(dest[k], dict) and isinstance(v, dict):
+            combine_dicts(dest[k], v)  # type: ignore[reportUnknownVariableType]
+        else:
+            dest[k] = v
+
+
+def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
+    """
+    Convert dicts with flat JSON paths and values into a nested mapping with
+    intermediary `properties`, `fields` and `type` fields.
+    """
+
+    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
+    # detect and handle multi-fields.
+    sorted_items = sorted(flat_schema.items())
+    result = {}
+
+    for field_path, field_type in sorted_items:
+        parts = field_path.split(".")
+        current_level = result
+
+        for part in parts[:-1]:
+            node = current_level.setdefault(part, {})  # type: ignore[reportUnknownVariableType]
+
+            if "type" in node and node["type"] not in ("nested", "object"):
+                current_level = node.setdefault("fields", {})  # type: ignore[reportUnknownVariableType]
+            else:
+                current_level = node.setdefault("properties", {})  # type: ignore[reportUnknownVariableType]
+
+        leaf_key = parts[-1]
+        current_level[leaf_key] = {"type": field_type}
+
+        # add `scaling_factor` field missing in the schema
+        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
+        if field_type == "scaled_float":
+            current_level[leaf_key]["scaling_factor"] = 1000
+
+        # add `path` field for `alias` fields, set to a dummy value
+        if field_type == "alias":
+            current_level[leaf_key]["path"] = "@timestamp"
+
+    return result  # type: ignore[reportUnknownVariableType]
+
+
+def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[str, Any] | None) -> str | None:
+    """Recursively traverse the schema to find the type of the column."""
+    key = keys[0]
+    if not current_schema:
+        return None
+    column = current_schema.get(key) or {}  # type: ignore[reportUnknownVariableType]
+    column_type = column.get("type") if column else None  # type: ignore[reportUnknownVariableType]
+    if not column_type and len(keys) > 1:
+        return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))  # type: ignore[reportUnknownVariableType]
+    return column_type  # type: ignore[reportUnknownVariableType]
+
+
+def delete_nested_key_from_dict(d: dict[str, Any], compound_key: str) -> None:
+    """Delete a nested key from a dictionary."""
+    keys = compound_key.split(".")
+    for key in keys[:-1]:
+        if key in d and isinstance(d[key], dict):
+            d = d[key]  # type: ignore[reportUnknownVariableType]
+        else:
+            return
+    d.pop(keys[-1], None)
