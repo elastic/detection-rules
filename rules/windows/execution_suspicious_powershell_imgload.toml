@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -74,23 +74,42 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:library and 
-  dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
+host.os.type:windows and event.category:library and
+  dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and
   not (
-    process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")
-  ) and 
+    process.code_signature.subject_name:(
+      "Microsoft Corporation" or
+      "Microsoft Dynamic Code Publisher" or
+      "Microsoft Windows"
+    ) and process.code_signature.trusted:true and not process.name.caseless:"regsvr32.exe"
+  ) and
   not (
-    process.executable.caseless:(C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe) and
+    process.executable:(C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe) and
     process.code_signature.trusted:true
-  ) and 
+  ) and
   not (
-    process.executable.caseless: C\:\\Windows\\Lenovo\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+    process.executable: C\:\\Windows\\Lenovo\\*.exe and process.code_signature.subject_name:"Lenovo" and
     process.code_signature.trusted:true
-  ) and 
+  ) and
   not (
-    process.executable.caseless: "C:\\ProgramData\\chocolatey\\choco.exe" and
-    process.code_signature.subject_name:"Chocolatey Software, Inc." and process.code_signature.trusted:true
-  ) and not process.executable.caseless : "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    process.executable: C\:\\Windows\\AdminArsenal\\PDQInventory-Scanner\\service-*\\exec\\PDQInventoryScanner.exe and
+    process.code_signature.subject_name:"PDQ.com Corporation" and
+    process.code_signature.trusted:true
+  ) and
+  not (
+    process.executable: C\:\\Windows\\Temp\\\{*\}\\_is*.exe and
+    process.code_signature.subject_name:("Dell Technologies Inc." or "Dell Inc" or "Dell Inc.") and
+    process.code_signature.trusted:true
+  ) and
+  not (
+    process.executable: C\:\\ProgramData\\chocolatey\\* and
+    process.code_signature.subject_name:("Chocolatey Software, Inc." or "Chocolatey Software, Inc") and
+    process.code_signature.trusted:true
+  ) and
+  not process.executable : (
+    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" or
+    "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+  )
 '''
 
 
