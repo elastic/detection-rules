@@ -10,8 +10,12 @@ import pytest
 from elasticsearch import BadRequestError
 from elasticsearch import ConnectionError as ESConnectionError
 
-from detection_rules.misc import get_default_config, getdefault
-from detection_rules.remote_validation import RemoteConnector
+from detection_rules.misc import (
+    get_default_config,
+    get_default_elasticsearch_client,
+    get_default_kibana_client,
+    getdefault,
+)
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.rule_validators import ESQLValidator
 from detection_rules.utils import get_path
@@ -36,8 +40,9 @@ class TestRemoteRules(BaseRuleTest):
         if not esql_rules:
             return
 
-        remote_connector = RemoteConnector()
-        if not remote_connector.es_client or not remote_connector.kibana_client:
+        kibana_client = get_default_kibana_client()
+        elastic_client = get_default_elasticsearch_client()
+        if not kibana_client or not elastic_client:
             self.skipTest("Skipping remote validation due to missing client")
 
         # Retrieve verbosity level from pytest
@@ -52,9 +57,7 @@ class TestRemoteRules(BaseRuleTest):
             while retry_count < max_retries:
                 try:
                     validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                    _ = validator.remote_validate_rule_contents(
-                        remote_connector.kibana_client, remote_connector.es_client, r.contents, verbosity
-                    )
+                    _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
                     break
                 except (ValueError, BadRequestError) as e:
                     print(f"FAILURE: {e}")

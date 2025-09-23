@@ -6,7 +6,6 @@
 """Validation logic for rules containing queries."""
 
 import re
-import time
 import typing
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,14 +28,19 @@ from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStu
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
-from . import ecs, endgame, integrations, misc, utils
+from . import ecs, endgame, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
+from .index_mappings import (
+    create_remote_indices,
+    execute_query_against_indices,
+    get_rule_integrations,
+    prepare_mappings,
+)
 from .integrations import (
     get_integration_schema_data,
     load_integrations_manifests,
-    load_integrations_schemas,
     parse_datasets,
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
@@ -53,6 +57,15 @@ EQL_ERROR_TYPES = (
 )
 KQL_ERROR_TYPES = kql.KqlCompileError | kql.KqlParseError
 RULES_CONFIG = parse_rules_config()
+# TODO ESQL specific error message to catch Kibana Bad Request Errors
+# TODO ESQL.py file to hold ESQL specific logic for Errors, subclass exceptions
+# Expect to support the following as ESQL (middle 2 from Kibana)
+"""
+    EsqlSchemaError
+    EsqlSemanticError
+    EsqlSyntaxError
+    EsqlTypeMismatchError
+"""
 
 
 @dataclass(frozen=True)
@@ -536,11 +549,7 @@ class EQLValidator(QueryValidator):
                             add_stack_targets(synthetic_sequence, include_endgame=False)
                 else:
                     # Datasetless subquery: try metadata integrations first, else add per-subquery stack targets
-                    meta_integrations = meta.integration
-                    if isinstance(meta_integrations, str):
-                        meta_integrations = [meta_integrations]
-                    elif meta_integrations is None:
-                        meta_integrations = []
+                    meta_integrations = get_rule_integrations(meta)
 
                     if meta_integrations:
                         meta_pkg_ints = [
@@ -722,17 +731,18 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
 
-    def __init__(self, query: str) -> None:
-        """Initialize the ESQLValidator with the given query."""
-        super().__init__(query)
-        self.esql_unique_fields: list[dict[str, str]] = []
-        self.related_integrations: list[dict[str, str]] = []
-        self.stack_version: str = ""
+    kibana_client: Kibana
+    elastic_client: Elasticsearch
+    metadata: RuleMeta
+    rule_id: str
+    verbosity: int
+    esql_unique_fields: list[dict[str, str]]
 
-    @cached_property
-    def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
-        """There is no AST for ESQL until we have an ESQL parser."""
-        return None
+    def log(self, val: str) -> None:
+        """Log if verbosity is 1 or greater (1 corresponds to `-v` in pytest)"""
+        unit_test_verbose_level = 1
+        if self.verbosity >= unit_test_verbose_level:
+            print(f"{self.rule_id}:", val)
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
@@ -747,82 +757,6 @@ class ESQLValidator(QueryValidator):
             if field["name"] == field_name:
                 return field["type"]
         return None
-
-    def validate(self, rule_data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
-        """Validate an ESQL query while checking TOMLRule."""
-        if misc.getdefault("remote_esql_validation")() or force_remote_validation:
-            kibana_client = misc.get_default_kibana_client()
-            elastic_client = misc.get_default_elasticsearch_client()
-            _ = self.remote_validate_rule(
-                kibana_client,
-                elastic_client,
-                rule_data.query,
-                rule_meta,
-                rule_data.rule_id,
-            )
-
-    def get_rule_integrations(self, metadata: RuleMeta) -> list[str]:
-        """Retrieve rule integrations from metadata."""
-        rule_integrations: list[str] = []
-        if metadata.integration:
-            if isinstance(metadata.integration, list):
-                rule_integrations = metadata.integration
-            else:
-                rule_integrations = [metadata.integration]
-        return rule_integrations
-
-    def prepare_integration_mappings(
-        self,
-        rule_integrations: list[str],
-        event_dataset_integrations: list[utils.EventDataset],
-        package_manifests: Any,
-        integration_schemas: Any,
-        log: Callable[[str], None],
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Prepare integration mappings for the given rule integrations."""
-        integration_mappings: dict[str, Any] = {}
-        index_lookup: dict[str, Any] = {}
-        dataset_restriction: dict[str, str] = {}
-
-        # Process restrictions, note we need this for loops to be separate
-        for event_dataset in event_dataset_integrations:
-            # Ensure the integration is in rule_integrations
-            if event_dataset.integration not in rule_integrations:
-                dataset_restriction.setdefault(event_dataset.integration, []).append(event_dataset.datastream)  # type: ignore[reportIncompatibleMethodOverride]
-        for event_dataset in event_dataset_integrations:
-            if event_dataset.integration not in rule_integrations:
-                rule_integrations.append(event_dataset.integration)
-
-        for integration in rule_integrations:
-            package = integration
-            package_version, _ = integrations.find_latest_compatible_version(
-                package,
-                "",
-                Version.parse(self.stack_version),
-                package_manifests,
-            )
-            package_schema = integration_schemas[package][package_version]
-
-            # Apply dataset restrictions if any
-            if integration in dataset_restriction:
-                allowed_keys = dataset_restriction[integration]
-                package_schema = {key: value for key, value in package_schema.items() if key in allowed_keys}
-
-            for stream in package_schema:
-                flat_schema = package_schema[stream]
-                stream_mappings = utils.flat_schema_to_index_mapping(flat_schema)
-                nested_multifields = self.find_nested_multifields(stream_mappings)
-                for field in nested_multifields:
-                    field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
-                    log(
-                        f"Warning: Nested multi-field `{field}` found in `{integration}-{stream}`. "
-                        f"Removing parent field from schema for ES|QL validation."
-                    )
-                    utils.delete_nested_key_from_dict(stream_mappings, field_name)
-                utils.combine_dicts(integration_mappings, stream_mappings)
-                index_lookup[f"{integration}-{stream}"] = stream_mappings
-
-        return integration_mappings, index_lookup
 
     def validate_columns_index_mapping(
         self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]
@@ -852,149 +786,34 @@ class ESQLValidator(QueryValidator):
                 )
 
         if mismatched_columns:
+            # TODO this should be an ESQL type Error (check to match EQL error structure)
             raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
 
         return True
 
-    def create_remote_indices(
-        self,
-        elastic_client: Elasticsearch,
-        existing_mappings: dict[str, Any],
-        index_lookup: dict[str, Any],
-        log: Callable[[str], None],
-    ) -> str:
-        """Create remote indices for validation and return the index string."""
-        suffix = str(int(time.time() * 1000))
-        test_index = f"rule-test-index-{suffix}"
-        response = misc.create_index_with_index_mapping(elastic_client, test_index, existing_mappings)
-        log(f"Index `{test_index}` created: {response}")
-        full_index_str = test_index
+    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+        """Validate an ESQL query while checking TOMLRule."""
+        if misc.getdefault("remote_esql_validation")() or force_remote_validation:
+            resolved_kibana_options = {
+                str(option.name): option.default() if callable(option.default) else option.default
+                for option in misc.kibana_options
+                if option.name is not None
+            }
 
-        # create all integration indices
-        for index, properties in index_lookup.items():
-            ind_index_str = f"test-{index.rstrip('*')}{suffix}"
-            response = misc.create_index_with_index_mapping(elastic_client, ind_index_str, properties)
-            log(f"Index `{ind_index_str}` created: {response}")
-            full_index_str = f"{full_index_str}, {ind_index_str}"
-
-        return full_index_str
-
-    def execute_query_against_indices(
-        self,
-        elastic_client: Elasticsearch,
-        query: str,
-        test_index_str: str,
-        log: Callable[[str], None],
-        delete_indices: bool = True,
-    ) -> tuple[list[Any], ObjectApiResponse[Any]]:
-        """Execute the ESQL query against the test indices on a remote Stack and return the columns."""
-        try:
-            log(f"Executing a query against `{test_index_str}`")
-            response = elastic_client.esql.query(query=query)
-            log(f"Got query response: {response}")
-            query_columns = response.get("columns", [])
-        finally:
-            if delete_indices:
-                for index_str in test_index_str.split(","):
-                    response = elastic_client.indices.delete(index=index_str.strip())
-                    log(f"Test index `{index_str}` deleted: {response}")
-
-        query_column_names = [c["name"] for c in query_columns]
-        log(f"Got query columns: {', '.join(query_column_names)}")
-        return query_columns, response
-
-    def find_nested_multifields(self, mapping: dict[str, Any], path: str = "") -> list[Any]:
-        """Recursively search for nested multi-fields in Elasticsearch mappings."""
-        nested_multifields = []
-
-        for field, properties in mapping.items():
-            current_path = f"{path}.{field}" if path else field
-
-            if isinstance(properties, dict):
-                # Check if the field has a `fields` key
-                if "fields" in properties:
-                    # Check if any subfield in `fields` also has a `fields` key
-                    for subfield, subproperties in properties["fields"].items():  # type: ignore[reportUnknownVariableType]
-                        if isinstance(subproperties, dict) and "fields" in subproperties:
-                            nested_multifields.append(f"{current_path}.fields.{subfield}")  # type: ignore[reportUnknownVariableType]
-
-                # Recurse into subfields
-                if "properties" in properties:
-                    nested_multifields.extend(  # type: ignore[reportUnknownVariableType]
-                        self.find_nested_multifields(properties["properties"], current_path)  # type: ignore[reportUnknownVariableType]
-                    )
-
-        return nested_multifields  # type: ignore[reportUnknownVariableType]
-
-    def get_ecs_schema_mappings(self, current_version: Version) -> dict[str, Any]:
-        """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
-        ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
-        ecs_schemas = ecs.get_schemas()
-        ecs_schema_flattened: dict[str, Any] = {}
-        ecs_schema_scaled_floats: dict[str, Any] = {}
-        for index, info in ecs_schemas[ecs_version]["ecs_flat"].items():
-            if info["type"] == "scaled_float":
-                ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
-            ecs_schema_flattened.update({index: info["type"]})
-        ecs_schema = utils.convert_to_nested_schema(ecs_schema_flattened)
-        for index, info in ecs_schema_scaled_floats.items():
-            parts = index.split(".")
-            current = ecs_schema
-
-            # Traverse the ecs_schema to the correct nested dictionary
-            for part in parts[:-1]:  # Traverse all parts except the last one
-                current = current.setdefault(part, {}).setdefault("properties", {})
-
-            current[parts[-1]].update({"scaling_factor": info})
-        return ecs_schema
-
-    def prepare_mappings(
-        self,
-        elastic_client: Elasticsearch,
-        indices: list[str],
-        event_dataset_integrations: list[utils.EventDataset],
-        metadata: RuleMeta,
-        log: Callable[[str], None],
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        """Prepare index mappings for the given indices and rule integrations."""
-        existing_mappings, index_lookup = misc.get_existing_mappings(elastic_client, indices)
-
-        # Collect mappings for the integrations
-        rule_integrations = self.get_rule_integrations(metadata)
-
-        # Collect mappings for all relevant integrations for the given stack version
-        package_manifests = load_integrations_manifests()
-        integration_schemas = load_integrations_schemas()
-
-        integration_mappings, integration_index_lookup = self.prepare_integration_mappings(
-            rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, log
-        )
-
-        index_lookup.update(integration_index_lookup)
-
-        # Combine existing and integration mappings into a single mapping dict
-        combined_mappings: dict[str, Any] = {}
-        utils.combine_dicts(combined_mappings, existing_mappings)
-        utils.combine_dicts(combined_mappings, integration_mappings)
-
-        # Load non-ecs schema and convert to index mapping format (nested schema)
-        non_ecs_mapping: dict[str, Any] = {}
-        non_ecs = ecs.get_non_ecs_schema()
-        for index in indices:
-            non_ecs_mapping.update(non_ecs.get(index, {}))
-        non_ecs_mapping = ecs.flatten(non_ecs_mapping)
-        non_ecs_mapping = utils.convert_to_nested_schema(non_ecs_mapping)
-        if not combined_mappings and not non_ecs_mapping:
-            raise ValueError("No mappings found")
-        index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
-
-        # Load ECS in an index mapping format (nested schema)
-        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        ecs_schema = self.get_ecs_schema_mappings(current_version)
-
-        index_lookup.update({"rule-ecs-index": ecs_schema})
-
-        return existing_mappings, index_lookup, combined_mappings
+            kibana_client = misc.get_kibana_client(**resolved_kibana_options)
+            resolved_elastic_options = {
+                option.name: option.default() if callable(option.default) else option.default
+                for option in misc.elasticsearch_options
+                if option.name is not None
+            }
+            elastic_client = misc.get_elasticsearch_client(**resolved_elastic_options)
+            _ = self.remote_validate_rule(
+                kibana_client,
+                elastic_client,
+                data.query,
+                rule_meta,
+                data.rule_id,
+            )
 
     def remote_validate_rule_contents(
         self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
@@ -1020,48 +839,45 @@ class ESQLValidator(QueryValidator):
     ) -> ObjectApiResponse[Any]:
         """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
 
-        def log(val: str) -> None:
-            """Log if verbosity is 1 or greater (1 corresponds to `-v` in pytest)"""
-            unit_test_verbose_level = 1
-            if verbosity >= unit_test_verbose_level:
-                print(f"{rule_id}:", val)
+        self.rule_id = rule_id
+        self.verbosity = verbosity
 
+        # Validate that all fields (columns) are either dynamic fields or correctly mapped
+        # against the combined mapping of all the indices
         kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
         if "version" not in kibana_details:
             raise ValueError("Failed to retrieve Kibana details.")
-        self.stack_version = str(kibana_details["version"]["number"])
-        log(f"Validating against {self.stack_version} stack")
+        stack_version = str(kibana_details["version"]["number"])
 
+        self.log(f"Validating against {stack_version} stack")
         indices_str, indices = utils.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
-        log(f"Extracted indices from query: {', '.join(indices)}")
+        self.log(f"Extracted indices from query: {', '.join(indices)}")
 
         event_dataset_integrations = utils.get_esql_query_event_dataset_integrations(query)
-        log(f"Extracted Event Dataset integrations from query: {', '.join(indices)}")
+        self.log(f"Extracted Event Dataset integrations from query: {', '.join(indices)}")
 
         # Get mappings for all matching existing index templates
-        existing_mappings, index_lookup, combined_mappings = self.prepare_mappings(
-            elastic_client, indices, event_dataset_integrations, metadata, log
+        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
+            elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
         )
-        log(f"Collected mappings: {len(existing_mappings)}")
-        log(f"Combined mappings prepared: {len(combined_mappings)}")
+        self.log(f"Collected mappings: {len(existing_mappings)}")
+        self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
         # Create remote indices
-        full_index_str = self.create_remote_indices(elastic_client, existing_mappings, index_lookup, log)
+        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
         utils.combine_dicts(combined_mappings, index_lookup["rule-non-ecs-index"])
         utils.combine_dicts(combined_mappings, index_lookup["rule-ecs-index"])
 
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
 
-        query_columns, response = self.execute_query_against_indices(elastic_client, query, full_index_str, log)  # type: ignore[reportUnknownVariableType]
+        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
-        # Validate that all fields (columns) are either dynamic fields or correctly mapped
-        # against the combined mapping of all the indices
         if self.validate_columns_index_mapping(query_columns, combined_mappings):
-            log("All dynamic columns have proper formatting.")
+            self.log("All dynamic columns have proper formatting.")
         else:
-            log("Dynamic column(s) have improper formatting.")
+            self.log("Dynamic column(s) have improper formatting.")
 
         return response
 

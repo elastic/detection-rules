@@ -225,7 +225,7 @@ def find_latest_compatible_version(
     rule_stack_version: Version,
     packages_manifest: dict[str, Any],
 ) -> tuple[str, list[str]]:
-    """Finds least compatible version for specified integration based on stack version supplied."""
+    """Finds latest compatible version for specified integration based on stack version supplied."""
 
     if not package:
         raise ValueError("Package must be specified")
