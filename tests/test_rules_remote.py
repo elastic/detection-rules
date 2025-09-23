@@ -56,7 +56,9 @@ class TestRemoteRules(BaseRuleTest):
                 while retry_count < max_retries:
                     try:
                         validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                        _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
+                        _ = validator.remote_validate_rule_contents(
+                            kibana_client, elastic_client, r.contents, verbosity
+                        )
                         break
                     except (ValueError, BadRequestError) as e:
                         print(f"FAILURE: {e}")
