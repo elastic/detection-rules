@@ -745,13 +745,15 @@ class ESQLValidator(QueryValidator):
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         """Return a list of unique fields in the query. Requires remote validation to have occurred."""
-        if self.esql_unique_fields:
+        esql_unique_fields = getattr(self, "esql_unique_fields", None)
+        if esql_unique_fields:
             return [field["name"] for field in self.esql_unique_fields]
         return []
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
-        for field in self.esql_unique_fields:
+        esql_unique_fields = getattr(self, "esql_unique_fields", [])
+        for field in esql_unique_fields:
             if field["name"] == field_name:
                 return field["type"]
         return None
