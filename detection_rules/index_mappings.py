@@ -147,6 +147,14 @@ def prepare_integration_mappings(  # noqa: PLR0913
                     f"Removing parent field from schema for ES|QL validation."
                 )
                 utils.delete_nested_key_from_dict(stream_mappings, field_name)
+            nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
+            for field in nested_flattened_fields:
+                field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
+                log(
+                    f"Warning: flattened field `{field}` found in `{integration}-{stream}` with sub fields. "
+                    f"Removing parent field from schema for ES|QL validation."
+                )
+                utils.delete_nested_key_from_dict(stream_mappings, field_name)
             utils.combine_dicts(integration_mappings, stream_mappings)
             index_lookup[f"{integration}-{stream}"] = stream_mappings
 
@@ -227,6 +235,27 @@ def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any
                 )
 
     return nested_multifields  # type: ignore[reportUnknownVariableType]
+
+
+def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = "") -> list[str]:
+    """Recursively search for fields of type 'flattened' that have a 'fields' key in Elasticsearch mappings."""
+    flattened_fields_with_subfields = []
+
+    for field, properties in mapping.items():
+        current_path = f"{path}.{field}" if path else field
+
+        if isinstance(properties, dict):
+            # Check if the field is of type 'flattened' and has a 'fields' key
+            if properties.get("type") == "flattened" and "fields" in properties:  # type: ignore[reportUnknownVariableType]
+                flattened_fields_with_subfields.append(current_path)  # type: ignore[reportUnknownVariableType]
+
+            # Recurse into subfields
+            if "properties" in properties:
+                flattened_fields_with_subfields.extend(  # type: ignore[reportUnknownVariableType]
+                    find_flattened_fields_with_subfields(properties["properties"], current_path)  # type: ignore[reportUnknownVariableType]
+                )
+
+    return flattened_fields_with_subfields  # type: ignore[reportUnknownVariableType]
 
 
 def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
