@@ -32,6 +32,7 @@ from . import ecs, endgame, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
+from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
     create_remote_indices,
@@ -46,6 +47,7 @@ from .integrations import (
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_stack_schemas
+from .schemas.definitions import FROM_SOURCES_REGEX
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -750,6 +752,16 @@ class ESQLValidator(QueryValidator):
             return [field["name"] for field in self.esql_unique_fields]
         return []
 
+    def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
+        """Extract indices from an ES|QL query."""
+        match = FROM_SOURCES_REGEX.search(query)
+
+        if not match:
+            return "", []
+
+        sources_str = match.group("sources")
+        return sources_str, [source.strip() for source in sources_str.split(",")]
+
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
         esql_unique_fields = getattr(self, "esql_unique_fields", [])
@@ -852,10 +864,10 @@ class ESQLValidator(QueryValidator):
         stack_version = str(kibana_details["version"]["number"])
 
         self.log(f"Validating against {stack_version} stack")
-        indices_str, indices = utils.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
+        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         self.log(f"Extracted indices from query: {', '.join(indices)}")
 
-        event_dataset_integrations = utils.get_esql_query_event_dataset_integrations(query)
+        event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
         self.log(f"Extracted Event Dataset integrations from query: {', '.join(indices)}")
 
         # Get mappings for all matching existing index templates

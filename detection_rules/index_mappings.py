@@ -16,6 +16,7 @@ from semver import Version
 
 from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
+from .esql import EventDataset
 from .esql_errors import EsqlSchemaError, EsqlSemanticError, EsqlSyntaxError, cleanup_empty_indices
 from .integrations import (
     load_integrations_manifests,
@@ -101,7 +102,7 @@ def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: s
 
 def prepare_integration_mappings(  # noqa: PLR0913
     rule_integrations: list[str],
-    event_dataset_integrations: list[utils.EventDataset],
+    event_dataset_integrations: list[EventDataset],
     package_manifests: Any,
     integration_schemas: Any,
     stack_version: str,
@@ -115,20 +116,20 @@ def prepare_integration_mappings(  # noqa: PLR0913
     # Process restrictions, note we need this for loops to be separate
     for event_dataset in event_dataset_integrations:
         # Ensure the integration is in rule_integrations
-        if event_dataset.integration not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.integration, []).append(event_dataset.datastream)  # type: ignore[reportIncompatibleMethodOverride]
+        if event_dataset.package not in rule_integrations:
+            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)  # type: ignore[reportIncompatibleMethodOverride]
     for event_dataset in event_dataset_integrations:
-        if event_dataset.integration not in rule_integrations:
-            rule_integrations.append(event_dataset.integration)
+        if event_dataset.package not in rule_integrations:
+            rule_integrations.append(event_dataset.package)
 
     for integration in rule_integrations:
         package = integration
-        package_version, _ = integrations.find_latest_compatible_version(
+        package_version = integrations.find_least_compatible_version(
             package,
             "",
-            Version.parse(stack_version),
+            stack_version,
             package_manifests,
-        )
+        ).lstrip("^")
         package_schema = integration_schemas[package][package_version]
 
         # Apply dataset restrictions if any
@@ -284,7 +285,7 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
 def prepare_mappings(  # noqa: PLR0913
     elastic_client: Elasticsearch,
     indices: list[str],
-    event_dataset_integrations: list[utils.EventDataset],
+    event_dataset_integrations: list[EventDataset],
     metadata: RuleMeta,
     stack_version: str,
     log: Callable[[str], None],

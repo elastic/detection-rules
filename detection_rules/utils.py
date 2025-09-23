@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import zipfile
 from collections.abc import Callable, Iterator
-from dataclasses import astuple, dataclass, is_dataclass
+from dataclasses import astuple, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
@@ -528,76 +528,6 @@ class PatchedTemplate(Template):
                 # another group we're not expecting
                 raise ValueError("Unrecognized named group in pattern", self.pattern)
         return ids
-
-
-FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE)
-
-
-def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
-    """Extract indices from an ES|QL query."""
-    match = FROM_SOURCES_REGEX.search(query)
-
-    if not match:
-        return "", []
-
-    sources_str = match.group("sources")
-    return sources_str, [source.strip() for source in sources_str.split(",")]
-
-
-# NOTE This is done with a dataclass but could also be done with dict, etc.
-# Also other places this is called an <integration.integration> instead.
-# such as in integrations.py def parse_datasets
-@dataclass
-class EventDataset:
-    """Dataclass for event.dataset with integration and datastream parts."""
-
-    integration: str
-    datastream: str
-
-    def __str__(self) -> str:
-        return f"{self.integration}.{self.datastream}"
-
-
-def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
-    """Extract event.dataset, event.module, and data_stream.dataset integrations from an ES|QL query."""
-    number_of_parts = 2
-    # Regex patterns for event.dataset, event.module, and data_stream.dataset
-    # This mimics the logic in get_datasets_and_modules but for ES|QL as we do not have an ast
-
-    regex_patterns = {
-        "in": [
-            re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
-            re.compile(r"event\.module\s+in\s*\(\s*([^)]+)\s*\)"),
-            re.compile(r"data_stream\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
-        ],
-        "eq": [
-            re.compile(r'event\.dataset\s*==\s*"([^"]+)"'),
-            re.compile(r'event\.module\s*==\s*"([^"]+)"'),
-            re.compile(r'data_stream\.dataset\s*==\s*"([^"]+)"'),
-        ],
-    }
-
-    # Extract datasets
-    datasets: list[str] = []
-    for regex_list in regex_patterns.values():
-        for regex in regex_list:
-            matches = regex.findall(query)
-            if matches:
-                for match in matches:
-                    if "," in match:
-                        # Handle `in` case with multiple values
-                        datasets.extend([ds.strip().strip('"') for ds in match.split(",")])
-                    else:
-                        # Handle `==` case
-                        datasets.append(match.strip().strip('"'))
-
-    event_datasets: list[EventDataset] = []
-    for dataset in datasets:
-        parts = dataset.split(".")
-        if len(parts) == number_of_parts:  # Ensure there are exactly two parts
-            event_datasets.append(EventDataset(integration=parts[0], datastream=parts[1]))
-
-    return event_datasets
 
 
 def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
