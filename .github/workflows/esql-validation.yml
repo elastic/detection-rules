@@ -12,14 +12,14 @@ jobs:
 
     steps:
       - name: Check out repository
-        if: ${{ !env.cloud_id && !env.api_key }} 
+        if: ${{ !vars.cloud_id && !vars.api_key }} 
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           path: elastic-container
           repository: eric-forte-elastic/elastic-container
 
       - name: Build and run containers
-        if: ${{ !env.cloud_id && !env.api_key }} 
+        if: ${{ !vars.cloud_id && !vars.api_key }} 
         run: |
           cd elastic-container
           GENERATED_PASSWORD=$(openssl rand -base64 16)
@@ -40,7 +40,7 @@ jobs:
           python-version: '3.13'
 
       - name: Get API Key and setup auth
-        if: ${{ !env.cloud_id && !env.api_key }}
+        if: ${{ !vars.cloud_id && !vars.api_key }}
         env:
           DR_ELASTICSEARCH_URL: "https://localhost:9200"
           ES_USER: "elastic"
@@ -64,10 +64,10 @@ jobs:
 
       - name: Validate Test ESQL Rule
         env:
-          DR_CLOUD_ID: ${{ env.cloud_id }}
-          DR_KIBANA_URL: ${{ env.cloud_id == '' && 'https://localhost:5601' || '' }}
-          DR_ES_USER: ${{ env.cloud_id == '' && 'elastic' || '' }}
-          DR_API_KEY: ${{ env.api_key || env.DR_API_KEY }}
+          DR_CLOUD_ID: ${{ vars.cloud_id }}
+          DR_KIBANA_URL: ${{ vars.cloud_id == '' && 'https://localhost:5601' || '' }}
+          DR_ES_USER: ${{ vars.cloud_id == '' && 'elastic' || '' }}
+          DR_API_KEY: ${{ vars.api_key || vars.DR_API_KEY }}
         run: |
           cd detection-rules
           python -m pytest tests/test_rules_remote.py::TestRemoteRules::test_esql_rules
