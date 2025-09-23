@@ -1,5 +1,9 @@
 """ESQL exceptions."""
 
+from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
+
+from .misc import getdefault
+
 __all__ = (
     "EsqlSchemaError",
     "EsqlSemanticError",
@@ -8,29 +12,45 @@ __all__ = (
 )
 
 
+def cleanup_empty_indices(
+    elastic_client: Elasticsearch, index_patterns: tuple[str, ...] = ("rule-test-*", "test-*")
+) -> None:
+    """Delete empty indices matching the given patterns."""
+    if getdefault("skip_empty_index_cleanup")():
+        return
+    for pattern in index_patterns:
+        indices = elastic_client.cat.indices(index=pattern, format="json")
+        empty_indices = [index["index"] for index in indices if index["docs.count"] == "0"]  # type: ignore[reportMissingTypeStubs]
+        for empty_index in empty_indices:
+            _ = elastic_client.indices.delete(index=empty_index)
+
+
 class EsqlSchemaError(Exception):
     """Error in ESQL schema. Validated via Kibana until AST is available."""
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
+        cleanup_empty_indices(elastic_client)
         super().__init__(message)
 
 
 class EsqlSyntaxError(Exception):
     """Error with ESQL syntax. Validated via Kibana until AST is available."""
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
+        cleanup_empty_indices(elastic_client)
         super().__init__(message)
 
 
 class EsqlSemanticError(Exception):
     """Error with ESQL semantics. Validated via Kibana until AST is available."""
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
+        cleanup_empty_indices(elastic_client)
         super().__init__(message)
 
 
 class EsqlTypeMismatchError(Exception):
     """Error when validating types in ESQL."""
 
-    def __init__(self, message: str):
+    def __init__(self, message: str) -> None:
         super().__init__(message)

@@ -56,6 +56,7 @@ def elastic_rule_name_regexp(pattern: Pattern[str]) -> Callable[[Any], Any]:
     return validator_wrapper
 
 
+HTTP_STATUS_BAD_REQUEST = 400
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 

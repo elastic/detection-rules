@@ -736,6 +736,12 @@ class ESQLValidator(QueryValidator):
         if self.verbosity >= unit_test_verbose_level:
             print(f"{self.rule_id}:", val)
 
+    @property
+    def ast(self) -> Any:
+        """Return the AST of the ESQL query. Dependant in ESQL parser which is not implemented"""
+        # Needs to return none to prevent not implemented error
+        return None
+
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         """Return a list of unique fields in the query. Requires remote validation to have occurred."""
@@ -791,20 +797,23 @@ class ESQLValidator(QueryValidator):
                 if option.name is not None
             }
 
-            kibana_client = misc.get_kibana_client(**resolved_kibana_options)
             resolved_elastic_options = {
                 option.name: option.default() if callable(option.default) else option.default
                 for option in misc.elasticsearch_options
                 if option.name is not None
             }
-            elastic_client = misc.get_elasticsearch_client(**resolved_elastic_options)
-            _ = self.remote_validate_rule(
-                kibana_client,
-                elastic_client,
-                data.query,
-                rule_meta,
-                data.rule_id,
-            )
+
+            with (
+                misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
+                misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
+            ):
+                _ = self.remote_validate_rule(
+                    kibana_client,
+                    elastic_client,
+                    data.query,
+                    rule_meta,
+                    data.rule_id,
+                )
 
     def remote_validate_rule_contents(
         self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0

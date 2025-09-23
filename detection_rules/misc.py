@@ -14,13 +14,10 @@ from typing import IO, Any, NoReturn
 
 import click
 import requests
-from elastic_transport import ObjectApiResponse
 from elasticsearch import AuthenticationException, Elasticsearch
-from elasticsearch.exceptions import BadRequestError
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
-from .esql_errors import EsqlSchemaError
-from .utils import add_params, cached, combine_dicts, load_etc_dump
+from .utils import add_params, cached, load_etc_dump
 
 LICENSE_HEADER = """
 Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
@@ -412,46 +409,3 @@ def add_client(client_types: list[str], add_to_ctx: bool = True, add_func_arg: b
         return _wrapped
 
     return _wrapper
-
-
-def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
-    """
-    Return the mappings from the index configuration that would be applied
-    to the specified index from an existing index template
-
-    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
-    """
-    template = elastic_client.indices.simulate_index_template(name=name)
-    if not template:
-        return {}
-    return template["template"]["mappings"]["properties"]
-
-
-def create_index_with_index_mapping(
-    elastic_client: Elasticsearch, index_name: str, mappings: dict[str, Any]
-) -> ObjectApiResponse[Any] | None:
-    """Create an index with the specified mappings and settings to support large number of fields and nested objects."""
-    try:
-        return elastic_client.indices.create(
-            index=index_name,
-            mappings={"properties": mappings},
-            settings={
-                "index.mapping.total_fields.limit": 10000,
-                "index.mapping.nested_fields.limit": 500,
-                "index.mapping.nested_objects.limit": 10000,
-            },
-        )
-    except BadRequestError as e:
-        if e.status_code == 400 and "validation_exception" in str(e):
-            raise EsqlSchemaError(str(e)) from e
-
-
-def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Retrieve mappings for all matching existing index templates."""
-    existing_mappings: dict[str, Any] = {}
-    index_lookup: dict[str, Any] = {}
-    for index in indices:
-        index_tmpl_mappings = get_simulated_index_template_mappings(elastic_client, index)
-        index_lookup[index] = index_tmpl_mappings
-        combine_dicts(existing_mappings, index_tmpl_mappings)
-    return existing_mappings, index_lookup
