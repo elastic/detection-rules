@@ -532,6 +532,7 @@ class PatchedTemplate(Template):
 
 def convert_to_nested_schema(flat_schemas: dict[str, str]) -> dict[str, Any]:
     """Convert a flat schema to a nested schema with 'properties' for each sub-key."""
+    # NOTE this is needed to conform to Kibana's index mapping format
     nested_schema = {}
 
     for key, value in flat_schemas.items():
