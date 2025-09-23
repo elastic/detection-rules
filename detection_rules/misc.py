@@ -16,8 +16,10 @@ import click
 import requests
 from elastic_transport import ObjectApiResponse
 from elasticsearch import AuthenticationException, Elasticsearch
+from elasticsearch.exceptions import BadRequestError
 from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 
+from .esql_errors import EsqlSchemaError
 from .utils import add_params, cached, combine_dicts, load_etc_dump
 
 LICENSE_HEADER = """
@@ -427,17 +429,21 @@ def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: s
 
 def create_index_with_index_mapping(
     elastic_client: Elasticsearch, index_name: str, mappings: dict[str, Any]
-) -> ObjectApiResponse[Any]:
+) -> ObjectApiResponse[Any] | None:
     """Create an index with the specified mappings and settings to support large number of fields and nested objects."""
-    return elastic_client.indices.create(
-        index=index_name,
-        mappings={"properties": mappings},
-        settings={
-            "index.mapping.total_fields.limit": 10000,
-            "index.mapping.nested_fields.limit": 500,
-            "index.mapping.nested_objects.limit": 10000,
-        },
-    )
+    try:
+        return elastic_client.indices.create(
+            index=index_name,
+            mappings={"properties": mappings},
+            settings={
+                "index.mapping.total_fields.limit": 10000,
+                "index.mapping.nested_fields.limit": 500,
+                "index.mapping.nested_objects.limit": 10000,
+            },
+        )
+    except BadRequestError as e:
+        if e.status_code == 400 and "validation_exception" in str(e):
+            raise EsqlSchemaError(str(e)) from e
 
 
 def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:

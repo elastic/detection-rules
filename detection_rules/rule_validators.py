@@ -32,6 +32,7 @@ from . import ecs, endgame, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
+from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
     create_remote_indices,
     execute_query_against_indices,
@@ -57,15 +58,6 @@ EQL_ERROR_TYPES = (
 )
 KQL_ERROR_TYPES = kql.KqlCompileError | kql.KqlParseError
 RULES_CONFIG = parse_rules_config()
-# TODO ESQL specific error message to catch Kibana Bad Request Errors
-# TODO ESQL.py file to hold ESQL specific logic for Errors, subclass exceptions
-# Expect to support the following as ESQL (middle 2 from Kibana)
-"""
-    EsqlSchemaError
-    EsqlSemanticError
-    EsqlSyntaxError
-    EsqlTypeMismatchError
-"""
 
 
 @dataclass(frozen=True)
@@ -786,8 +778,7 @@ class ESQLValidator(QueryValidator):
                 )
 
         if mismatched_columns:
-            # TODO this should be an ESQL type Error (check to match EQL error structure)
-            raise ValueError("Column validation errors:\n" + "\n".join(mismatched_columns))
+            raise EsqlTypeMismatchError("Column validation errors:\n" + "\n".join(mismatched_columns))
 
         return True
 

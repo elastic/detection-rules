@@ -1,7 +1,5 @@
 """ESQL exceptions."""
 
-from marshmallow.exceptions import ValidationError
-
 __all__ = (
     "EsqlSchemaError",
     "EsqlSemanticError",
@@ -10,21 +8,29 @@ __all__ = (
 )
 
 
-class EsqlSchemaError(ValidationError):
-    """Error for missing fields in ESQL."""
+class EsqlSchemaError(Exception):
+    """Error in ESQL schema. Validated via Kibana until AST is available."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
-class EsqlSyntaxError(ValidationError):
-    """Error with ESQL syntax."""
+class EsqlSyntaxError(Exception):
+    """Error with ESQL syntax. Validated via Kibana until AST is available."""
 
-    # TODO: Update this to a Kibana Error extension? Perhaps?
-
-
-class EsqlSemanticError(ValidationError):
-    """Error with ESQL semantics."""
-
-    # TODO: Update this to a Kibana Error extension? Perhaps?
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
-class EsqlTypeMismatchError(ValidationError):
+class EsqlSemanticError(Exception):
+    """Error with ESQL semantics. Validated via Kibana until AST is available."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class EsqlTypeMismatchError(Exception):
     """Error when validating types in ESQL."""
+
+    def __init__(self, message: str):
+        super().__init__(message)

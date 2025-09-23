@@ -58,7 +58,6 @@ def prepare_integration_mappings(
 
     for integration in rule_integrations:
         package = integration
-        # TODO check should be latest or least?
         package_version, _ = integrations.find_latest_compatible_version(
             package,
             "",
