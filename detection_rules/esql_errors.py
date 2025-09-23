@@ -38,16 +38,16 @@ class EsqlSchemaError(Exception):
         super().__init__(message)
 
 
-class EsqlSyntaxError(Exception):
-    """Error with ESQL syntax. Validated via Kibana until AST is available."""
+class EsqlSemanticError(Exception):
+    """Error with ESQL semantics. Validated via Kibana until AST is available."""
 
     def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
         cleanup_empty_indices(elastic_client)
         super().__init__(message)
 
 
-class EsqlSemanticError(Exception):
-    """Error with ESQL semantics. Validated via Kibana until AST is available."""
+class EsqlSyntaxError(Exception):
+    """Error with ESQL syntax. Validated via Kibana until AST is available."""
 
     def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
         cleanup_empty_indices(elastic_client)
