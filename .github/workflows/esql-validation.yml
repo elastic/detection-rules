@@ -1,7 +1,7 @@
 name: ES|QL Validation
 on:
     push:
-      branches: [ "main", "7.*", "8.*", "9.*" ]
+      branches: [ "main", "8.*", "9.*" ]
     pull_request:
       branches: [ "*" ]
       paths:
@@ -12,12 +12,14 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        if: ${{ !env.cloud_id && !env.api_key }} 
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           path: elastic-container
           repository: eric-forte-elastic/elastic-container
 
       - name: Build and run containers
+        if: ${{ !env.cloud_id && !env.api_key }} 
         run: |
           cd elastic-container
           GENERATED_PASSWORD=$(openssl rand -base64 16)
@@ -28,16 +30,17 @@ jobs:
           
 
       - name: Setup Detection Rules
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
             fetch-depth: 0        
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.13'
 
       - name: Get API Key and setup auth
+        if: ${{ !env.cloud_id && !env.api_key }}
         env:
           DR_ELASTICSEARCH_URL: "https://localhost:9200"
           ES_USER: "elastic"
@@ -61,9 +64,10 @@ jobs:
 
       - name: Validate Test ESQL Rule
         env:
-          DR_KIBANA_URL: "https://localhost:5601"
-          DR_ES_USER: "elastic"
-          DR_API_KEY: ${{ env.DR_API_KEY }}
+          DR_CLOUD_ID: ${{ env.cloud_id }}
+          DR_KIBANA_URL: ${{ env.cloud_id == '' && 'https://localhost:5601' || '' }}
+          DR_ES_USER: ${{ env.cloud_id == '' && 'elastic' || '' }}
+          DR_API_KEY: ${{ env.api_key || env.DR_API_KEY }}
         run: |
           cd detection-rules
           python -m pytest tests/test_rules_remote.py::TestRemoteRules::test_esql_rules
