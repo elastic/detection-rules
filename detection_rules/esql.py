@@ -9,9 +9,6 @@ import re
 from dataclasses import dataclass
 
 
-# NOTE This is done with a dataclass but could also be done with dict, etc.
-# Also other places this is called an <integration.integration> instead.
-# such as in integrations.py def parse_datasets
 @dataclass
 class EventDataset:
     """Dataclass for event.dataset with integration and datastream parts."""
