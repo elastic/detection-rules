@@ -21,20 +21,18 @@ class EventDataset:
 
 
 def get_esql_query_event_dataset_integrations(query: str) -> list[EventDataset]:
-    """Extract event.dataset, event.module, and data_stream.dataset integrations from an ES|QL query."""
+    """Extract event.dataset and data_stream.dataset integrations from an ES|QL query."""
     number_of_parts = 2
-    # Regex patterns for event.dataset, event.module, and data_stream.dataset
+    # Regex patterns for event.dataset, and data_stream.dataset
     # This mimics the logic in get_datasets_and_modules but for ES|QL as we do not have an ast
 
     regex_patterns = {
         "in": [
             re.compile(r"event\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
-            re.compile(r"event\.module\s+in\s*\(\s*([^)]+)\s*\)"),
             re.compile(r"data_stream\.dataset\s+in\s*\(\s*([^)]+)\s*\)"),
         ],
         "eq": [
             re.compile(r'event\.dataset\s*==\s*"([^"]+)"'),
-            re.compile(r'event\.module\s*==\s*"([^"]+)"'),
             re.compile(r'data_stream\.dataset\s*==\s*"([^"]+)"'),
         ],
     }
