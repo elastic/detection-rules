@@ -32,6 +32,7 @@ from .exception import TOMLExceptionContents, build_exception_objects, parse_exc
 from .generic_loader import GenericCollection
 from .misc import (
     add_client,
+    getdefault,
     nested_set,
     parse_user_config,
     raise_client_error,
@@ -464,6 +465,7 @@ def view_rule(
         and isinstance(rule.contents.data, ESQLRuleData)
         and isinstance(rule.contents.data.validator, ESQLValidator)
         and isinstance(rule.contents.metadata, RuleMeta)
+        and not getdefault("remote_esql_validation")()
     ):
         rule.contents.data.validator.validate(rule.contents.data, rule.contents.metadata, force_remote_validation=True)
 
