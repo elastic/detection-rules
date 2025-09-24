@@ -30,6 +30,7 @@ from semver import Version
 from . import beats, ecs, endgame, utils
 from .config import load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
+from .esql_errors import EsqlSemanticError
 from .integrations import (
     find_least_compatible_version,
     get_integration_schema_fields,
@@ -963,7 +964,7 @@ class ESQLRuleData(QueryRuleData):
     def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
         if data.get("index"):
-            raise ValidationError("Index is not a valid field for ES|QL rule type.")
+            raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
 
         # Convert the query string to lowercase to handle case insensitivity
         query_lower = data["query"].lower()
@@ -981,7 +982,7 @@ class ESQLRuleData(QueryRuleData):
 
         # Ensure that non-aggregate queries have metadata
         if not combined_pattern.search(query_lower):
-            raise ValidationError(
+            raise EsqlSemanticError(
                 f"Rule: {data['name']} contains a non-aggregate query without"
                 f" metadata fields '_id', '_version', and '_index' ->"
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
@@ -991,7 +992,7 @@ class ESQLRuleData(QueryRuleData):
         # Match | followed by optional whitespace/newlines and then 'keep'
         keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
         if not keep_pattern.search(query_lower):
-            raise ValidationError(
+            raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
 

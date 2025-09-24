@@ -43,16 +43,21 @@ class EsqlSchemaError(EsqlKibanaBaseError):
     """Error in ESQL schema. Validated via Kibana until AST is available."""
 
 
-class EsqlSemanticError(EsqlKibanaBaseError):
-    """Error with ESQL semantics. Validated via Kibana until AST is available."""
-
-
 class EsqlSyntaxError(EsqlKibanaBaseError):
     """Error with ESQL syntax. Validated via Kibana until AST is available."""
 
 
 class EsqlTypeMismatchError(Exception):
     """Error when validating types in ESQL."""
+
+    def __init__(self, message: str, elastic_client: Elasticsearch | None = None) -> None:
+        if elastic_client:
+            cleanup_empty_indices(elastic_client)
+        super().__init__(message)
+
+
+class EsqlSemanticError(Exception):
+    """Error with ESQL semantics. Validated via Kibana until AST is available."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)

@@ -17,7 +17,13 @@ from semver import Version
 from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
 from .esql import EventDataset
-from .esql_errors import EsqlSchemaError, EsqlSemanticError, EsqlSyntaxError, cleanup_empty_indices
+from .esql_errors import (
+    EsqlKibanaBaseError,
+    EsqlSchemaError,
+    EsqlSyntaxError,
+    EsqlTypeMismatchError,
+    cleanup_empty_indices,
+)
 from .integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
@@ -251,12 +257,15 @@ def execute_query_against_indices(
         error_msg = str(e)
         if "parsing_exception" in error_msg:
             raise EsqlSyntaxError(str(e), elastic_client) from e
-        raise EsqlSemanticError(str(e), elastic_client) from e
-    finally:
-        if delete_indices or misc.getdefault("skip_empty_index_cleanup")():
-            for index_str in test_index_str.split(","):
-                response = elastic_client.indices.delete(index=index_str.strip())
-                log(f"Test index `{index_str}` deleted: {response}")
+        if "Unknown column" in error_msg:
+            raise EsqlSchemaError(str(e), elastic_client) from e
+        if "verification_exception" in error_msg:
+            raise EsqlTypeMismatchError(str(e), elastic_client) from e
+        raise EsqlKibanaBaseError(str(e), elastic_client) from e
+    if delete_indices or misc.getdefault("skip_empty_index_cleanup")():
+        for index_str in test_index_str.split(","):
+            response = elastic_client.indices.delete(index=index_str.strip())
+            log(f"Test index `{index_str}` deleted: {response}")
 
     query_column_names = [c["name"] for c in query_columns]
     log(f"Got query columns: {', '.join(query_column_names)}")
@@ -367,14 +376,16 @@ def prepare_mappings(  # noqa: PLR0913
         non_ecs_mapping.update(non_ecs.get(index, {}))
     non_ecs_mapping = ecs.flatten(non_ecs_mapping)
     non_ecs_mapping = utils.convert_to_nested_schema(non_ecs_mapping)
-    if not combined_mappings and not non_ecs_mapping:
-        raise ValueError("No mappings found")
-    index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
 
     # Load ECS in an index mapping format (nested schema)
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
     ecs_schema = get_ecs_schema_mappings(current_version)
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
+    utils.combine_dicts(combined_mappings, ecs_schema)
+
+    if not combined_mappings and not non_ecs_mapping and not ecs_schema:
+        raise ValueError("No mappings found")
+    index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
 
     return existing_mappings, index_lookup, combined_mappings

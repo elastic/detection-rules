@@ -789,12 +789,13 @@ class ESQLValidator(QueryValidator):
             # Check if the column exists in combined_mappings or a valid field generated from a function or operator
             keys = column_name.split(".")
             schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
+            schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
 
             # Validate the type
             if not schema_type or column_type != schema_type:
                 mismatched_columns.append(
                     f"Dynamic field `{column_name}` is not correctly mapped. "
-                    f"If not dynamic: expected `{schema_type}`, got `{column_type}`."
+                    f"If not dynamic: expected from schema: `{schema_type}`, got from Kibana: `{column_type}`."
                 )
 
         if mismatched_columns:
