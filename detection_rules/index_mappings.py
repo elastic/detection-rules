@@ -28,6 +28,55 @@ from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
 from .utils import combine_dicts
 
 
+def delete_nested_key_from_dict(d: dict[str, Any], compound_key: str) -> None:
+    """Delete a nested key from a dictionary."""
+    keys = compound_key.split(".")
+    for key in keys[:-1]:
+        if key in d and isinstance(d[key], dict):
+            d = d[key]  # type: ignore[reportUnknownVariableType]
+        else:
+            return
+    d.pop(keys[-1], None)
+
+
+def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
+    """
+    Convert dicts with flat JSON paths and values into a nested mapping with
+    intermediary `properties`, `fields` and `type` fields.
+    """
+
+    # Sorting here ensures that 'a.b' processed before 'a.b.c', allowing us to correctly
+    # detect and handle multi-fields.
+    sorted_items = sorted(flat_schema.items())
+    result = {}
+
+    for field_path, field_type in sorted_items:
+        parts = field_path.split(".")
+        current_level = result
+
+        for part in parts[:-1]:
+            node = current_level.setdefault(part, {})  # type: ignore[reportUnknownVariableType]
+
+            if "type" in node and node["type"] not in ("nested", "object"):
+                current_level = node.setdefault("fields", {})  # type: ignore[reportUnknownVariableType]
+            else:
+                current_level = node.setdefault("properties", {})  # type: ignore[reportUnknownVariableType]
+
+        leaf_key = parts[-1]
+        current_level[leaf_key] = {"type": field_type}
+
+        # add `scaling_factor` field missing in the schema
+        # https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number#scaled-float-params
+        if field_type == "scaled_float":
+            current_level[leaf_key]["scaling_factor"] = 1000
+
+        # add `path` field for `alias` fields, set to a dummy value
+        if field_type == "alias":
+            current_level[leaf_key]["path"] = "@timestamp"
+
+    return result  # type: ignore[reportUnknownVariableType]
+
+
 def get_rule_integrations(metadata: RuleMeta) -> list[str]:
     """Retrieve rule integrations from metadata."""
     if metadata.integration:
@@ -139,7 +188,7 @@ def prepare_integration_mappings(  # noqa: PLR0913
 
         for stream in package_schema:
             flat_schema = package_schema[stream]
-            stream_mappings = utils.flat_schema_to_index_mapping(flat_schema)
+            stream_mappings = flat_schema_to_index_mapping(flat_schema)
             nested_multifields = find_nested_multifields(stream_mappings)
             for field in nested_multifields:
                 field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
@@ -147,7 +196,7 @@ def prepare_integration_mappings(  # noqa: PLR0913
                     f"Warning: Nested multi-field `{field}` found in `{integration}-{stream}`. "
                     f"Removing parent field from schema for ES|QL validation."
                 )
-                utils.delete_nested_key_from_dict(stream_mappings, field_name)
+                delete_nested_key_from_dict(stream_mappings, field_name)
             nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
             for field in nested_flattened_fields:
                 field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
@@ -155,7 +204,7 @@ def prepare_integration_mappings(  # noqa: PLR0913
                     f"Warning: flattened field `{field}` found in `{integration}-{stream}` with sub fields. "
                     f"Removing parent field from schema for ES|QL validation."
                 )
-                utils.delete_nested_key_from_dict(stream_mappings, field_name)
+                delete_nested_key_from_dict(stream_mappings, field_name)
             utils.combine_dicts(integration_mappings, stream_mappings)
             index_lookup[f"{integration}-{stream}"] = stream_mappings
 
