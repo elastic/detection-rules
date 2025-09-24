@@ -430,6 +430,7 @@ def collect_schema_fields(
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations: list[dict[str, Any]] = []
+    # FIXME evaluate using EventDataset dataclass from esql.py for parsing
     for _value in sorted(datasets):
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
