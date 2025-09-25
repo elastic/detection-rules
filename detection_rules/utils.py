@@ -563,6 +563,6 @@ def get_column_from_index_mapping_schema(keys: list[str], current_schema: dict[s
         return None
     column = current_schema.get(key) or {}  # type: ignore[reportUnknownVariableType]
     column_type = column.get("type") if column else None  # type: ignore[reportUnknownVariableType]
-    if not column_type and len(keys) > 1:
+    if len(keys) > 1:
         return get_column_from_index_mapping_schema(keys[1:], current_schema=column.get("properties"))  # type: ignore[reportUnknownVariableType]
     return column_type  # type: ignore[reportUnknownVariableType]
