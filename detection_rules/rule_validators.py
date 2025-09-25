@@ -791,6 +791,11 @@ class ESQLValidator(QueryValidator):
             schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
             schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
 
+            # The mapping between integer and long may be different between Kibana and the schema
+            # both are numeric types with different ranges, but for our purposes they are equivalent
+            if column_type == "long" and schema_type == "integer":
+                continue
+
             # Validate the type
             if not schema_type or column_type != schema_type:
                 mismatched_columns.append(
