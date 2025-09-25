@@ -7,6 +7,7 @@
 
 import time
 from collections.abc import Callable
+from copy import deepcopy
 from typing import Any
 
 from elastic_transport import ObjectApiResponse
@@ -211,7 +212,7 @@ def prepare_integration_mappings(  # noqa: PLR0913
                     f"Removing parent field from schema for ES|QL validation."
                 )
                 delete_nested_key_from_dict(stream_mappings, field_name)
-            utils.combine_dicts(integration_mappings, stream_mappings)
+            utils.combine_dicts(integration_mappings, deepcopy(stream_mappings))
             index_lookup[f"{integration}-{stream}"] = stream_mappings
 
     return integration_mappings, index_lookup
@@ -298,7 +299,7 @@ def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any
 
 def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = "") -> list[str]:
     """Recursively search for fields of type 'flattened' that have a 'fields' key in Elasticsearch mappings."""
-    flattened_fields_with_subfields = []
+    flattened_fields_with_subfields: list[str] = []
 
     for field, properties in mapping.items():
         current_path = f"{path}.{field}" if path else field
@@ -314,7 +315,7 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
                     find_flattened_fields_with_subfields(properties["properties"], current_path)  # type: ignore[reportUnknownVariableType]
                 )
 
-    return flattened_fields_with_subfields  # type: ignore[reportUnknownVariableType]
+    return flattened_fields_with_subfields
 
 
 def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
@@ -366,8 +367,8 @@ def prepare_mappings(  # noqa: PLR0913
 
     # Combine existing and integration mappings into a single mapping dict
     combined_mappings: dict[str, Any] = {}
-    utils.combine_dicts(combined_mappings, existing_mappings)
-    utils.combine_dicts(combined_mappings, integration_mappings)
+    utils.combine_dicts(combined_mappings, deepcopy(existing_mappings))
+    utils.combine_dicts(combined_mappings, deepcopy(integration_mappings))
 
     # Load non-ecs schema and convert to index mapping format (nested schema)
     non_ecs_mapping: dict[str, Any] = {}
@@ -382,7 +383,7 @@ def prepare_mappings(  # noqa: PLR0913
     ecs_schema = get_ecs_schema_mappings(current_version)
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
-    utils.combine_dicts(combined_mappings, ecs_schema)
+    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
 
     if not combined_mappings and not non_ecs_mapping and not ecs_schema:
         raise ValueError("No mappings found")
