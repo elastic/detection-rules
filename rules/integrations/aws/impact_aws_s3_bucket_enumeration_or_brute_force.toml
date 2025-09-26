@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/05/01"
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -85,10 +85,11 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail*
+from logs-aws.cloudtrail-*
 
 | where
-  event.provider == "s3.amazonaws.com"
+  event.dataset == "aws.cloudtrail"
+  and event.provider == "s3.amazonaws.com"
   and aws.cloudtrail.error_code == "AccessDenied"
   and tls.client.server_name is not null
   and cloud.account.id is not null

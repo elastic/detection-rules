@@ -2,7 +2,7 @@
 creation_date = "2025/04/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -96,7 +96,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     "%{{?bucket.name.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_name}, %{?host.key}=%{Esql_priv.aws_cloudtrail_request_parameters_host}, %{?bucket.object.location.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_object_location}}"
 
 // Extract file name portion from full object path
-| dissect Esql.aws_cloudtrail_request_parameters_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
+| dissect Esql.aws_cloudtrail_request_parameters_bucket_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
 
 // Match on JavaScript files
 | where ends_with(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
