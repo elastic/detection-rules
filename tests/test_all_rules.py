@@ -229,6 +229,7 @@ class TestThreatMappings(BaseRuleTest):
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
         for rule in self.all_rules:
+            print(rule.contents.data.name)
             threat_mapping = rule.contents.data.threat or []
             if threat_mapping:
                 for entry in threat_mapping:
@@ -239,7 +240,7 @@ class TestThreatMappings(BaseRuleTest):
                     if mismatched:
                         self.fail(
                             f"mismatched ATT&CK techniques for rule: {self.rule_str(rule)} "
-                            f"{', '.join(mismatched)} not under: {tactic['name']}"
+                            f"{', '.join(mismatched)} not under: {tactic.name}"
                         )
 
                     # tactic
