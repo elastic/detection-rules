@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2025/09/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure RBAC Built-In Administrator Roles Assigned"
+note = """## Triage and Analysis
+
+### Investigating Azure RBAC Built-In Administrator Roles Assigned
+
+This rule identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator. Assignment can be done via the Azure portal, Azure CLI, PowerShell, or through API calls. Monitoring these assignments helps detect potential unauthorized privilege escalations.
+
+#### Privileged Built-In Administrator Roles
+- Contributor: b24988ac-6180-42a0-ab88-20f7382dd24c
+- Owner: 8e3af657-a8ff-443c-a75c-2fe8c4bcb635
+- Azure File Sync Administrator: 92b92042-07d9-4307-87f7-36a593fc5850
+- Reservations Administrator: a8889054-8d42-49c9-bc1c-52486c10e7cd
+- Role Based Access Control Administrator: f58310d9-a9f6-439a-9e8d-f62e7b41a168
+- User Access Administrator: 18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
+
+### Possible investigation steps
+
+- Identify the user who assigned the role and examine their recent activity for any suspicious actions.
+- Review the source IP address and location associated with the role assignment event to assess if it aligns with expected user behavior or if it indicates potential unauthorized access.
+- Check the history of role assignments for the user who was assigned the role to determine if this is a recurring pattern or a one-time event.
+    - Additionally, identify the lifetime of the targeted user account to determine if it is a newly created account or an existing one.
+- Determine if the user assigning the role historically has the necessary permissions to assign such roles and has done so in the past.
+- Investigate any recent changes or activities performed by the newly assigned administrator to identify any suspicious actions or configurations that may have been altered.
+- Correlate with other logs, such as Microsoft Entra ID sign-in logs, to identify any unusual access patterns or behaviors for the user.
+
+### False positive analysis
+
+- Legitimate administrators may assign built-in administrator roles during routine operations, maintenance or as required for onboarding new staff.
+- Review internal tickets, change logs, or admin activity dashboards for approved operations.
+
+### Response and remediation
+
+- If administrative assignment was not authorized:
+  - Immediately remove the built-in administrator role from the account.
+  - Disable or lock the account and begin credential rotation.
+  - Audit activity performed by the account after elevation, especially changes to role assignments and resource access.
+- If suspicious:
+  - Notify the user and confirm whether they performed the action.
+  - Check for any automation or scripts that could be exploiting unused elevated access paths.
+  - Review conditional access and PIM (Privileged Identity Management) configurations to limit elevation without approval.
+- Strengthen posture:
+  - Require MFA and approval for all privilege escalation actions.
+  - Consider enabling JIT (Just-in-Time) access with expiration.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles",
+    "https://orca.security/resources/research-pod/azure-identity-access-management-iam-active-directory-ad/",
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/"
+]
+risk_score = 73
+rule_id = "1a1046f4-9257-11f0-9a42-f661ea17fbce"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: azure.activitylogs and
+    event.action: "MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/WRITE" and
+    azure.activitylogs.properties.requestbody.properties.roleDefinitionId:
+    (
+      *18d7d88d-d35e-4fb5-a5c3-7773c20a72d9* or
+      *f58310d9-a9f6-439a-9e8d-f62e7b41a168* or
+      *b24988ac-6180-42a0-ab88-20f7382dd24c* or
+      *8e3af657-a8ff-443c-a75c-2fe8c4bcb635* or
+      *92b92042-07d9-4307-87f7-36a593fc5850* or
+      *a8889054-8d42-49c9-bc1c-52486c10e7cd*
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
