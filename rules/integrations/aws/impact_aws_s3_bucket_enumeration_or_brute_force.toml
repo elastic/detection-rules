@@ -85,11 +85,11 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail*
+from logs-aws.cloudtrail-*
 
 | where
   event.dataset == "aws.cloudtrail"
-  event.provider == "s3.amazonaws.com"
+  and event.provider == "s3.amazonaws.com"
   and aws.cloudtrail.error_code == "AccessDenied"
   and tls.client.server_name is not null
   and cloud.account.id is not null
