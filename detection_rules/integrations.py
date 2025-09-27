@@ -225,7 +225,7 @@ def find_latest_compatible_version(
     rule_stack_version: Version,
     packages_manifest: dict[str, Any],
 ) -> tuple[str, list[str]]:
-    """Finds least compatible version for specified integration based on stack version supplied."""
+    """Finds latest compatible version for specified integration based on stack version supplied."""
 
     if not package:
         raise ValueError("Package must be specified")
@@ -430,6 +430,7 @@ def collect_schema_fields(
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations: list[dict[str, Any]] = []
+    # FIXME @eric-forte-elastic: evaluate using EventDataset dataclass for parsing # noqa: FIX001, TD001, TD003
     for _value in sorted(datasets):
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
