@@ -39,25 +39,26 @@ def _strip_none_from_dict(obj: Any) -> Any:
     return obj
 
 
-def enforce_required_fields(cls: Any) -> None:
-    """Enforce required fields based on both dataclass and type Annotations."""
+def get_dataclass_required_fields(cls: Any) -> list[str]:
+    """Get required fields based on both dataclass and type Annotations."""
+    required_fields: list[str] = []
     hints = get_type_hints(cls, include_extras=True)
     marshmallow_schema = marshmallow_dataclass.class_schema(cls)()
     for dc_field in dataclasses.fields(cls):
+        hint = hints.get(dc_field.name)
+        if not hint:
+            continue
+
         mm_field = marshmallow_schema.fields.get(dc_field.name)
         if mm_field is None or mm_field.required:
             continue
-
         if dc_field.default is not dataclasses.MISSING:
             continue
         if getattr(dc_field, "default_factory", dataclasses.MISSING) is not dataclasses.MISSING:
             continue
-
-        hint = hints.get(dc_field.name)
-        if hint is not None and typing_inspect.is_optional_type(hint):  # type: ignore[reportMissingTypeStubs]
-            continue
-
-        mm_field.required = True
+        if not typing_inspect.is_optional_type(hint) or mm_field.required is True:  # type: ignore[reportUnknownVariableType]
+            required_fields.append(dc_field.name)
+    return required_fields
 
 
 def patch_jsonschema(obj: Any) -> dict[str, Any]:
@@ -286,5 +287,4 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
                 default=field.default,  # type: ignore[reportUnknownMemberType]
                 allow_none=field.allow_none,
             )
-
         return super()._get_schema_for_field(obj, field)  # type: ignore[reportUnknownMemberType]
