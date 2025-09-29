@@ -222,7 +222,7 @@ StoreType = Literal["appState", "globalState"]
 TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
-NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
+NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1), required=True)
 NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
 
 AlertSuppressionGroupBy = Annotated[
@@ -243,7 +243,7 @@ NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100), required=True)]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN), required=True)]
 SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
 SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]
@@ -254,7 +254,7 @@ TechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(TECHNIQUE_U
 ThresholdValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 TimelineTemplateId = Annotated[str, fields.String(validate=elastic_timeline_template_id_validator())]
 TimelineTemplateTitle = Annotated[str, fields.String(validate=elastic_timeline_template_title_validator())]
-UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN))]
+UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN), required=True)]
 
 # experimental machine learning features and releases
 MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]
