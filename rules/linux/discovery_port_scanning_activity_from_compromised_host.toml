@@ -91,9 +91,6 @@ tags = [
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
 ]
-timestamp_override = "event.ingested"
-type = "esql"
-query = '''
 from logs-endpoint.events.network-*
 | where
     @timestamp > now() - 1h and
@@ -101,6 +98,7 @@ from logs-endpoint.events.network-*
     event.type == "start" and
     event.action == "connection_attempted" and
     network.direction  == "egress" and
+    destination.port < 32768 and
     not (
       cidr_match(destination.ip, "127.0.0.0/8", "::1", "FE80::/10", "FF00::/8") or
       process.executable in (
@@ -123,6 +121,7 @@ from logs-endpoint.events.network-*
     destination.port,
     process.executable,
     destination.ip,
+    source.ip,
     agent.id,
     host.name
 | stats
