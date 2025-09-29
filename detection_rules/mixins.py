@@ -57,7 +57,7 @@ def enforce_required_fields(cls: Any) -> None:
         if hint is not None and typing_inspect.is_optional_type(hint):  # type: ignore[reportMissingTypeStubs]
             continue
 
-        mm_field.required = True  # or set to some new list that is required_fields
+        mm_field.required = True
 
 
 def patch_jsonschema(obj: Any) -> dict[str, Any]:
