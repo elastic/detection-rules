@@ -243,8 +243,8 @@ NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100), required=True)]
-RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN), required=True)]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
 SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
 SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]
 Sha256 = Annotated[str, fields.String(validate=validate.Regexp(SHA256_PATTERN))]
@@ -254,7 +254,7 @@ TechniqueURL = Annotated[str, fields.String(validate=validate.Regexp(TECHNIQUE_U
 ThresholdValue = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 TimelineTemplateId = Annotated[str, fields.String(validate=elastic_timeline_template_id_validator())]
 TimelineTemplateTitle = Annotated[str, fields.String(validate=elastic_timeline_template_title_validator())]
-UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN), required=True)]
+UUIDString = Annotated[str, fields.String(validate=validate.Regexp(UUID_PATTERN))]
 
 # experimental machine learning features and releases
 MachineLearningType = Literal[MACHINE_LEARNING_PACKAGES]

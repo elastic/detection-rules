@@ -8,13 +8,14 @@
 import dataclasses
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_type_hints
 
 import marshmallow
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema  # type: ignore[reportMissingTypeStubs]
 import marshmallow_union  # type: ignore[reportMissingTypeStubs]
+import typing_inspect  # type: ignore[reportMissingTypeStubs]
 from marshmallow import Schema, ValidationError, validates_schema
 from marshmallow import fields as marshmallow_fields
 from semver import Version
@@ -36,6 +37,27 @@ def _strip_none_from_dict(obj: Any) -> Any:
     if isinstance(obj, tuple):
         return tuple(_strip_none_from_dict(list(obj)))  # type: ignore[reportUnknownVariableType]
     return obj
+
+
+def enforce_required_fields(cls: Any) -> None:
+    """Enforce required fields based on both dataclass and type Annotations."""
+    hints = get_type_hints(cls, include_extras=True)
+    marshmallow_schema = marshmallow_dataclass.class_schema(cls)()
+    for dc_field in dataclasses.fields(cls):
+        mm_field = marshmallow_schema.fields.get(dc_field.name)
+        if mm_field is None or mm_field.required:
+            continue
+
+        if dc_field.default is not dataclasses.MISSING:
+            continue
+        if getattr(dc_field, "default_factory", dataclasses.MISSING) is not dataclasses.MISSING:
+            continue
+
+        hint = hints.get(dc_field.name)
+        if hint is not None and typing_inspect.is_optional_type(hint):  # type: ignore[reportMissingTypeStubs]
+            continue
+
+        mm_field.required = True  # or set to some new list that is required_fields
 
 
 def patch_jsonschema(obj: Any) -> dict[str, Any]:

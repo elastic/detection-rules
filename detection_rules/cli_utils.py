@@ -18,6 +18,7 @@ import kql  # type: ignore[reportMissingTypeStubs]
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
 from .config import parse_rules_config
+from .mixins import enforce_required_fields
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
@@ -166,6 +167,8 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     )
 
     target_data_subclass = TOMLRuleContents.get_data_subclass(rule_type_val)
+
+    enforce_required_fields(target_data_subclass)
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
     required_fields = schema.get("required", []) + additional_required
