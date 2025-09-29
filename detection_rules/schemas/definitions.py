@@ -222,7 +222,7 @@ StoreType = Literal["appState", "globalState"]
 TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
 
-NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1), required=True)
+NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
 NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
 
 AlertSuppressionGroupBy = Annotated[
