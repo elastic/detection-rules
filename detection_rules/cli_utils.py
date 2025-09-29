@@ -8,6 +8,7 @@ import datetime
 import functools
 import os
 import typing
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -246,7 +247,9 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
             contents[name] = result
 
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
-    suggested_path: Path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents["name"]
+    suggested_path: Path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents.get(
+        "name", f"new-rule-{uuid.uuid4().hex[:8]}"
+    )
     path = Path(path or input(f"File path for rule [{suggested_path}]: ") or suggested_path).resolve()
     # Inherit maturity and optionally local dates from the rule if it already exists
     meta = {
