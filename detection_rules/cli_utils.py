@@ -167,7 +167,6 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     )
 
     target_data_subclass = TOMLRuleContents.get_data_subclass(rule_type_val)
-
     enforce_required_fields(target_data_subclass)
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
