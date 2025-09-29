@@ -50,7 +50,7 @@ def get_dataclass_required_fields(cls: Any) -> list[str]:
             continue
 
         mm_field = marshmallow_schema.fields.get(dc_field.name)
-        if mm_field is None or mm_field.required:
+        if mm_field is None:
             continue
         if dc_field.default is not dataclasses.MISSING:
             continue

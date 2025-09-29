@@ -170,7 +170,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     required_fields = get_dataclass_required_fields(target_data_subclass)
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
-    required_fields = required_fields + additional_required
+    required_fields = sorted(required_fields + additional_required)
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 
