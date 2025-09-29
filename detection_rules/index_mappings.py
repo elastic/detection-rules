@@ -180,12 +180,12 @@ def prepare_integration_mappings(  # noqa: PLR0913
 
     for integration in rule_integrations:
         package = integration
-        package_version = integrations.find_least_compatible_version(
+        package_version, _ = integrations.find_latest_compatible_version(
             package,
             "",
-            stack_version,
+            Version.parse(stack_version),
             package_manifests,
-        ).lstrip("^")
+        )
         package_schema = integration_schemas[package][package_version]
 
         # Apply dataset restrictions if any
