@@ -867,6 +867,7 @@ class ESQLValidator(QueryValidator):
         kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
         if "version" not in kibana_details:
             raise ValueError("Failed to retrieve Kibana details.")
+        # TODO decide if this should always be latest. I think it should be
         stack_version = str(kibana_details["version"]["number"])
 
         self.log(f"Validating against {stack_version} stack")
@@ -894,6 +895,10 @@ class ESQLValidator(QueryValidator):
         query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
+        # TODO this is the looping location for each stack version
+        # as we only need to check against the schemas locally for the type
+        # mismatch error, as the syntax and semantic errors from the stack
+        # will not be impacted by the difference in schema mapping
         if self.validate_columns_index_mapping(query_columns, combined_mappings):
             self.log("All dynamic columns have proper formatting.")
         else:
