@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2025/09/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule looks for processes that behave like an attacker trying to exploit a known vulnerability in VMware tools (CVE-2025-41244).
+The vulnerable behavior involves the VMware tools service or its discovery scripts executing other programs to probe their version
+strings. An attacker can place a malicious program in a writable location (for example /tmp) and have the tools execute it with
+elevated privileges, resulting in local privilege escalation. The rule flags launches where vmtoolsd or the service discovery
+scripts start other child processes.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential CVE-2025-41244 vmtoolsd LPE Exploitation Attempt"
+references = ["https://blog.nviso.eu/2025/09/29/you-name-it-vmware-elevates-it-cve-2025-41244/"]
+risk_score = 73
+rule_id = "c5da2519-160c-4cc9-bf69-b0223e99d0db"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Use Case: Vulnerability",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (
+    process.parent.name == "vmtoolsd"
+  ) or
+  (
+    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.parent.args like ("/*/open-vm-tools/serviceDiscovery/scripts/get-versions.sh")
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
