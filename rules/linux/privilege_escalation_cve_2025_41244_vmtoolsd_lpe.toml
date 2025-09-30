@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/09/30"
-integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
 updated_date = "2025/09/30"
 
@@ -19,7 +19,8 @@ index = [
     "logs-sentinel_one_cloud_funnel.*",
     "endgame-*",
     "auditbeat-*",
-    "logs-auditd_manager.auditd-*"
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -92,6 +93,7 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
     "Use Case: Vulnerability",
@@ -100,14 +102,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "executed", "process_started") and
+event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
 (
   (
     process.parent.name == "vmtoolsd"
   ) or
   (
     process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-    process.parent.args like ("/*/open-vm-tools/serviceDiscovery/scripts/get-versions.sh")
+    ?process.parent.args like ("/*/open-vm-tools/serviceDiscovery/scripts/get-versions.sh")
   )
 )
 '''
