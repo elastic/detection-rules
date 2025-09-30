@@ -2,7 +2,7 @@
 creation_date = "2023/11/18"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +80,7 @@ query = '''
 from logs-okta*
 | where
     event.dataset == "okta.system" and
-    (event.action rlike "user\.authentication(.*)" or event.action == "user.session.start") and
+    (event.action like "user.authentication.*" or event.action == "user.session.start") and
     okta.security_context.is_proxy != true and
     okta.actor.id != "unknown" and
     event.outcome == "success"
