@@ -46,7 +46,7 @@ from .integrations import (
     parse_datasets,
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
-from .schemas import get_stack_schemas
+from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
 from .schemas.definitions import FROM_SOURCES_REGEX
 
 EQL_ERROR_TYPES = (
@@ -771,7 +771,7 @@ class ESQLValidator(QueryValidator):
         return None
 
     def validate_columns_index_mapping(
-        self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any]
+        self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = ""
     ) -> bool:
         """Validate that the columns in the ESQL query match the provided mappings."""
         mismatched_columns: list[str] = []
@@ -804,7 +804,9 @@ class ESQLValidator(QueryValidator):
                 )
 
         if mismatched_columns:
-            raise EsqlTypeMismatchError("Column validation errors:\n" + "\n".join(mismatched_columns))
+            raise EsqlTypeMismatchError(
+                f"Column validation errors in Stack Version {version}:\n" + "\n".join(mismatched_columns)
+            )
 
         return True
 
@@ -867,8 +869,7 @@ class ESQLValidator(QueryValidator):
         kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
         if "version" not in kibana_details:
             raise ValueError("Failed to retrieve Kibana details.")
-        # TODO decide if this should always be latest. I think it should be
-        stack_version = str(kibana_details["version"]["number"])
+        stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
         indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
@@ -886,8 +887,6 @@ class ESQLValidator(QueryValidator):
 
         # Create remote indices
         full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
-        utils.combine_dicts(combined_mappings, index_lookup["rule-non-ecs-index"])
-        utils.combine_dicts(combined_mappings, index_lookup["rule-ecs-index"])
 
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
@@ -895,14 +894,24 @@ class ESQLValidator(QueryValidator):
         query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
-        # TODO this is the looping location for each stack version
-        # as we only need to check against the schemas locally for the type
-        # mismatch error, as the syntax and semantic errors from the stack
-        # will not be impacted by the difference in schema mapping
-        if self.validate_columns_index_mapping(query_columns, combined_mappings):
-            self.log("All dynamic columns have proper formatting.")
-        else:
-            self.log("Dynamic column(s) have improper formatting.")
+        # Build a mapping lookup for all stack versions to validate against.
+        # We only need to check against the schemas locally for the type
+        # mismatch error, as the EsqlSchemaError and EsqlSyntaxError errors from the stack
+        # will not be impacted by the difference in schema type mapping.
+        mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
+        versions = get_stack_versions()
+        for version in versions:
+            if version in mappings_lookup:
+                continue
+            _, _, combined_mappings = prepare_mappings(
+                elastic_client, indices, event_dataset_integrations, metadata, version, self.log
+            )
+            mappings_lookup[version] = combined_mappings
+
+        for version, mapping in mappings_lookup.items():
+            self.log(f"Validating {rule_id} against {version} stack")
+            if not self.validate_columns_index_mapping(query_columns, mapping, version=version):
+                self.log("Dynamic column(s) have improper formatting.")
 
         return response
 

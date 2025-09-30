@@ -388,5 +388,6 @@ def prepare_mappings(  # noqa: PLR0913
     if not combined_mappings and not non_ecs_mapping and not ecs_schema:
         raise ValueError("No mappings found")
     index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
+    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_mapping))
 
     return existing_mappings, index_lookup, combined_mappings

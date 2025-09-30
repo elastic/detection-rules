@@ -48,7 +48,7 @@ class EsqlSyntaxError(EsqlKibanaBaseError):
 
 
 class EsqlTypeMismatchError(Exception):
-    """Error when validating types in ESQL."""
+    """Error when validating types in ESQL. Can occur in stack or local schema comparison."""
 
     def __init__(self, message: str, elastic_client: Elasticsearch | None = None) -> None:
         if elastic_client:
@@ -57,7 +57,7 @@ class EsqlTypeMismatchError(Exception):
 
 
 class EsqlSemanticError(Exception):
-    """Error with ESQL semantics. Validated via Kibana until AST is available."""
+    """Error with ESQL semantics. Validated through regex enforcement."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
