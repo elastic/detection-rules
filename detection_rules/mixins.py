@@ -8,13 +8,14 @@
 import dataclasses
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_type_hints
 
 import marshmallow
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema  # type: ignore[reportMissingTypeStubs]
 import marshmallow_union  # type: ignore[reportMissingTypeStubs]
+import typing_inspect  # type: ignore[reportMissingTypeStubs]
 from marshmallow import Schema, ValidationError, validates_schema
 from marshmallow import fields as marshmallow_fields
 from semver import Version
@@ -36,6 +37,28 @@ def _strip_none_from_dict(obj: Any) -> Any:
     if isinstance(obj, tuple):
         return tuple(_strip_none_from_dict(list(obj)))  # type: ignore[reportUnknownVariableType]
     return obj
+
+
+def get_dataclass_required_fields(cls: Any) -> list[str]:
+    """Get required fields based on both dataclass and type Annotations."""
+    required_fields: list[str] = []
+    hints = get_type_hints(cls, include_extras=True)
+    marshmallow_schema = marshmallow_dataclass.class_schema(cls)()
+    for dc_field in dataclasses.fields(cls):
+        hint = hints.get(dc_field.name)
+        if not hint:
+            continue
+
+        mm_field = marshmallow_schema.fields.get(dc_field.name)
+        if mm_field is None:
+            continue
+        if dc_field.default is not dataclasses.MISSING:
+            continue
+        if getattr(dc_field, "default_factory", dataclasses.MISSING) is not dataclasses.MISSING:
+            continue
+        if not typing_inspect.is_optional_type(hint) or mm_field.required is True:  # type: ignore[reportUnknownVariableType]
+            required_fields.append(dc_field.name)
+    return required_fields
 
 
 def patch_jsonschema(obj: Any) -> dict[str, Any]:
@@ -264,5 +287,4 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
                 default=field.default,  # type: ignore[reportUnknownMemberType]
                 allow_none=field.allow_none,
             )
-
         return super()._get_schema_for_field(obj, field)  # type: ignore[reportUnknownMemberType]
