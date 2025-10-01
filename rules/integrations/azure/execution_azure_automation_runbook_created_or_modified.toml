@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2020/08/18"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an Azure Automation runbook is created or modified. An adversary may create or modify an Azure
+Automation runbook to execute malicious code and maintain persistence in their target's environment.
+"""
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Automation Runbook Created or Modified"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Automation Runbook Created or Modified
+
+Azure Automation Runbooks are scripts that automate tasks in cloud environments, enhancing operational efficiency. However, adversaries can exploit them to execute unauthorized code and maintain persistence. The detection rule monitors specific Azure activity logs for runbook creation or modification events, flagging successful operations to identify potential misuse. This helps in early detection of malicious activities, ensuring cloud security.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to identify the specific runbook that was created or modified, focusing on the operation names: "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DRAFT/WRITE", "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/WRITE", or "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/PUBLISH/ACTION".
+- Check the event.outcome field to confirm the operation was successful, as indicated by the values "Success" or "success".
+- Identify the user or service principal that performed the operation by examining the relevant user identity fields in the activity logs.
+- Investigate the content and purpose of the runbook by reviewing its script or configuration to determine if it contains any unauthorized or suspicious code.
+- Correlate the runbook activity with other security events or alerts in the environment to identify any patterns or related malicious activities.
+- Verify if the runbook changes align with recent legitimate administrative activities or if they were unexpected, which could indicate potential misuse.
+
+### False positive analysis
+
+- Routine updates or maintenance activities by authorized personnel can trigger alerts. To manage this, create exceptions for known maintenance windows or specific user accounts that regularly perform these tasks.
+- Automated deployment processes that include runbook creation or modification might be flagged. Identify and exclude these processes by tagging them with specific identifiers in the logs.
+- Integration with third-party tools that modify runbooks as part of their normal operation can result in false positives. Work with your IT team to whitelist these tools or their associated accounts.
+- Frequent testing or development activities in non-production environments may cause alerts. Consider setting up separate monitoring rules or thresholds for these environments to reduce noise.
+- Scheduled runbook updates for compliance or policy changes can be mistaken for suspicious activity. Document these schedules and adjust the detection rule to account for them, possibly by excluding specific operation names during these times.
+
+### Response and remediation
+
+- Immediately isolate the affected Azure Automation account to prevent further unauthorized runbook executions. This can be done by disabling the account or restricting its permissions temporarily.
+- Review the modified or newly created runbooks to identify any malicious code or unauthorized changes. Remove or revert any suspicious modifications to ensure the integrity of the automation scripts.
+- Conduct a thorough audit of recent activities associated with the affected Azure Automation account, focusing on identifying any unauthorized access or changes made by adversaries.
+- Reset credentials and update access controls for the affected Azure Automation account to prevent further unauthorized access. Ensure that only authorized personnel have the necessary permissions to create or modify runbooks.
+- Implement additional monitoring and alerting for Azure Automation activities, specifically focusing on runbook creation and modification events, to enhance early detection of similar threats in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or accounts have been compromised.
+- Document the incident, including all actions taken and findings, to improve response strategies and update incident response plans for future reference.
+
+## Setup
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://powerzure.readthedocs.io/en/latest/Functions/operational.html#create-backdoor",
+    "https://github.com/hausec/PowerZure",
+    "https://posts.specterops.io/attacking-azure-azure-ad-and-introducing-powerzure-ca70b330511a",
+    "https://azure.microsoft.com/en-in/blog/azure-automation-runbook-management/",
+]
+risk_score = 21
+rule_id = "16280f1e-57e6-4242-aa21-bb4d16f13b2f"
+severity = "low"
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Execution", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.activitylogs and
+  azure.activitylogs.operation_name:
+  (
+    "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DRAFT/WRITE" or
+    "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/WRITE" or
+    "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/PUBLISH/ACTION"
+  ) and
+  event.outcome:(Success or success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
