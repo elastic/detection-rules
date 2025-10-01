@@ -395,6 +395,12 @@ def get_stack_versions(drop_patch: bool = False) -> list[str]:
     return versions
 
 
+def get_latest_stack_version(drop_patch: bool = False) -> str:
+    """Get the latest defined and supported stack version."""
+    parsed_versions = [Version.parse(version) for version in get_stack_versions(drop_patch=drop_patch)]
+    return str(max(parsed_versions))
+
+
 @cached
 def get_min_supported_stack_version() -> Version:
     """Get the minimum defined and supported stack version."""
