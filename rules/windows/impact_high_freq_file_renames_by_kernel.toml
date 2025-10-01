@@ -51,9 +51,9 @@ note = """## Triage and analysis
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = ["https://news.sophos.com/en-us/2023/12/21/akira-again-the-ransomware-that-keeps-on-taking/"]
-risk_score = 21
+risk_score = 47
 rule_id = "1397e1b9-0c90-4d24-8d7b-80598eb9bc9a"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -78,8 +78,8 @@ from logs-endpoint.events.file-* metadata _id, _version, _index
 | keep file.path, file.name, process.entity_id, Esql.time_window_date_trunc
 
 // filter for same file name dropped in at least 3 unique paths by the System virtual process
-| stats Esql.unique_paths = COUNT_DISTINCT(file.path),  Esql.paths = VALUES(file.path)  by process.entity_id , file.name, Esql.time_window_date_trunc
-| where Esql.unique_paths >= 3
+| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path)  by process.entity_id , file.name, Esql.time_window_date_trunc
+| where Esql.file_path_count_distinct >= 3
 '''
 
 
