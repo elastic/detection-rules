@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +17,8 @@ false_positives = [
     expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-from = "now-30m"
-index = ["filebeat-*", "logs-o365*"]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Anti-Phish Rule Modification"
@@ -72,7 +72,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: Microsoft 365",
     "Use Case: Configuration Audit",
-    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -86,13 +86,17 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1566"
-name = "Phishing"
-reference = "https://attack.mitre.org/techniques/T1566/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
