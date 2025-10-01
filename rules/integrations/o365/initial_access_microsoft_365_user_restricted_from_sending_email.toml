@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Austin Songer"]
@@ -11,8 +11,8 @@ Identifies when a user has been restricted from sending email due to exceeding s
 per the Security Compliance Center.
 """
 false_positives = ["A user sending emails using personal distribution folders may trigger the event."]
-from = "now-30m"
-index = ["filebeat-*", "logs-o365*"]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 User Restricted from Sending Email"
@@ -66,7 +66,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: Microsoft 365",
     "Use Case: Configuration Audit",
-    "Tactic: Initial Access",
+    "Tactic: Impact",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -79,14 +79,9 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
 
 [rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 
