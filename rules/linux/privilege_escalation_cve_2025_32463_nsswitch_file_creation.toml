@@ -24,7 +24,36 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential CVE-2025-32463 Nsswitch File Creation"
 note = """
+## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential CVE-2025-32463 Nsswitch File Creation
+
+This rule flags creation of an nsswitch.conf file outside the standard /etc location by a shell, an early sign of staging a fake root to coerce sudo's chroot path and hijack NSS resolution (CVE-2025-32463). A common pattern is writing /tmp/chroot/etc/nsswitch.conf, placing or pointing to a malicious NSS module, then running sudo chroot into that directory so name lookups load attacker-controlled code and escalate to root.
+
+### Possible investigation steps
+
+- Correlate the event with any sudo or chroot executions within ±10 minutes that reference the same directory prefix (e.g., /tmp/chroot), capturing full command line, user, TTY, working directory, and exit codes.
+- Inspect the created nsswitch.conf for nonstandard services or module names and enumerate any libnss_*.so* under lib*/ or usr/lib*/ within that prefix, recording owner, hashes, and timestamps.
+- List all contemporaneous file writes under the same prefix (etc, lib*, bin, sbin) to determine whether a chroot rootfs is being assembled and attribute it to a toolchain such as tar, rsync, debootstrap, or custom scripts via process ancestry.
+- Search file access telemetry to see whether privileged processes subsequently read that specific nsswitch.conf or loaded libnss_* from the same path, which would indicate the chroot was exercised.
+- Verify sudo and glibc versions and patch status for CVE-2025-32463 and collect the initiating user’s session context (SSH source, TTY, shell history) to assess exploitability and scope.
+
+### False positive analysis
+
+- An administrator legitimately staging a temporary chroot or test root filesystem may use a shell to create /tmp/*/etc/nsswitch.conf while populating configs, matching the rule even though no privilege escalation is intended.
+- OS installation, recovery, or backup-restore workflows run from a shell can populate a mounted target like /mnt/newroot/etc/nsswitch.conf, creating the file outside /etc as part of maintenance and triggering the alert.
+
+### Response and remediation
+
+- Terminate any sudo or chroot processes referencing the created path (e.g., /tmp/chroot/etc/nsswitch.conf), lock the initiating user’s sudo access, and quarantine the parent directory with root-only permissions.
+- Remove the staged nsswitch.conf and any libnss_*.so* or ld.so.* artifacts under lib*/ or usr/lib*/ within that prefix after collecting copies, hashes, and timestamps for evidence.
+- Restore and verify /etc/nsswitch.conf on the host with correct content and root:root 0644, purge temporary chroot roots under /tmp, /var/tmp, or /mnt, and restart nscd or systemd-resolved to flush cached name-service data.
+- Escalate to incident response if sudo chroot was executed against the same directory, if root processes loaded libnss_* from that path, or if nsswitch.conf appears outside /etc on multiple hosts within a short window.
+- Apply vendor fixes for CVE-2025-32463 to sudo and glibc, disallow chroot in sudoers and enforce env_reset, noexec, and secure_path, and mount /tmp and /var/tmp with noexec,nosuid,nodev to prevent libraries being sourced from user-writable paths.
+- Add controls to block execution from user-created chroot trees by policy (AppArmor or SELinux) and create alerts on creation of */etc/nsswitch.conf or libnss_* writes under non-system paths, with auto-isolation for directories under /tmp or a user’s home.
 """
 references = [
     "https://www.stratascale.com/vulnerability-alert-CVE-2025-32463-sudo-chroot",

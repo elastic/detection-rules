@@ -24,7 +24,36 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential CVE-2025-32463 Sudo Chroot Execution Attempt"
 note = """
+## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential CVE-2025-32463 Sudo Chroot Execution Attempt
+
+This rule highlights sudo invoked with the chroot (-R/--chroot) option outside normal administration, a behavior tied to CVE-2025-32463 where attackers force sudo to load attacker-controlled NSS configs or libraries and escalate to root. An attacker pattern: running sudo -R /tmp/fakechroot /bin/sh after seeding that directory with malicious nsswitch.conf and libnss to obtain a root shell. Treat unexpected chrooted sudo on Linux hosts as high-risk privilege escalation activity.
+
+### Possible investigation steps
+
+- Extract the chroot target path from the event and enumerate its etc and lib directories for attacker-seeded NSS artifacts (nsswitch.conf, libnss_*, ld.so.preload) and fake passwd/group files, noting recent mtime, ownership, and world-writable files.
+- Pivot to file-creation and modification telemetry to identify processes and users that populated that path shortly before execution (e.g., curl, wget, tar, git, gcc), linking them to the invoking user to establish intent.
+- Review session and process details to see if a shell or interpreter was launched inside the chroot and whether an euid transition to 0 occurred, indicating a successful privilege escalation.
+- Confirm sudo’s package version and build options and the user’s sudoers policy (secure_path/env_* settings and any NOPASSWD allowances) to assess exploitability and whether chroot usage was authorized.
+- Collect and preserve the chroot directory contents and relevant audit/log artifacts, and scope by searching for similar chroot invocations or NSS file seeds across the host and fleet.
+
+### False positive analysis
+
+- A legitimate offline maintenance session where an administrator chroots into a mounted system under /mnt or /srv using sudo --chroot to run package or initramfs commands, which will trigger when the invoked program is not in the whitelist.
+- An image-building or OS bootstrap workflow that stages a root filesystem and uses sudo -R to execute a shell or build/configuration scripts inside the chroot, producing the same pattern from a known user or host context.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network, revoke the invoking user’s sudo privileges, and terminate any chrooted shells or child processes spawned via “sudo -R <path> /bin/sh” or similar executions.
+- Preserve evidence and then remove attacker-seeded NSS and loader artifacts within the chroot path—delete or replace nsswitch.conf, libnss_*.so, ld.so.preload, passwd, and group files, and clean up world-writable staging directories like /tmp/fakechroot.
+- Upgrade sudo to a fixed build that addresses CVE-2025-32463, and recover by restoring any modified system NSS and loader files from known-good backups while validating ownership, permissions, and hashes.
+- Escalate to full incident response if a root shell or process with euid 0 is observed, if /etc/ld.so.preload or /lib/libnss_*.so outside the chroot show unauthorized changes, or if similar “sudo -R” executions appear across multiple hosts.
+- Harden by updating sudoers to remove NOPASSWD for chrooted commands, enforce Defaults env_reset and secure_path with noexec, disable “--chroot” usage for non-admin workflows, and monitor for creation of libnss_*.so or nsswitch.conf in non-standard directories.
+- Add platform controls by enabling SELinux/AppArmor policies on sudo and the dynamic loader, applying nodev,nosuid,noexec mounts to /tmp and build paths, and setting immutability (chattr +i) on /etc/nsswitch.conf where operationally feasible.
 """
 references = [
     "https://www.stratascale.com/vulnerability-alert-CVE-2025-32463-sudo-chroot",
