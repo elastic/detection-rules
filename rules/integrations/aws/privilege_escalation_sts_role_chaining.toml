@@ -2,7 +2,7 @@
 creation_date = "2024/10/23"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/10/02"
 
 [rule]
 author = ["Elastic"]
@@ -10,9 +10,7 @@ description = """
 Identifies role chaining activity. Role chaining is when you use one assumed role to assume a second role through the
 AWS CLI or API. While this a recognized functionality in AWS, role chaining can be abused for privilege escalation if
 the subsequent assumed role provides additional privileges. Role chaining can also be used as a persistence mechanism as
-each AssumeRole action results in a refreshed session token with a 1 hour maximum duration. This rule looks for role
-chaining activity happening within a single account, to eliminate false positives produced by common cross-account
-behavior.
+each AssumeRole action results in a refreshed session token with a 1 hour maximum duration. This is a new terms rule that looks for the first occurance of one role (aws.cloudtrail.user_identity.session_context.session_issuer.arn) assuming another (aws.cloudtrail.resources.arn).
 """
 false_positives = [
     """
@@ -21,48 +19,66 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-language = "esql"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS STS Role Chaining"
-note = """## Triage and analysis
+note = """
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS STS Role Chaining
 
-AWS Security Token Service (STS) allows temporary, limited-privilege credentials for AWS resources. Role chaining involves using one temporary role to assume another, potentially escalating privileges. Adversaries exploit this by gaining elevated access or persistence. The detection rule identifies such activity by monitoring specific API calls and access patterns within a single account, flagging potential misuse.
+Role chaining occurs when a role assumed with temporary credentials (`AssumeRole`) is used to assume another role. While supported by AWS, chaining can increase risk of Privilege escalation, if the second role grants broader permissions; and Persistence, since each chained AssumeRole refreshes the session with up to 1-hour duration. This new terms rule triggers on the first observed combination of one role (`aws.cloudtrail.user_identity.session_context.session_issuer.arn`) assuming another (`aws.cloudtrail.resources.arn`). 
 
 ### Possible investigation steps
 
-- Review the AWS CloudTrail logs to identify the source of the AssumeRole API call by examining the aws.cloudtrail.user_identity.arn field to determine which user or service initiated the role chaining.
-- Check the cloud.region field to understand the geographical context of the activity and assess if it aligns with expected operational regions for your organization.
-- Investigate the aws.cloudtrail.resources.account_id and aws.cloudtrail.recipient_account_id fields to confirm that the role chaining activity occurred within the same account, as cross-account role chaining is not flagged by this rule.
-- Analyze the aws.cloudtrail.user_identity.access_key_id to verify that the access key used is a temporary token starting with "ASIA", indicating the use of temporary credentials.
-- Assess the permissions associated with the roles involved in the chaining to determine if the subsequent role provides elevated privileges that could be exploited for privilege escalation or persistence.
-- Correlate the timing of the AssumeRole events with other security events or alerts to identify any suspicious patterns or activities that may indicate malicious intent.
+- **Review Alert Context**: Investigate the alert, focusing on `aws.cloudtrail.user_identity.session_context.session_issuer.arn` (the calling role) and `aws.cloudtrail.resources.arn` (the target role).  
+- **Determine scope and intent.** Check `aws.cloudtrail.recipient_account_id` and `aws.cloudtrail.resources.account_id` fields to identify whether the chaining is Intra-account (within the same AWS account) or Cross-account (from another AWS account).  
+- **Check role privileges.** Compare policies of the calling and target roles. Determine if chaining increases permissions (for example, access to S3 data, IAM modifications, or admin privileges).  
+- **Correlate with other activity.** Look for related alerts or CloudTrail activity within ±30 minutes: policy changes, unusual S3 access, or use of sensitive APIs. Use `aws.cloudtrail.user_identity.arn` to track behavior from the same role session, use `aws.cloudtrail.user_identity.session_context.session_issuer.arn` to track broader behavior from the role itself.
+- **Validate legitimacy.** Contact the account or service owner to confirm if the chaining was expected (for example, automation pipelines or federated access flows).  
+- **Geography & source.** Review `cloud.region`, `source.address`, and other `geo` fields to assess if the activity originates from expected regions or network ranges.  
 
 ### False positive analysis
 
-- Cross-account role assumptions are common in many AWS environments and can generate false positives. To mitigate this, ensure the rule is configured to only monitor role chaining within a single account, as specified in the rule description.
-- Automated processes or applications that frequently assume roles for legitimate purposes may trigger false positives. Identify these processes and create exceptions for their specific access patterns or user identities.
-- Scheduled tasks or scripts that use temporary credentials for routine operations might be flagged. Review these tasks and whitelist their access key IDs if they consistently follow a predictable and secure pattern.
-- Development and testing environments often involve frequent role assumptions for testing purposes. Exclude these environments from monitoring or adjust the rule to account for their unique access behaviors.
-- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
+- **Expected role chaining.** Some organizations use role chaining as part of multi-account access strategies. Maintain an allowlist of known `issuer.arn` - `target.arn` pairs.  
+- **Automation and scheduled tasks.** CI/CD systems or monitoring tools may assume roles frequently. Validate by `userAgent` and historical behavior.  
+- **Test/dev environments.** Development accounts may generate experimental chaining patterns. Tune rules or exceptions to exclude low-risk accounts.  
 
 ### Response and remediation
 
-- Immediately revoke the temporary credentials associated with the detected AssumeRole activity to prevent further unauthorized access.
-- Conduct a thorough review of the AWS CloudTrail logs to identify any additional suspicious activities or roles assumed using the compromised credentials.
-- Isolate the affected AWS resources and accounts to prevent lateral movement and further privilege escalation within the environment.
-- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
-- Implement stricter IAM policies and role permissions to limit the ability to assume roles unnecessarily, reducing the risk of privilege escalation.
-- Enhance monitoring and alerting for AssumeRole activities, especially those involving temporary credentials, to detect similar threats in the future.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future response efforts.
+**1. Immediate steps**
+- **Preserve evidence.** Export triggering CloudTrail events (±30 minutes) into a restricted evidence bucket. Include session context, source IP, and user agent.  
+- **Notify owners.** Contact the owners of both roles to validate intent.  
+
+**2. Containment (if suspicious)**
+- **Revoke temporary credentials.** [Revoke Session Permissions](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_revoke-sessions.html) if possible, or attach [AWSDenyALL policy](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSDenyAll.html) to the originating role.  
+- **Restrict risky roles.** Apply least-privilege policies or temporarily deny `sts:AssumeRole` for suspicious principals.  
+- **Enable monitoring.** Ensure CloudTrail and GuardDuty are active in all regions to detect further chaining.  
+
+**3. Scope and hunt**
+- Search for additional AssumeRole activity by the same `issuer.arn` or `resources.arn` across other accounts and regions.  
+- Look for privilege escalation attempts (for example, IAM `AttachRolePolicy`, `UpdateAssumeRolePolicy`) or sensitive data access following the chain.  
+
+**4. Recovery & hardening**
+- Apply least privilege to all roles, limiting trust policies to only required principals.  
+- Enforce MFA where possible on AssumeRole operations.  
+- Periodically review role chaining patterns to validate necessity; remove unused or risky trust relationships.  
+- Document and tune new terms exceptions for known, legitimate chains.  
+
+### Additional information
+ 
+- [AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/): NIST-aligned templates for evidence, containment, eradication, recovery, post-incident. 
+- [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/): Practical response steps for account and IAM misuse scenarios
+- AWS IAM Best Practices: [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) for reducing risk from temporary credentials.  
 
 ## Setup
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
 references = [
     "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html#id_roles_terms-and-concepts",
     "https://www.uptycs.com/blog/detecting-anomalous-aws-sessions-temporary-credentials",
@@ -83,18 +99,36 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "new_terms"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-
-// filter for AssumeRole API calls where access key id is a short term token beginning with ASIA
-| where event.dataset == "aws.cloudtrail" and event.provider == "sts.amazonaws.com" and event.action == "AssumeRole" and aws.cloudtrail.resources.account_id == aws.cloudtrail.recipient_account_id and aws.cloudtrail.user_identity.access_key_id like "ASIA*"
-
-// keep only the relevant fields
-| keep aws.cloudtrail.user_identity.arn, cloud.region, aws.cloudtrail.resources.account_id, aws.cloudtrail.recipient_account_id, aws.cloudtrail.user_identity.access_key_id
+    event.dataset : "aws.cloudtrail" and 
+    event.provider : "sts.amazonaws.com" and 
+    event.action : "AssumeRole" and 
+    aws.cloudtrail.user_identity.type : "AssumedRole" and 
+    event.outcome : "success" 
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "user.name",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",     
+    "aws.cloudtrail.resources.type",   
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.recipient_account_id",
+    "aws.cloudtrail.resources.account_id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -132,4 +166,11 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.session_context.session_issuer.arn", "aws.cloudtrail.resources.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
 
