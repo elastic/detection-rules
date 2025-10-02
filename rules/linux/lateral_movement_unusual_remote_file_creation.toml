@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,7 @@ Remote file creation tools like SCP, FTP, and SFTP are essential for transferrin
 - Implement stricter access controls and authentication mechanisms for remote file transfer services to prevent unauthorized use.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised.
 """
-risk_score = 47
+risk_score = 21
 rule_id = "ed3fedc3-dd10-45a5-a485-34a8b48cea46"
 setup = """## Setup
 
@@ -92,7 +92,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -106,9 +106,16 @@ type = "new_terms"
 query = '''
 event.category:file and host.os.type:linux and event.action:creation and
 process.name:(scp or ftp or sftp or vsftpd or sftp-server or sync) and
-not file.path:(/dev/ptmx or /run/* or /var/run/*)
+not (
+  file.path:(
+    /dev/ptmx or /run/* or /var/run/* or /home/*/.ansible/*AnsiballZ_*.py or /home/*/.ansible/tmp/ansible-tmp* or
+    /root/.ansible/*AnsiballZ_*.py or /tmp/ansible-chief/ansible-tmp*AnsiballZ_*.py or
+    /tmp/newroot/home/*/.ansible/tmp/ansible-tmp*AnsiballZ_*.py or /tmp/.ansible/tmp/ansible-tmp*AnsiballZ_*.py or
+    /tmp/ansible-tmp-*/AnsiballZ_*.py or /tmp/.ansible/ansible-tmp-*AnsiballZ_*.py
+  ) or
+  file.extension:(filepart or yaml or new or rpm or deb)
+)
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

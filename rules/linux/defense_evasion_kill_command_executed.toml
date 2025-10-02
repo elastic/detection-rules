@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -90,7 +90,10 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
-process.name:(kill or pkill or killall)
+process.name:(kill or pkill or killall) and not (
+  process.args:("-HUP" or "-SIGUSR1" or "-USR2" or "-WINCH" or "-USR1") or
+  process.parent.command_line:"runc init"
+)
 '''
 
 [[rule.threat]]

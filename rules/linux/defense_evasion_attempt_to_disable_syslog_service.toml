@@ -2,7 +2,7 @@
 creation_date = "2020/04/27"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -109,32 +109,32 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
  ( (process.name == "service" and process.args == "stop") or
    (process.name == "chkconfig" and process.args == "off") or
    (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
  ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service") and
-not process.parent.name == "rsyslog-rotate"
+not (
+  process.parent.name == "rsyslog-rotate" or
+  process.args == "HUP"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
