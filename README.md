@@ -84,8 +84,8 @@ Note: The `kibana` and `kql` packages are not available on PyPI and must be inst
 ```console
 
 # Install from the repository
-pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kibana
-pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql
 
 # Or locally for development
 pip3 install lib/kibana lib/kql
