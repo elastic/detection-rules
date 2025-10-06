@@ -109,7 +109,7 @@ def update_gist(  # noqa: PLR0913
 
     if pre_purge:
         # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
         files = list(data["files"])

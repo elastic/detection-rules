@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Austin Songer"]
@@ -12,8 +12,8 @@ Identifies the creation of role binding or cluster role bindings. You can assign
 create bindings and cluster-bindings in the cluster can create a binding to the cluster-admin ClusterRole or to other
 high privileges roles.
 """
-from = "now-20m"
-index = ["filebeat-*", "logs-azure*"]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Rolebindings Created"
@@ -82,9 +82,30 @@ event.outcome:(Success or success)
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 

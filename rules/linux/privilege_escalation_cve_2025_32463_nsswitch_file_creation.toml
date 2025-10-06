@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/10/01"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious creation of the nsswitch.conf file, outside of the regular /etc/nsswitch.conf path,
+consistent with attempts to exploit CVE-2025-32463 (the "sudo chroot" privilege escalation), where an
+attacker tricks sudo into using attacker-controlled NSS files or libraries to gain root.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential CVE-2025-32463 Nsswitch File Creation"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential CVE-2025-32463 Nsswitch File Creation
+
+This rule flags creation of an nsswitch.conf file outside the standard /etc location by a shell, an early sign of staging a fake root to coerce sudo's chroot path and hijack NSS resolution (CVE-2025-32463). A common pattern is writing /tmp/chroot/etc/nsswitch.conf, placing or pointing to a malicious NSS module, then running sudo chroot into that directory so name lookups load attacker-controlled code and escalate to root.
+
+### Possible investigation steps
+
+- Correlate the event with any sudo or chroot executions within ±10 minutes that reference the same directory prefix (e.g., /tmp/chroot), capturing full command line, user, TTY, working directory, and exit codes.
+- Inspect the created nsswitch.conf for nonstandard services or module names and enumerate any libnss_*.so* under lib*/ or usr/lib*/ within that prefix, recording owner, hashes, and timestamps.
+- List all contemporaneous file writes under the same prefix (etc, lib*, bin, sbin) to determine whether a chroot rootfs is being assembled and attribute it to a toolchain such as tar, rsync, debootstrap, or custom scripts via process ancestry.
+- Search file access telemetry to see whether privileged processes subsequently read that specific nsswitch.conf or loaded libnss_* from the same path, which would indicate the chroot was exercised.
+- Verify sudo and glibc versions and patch status for CVE-2025-32463 and collect the initiating user’s session context (SSH source, TTY, shell history) to assess exploitability and scope.
+
+### False positive analysis
+
+- An administrator legitimately staging a temporary chroot or test root filesystem may use a shell to create /tmp/*/etc/nsswitch.conf while populating configs, matching the rule even though no privilege escalation is intended.
+- OS installation, recovery, or backup-restore workflows run from a shell can populate a mounted target like /mnt/newroot/etc/nsswitch.conf, creating the file outside /etc as part of maintenance and triggering the alert.
+
+### Response and remediation
+
+- Terminate any sudo or chroot processes referencing the created path (e.g., /tmp/chroot/etc/nsswitch.conf), lock the initiating user’s sudo access, and quarantine the parent directory with root-only permissions.
+- Remove the staged nsswitch.conf and any libnss_*.so* or ld.so.* artifacts under lib*/ or usr/lib*/ within that prefix after collecting copies, hashes, and timestamps for evidence.
+- Restore and verify /etc/nsswitch.conf on the host with correct content and root:root 0644, purge temporary chroot roots under /tmp, /var/tmp, or /mnt, and restart nscd or systemd-resolved to flush cached name-service data.
+- Escalate to incident response if sudo chroot was executed against the same directory, if root processes loaded libnss_* from that path, or if nsswitch.conf appears outside /etc on multiple hosts within a short window.
+- Apply vendor fixes for CVE-2025-32463 to sudo and glibc, disallow chroot in sudoers and enforce env_reset, noexec, and secure_path, and mount /tmp and /var/tmp with noexec,nosuid,nodev to prevent libraries being sourced from user-writable paths.
+- Add controls to block execution from user-created chroot trees by policy (AppArmor or SELinux) and create alerts on creation of */etc/nsswitch.conf or libnss_* writes under non-system paths, with auto-isolation for directories under /tmp or a user’s home.
+"""
+references = [
+    "https://www.stratascale.com/vulnerability-alert-CVE-2025-32463-sudo-chroot",
+    "https://github.com/kh4sh3i/CVE-2025-32463",
+]
+risk_score = 73
+rule_id = "163a8f2f-c8a0-4b7e-9c4a-1184310eb7f3"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Use Case: Vulnerability",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and file.path like "/*/etc/nsswitch.conf" and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+not (
+  process.name == "dash" and file.path like ("/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

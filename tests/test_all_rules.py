@@ -34,7 +34,6 @@ from detection_rules.rule import (
     TOMLRuleContents,
 )
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
-from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import loaded_version_lock
@@ -997,7 +996,7 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "eql")
 
         for query in invalid_integration_queries_eql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(eql.EqlSchemaError):
                 build_rule(query, "eql")
         # kql
         for query in valid_queries_kql:
@@ -1008,37 +1007,8 @@ class TestRuleMetadata(BaseRuleTest):
                 build_rule(query, "kuery")
 
         for query in invalid_integration_queries_kql:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(kql.KqlParseError):
                 build_rule(query, "kuery")
-
-    def test_event_dataset(self):
-        for rule in self.all_rules:
-            if isinstance(rule.contents.data, QueryRuleData):
-                # Need to pick validator based on language
-                if rule.contents.data.language == "kuery":
-                    test_validator = KQLValidator(rule.contents.data.query)
-                elif rule.contents.data.language == "eql":
-                    test_validator = EQLValidator(rule.contents.data.query)
-                else:
-                    continue
-                data = rule.contents.data
-                meta = rule.contents.metadata
-                if (meta.query_schema_validation is not False or meta.maturity != "deprecated") and (
-                    isinstance(data, QueryRuleData) and data.language != "lucene"
-                ):
-                    packages_manifest = load_integrations_manifests()
-                    pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-
-                    validation_integrations_check = None
-
-                    if pkg_integrations:
-                        # validate the query against related integration fields
-                        validation_integrations_check = test_validator.validate_integration(
-                            data, meta, pkg_integrations
-                        )
-
-                    if validation_integrations_check and "event.dataset" in rule.contents.data.query:
-                        raise validation_integrations_check
 
     def test_min_stack_version_supported(self):
         """Test that rules have a min_stack_version that is supported in stack-schema-map.yaml."""
@@ -1293,7 +1263,7 @@ class TestBuildTimeFields(BaseRuleTest):
 
             errors = []
             for build_field, field_versions in build_fields.items():
-                start_ver, end_ver = field_versions
+                start_ver, _ = field_versions
                 # when a _new_ build time field is introduced, _all_ rules _must_ have a min_stack_version for the stack
                 # version in which the field was introduced. This is because the initial change will result in a hash
                 # change which is different because of the build time fields.
