@@ -26,7 +26,7 @@ The rule flags Windows DNS Server (dns.exe) creating, changing, or deleting file
 
 ### Possible investigation steps
 
-- Validate the modified file’s full path, type, and provenance, prioritizing writes in %SystemRoot%\System32, NETLOGON, or SYSVOL, and confirm signature, hash reputation, and compile timestamp to rapidly classify the artifact.
+- Validate the modified file’s full path, type, and provenance, prioritizing writes in %SystemRoot%\\System32, NETLOGON, or SYSVOL, and confirm signature, hash reputation, and compile timestamp to rapidly classify the artifact.
 - Pivot to persistence telemetry around the same timestamp by hunting for new services or scheduled tasks (e.g., SCM 7045, Security 4697, TaskScheduler 106/200) and registry autoruns that reference the file.
 - Correlate with DNS service network activity and logs for unusual RPC calls, authenticated connections from non-admin hosts, or spikes in failures/crashes that could indicate exploitation.
 - Inspect the service’s runtime state for injection indicators by reviewing recent module loads, unsigned DLLs, suspicious memory sections, and ETW/Sysmon events mapping threads that performed the write.
@@ -39,8 +39,8 @@ The rule flags Windows DNS Server (dns.exe) creating, changing, or deleting file
 
 ### Response and remediation
 
-- Isolate the host by removing it from DNS rotation and restricting network access to management-only, then capture and quarantine any files dns.exe created or modified outside %SystemRoot%\System32\Dns or with executable extensions.
-- Delete or quarantine suspicious artifacts written by dns.exe (e.g., .exe, .dll, .ps1, .js) in %SystemRoot%\System32, NETLOGON, or SYSVOL, record their hashes, and block them fleetwide via EDR or application control.
+- Isolate the host by removing it from DNS rotation and restricting network access to management-only, then capture and quarantine any files dns.exe created or modified outside %SystemRoot%\\System32\\Dns or with executable extensions.
+- Delete or quarantine suspicious artifacts written by dns.exe (e.g., .exe, .dll, .ps1, .js) in %SystemRoot%\\System32, NETLOGON, or SYSVOL, record their hashes, and block them fleetwide via EDR or application control.
 - Remove persistence by disabling and deleting any new or altered Windows services, scheduled tasks, or Run/Autorun registry entries that reference the dns.exe-written file path, and restore legitimate service ImagePath values.
 - Recover by repairing system files with SFC/DISM, restoring affected directories from known-good backups, and restarting the DNS service, then validate zone integrity, AD replication, and client name-resolution.
 - Immediately escalate to incident response if dns.exe wrote an executable or script into NETLOGON or SYSVOL or if a service binary path was changed to point to a newly dropped file, indicating probable domain controller compromise and lateral movement.
