@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,15 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
 process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and process.args:-c and
-process.command_line:(*PATH=* and not sh*/run/motd.dynamic.new)
+process.command_line:*PATH=* and
+not (
+  process.command_line:(*_PATH=* or *PYTHONPATH=* or sh*/run/motd.dynamic.new) or
+  process.parent.executable:(
+    "/opt/puppetlabs/puppet/bin/puppet" or /var/lib/docker/overlay2/* or /vz/root/*/dovecot or
+    "/usr/libexec/dovecot/auth" or /home/*/.local/share/containers/* or /vz/root/*/dovecot/auth
+  ) or
+  process.parent.command_line:"runc init"
+)
 '''
 note = """## Triage and analysis
 
