@@ -59,9 +59,9 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
 process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and process.args:-c and
-process.command_line:* PATH=* and
+process.command_line:*PATH=* and
 not (
-  process.command_line:sh*/run/motd.dynamic.new or
+  process.command_line:(*_PATH=* or *PYTHONPATH=* or sh*/run/motd.dynamic.new) or
   process.parent.executable:(
     "/opt/puppetlabs/puppet/bin/puppet" or /var/lib/docker/overlay2/* or /vz/root/*/dovecot or
     "/usr/libexec/dovecot/auth" or /home/*/.local/share/containers/* or /vz/root/*/dovecot/auth
