@@ -1,32 +1,24 @@
 [metadata]
 creation_date = "2024/05/03"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a high number (20) of file creation event by the System virtual process from the same host and with
-same file name containing keywords similar to ransomware note files and all within a short time period.
+This rule identifies the creation of multiple files with same name and over SMB by the same user. This behavior may indicate the 
+successful remote execution of a ransomware dropping file notes to different folders.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.file-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-    "endgame-*",
-    "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
-name = "Potential Ransomware Behavior - High count of Readme files by System"
+name = "Potential Ransomware Behavior - Note Files by System"
 note = """## Triage and analysis
 
 #### Possible investigation steps
 
-- Investigate the content of the readme files.
+- Investigate the content of the dropped files.
 - Investigate any file names with unusual extensions.
 - Investigate any incoming network connection to port 445 on this host.
 - Investigate any network logon events to this host.
@@ -59,27 +51,35 @@ note = """## Triage and analysis
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = ["https://news.sophos.com/en-us/2023/12/21/akira-again-the-ransomware-that-keeps-on-taking/"]
-risk_score = 21
+risk_score = 47
 rule_id = "1397e1b9-0c90-4d24-8d7b-80598eb9bc9a"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Impact",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-event.category:file and host.os.type:windows and process.pid:4 and event.action:creation and
- file.name:(*read*me* or *README* or *lock* or *LOCK* or *how*to* or *HOW*TO* or *@* or *recover* or *RECOVER* or *decrypt* or *DECRYPT* or *restore* or *RESTORE* or *FILES_BACK* or *files_back*)
+from logs-endpoint.events.file-* metadata _id, _version, _index
+
+// filter for file creation event done remotely over SMB with common user readable file types used to place ransomware notes
+| where event.category == "file" and host.os.type == "windows" and event.action == "creation" and process.pid == 4 and user.id != "S-1-5-18" and 
+  file.extension in ("txt", "htm", "html", "hta", "pdf", "jpg", "bmp", "png", "pdf")
+
+// truncate the timestamp to a 60-second window
+| eval Esql.time_window_date_trunc = date_trunc(60 seconds, @timestamp)
+
+| keep file.path, file.name, process.entity_id, Esql.time_window_date_trunc
+
+// filter for same file name dropped in at least 3 unique paths by the System virtual process
+| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path)  by process.entity_id , file.name, Esql.time_window_date_trunc
+| where Esql.file_path_count_distinct >= 3
 '''
 
 
@@ -106,14 +106,9 @@ id = "T1021.002"
 name = "SMB/Windows Admin Shares"
 reference = "https://attack.mitre.org/techniques/T1021/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
-[rule.threshold]
-field = ["host.id", "file.name"]
-value = 25
 
