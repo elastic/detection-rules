@@ -101,13 +101,13 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") an
 process.name == "cpio" and process.args in ("-H", "--format") and process.args == "newc" and
 not (
   process.parent.name in ("mkinitramfs", "dracut") or
-  process.parent.executable like~ ("/usr/share/initramfs-tools/*", "/nix/store/*") or
-  process.parent.args in (
+  ?process.parent.executable like~ ("/usr/share/initramfs-tools/*", "/nix/store/*") or
+  ?process.parent.args in (
     "/bin/dracut", "/usr/share/initramfs-tools/hooks/amd64_microcode", "/usr/bin/dracut", "/usr/sbin/mkinitramfs",
     "/usr/sbin/dracut", "/usr/bin/update-microcode-initrd"
   ) or
   process.args like ("/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*") or
-  process.working_directory like (
+  ?process.working_directory like (
     "/var/tmp/mkinitramfs-*", "/tmp/microcode-initrd_*", "/var/tmp/mkinitramfs-*", "/var/tmp/dracut.*",
     "/var/tmp/mkinitramfs_*"
   )
