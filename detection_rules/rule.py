@@ -299,23 +299,9 @@ class AlertSuppressionDuration:
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
 
-    group_by: definitions.AlertSuppressionGroupBy | None = None
+    group_by: definitions.AlertSuppressionGroupBy
     duration: AlertSuppressionDuration | None = None
-    missing_fields_strategy: definitions.AlertSuppressionMissing | None = None
-
-    @validates_schema
-    def validates_data(self, data: dict[str, Any], **_: Any) -> None:
-        """Custom validation to enforce valid combinations of fields."""
-        group_by = data.get("group_by")
-        duration = data.get("duration")
-        missing_fields_strategy = data.get("missing_fields_strategy")
-        if (group_by is None) != (missing_fields_strategy is None):
-            raise ValidationError("Both 'group_by' and 'missing_fields_strategy' must be set together, or neither.")
-
-        if not duration and not (group_by and missing_fields_strategy):
-            raise ValidationError(
-                "You must provide either 'duration', or both 'group_by' and 'missing_fields_strategy' together."
-            )
+    missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
 @dataclass(frozen=True)
@@ -1089,9 +1075,9 @@ class ThreatMatchRuleData(QueryRuleData):
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
 AnyRuleData = (
-    EQLRuleData
+    ThresholdQueryRuleData
+    | EQLRuleData
     | ESQLRuleData
-    | ThresholdQueryRuleData
     | ThreatMatchRuleData
     | MachineLearningRuleData
     | QueryRuleData

@@ -381,7 +381,7 @@ class TestAlertSuppressionValidation(BaseRuleTest):
                 alert_suppression={"group_by": ["process.id"]},
             ),
         }
-        with self.assertRaises(ValidationError):
+        with self.assertRaises((ValidationError, TypeError)):
             _ = rc.load_dict(rule_dict)
 
     def test_query_rule_missing_fields_strategy(self) -> None:
@@ -406,7 +406,7 @@ class TestAlertSuppressionValidation(BaseRuleTest):
                 alert_suppression={"missing_fields_strategy": "suppress"},
             ),
         }
-        with self.assertRaises(ValidationError):
+        with self.assertRaises((ValidationError, TypeError)):
             _ = rc.load_dict(rule_dict)
 
     def test_threat_match_rule(self) -> None:
@@ -472,5 +472,5 @@ class TestAlertSuppressionValidation(BaseRuleTest):
                 threat_mapping=[{"entries": [{"field": "client.ip", "type": "mapping", "value": "client.ip"}]}],
             ),
         }
-        with self.assertRaises(ValidationError):
+        with self.assertRaises((ValidationError, TypeError)):
             _ = rc.load_dict(rule_dict)
