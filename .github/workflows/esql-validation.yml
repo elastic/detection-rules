@@ -12,14 +12,20 @@ jobs:
 
     steps:
       - name: Check out repository
-        if: ${{ !secrets.cloud_id && !secrets.api_key }}
+        env:
+          DR_CLOUD_ID: ${{ secrets.cloud_id }}
+          DR_API_KEY: ${{ secrets.api_key }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           path: elastic-container
           repository: eric-forte-elastic/elastic-container
 
       - name: Build and run containers
-        if: ${{ !secrets.cloud_id && !secrets.api_key }}
+        env:
+          DR_CLOUD_ID: ${{ secrets.cloud_id }}
+          DR_API_KEY: ${{ secrets.api_key }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
         run: |
           cd elastic-container
           GENERATED_PASSWORD=$(openssl rand -base64 16)
@@ -40,11 +46,13 @@ jobs:
           python-version: '3.13'
 
       - name: Get API Key and setup auth
-        if: ${{ !secrets.cloud_id && !secrets.api_key }}
         env:
+          DR_CLOUD_ID: ${{ secrets.cloud_id }}
+          DR_API_KEY: ${{ secrets.api_key }}
           DR_ELASTICSEARCH_URL: "https://localhost:9200"
           ES_USER: "elastic"
           ES_PASSWORD: ${{ env.GENERATED_PASSWORD }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
         run: |
           cd detection-rules
           response=$(curl -k -X POST -u "$ES_USER:$ES_PASSWORD" -H "Content-Type: application/json" -d '{
