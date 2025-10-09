@@ -299,9 +299,26 @@ class AlertSuppressionDuration:
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
 
-    group_by: definitions.AlertSuppressionGroupBy
+    group_by: definitions.AlertSuppressionGroupBy | None = None
     duration: AlertSuppressionDuration | None = None
-    missing_fields_strategy: definitions.AlertSuppressionMissing
+    missing_fields_strategy: definitions.AlertSuppressionMissing | None = None
+
+    @validates_schema
+    def validates_data(self, data: dict[str, Any], **_: Any) -> None:
+        """Validation to enforce valid combinations of fields."""
+        group_by = data.get("group_by")
+        duration = data.get("duration")
+        missing_fields_strategy = data.get("missing_fields_strategy")
+
+        if duration and (group_by or missing_fields_strategy):
+            raise ValidationError(
+                "Provide either 'duration' alone, or both 'group_by' and 'missing_fields_strategy' together."
+            )
+
+        if not duration and not (group_by and missing_fields_strategy):
+            raise ValidationError(
+                "You must provide either 'duration' alone, or both 'group_by' and 'missing_fields_strategy' together."
+            )
 
 
 @dataclass(frozen=True)
