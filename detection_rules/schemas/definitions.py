@@ -56,6 +56,7 @@ def elastic_rule_name_regexp(pattern: Pattern[str]) -> Callable[[Any], Any]:
     return validator_wrapper
 
 
+HTTP_STATUS_BAD_REQUEST = 400
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -75,6 +76,7 @@ _version = r"\d+\.\d+(\.\d+[\w-]*)*"
 CONDITION_VERSION_PATTERN = re.compile(rf"^\^{_version}$")
 VERSION_PATTERN = f"^{_version}$"
 MINOR_SEMVER = re.compile(r"^\d+\.\d+$")
+FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE)
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
