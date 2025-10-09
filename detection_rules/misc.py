@@ -255,6 +255,8 @@ def get_elasticsearch_client(  # noqa: PLR0913
 ) -> Elasticsearch:
     """Get an authenticated elasticsearch client."""
 
+    cloud_id = cloud_id or None
+    elasticsearch_url = elasticsearch_url or None
     if not (cloud_id or elasticsearch_url):
         raise_client_error("Missing required --cloud-id or --elasticsearch-url")
 
