@@ -335,6 +335,31 @@ class TestAlertSuppressionValidation(BaseRuleTest):
         }
         _ = rc.load_dict(rule_dict)
 
+    def test_query_rule_duration(self) -> None:
+        """Test that a query rule with alert_suppression with group_by and missing_fields_strategy validates correctly."""
+        rc = RuleCollection()
+        query = """
+        process.name: \"test\"
+        """
+        rule_dict: dict[str, Any] = {
+            "metadata": mk_metadata(
+                ["endpoint", "windows"], comments="New fields added: required_fields, related_integrations, setup"
+            ),
+            "rule": mk_rule(
+                name="Fake Test Rule",
+                rule_id="4fffae5d-8b7d-4e48-88b1-979ed42fd9a3",
+                description="Test Rule.",
+                risk_score=47,
+                query=query,
+                language="kuery",
+                query_type="query",
+                threshold=None,
+                alert_suppression={"duration": {"value": 5, "unit": "h"}},
+            ),
+        }
+        with self.assertRaises((ValidationError, TypeError)):
+            _ = rc.load_dict(rule_dict)
+
     def test_query_rule_group_by_missing_fields(self) -> None:
         """Test that a query rule with alert_suppression with group_by and missing_fields_strategy validates correctly."""
         rc = RuleCollection()
