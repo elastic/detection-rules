@@ -309,6 +309,8 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
         group_by = data.get("group_by")
         duration = data.get("duration")
         missing_fields_strategy = data.get("missing_fields_strategy")
+        if (group_by is None) != (missing_fields_strategy is None):
+            raise ValidationError("Both 'group_by' and 'missing_fields_strategy' must be set together, or neither.")
 
         if not duration and not (group_by and missing_fields_strategy):
             raise ValidationError(
