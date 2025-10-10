@@ -254,9 +254,10 @@ def get_elasticsearch_client(  # noqa: PLR0913
     **kwargs: Any,
 ) -> Elasticsearch:
     """Get an authenticated elasticsearch client."""
-
+    # Handle empty strings as None
     cloud_id = cloud_id or None
     elasticsearch_url = elasticsearch_url or None
+
     if not (cloud_id or elasticsearch_url):
         raise_client_error("Missing required --cloud-id or --elasticsearch-url")
 
