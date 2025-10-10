@@ -1473,6 +1473,12 @@ def esql_remote_validation(
 
         _ = Path("failed_rules.log").write_text("\n".join(fail_list), encoding="utf-8")
         click.echo("Failed rules written to failed_rules.log")
+        if failed_count > 0:
+            click.echo("Failed rules:")
+            uuids = {line.split()[0] for line in fail_list}
+            click.echo("\n".join(uuids))
+            ctx = click.get_current_context()
+            ctx.exit(1)
 
 
 @test_group.command("rule-survey")
