@@ -791,13 +791,17 @@ class ESQLValidator(QueryValidator):
             schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
             schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
 
-            # The mapping between integer and long may be different between Kibana and the schema
-            # both are numeric types with different ranges, but for our purposes they are equivalent
-            if column_type == "long" and schema_type == "integer":
+            # If it is in our schema, but Kibana returns unsupported
+            if schema_type and column_type == "unsupported":
                 continue
 
             # Validate the type
             if not schema_type or column_type != schema_type:
+                # Attempt reverse mapping as for our purposes they are equivalent.
+                # We are generally concerned about the operators for the types not the values themselves.
+                reverse_col_type = kql.parser.elasticsearch_type_family(column_type) if column_type else None
+                if reverse_col_type is not None and schema_type is not None and reverse_col_type == schema_type:
+                    continue
                 mismatched_columns.append(
                     f"Dynamic field `{column_name}` is not correctly mapped. "
                     f"If not dynamic: expected from schema: `{schema_type}`, got from Kibana: `{column_type}`."
@@ -886,7 +890,7 @@ class ESQLValidator(QueryValidator):
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
         # Create remote indices
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
+        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, indices, self.log)
 
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]

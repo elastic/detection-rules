@@ -5,6 +5,7 @@
 
 """Validation logic for rules containing queries."""
 
+import re
 import time
 from collections.abc import Callable
 from copy import deepcopy
@@ -23,6 +24,8 @@ from .esql_errors import (
     EsqlSchemaError,
     EsqlSyntaxError,
     EsqlTypeMismatchError,
+    EsqlUnknownIndexError,
+    EsqlUnsupportedTypeError,
     cleanup_empty_indices,
 )
 from .integrations import (
@@ -218,13 +221,39 @@ def prepare_integration_mappings(  # noqa: PLR0913
     return integration_mappings, index_lookup
 
 
+def check_known_indices(indices: list[str], index_lookup: dict[str, Any]) -> None:
+    """Check if the provided indices are known based on the integration format."""
+
+    _ = index_lookup.pop("rule-ecs-index", None)
+    _ = index_lookup.pop("rule-non-ecs-index", None)
+
+    # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
+    filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
+    filtered_keys.update({"logs-" + key.replace("-", ".") + "-*" for key in index_lookup if key not in indices})
+    matches = []
+
+    for index in indices:
+        pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
+        matches = [key for key in filtered_keys if pattern.fullmatch(key)]
+
+    if not matches:
+        raise EsqlUnknownIndexError(
+            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
+        )
+
+
 def create_remote_indices(
     elastic_client: Elasticsearch,
     existing_mappings: dict[str, Any],
     index_lookup: dict[str, Any],
+    indices: list[str],
     log: Callable[[str], None],
 ) -> str:
     """Create remote indices for validation and return the index string."""
+
+    # Check if the provided indices are known
+    check_known_indices(indices, index_lookup)
+
     suffix = str(int(time.time() * 1000))
     test_index = f"rule-test-index-{suffix}"
     response = create_index_with_index_mapping(elastic_client, test_index, existing_mappings)
@@ -260,6 +289,8 @@ def execute_query_against_indices(
             raise EsqlSyntaxError(str(e), elastic_client) from e
         if "Unknown column" in error_msg:
             raise EsqlSchemaError(str(e), elastic_client) from e
+        if "verification_exception" in error_msg and "unsupported type" in error_msg:
+            raise EsqlUnsupportedTypeError(str(e), elastic_client) from e
         if "verification_exception" in error_msg:
             raise EsqlTypeMismatchError(str(e), elastic_client) from e
         raise EsqlKibanaBaseError(str(e), elastic_client) from e

@@ -43,8 +43,12 @@ class EsqlSchemaError(EsqlKibanaBaseError):
     """Error in ESQL schema. Validated via Kibana until AST is available."""
 
 
+class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
+    """Error in ESQL type validation using unsupported type."""
+
+
 class EsqlSyntaxError(EsqlKibanaBaseError):
-    """Error with ESQL syntax. Validated via Kibana until AST is available."""
+    """Error with ESQL syntax."""
 
 
 class EsqlTypeMismatchError(Exception):
@@ -58,6 +62,13 @@ class EsqlTypeMismatchError(Exception):
 
 class EsqlSemanticError(Exception):
     """Error with ESQL semantics. Validated through regex enforcement."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class EsqlUnknownIndexError(Exception):
+    """Error with ESQL Indices. Validated through regex enforcement."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
