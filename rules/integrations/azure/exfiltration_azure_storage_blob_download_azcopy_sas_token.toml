@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2025/10/02"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful GetBlob operations on Azure Storage Accounts using AzCopy user agent with SAS token
+authentication. AzCopy is a command-line utility for copying data to and from Azure Storage. While legitimate for data
+migration, adversaries may abuse AzCopy with compromised SAS tokens to exfiltrate data from Azure Storage Accounts. This
+rule detects the first occurrence of GetBlob operations from a specific storage account using this pattern.
+"""
+false_positives = [
+    "Legitimate data migration or backup operations using AzCopy with SAS tokens may trigger this rule.",
+    "Automated scripts or processes that use AzCopy for routine data transfers from Azure Storage Accounts.",
+    "DevOps or IT teams performing authorized data transfers or downloads from Azure Storage using AzCopy.",
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Storage Blob Retrieval via AzCopy"
+note = """## Triage and analysis
+
+### Investigating Azure Storage Blob Retrieval via AzCopy
+
+Azure Storage Accounts provide cloud storage services for blobs, files, queues, and tables. Shared Access Signatures (SAS) tokens provide delegated access to resources in a storage account with specific permissions and time constraints. AzCopy is a Microsoft command-line utility designed for efficient data transfers to and from Azure Storage. While AzCopy is a legitimate tool, adversaries may abuse it with compromised SAS tokens to exfiltrate data from Azure Storage Accounts.
+
+### Possible investigation steps
+- Review the `azure.platformlogs.properties.accountName` field to identify which storage account is being accessed and assess the sensitivity of data stored in that account.
+- Examine the `azure.platformlogs.properties.objectKey` field to identify the specific blob(s) being retrieved. Determine if the accessed files contain sensitive or confidential data.
+- Check the `source.address` field to identify the source IP address of the request. Investigate if this IP is unusual, unexpected, or originates from an unexpected network or geographic location.
+- Review the `azure.platformlogs.uri` field to examine the SAS token parameters, including:
+  - `se` (expiry time): Check when the SAS token expires
+  - `sp` (permissions): Verify what permissions were granted (e.g., "rl" for read and list)
+  - `sv` (API version): Note the storage service version being used
+- Examine the `azure.platformlogs.identity.tokenHash` field to identify the specific SAS token signature being used. Correlate this with SAS token generation logs to determine when and how the token was created.
+- Check the `azure.platformlogs.properties.responseBodySize` field to assess the volume of data being downloaded. Multiple GetBlob operations with large response sizes may indicate bulk data exfiltration.
+- Search for related GetBlob operations from the same `source.address` or with the same `azure.platformlogs.identity.tokenHash` to identify patterns of systematic data retrieval.
+- Review Azure Activity Logs for recent SAS token generation events or storage account key access operations that may indicate how the adversary obtained the credentials.
+- Correlate this activity with ListBlobs or ListContainers operations from the same source, as adversaries often enumerate storage contents before exfiltration.
+- Investigate the `azure.resource.group` field to understand which resource group the storage account belongs to and check for any recent security events or configuration changes in that resource group.
+
+### False positive analysis
+- Routine data migration or backup operations using AzCopy with SAS tokens are common in enterprise environments. If this is expected behavior for the storage account, consider adding exceptions for specific accounts or IP ranges.
+- DevOps pipelines or automated workflows may use AzCopy with SAS tokens for legitimate data transfers. Review the automation configuration and add exceptions if appropriate.
+- Third-party services or partners may have authorized access to storage accounts using AzCopy and SAS tokens. Verify these relationships and create exceptions for known authorized sources.
+
+### Response and remediation
+- If unauthorized access is confirmed, immediately revoke the compromised SAS token to prevent further data exfiltration.
+- Review and rotate any additional SAS tokens that may have been compromised through the same attack vector.
+- Assess the scope of data accessed or exfiltrated during the unauthorized GetBlob operations and determine if sensitive data was compromised.
+- Implement additional monitoring and alerting for the affected storage account to detect any further suspicious activity.
+- Review and strengthen SAS token generation policies, including implementing shorter expiration times and more restrictive permissions.
+- Consider implementing Azure Storage firewall rules or private endpoints to restrict access to storage accounts from trusted networks only.
+- Investigate how the SAS token was compromised and remediate the initial access vector to prevent future incidents.
+- Document the incident and update security procedures to prevent similar compromises in the future.
+"""
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/",
+    "https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10",
+    "https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview",
+]
+risk_score = 47
+rule_id = "a8b3c4d5-e6f7-8901-a2b3-c4d5e6f78901"
+setup = """#### Required Azure Storage Diagnostic Logs
+
+To ensure this rule functions correctly, the following diagnostic logs must be enabled for Azure Storage Accounts:
+- StorageRead: This log captures all read operations performed on blobs in the storage account, including GetBlob operations. These logs should be streamed to the Event Hub used for the Azure integration configuration.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Storage",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Azure Storage",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: azure.platformlogs and
+    event.action: GetBlob and
+    azure.platformlogs.identity.type: SAS and
+    azure.platformlogs.properties.userAgentHeader: AzCopy* and
+    azure.platformlogs.statusCode: 200
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.platformlogs.properties.accountName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
