@@ -29,7 +29,8 @@ jobs:
         run: |
           cd elastic-container
           GENERATED_PASSWORD=$(openssl rand -base64 16)
-          sed -i 's/changeme/$GENERATED_PASSWORD/' .env
+          sed -i "s|changeme|$GENERATED_PASSWORD|" .env
+          echo "::add-mask::$GENERATED_PASSWORD"
           echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
           set -x
           bash elastic-container.sh start
@@ -38,7 +39,9 @@ jobs:
       - name: Setup Detection Rules
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
-            fetch-depth: 0        
+            fetch-depth: 0
+            path: detection-rules
+            repository: elastic/detection-rules
 
       - name: Set up Python 3.13
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
@@ -61,6 +64,7 @@ jobs:
           }' "$DR_ELASTICSEARCH_URL/_security/api_key")
 
           DR_API_KEY=$(echo "$response" | jq -r '.encoded')
+          echo "::add-mask::$DR_API_KEY"
           echo "DR_API_KEY=$DR_API_KEY" >> $GITHUB_ENV
 
       - name: Install dependencies
@@ -70,12 +74,13 @@ jobs:
           pip cache purge
           pip install .[dev]
 
-      - name: Validate Test ESQL Rule
+      - name: Remote Test ESQL Rules
         env:
-          DR_CLOUD_ID: ${{ secrets.cloud_id }}
+          DR_CLOUD_ID: ${{ secrets.cloud_id || '' }}
           DR_KIBANA_URL: ${{ secrets.cloud_id == '' && 'https://localhost:5601' || '' }}
-          DR_ES_USER: ${{ secrets.cloud_id == '' && 'elastic' || '' }}
+          DR_ELASTICSEARCH_URL: ${{ secrets.cloud_id == '' && 'https://localhost:9200' || '' }}
           DR_API_KEY: ${{ secrets.api_key || env.DR_API_KEY }}
+          DR_IGNORE_SSL_ERRORS: ${{ secrets.cloud_id == '' && 'true' || '' }}
         run: |
           cd detection-rules
           python -m detection_rules dev test esql-remote-validation
