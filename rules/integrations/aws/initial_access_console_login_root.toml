@@ -2,7 +2,7 @@
 creation_date = "2020/06/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/10/10"
 
 [rule]
 author = ["Elastic"]
@@ -11,54 +11,87 @@ false_positives = [
     """
     It's strongly recommended that the root user is not used for everyday tasks, including the administrative ones.
     Verify whether the IP address, location, and/or hostname should be logging in as root in your environment.
-    Unfamiliar root logins should be investigated immediately. If known behavior is causing false positives, it can be
-    exempted from the rule.
+    Unfamiliar root logins should be investigated immediately. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Management Console Root Login"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS Management Console Root Login
 
-The AWS root account is the one identity that has complete access to all AWS services and resources in the account, which is created when the AWS account is created. AWS strongly recommends that you do not use the root user for your everyday tasks, even the administrative ones. Instead, adhere to the best practice of using the root user only to create your first IAM user. Then securely lock away the root user credentials and use them to perform only a few account and service management tasks. AWS provides a [list of the tasks that require root user](https://docs.aws.amazon.com/general/latest/gr/root-vs-iam.html#aws_tasks-that-require-root).
+The AWS root user is the original identity with unrestricted privileges over every resource in the account. Because it bypasses IAM boundaries and carries irreversible privileges, any successful root console login should be treated as a critical security event. AWS explicitly recommends locking away the root credentials and only using them for a small number of account-level administrative tasks (for example, closing an account, modifying support plans, or restoring MFA). See [Tasks that require the root user](https://docs.aws.amazon.com/general/latest/gr/root-vs-iam.html#aws_tasks-that-require-root).
 
-This rule looks for attempts to log in to the AWS Management Console as the root user.
+This rule detects a successful AWS Management Console login by the root user (`ConsoleLogin` events with `userIdentity.type: Root` and `event.outcome: Success`).
 
 #### Possible investigation steps
 
-- Investigate other alerts associated with the user account during the past 48 hours.
-- Examine whether this activity is common in the environment by looking for past occurrences on your logs.
-- Consider the source IP address and geolocation for the calling user who issued the command. Do they look normal for the calling user?
-- Examine the commands, API calls, and data management actions performed by the account in the last 24 hours.
-- Contact the account owner and confirm whether they are aware of this activity.
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking access to servers,
-services, and data accessed by the account in the last 24 hours.
+- **Confirm legitimacy.**  
+  Contact the designated root credential custodian or account owner to verify whether this login was expected and approved. Root access should only occur under documented change-control conditions.
+- **Review contextual event details.**  
+  Examine the CloudTrail fields in the alert:
+  - `source.ip` – does it match known corporate IPs or expected admin VPNs?  
+  - `user_agent.original` – browser or automation?  
+  - `geo fields` – consistent with normal operations?  
+  - `@timestamp` – within a planned maintenance window?
+- **Check for prior or subsequent root activity.**  
+  Query CloudTrail for the last 30–90 days for any other root logins or root-initiated API calls. Multiple or recent root logins can indicate credential misuse.
+- **Correlate follow-on actions.**  
+  Look for risky API calls immediately after the login, such as:
+  - `CreateUser`, `CreateAccessKey`, `AttachRolePolicy`, `PutBucketPolicy`, `UpdateAssumeRolePolicy`, `DeleteTrail`, or `StopLogging`.  
+  These actions may indicate persistence or cover-up attempts.
+- **Cross-account verification.**  
+  If the root user is federated through AWS Organizations or linked accounts, confirm no simultaneous logins occurred elsewhere.
 
 ### False positive analysis
 
-- The alert can be dismissed if this operation is done under change management and approved according to the organization's policy for performing a task that needs this privilege level.
+- **Planned administrative actions.**  
+  Some rare maintenance tasks require root credentials (for example, payment method updates). If the login aligns with documented change control and was performed using MFA by the approved owner, the alert can be closed as benign.
+- **Third-party managed account scenarios.**  
+  Managed service providers may log in as root during onboarding or support activities. Confirm via ticketing or contractual documentation.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Identify the services or servers involved criticality.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify if there are any regulatory or legal ramifications related to this activity.
-- Configure multi-factor authentication for the user.
-- Follow security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+> The AWS Incident Response Playbooks classify root logins as **Priority-1 events** due to full-environment control. Follow these steps whether or not you have a dedicated IR team.
 
-## Setup
+**1. Immediate verification and containment**
+- If the login was not authorized or cannot be confirmed quickly:  
+  - Reset the root password using the AWS Management Console.  
+  - Rotate or remove any root access keys (root keys should normally not exist).  
+  - Ensure MFA is enabled and enforced on the root account.  
+  - Notify your security operations or cloud governance team.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+**2. Evidence preservation**
+- Export the alert’s CloudTrail record and all subsequent events for 1 hour after the login.  
+  Store them in a restricted, immutable S3 evidence bucket.  
+- Retain related GuardDuty findings, AWS Config history, and CloudTrail logs for the same period.
+
+**3. Scope and investigation**
+- Review additional events under the same `source.ip` to detect resource creation, IAM changes, or billing actions.  
+- Inspect newly created users, roles, or keys since the login time to identify potential persistence mechanisms.  
+- Check for any disabled or deleted CloudTrail trails, Security Hub findings suppression, or logging configuration changes.
+
+**4. Recovery and hardening**
+- Confirm MFA is working and only the authorized owner can access the root credentials.  
+- Store root credentials in an offline vault under dual-custody control.  
+- Enable organization-wide CloudTrail, GuardDuty, and Security Hub across all regions.  
+- Implement policy and automation to alert on any future `userIdentity.type: Root` logins in real time.  
+- Conduct a short post-incident review to update root-access procedures and reinforce least-privilege IAM practices.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/tree/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks):** See “Account Compromise” and “Credential Compromise” playbooks for containment and recovery procedures.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs):** Reference “Account Access Investigation” for evidence handling and credential rotation steps.  
+- **AWS Documentation:** [Tasks that require the root user](https://docs.aws.amazon.com/general/latest/gr/root-vs-iam.html#aws_tasks-that-require-root).  
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).  
+
+"""
 references = ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"]
 risk_score = 47
 rule_id = "e2a67480-3b79-403d-96e3-fdd2992c50ef"
@@ -67,18 +100,37 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS Signin",
+    "Data Source: AWS Sign-In",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Initial Access",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:ConsoleLogin and aws.cloudtrail.user_identity.type:Root and event.outcome:success
+event.dataset:aws.cloudtrail and 
+event.provider:signin.amazonaws.com and 
+event.action:ConsoleLogin and 
+aws.cloudtrail.user_identity.type:Root and 
+event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.console_login.additional_eventdata.mfa_used",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -86,7 +138,10 @@ framework = "MITRE ATT&CK"
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
 [rule.threat.tactic]
 id = "TA0001"
@@ -98,10 +153,13 @@ framework = "MITRE ATT&CK"
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 
