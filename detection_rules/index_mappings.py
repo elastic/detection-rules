@@ -221,17 +221,31 @@ def prepare_integration_mappings(  # noqa: PLR0913
     return integration_mappings, index_lookup
 
 
-def check_known_indices(indices: list[str], index_lookup: dict[str, Any]) -> None:
-    """Check if the provided indices are known based on the integration format."""
+def get_filtered_index_schema(
+    indices: list[str],
+    index_lookup: dict[str, Any],
+    ecs_schema: dict[str, Any],
+    non_ecs_mapping: dict[str, Any],
+    custom_mapping: dict[str, Any],
+) -> dict[str, Any]:
+    """Check if the provided indices are known based on the integration format. Returns the combined schema."""
 
-    _ = index_lookup.pop("rule-ecs-index", None)
-    _ = index_lookup.pop("rule-non-ecs-index", None)
+    non_ecs_indices = ecs.get_non_ecs_schema()
+    custom_indices = ecs.get_custom_schemas()
 
     # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
     filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
     filtered_keys.update({"logs-" + key.replace("-", ".") + "-*" for key in index_lookup if key not in indices})
-    matches = []
+    # Replace "logs-endpoint." with "logs-endpoint.events."
+    filtered_keys = {
+        key.replace("logs-endpoint.", "logs-endpoint.events.") if "logs-endpoint." in key else key
+        for key in filtered_keys
+    }
+    filtered_keys.update(non_ecs_indices.keys())
+    filtered_keys.update(custom_indices.keys())
+    filtered_keys.add("logs-endpoint.alerts-*")
 
+    matches: list[str] = []
     for index in indices:
         pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
         matches = [key for key in filtered_keys if pattern.fullmatch(key)]
@@ -241,18 +255,33 @@ def check_known_indices(indices: list[str], index_lookup: dict[str, Any]) -> Non
             f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
         )
 
+    filtered_index_lookup = {
+        "logs-" + key.replace("-", ".") + "*": value for key, value in index_lookup.items() if key not in indices
+    }
+    filtered_index_lookup.update(
+        {"logs-" + key.replace("-", ".") + "-*": value for key, value in index_lookup.items() if key not in indices}
+    )
+    filtered_index_lookup = {
+        key.replace("logs-endpoint.", "logs-endpoint.events."): value for key, value in filtered_index_lookup.items()
+    }
+    filtered_index_lookup.update(non_ecs_mapping)
+    filtered_index_lookup.update(custom_mapping)
+
+    combined_mappings: dict[str, Any] = {}
+    for match in matches:
+        utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
+
+    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
+    return combined_mappings
+
 
 def create_remote_indices(
     elastic_client: Elasticsearch,
     existing_mappings: dict[str, Any],
     index_lookup: dict[str, Any],
-    indices: list[str],
     log: Callable[[str], None],
 ) -> str:
     """Create remote indices for validation and return the index string."""
-
-    # Check if the provided indices are known
-    check_known_indices(indices, index_lookup)
 
     suffix = str(int(time.time() * 1000))
     test_index = f"rule-test-index-{suffix}"
@@ -294,7 +323,7 @@ def execute_query_against_indices(
         if "verification_exception" in error_msg:
             raise EsqlTypeMismatchError(str(e), elastic_client) from e
         raise EsqlKibanaBaseError(str(e), elastic_client) from e
-    if delete_indices or misc.getdefault("skip_empty_index_cleanup")():
+    if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
         for index_str in test_index_str.split(","):
             response = elastic_client.indices.delete(index=index_str.strip())
             log(f"Test index `{index_str}` deleted: {response}")
@@ -396,11 +425,6 @@ def prepare_mappings(  # noqa: PLR0913
 
     index_lookup.update(integration_index_lookup)
 
-    # Combine existing and integration mappings into a single mapping dict
-    combined_mappings: dict[str, Any] = {}
-    utils.combine_dicts(combined_mappings, deepcopy(existing_mappings))
-    utils.combine_dicts(combined_mappings, deepcopy(integration_mappings))
-
     # Load non-ecs schema and convert to index mapping format (nested schema)
     non_ecs_mapping: dict[str, Any] = {}
     non_ecs = ecs.get_non_ecs_schema()
@@ -409,16 +433,25 @@ def prepare_mappings(  # noqa: PLR0913
     non_ecs_mapping = ecs.flatten(non_ecs_mapping)
     non_ecs_mapping = utils.convert_to_nested_schema(non_ecs_mapping)
 
+    # Load custom schema and convert to index mapping format (nested schema)
+    custom_mapping: dict[str, Any] = {}
+    custom_indices = ecs.get_custom_schemas()
+    for index in indices:
+        custom_mapping.update(custom_indices.get(index, {}))
+    custom_mapping = ecs.flatten(custom_mapping)
+    custom_mapping = utils.convert_to_nested_schema(custom_mapping)
+
     # Load ECS in an index mapping format (nested schema)
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
     ecs_schema = get_ecs_schema_mappings(current_version)
 
-    index_lookup.update({"rule-ecs-index": ecs_schema})
-    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
+    # Filter combined mappings based on the provided indices
+    combined_mappings = get_filtered_index_schema(indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping)
 
-    if not combined_mappings and not non_ecs_mapping and not ecs_schema:
+    index_lookup.update({"rule-ecs-index": ecs_schema})
+
+    if (not integration_mappings or existing_mappings) and not non_ecs_mapping and not ecs_schema:
         raise ValueError("No mappings found")
     index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
-    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_mapping))
 
     return existing_mappings, index_lookup, combined_mappings

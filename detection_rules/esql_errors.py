@@ -15,6 +15,8 @@ __all__ = (
     "EsqlSemanticError",
     "EsqlSyntaxError",
     "EsqlTypeMismatchError",
+    "EsqlUnknownIndexError",
+    "EsqlUnsupportedTypeError",
 )
 
 

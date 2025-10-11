@@ -771,7 +771,7 @@ class ESQLValidator(QueryValidator):
         return None
 
     def validate_columns_index_mapping(
-        self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = ""
+        self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = "", query: str = ""
     ) -> bool:
         """Validate that the columns in the ESQL query match the provided mappings."""
         mismatched_columns: list[str] = []
@@ -784,6 +784,9 @@ class ESQLValidator(QueryValidator):
             # Skip internal fields
             if column_name in ("_id", "_version", "_index"):
                 continue
+            # Skip implicit fields
+            if column_name not in query:
+                continue
             column_type = column["type"]
 
             # Check if the column exists in combined_mappings or a valid field generated from a function or operator
@@ -791,7 +794,7 @@ class ESQLValidator(QueryValidator):
             schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
             schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
 
-            # If it is in our schema, but Kibana returns unsupported
+            # If it is in the schema, but Kibana returns unsupported
             if schema_type and column_type == "unsupported":
                 continue
 
@@ -890,7 +893,7 @@ class ESQLValidator(QueryValidator):
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
         # Create remote indices
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, indices, self.log)
+        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
 
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
@@ -914,7 +917,7 @@ class ESQLValidator(QueryValidator):
 
         for version, mapping in mappings_lookup.items():
             self.log(f"Validating {rule_id} against {version} stack")
-            if not self.validate_columns_index_mapping(query_columns, mapping, version=version):
+            if not self.validate_columns_index_mapping(query_columns, mapping, version=version, query=query):
                 self.log("Dynamic column(s) have improper formatting.")
 
         return response
