@@ -106,7 +106,7 @@ class TestRemoteRules(BaseRuleTest):
             _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_filtered_index(self):
-        """Test an ESQL rule's schema validation to properly reduce it by the index."""
+        """Test an ESQL rule's schema validation to properly reduce it by the index and handle implicit fields."""
         # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
@@ -118,7 +118,7 @@ class TestRemoteRules(BaseRuleTest):
         | where @timestamp > now() - 30 minutes
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.*
         """
         _ = RuleCollection().load_dict(production_rule)
 
