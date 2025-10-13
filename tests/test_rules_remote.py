@@ -104,3 +104,38 @@ class TestRemoteRules(BaseRuleTest):
         """
         with pytest.raises(EsqlSyntaxError):
             _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_filtered_index(self):
+        """Test an ESQL rule's schema validation to properly reduce it by the index."""
+        # EsqlSchemaError
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloud* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep
+        aws.cloudtrail.user_identity.type
+        """
+        _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_filtered_index_error(self):
+        """Test an ESQL rule's schema validation when reduced by the index and check if the field is present."""
+        # EsqlSchemaError
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.billing* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep
+        aws.cloudtrail.user_identity.type
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            _ = RuleCollection().load_dict(production_rule)
