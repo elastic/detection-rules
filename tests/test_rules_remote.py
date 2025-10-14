@@ -155,7 +155,6 @@ class TestRemoteRules(BaseRuleTest):
         """
         _ = RuleCollection().load_dict(production_rule)
 
-
     def test_esql_endpoint_unknown_index(self):
         """Test an ESQL rule's index validation. This is expected to error on an unknown index."""
         # EsqlSchemaError
@@ -171,7 +170,6 @@ class TestRemoteRules(BaseRuleTest):
         """
         with pytest.raises(EsqlUnknownIndexError):
             _ = RuleCollection().load_dict(production_rule)
-
 
     def test_esql_endpoint_alerts_index_endpoint_fields(self):
         """Test an ESQL rule's schema validation using endpoint integration fields in the alerts index."""
