@@ -157,11 +157,10 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_endpoint_alerts_index_endpoint_fields(self):
         """Test an ESQL rule's schema validation using endpoint integration fields in the alerts index."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         production_rule = deepcopy(original_production_rule)[0]
-        # production_rule["metadata"]["integration"] = ["endpoint"]
+        production_rule["metadata"]["integration"] = []
         production_rule["rule"]["query"] = """
         from logs-endpoint.alerts-*
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null and file.Ext.entry_modified > 0
@@ -169,8 +168,8 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
-        # TODO this should Error when endpoint is commented out
-        # Caused by elastic container project issue
+        # This is a type mismatch error due to Elastic Container project including the Endpoint integration by default.
+        # Otherwise one would expect an EsqlSchemaError due to the field not being present in the alerts index.
         with pytest.raises(EsqlTypeMismatchError):
             _ = RuleCollection().load_dict(production_rule)
 
@@ -189,7 +188,5 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
         | where Esql.host_id_count_distinct >= 3
         """
-        # TODO this should Error
-        # Caused by not filtering schemas by index when sent to Kibana
         with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)
