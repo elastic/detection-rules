@@ -5,9 +5,11 @@
 
 """ESQL exceptions."""
 
+from collections.abc import Sequence
+
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 
-from .misc import getdefault
+from .misc import ClientError, getdefault
 
 __all__ = (
     "EsqlKibanaBaseError",
@@ -21,7 +23,7 @@ __all__ = (
 
 
 def cleanup_empty_indices(
-    elastic_client: Elasticsearch, index_patterns: tuple[str, ...] = ("rule-test-*", "test-*")
+    elastic_client: Elasticsearch, index_patterns: Sequence[str] = ("rule-test-*", "test-*")
 ) -> None:
     """Delete empty indices matching the given patterns."""
     if getdefault("skip_empty_index_cleanup")():
@@ -33,12 +35,16 @@ def cleanup_empty_indices(
             _ = elastic_client.indices.delete(index=empty_index)
 
 
-class EsqlKibanaBaseError(Exception):
+class EsqlKibanaBaseError(ClientError):
     """Base class for ESQL exceptions with cleanup logic."""
 
-    def __init__(self, message: str, elastic_client: Elasticsearch) -> None:
+    def __init__(
+        self,
+        message: str,
+        elastic_client: Elasticsearch,
+    ) -> None:
         cleanup_empty_indices(elastic_client)
-        super().__init__(message)
+        super().__init__(message, original_error=self)
 
 
 class EsqlSchemaError(EsqlKibanaBaseError):
@@ -53,24 +59,39 @@ class EsqlSyntaxError(EsqlKibanaBaseError):
     """Error with ESQL syntax."""
 
 
-class EsqlTypeMismatchError(Exception):
+class EsqlTypeMismatchError(ClientError):
     """Error when validating types in ESQL. Can occur in stack or local schema comparison."""
 
-    def __init__(self, message: str, elastic_client: Elasticsearch | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        elastic_client: Elasticsearch | None = None,
+    ) -> None:
         if elastic_client:
             cleanup_empty_indices(elastic_client)
-        super().__init__(message)
+        super().__init__(message, original_error=self)
 
 
-class EsqlSemanticError(Exception):
+class EsqlSemanticError(ClientError):
     """Error with ESQL semantics. Validated through regex enforcement."""
 
     def __init__(self, message: str) -> None:
-        super().__init__(message)
+        super().__init__(message, original_error=self)
 
 
-class EsqlUnknownIndexError(Exception):
+class EsqlUnknownIndexError(ClientError):
     """Error with ESQL Indices. Validated through regex enforcement."""
 
     def __init__(self, message: str) -> None:
-        super().__init__(message)
+        super().__init__(message, original_error=self)
+
+
+ESQL_EXCEPTION_TYPES = (
+    EsqlSchemaError,
+    EsqlSyntaxError,
+    EsqlUnsupportedTypeError,
+    EsqlTypeMismatchError,
+    EsqlKibanaBaseError,
+    EsqlSemanticError,
+    EsqlUnknownIndexError,
+)

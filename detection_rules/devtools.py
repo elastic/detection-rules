@@ -40,7 +40,9 @@ from .config import parse_rules_config
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
-from .esql_errors import EsqlKibanaBaseError, EsqlSchemaError, EsqlSyntaxError, EsqlTypeMismatchError
+from .esql_errors import (
+    ESQL_EXCEPTION_TYPES,
+)
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .integrations import (
@@ -1446,16 +1448,13 @@ def esql_remote_validation(
                     validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
                     _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
                     break
-                except (
-                    ValueError,
-                    BadRequestError,
-                    EsqlSchemaError,
-                    EsqlSyntaxError,
-                    EsqlTypeMismatchError,
-                    EsqlKibanaBaseError,
-                ) as e:
-                    click.echo(f"FAILURE: {e}")
-                    fail_list.append(f"{r.contents.data.rule_id}  FAILURE: {type(e)}: {e}")
+                except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
+                    e_type = type(e)  # type: ignore[reportUnknownMemberType]
+                    if e_type in ESQL_EXCEPTION_TYPES:
+                        _ = e.show()  # type: ignore[reportUnknownMemberType]
+                    else:
+                        click.echo(f"FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
+                    fail_list.append(f"{r.contents.data.rule_id}  FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
                     failed_count += 1
                     break
                 except ESConnectionError as e:

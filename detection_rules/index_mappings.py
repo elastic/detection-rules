@@ -347,14 +347,14 @@ def execute_query_against_indices(
     except BadRequestError as e:
         error_msg = str(e)
         if "parsing_exception" in error_msg:
-            raise EsqlSyntaxError(str(e), elastic_client) from e
+            raise EsqlSyntaxError(str(e), elastic_client) from None
         if "Unknown column" in error_msg:
-            raise EsqlSchemaError(str(e), elastic_client) from e
+            raise EsqlSchemaError(str(e), elastic_client) from None
         if "verification_exception" in error_msg and "unsupported type" in error_msg:
-            raise EsqlUnsupportedTypeError(str(e), elastic_client) from e
+            raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
         if "verification_exception" in error_msg:
-            raise EsqlTypeMismatchError(str(e), elastic_client) from e
-        raise EsqlKibanaBaseError(str(e), elastic_client) from e
+            raise EsqlTypeMismatchError(str(e), elastic_client) from None
+        raise EsqlKibanaBaseError(str(e), elastic_client) from None
     if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
         for index_str in test_index_str.split(","):
             response = elastic_client.indices.delete(index=index_str.strip())
