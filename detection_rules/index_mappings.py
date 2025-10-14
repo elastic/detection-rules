@@ -233,8 +233,6 @@ def get_filtered_index_schema(
     non_ecs_indices = ecs.get_non_ecs_schema()
     custom_indices = ecs.get_custom_schemas()
 
-    # TODO finish adding unit tests for these cases
-
     # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
     filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
     filtered_keys.update({"logs-" + key.replace("-", ".") + "-*" for key in index_lookup if key not in indices})
@@ -409,7 +407,6 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
 
 def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
     """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
-    # TODO potentially update this to pull from _nested as an option if needed
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_schemas = ecs.get_schemas()
     ecs_schema_flattened: dict[str, Any] = {}
