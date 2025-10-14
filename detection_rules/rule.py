@@ -1074,10 +1074,17 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+# ThresholdQueryRuleData needs to be first in this union to handle cases where there is ambiguity between
+# ThresholdAlertSuppression and AlertSuppressionMapping. Since AlertSuppressionMapping has duration as an
+# optional field, ThresholdAlertSuppression objects can be mistakenly loaded as an AlertSuppressionMapping
+# object with group_by and missing_fields_strategy as missing parameters, resulting in an error.
+# Checking the type against ThresholdQueryRuleData first in the union prevent this from occurring.
+# Please also keep issue 1141 in mind when handling union schemas.
+
 AnyRuleData = (
-    EQLRuleData
+    ThresholdQueryRuleData
+    | EQLRuleData
     | ESQLRuleData
-    | ThresholdQueryRuleData
     | ThreatMatchRuleData
     | MachineLearningRuleData
     | QueryRuleData
