@@ -48,9 +48,7 @@ class ClientError(click.ClickException):
 
     def show(self, file: IO[Any] | None = None, err: bool = True) -> None:
         """Print the error to the console."""
-        header = f"CLI Error ({self.original_error_type})"
-        if "Esql" in str(self.original_error_type):
-            header = f"{self.original_error_type}"
+        header = f"Error ({self.original_error_type})"
         msg = f"{click.style(header, fg='red', bold=True)}: {self.format_message()}"
         click.echo(msg, err=err, file=file)
 
