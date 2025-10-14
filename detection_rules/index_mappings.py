@@ -221,6 +221,23 @@ def prepare_integration_mappings(  # noqa: PLR0913
     return integration_mappings, index_lookup
 
 
+def get_index_to_package_lookup(indices: list[str], index_lookup: dict[str, Any]) -> dict[str, Any]:
+    """Get a lookup of index patterns to package names for the provided indices."""
+    index_lookup_indices: dict[str, Any] = {}
+    for key in index_lookup:
+        if key not in indices:
+            # Add logs-<key>* and logs-<key>-*
+            transformed_key_star = f"logs-{key.replace('-', '.')}*"
+            transformed_key_dash = f"logs-{key.replace('-', '.')}-*"
+            if "logs-endpoint." in transformed_key_star or "logs-endpoint." in transformed_key_dash:
+                transformed_key_star = transformed_key_star.replace("logs-endpoint.", "logs-endpoint.events.")
+                transformed_key_dash = transformed_key_dash.replace("logs-endpoint.", "logs-endpoint.events.")
+            index_lookup_indices[transformed_key_star] = key.replace("-", ".")
+            index_lookup_indices[transformed_key_dash] = key.replace("-", ".")
+
+    return index_lookup_indices
+
+
 def get_filtered_index_schema(
     indices: list[str],
     index_lookup: dict[str, Any],
@@ -258,6 +275,7 @@ def get_filtered_index_schema(
     if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
         matches.append("logs-endpoint.events.alerts-*")
 
+    # Now that we have the matched indices, we need to filter the index lookup to only include those indices
     filtered_index_lookup = {
         "logs-" + key.replace("-", ".") + "*": value for key, value in index_lookup.items() if key not in indices
     }
@@ -270,28 +288,15 @@ def get_filtered_index_schema(
     filtered_index_lookup.update(non_ecs_mapping)
     filtered_index_lookup.update(custom_mapping)
 
+    # Reduce the combined mappings to only the matched indices (local schema validation source of truth)
     combined_mappings: dict[str, Any] = {}
     utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
-
     for match in matches:
         utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
 
+    # Reduce the index lookup to only the matched indices (remote/Kibana schema validation source of truth)
     filtered_index_mapping: dict[str, Any] = {}
-
-    index_lookup_indices: dict[str, Any] = {}
-
-    for key in index_lookup:
-        if key not in indices:
-            # Add logs-<key>* and logs-<key>-*
-            transformed_key_star = f"logs-{key.replace('-', '.')}*"
-            transformed_key_dash = f"logs-{key.replace('-', '.')}-*"
-            if "logs-endpoint." in transformed_key_star or "logs-endpoint." in transformed_key_dash:
-                transformed_key_star = transformed_key_star.replace("logs-endpoint.", "logs-endpoint.events.")
-                transformed_key_dash = transformed_key_dash.replace("logs-endpoint.", "logs-endpoint.events.")
-            filtered_keys.update([transformed_key_star, transformed_key_dash])
-            index_lookup_indices[transformed_key_star] = key.replace("-", ".")
-            index_lookup_indices[transformed_key_dash] = key.replace("-", ".")
-
+    index_lookup_indices = get_index_to_package_lookup(indices, index_lookup)
     for match in matches:
         if match in index_lookup_indices:
             index_name = index_lookup_indices[match].replace(".", "-")
