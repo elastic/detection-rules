@@ -65,7 +65,8 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.action == "start" and
  process.name : ("cmd.exe", "powershell.exe") and process.parent.args : "-e" and
- process.parent.args_count >= 4 and process.parent.command_line regex~ """.*[0-9]{1,3}(\.[0-9]{1,3}){3}.*"""
+ process.parent.args_count == 5 and process.parent.command_line regex~ """.*[0-9]{1,3}(\.[0-9]{1,3}){3}.*""" and 
+ not process.parent.executable : "?:\\Windows\\system32\\wsl.exe"
 '''
 
 
