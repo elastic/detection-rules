@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/10/13"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ payload to the server web root, allowing them to regain remote access to the sys
 an attacker requests the server to execute a command or script via a potential backdoor.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network*"]
+index = ["logs-endpoint.events.process*", "logs-endpoint.events.network*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Simple HTTP Web Server Connection"
@@ -58,10 +58,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-network where host.os.type == "linux" and event.type == "start" and event.action == "connection_accepted" and (
+sequence by process.entity_id with maxspan=1m
+[process where host.os.type == "linux" and event.type == "start" and 
+ (
   (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.command_line like "*-S*") or
   (process.name like "python*" and process.command_line like ("*--cgi*", "*CGIHTTPServer*"))
-)
+ )]
+[network where host.os.type == "linux" and event.type == "start" and event.action == "connection_accepted"]
 '''
 note = """## Triage and analysis
 
