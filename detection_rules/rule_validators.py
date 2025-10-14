@@ -755,7 +755,7 @@ class ESQLValidator(QueryValidator):
     def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
         """Extract indices from an ES|QL query."""
         match = FROM_SOURCES_REGEX.search(query)
-
+        # TODO add lookup join and enrich functions too
         if not match:
             return "", []
 

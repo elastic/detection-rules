@@ -137,5 +137,59 @@ class TestRemoteRules(BaseRuleTest):
         | keep
         aws.cloudtrail.user_identity.type
         """
+        with pytest.raises(EsqlSchemaError):
+            _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_endpoint_alerts_index(self):
+        """Test an ESQL rule's schema validation using ecs fields in the alerts index."""
+        # EsqlSchemaError
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["rule"]["query"] = """
+        from logs-endpoint.alerts-*
+        | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null
+        | keep host.id, rule.name, event.code
+        | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
+        | where Esql.host_id_count_distinct >= 3
+        """
+        _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_endpoint_alerts_index_endpoint_fields(self):
+        """Test an ESQL rule's schema validation using endpoint integration fields in the alerts index."""
+        # EsqlSchemaError
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        # production_rule["metadata"]["integration"] = ["endpoint"]
+        production_rule["rule"]["query"] = """
+        from logs-endpoint.alerts-*
+        | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null and file.Ext.entry_modified > 0
+        | keep host.id, rule.name, event.code, file.Ext.entry_modified
+        | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
+        | where Esql.host_id_count_distinct >= 3
+        """
+        # TODO this should Error when endpoint is commented out
+        # Caused by elastic container project issue
         with pytest.raises(EsqlTypeMismatchError):
+            _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_filtered_keep(self):
+        """Test an ESQL rule's schema validation."""
+        # EsqlSchemaError
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.billing* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep host.id, rule.name, event.code
+        | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
+        | where Esql.host_id_count_distinct >= 3
+        """
+        # TODO this should Error
+        # Caused by not filtering schemas by index when sent to Kibana
+        with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)

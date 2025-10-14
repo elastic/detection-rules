@@ -227,11 +227,13 @@ def get_filtered_index_schema(
     ecs_schema: dict[str, Any],
     non_ecs_mapping: dict[str, Any],
     custom_mapping: dict[str, Any],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Check if the provided indices are known based on the integration format. Returns the combined schema."""
 
     non_ecs_indices = ecs.get_non_ecs_schema()
     custom_indices = ecs.get_custom_schemas()
+
+    # TODO finish adding unit tests for these cases
 
     # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
     filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
@@ -248,12 +250,15 @@ def get_filtered_index_schema(
     matches: list[str] = []
     for index in indices:
         pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
-        matches = [key for key in filtered_keys if pattern.fullmatch(key)]
+        matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
 
     if not matches:
         raise EsqlUnknownIndexError(
             f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
         )
+
+    if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
+        matches.append("logs-endpoint.events.alerts-*")
 
     filtered_index_lookup = {
         "logs-" + key.replace("-", ".") + "*": value for key, value in index_lookup.items() if key not in indices
@@ -268,11 +273,35 @@ def get_filtered_index_schema(
     filtered_index_lookup.update(custom_mapping)
 
     combined_mappings: dict[str, Any] = {}
+    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
+
     for match in matches:
         utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
 
-    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
-    return combined_mappings
+    filtered_index_mapping: dict[str, Any] = {}
+
+    index_lookup_indices: dict[str, Any] = {}
+
+    for key in index_lookup:
+        if key not in indices:
+            # Add logs-<key>* and logs-<key>-*
+            transformed_key_star = f"logs-{key.replace('-', '.')}*"
+            transformed_key_dash = f"logs-{key.replace('-', '.')}-*"
+            if "logs-endpoint." in transformed_key_star or "logs-endpoint." in transformed_key_dash:
+                transformed_key_star = transformed_key_star.replace("logs-endpoint.", "logs-endpoint.events.")
+                transformed_key_dash = transformed_key_dash.replace("logs-endpoint.", "logs-endpoint.events.")
+            filtered_keys.update([transformed_key_star, transformed_key_dash])
+            index_lookup_indices[transformed_key_star] = key.replace("-", ".")
+            index_lookup_indices[transformed_key_dash] = key.replace("-", ".")
+
+    for match in matches:
+        if match in index_lookup_indices:
+            index_name = index_lookup_indices[match].replace(".", "-")
+            filtered_index_mapping[index_name] = index_lookup[index_name]
+        else:
+            filtered_index_mapping[match] = filtered_index_lookup.get(match, {})
+
+    return combined_mappings, filtered_index_mapping
 
 
 def create_remote_indices(
@@ -380,6 +409,7 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
 
 def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
     """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
+    # TODO potentially update this to pull from _nested as an option if needed
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_schemas = ecs.get_schemas()
     ecs_schema_flattened: dict[str, Any] = {}
@@ -446,7 +476,9 @@ def prepare_mappings(  # noqa: PLR0913
     ecs_schema = get_ecs_schema_mappings(current_version)
 
     # Filter combined mappings based on the provided indices
-    combined_mappings = get_filtered_index_schema(indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping)
+    combined_mappings, index_lookup = get_filtered_index_schema(
+        indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping
+    )
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
 
