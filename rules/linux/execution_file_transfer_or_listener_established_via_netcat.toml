@@ -125,18 +125,18 @@ tags = [
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=1m
-  [process where host.os.type == "linux" and event.type == "start"
-      process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
-          /* bind shell to specific port or listener */
-          or process.args:("-*l*","-*p*")
-          /* reverse shell to command-line interpreter used for command execution */
-          or (process.args:("-e") and process.args:("/bin/bash","/bin/sh"))
-          /* file transfer via stdout */
-          or process.args:(">","<")
-          /* file transfer via pipe */
-          or (process.args:("|") and process.args:("nc","ncat"))
-      ) and
-      not process.command_line like~ ("*127.0.0.1*", "*localhost*")]
+  [process where host.os.type == "linux" and event.type == "start" and
+   process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and
+   (
+     /* bind shell to specific port or listener */
+     process.args:("-*l*","-*p*") or
+     /* reverse shell to command-line interpreter used for command execution */
+     (process.args:("-e") and process.args:("/bin/bash","/bin/sh")) or
+     /* file transfer via stdout */
+     process.args:(">","<") or
+     /* file transfer via pipe */
+     (process.args:("|") and process.args:("nc","ncat"))
+    ) and not process.command_line like~ ("*127.0.0.1*", "*localhost*")]
   [network where host.os.type == "linux" and process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional")]
 '''
 
