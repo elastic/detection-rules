@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -18,8 +18,8 @@ false_positives = [
     change was expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-from = "now-30m"
-index = ["filebeat-*", "logs-o365*"]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange DKIM Signing Configuration Disabled"
@@ -67,7 +67,7 @@ references = [
 risk_score = 47
 rule_id = "514121ce-c7b6-474a-8237-68ff71672379"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Tactic: Persistence", "Resources: Investigation Guide"]
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -79,13 +79,17 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1556"
-name = "Modify Authentication Process"
-reference = "https://attack.mitre.org/techniques/T1556/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

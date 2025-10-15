@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -10,8 +10,8 @@ description = """
 Identifies when an Azure Automation runbook is created or modified. An adversary may create or modify an Azure
 Automation runbook to execute malicious code and maintain persistence in their target's environment.
 """
-from = "now-25m"
-index = ["filebeat-*", "logs-azure*"]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Automation Runbook Created or Modified"
@@ -63,7 +63,7 @@ references = [
 risk_score = 21
 rule_id = "16280f1e-57e6-4242-aa21-bb4d16f13b2f"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Execution", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -77,4 +77,16 @@ event.dataset:azure.activitylogs and
   ) and
   event.outcome:(Success or success)
 '''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
