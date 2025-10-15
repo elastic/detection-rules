@@ -1521,6 +1521,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # of machine learning analytic packages
 
         rule_integrations: str | list[str] = meta.get("integration") or []
+        if isinstance(rule_integrations, str):
+            rule_integrations = [rule_integrations]
         for integration in rule_integrations:
             ineligible_integrations = [
                 *definitions.NON_DATASET_PACKAGES,
