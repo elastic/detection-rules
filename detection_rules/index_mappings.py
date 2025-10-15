@@ -170,13 +170,13 @@ def prepare_integration_mappings(  # noqa: PLR0913
     """Prepare integration mappings for the given rule integrations."""
     integration_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
-    dataset_restriction: dict[str, str] = {}
+    dataset_restriction: dict[str, list[str]] = {}
 
     # Process restrictions, note we need this for loops to be separate
     for event_dataset in event_dataset_integrations:
         # Ensure the integration is in rule_integrations
         if event_dataset.package not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)  # type: ignore[reportIncompatibleMethodOverride]
+            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
     for event_dataset in event_dataset_integrations:
         if event_dataset.package not in rule_integrations:
             rule_integrations.append(event_dataset.package)
