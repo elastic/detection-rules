@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,6 @@ false_positives = [
 ]
 from = "now-9m"
 index = [
-    "auditbeat-*",
     "logs-endpoint.events.network*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
@@ -124,15 +123,12 @@ tags = [
     "Data Source: SentinelOne",
 ]
 type = "eql"
-
 query = '''
-sequence by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and
-      process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
-          /* bind shell to echo for command execution */
-          (process.args:("-l","-p") and process.args:("-c","echo","$*"))
-          /* bind shell to specific port */
-          or process.args:("-l","-p","-lp")
+sequence by process.entity_id with maxspan=1m
+  [process where host.os.type == "linux" and event.type == "start"
+      process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
+          /* bind shell to specific port or listener */
+          or process.args:("-*l*","-*p*")
           /* reverse shell to command-line interpreter used for command execution */
           or (process.args:("-e") and process.args:("/bin/bash","/bin/sh"))
           /* file transfer via stdout */
@@ -141,26 +137,23 @@ sequence by process.entity_id
           or (process.args:("|") and process.args:("nc","ncat"))
       ) and
       not process.command_line like~ ("*127.0.0.1*", "*localhost*")]
-  [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
-                  process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
+  [network where host.os.type == "linux" and process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional")]
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
