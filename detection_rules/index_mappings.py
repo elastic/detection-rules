@@ -261,6 +261,7 @@ def get_filtered_index_schema(
     filtered_keys.update(non_ecs_indices.keys())
     filtered_keys.update(custom_indices.keys())
     filtered_keys.add("logs-endpoint.alerts-*")
+    filtered_keys.update(indices)
 
     matches: list[str] = []
     for index in indices:

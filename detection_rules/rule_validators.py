@@ -759,7 +759,11 @@ class ESQLValidator(QueryValidator):
             return "", []
 
         sources_str = match.group("sources")
-        return sources_str, [source.strip() for source in sources_str.split(",")]
+        # Truncate cross cluster search indices to local indices
+        sources_list: list[str] = [
+            source.split(":", 1)[-1].strip() if ":" in source else source.strip() for source in sources_str.split(",")
+        ]
+        return sources_str, sources_list
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""

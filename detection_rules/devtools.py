@@ -1451,6 +1451,7 @@ def esql_remote_validation(
                 except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
                     e_type = type(e)  # type: ignore[reportUnknownMemberType]
                     if e_type in ESQL_EXCEPTION_TYPES:
+                        click.echo(click.style(f"{r.contents.data.rule_id} ", fg="red", bold=True), nl=False)
                         _ = e.show()  # type: ignore[reportUnknownMemberType]
                     else:
                         click.echo(f"FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
