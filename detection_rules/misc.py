@@ -316,7 +316,7 @@ def get_kibana_client(
 
 
 def get_default_kibana_client() -> Kibana:
-    """Get an default authenticated Kibana client."""
+    """Get a default authenticated Kibana client."""
     return get_kibana_client(
         api_key=getdefault("api_key")(),
         cloud_id=getdefault("cloud_id")(),
