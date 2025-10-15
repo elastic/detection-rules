@@ -6,10 +6,7 @@
 """Misc support."""
 
 import os
-import re
-import time
 import unittest
-import uuid
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
@@ -51,7 +48,8 @@ class ClientError(click.ClickException):
 
     def show(self, file: IO[Any] | None = None, err: bool = True) -> None:
         """Print the error to the console."""
-        msg = f"{click.style(f'CLI Error ({self.original_error_type})', fg='red', bold=True)}: {self.format_message()}"
+        header = f"Error ({self.original_error_type})"
+        msg = f"{click.style(header, fg='red', bold=True)}: {self.format_message()}"
         click.echo(msg, err=err, file=file)
 
 
@@ -105,104 +103,6 @@ def nest_from_dot(dots: str, value: Any) -> Any:
         nested = {field_: nested}
 
     return nested
-
-
-def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
-    """Interactively prompt based on schema requirements."""
-    field_type = options.get("type")
-    pattern: str | None = options.get("pattern")
-    enum = options.get("enum", [])
-    minimum = int(options["minimum"]) if "minimum" in options else None
-    maximum = int(options["maximum"]) if "maximum" in options else None
-    min_item = int(options.get("min_items", 0))
-    max_items = int(options.get("max_items", 9999))
-
-    default = options.get("default")
-    if default is not None and str(default).lower() in ("true", "false"):
-        default = str(default).lower()
-
-    if "date" in name:
-        default = time.strftime("%Y/%m/%d")
-
-    if name == "rule_id":
-        default = str(uuid.uuid4())
-
-    if len(enum) == 1 and is_required and field_type not in ("array", ["array"]):
-        return enum[0]
-
-    def _check_type(_val: Any) -> bool:  # noqa: PLR0911
-        if field_type in ("number", "integer") and not str(_val).isdigit():
-            print(f"Number expected but got: {_val}")
-            return False
-        if pattern:
-            match = re.match(pattern, _val)
-            if not match or len(match.group(0)) != len(_val):
-                print(f"{_val} did not match pattern: {pattern}!")
-                return False
-        if enum and _val not in enum:
-            print("{} not in valid options: {}".format(_val, ", ".join(enum)))
-            return False
-        if minimum and (type(_val) is int and int(_val) < minimum):
-            print(f"{_val!s} is less than the minimum: {minimum!s}")
-            return False
-        if maximum and (type(_val) is int and int(_val) > maximum):
-            print(f"{_val!s} is greater than the maximum: {maximum!s}")
-            return False
-        if type(_val) is str and field_type == "boolean" and _val.lower() not in ("true", "false"):
-            print(f"Boolean expected but got: {_val!s}")
-            return False
-        return True
-
-    def _convert_type(_val: Any) -> Any:
-        if field_type == "boolean" and type(_val) is not bool:
-            _val = _val.lower() == "true"
-        return int(_val) if field_type in ("number", "integer") else _val
-
-    prompt = (
-        "{name}{default}{required}{multi}".format(
-            name=name,
-            default=f' [{default}] ("n/a" to leave blank) ' if default else "",
-            required=" (required) " if is_required else "",
-            multi=(" (multi, comma separated) " if field_type in ("array", ["array"]) else ""),
-        ).strip()
-        + ": "
-    )
-
-    while True:
-        result = value or input(prompt) or default
-        if result == "n/a":
-            result = None
-
-        if not result:
-            if is_required:
-                value = None
-                continue
-            return None
-
-        if field_type in ("array", ["array"]):
-            result_list = result.split(",")
-
-            if not (min_item < len(result_list) < max_items):
-                if is_required:
-                    value = None
-                    break
-                return []
-
-            for value in result_list:
-                if not _check_type(value):
-                    if is_required:
-                        value = None  # noqa: PLW2901
-                        break
-                    return []
-            if is_required and value is None:
-                continue
-            return [_convert_type(r) for r in result_list]
-        if _check_type(result):
-            return _convert_type(result)
-        if is_required:
-            value = None
-            continue
-        return None
 
 
 def get_kibana_rules_map(repo: str = "elastic/kibana", branch: str = "master") -> dict[str, Any]:
@@ -355,6 +255,9 @@ def get_elasticsearch_client(  # noqa: PLR0913
     **kwargs: Any,
 ) -> Elasticsearch:
     """Get an authenticated elasticsearch client."""
+    # Handle empty strings as None
+    cloud_id = cloud_id or None
+    elasticsearch_url = elasticsearch_url or None
 
     if not (cloud_id or elasticsearch_url):
         raise_client_error("Missing required --cloud-id or --elasticsearch-url")
@@ -385,6 +288,16 @@ def get_elasticsearch_client(  # noqa: PLR0913
         return client
 
 
+def get_default_elasticsearch_client() -> Elasticsearch:
+    """Get an default authenticated elasticsearch client."""
+    return get_elasticsearch_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        elasticsearch_url=getdefault("elasticsearch_url")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
+
+
 def get_kibana_client(
     *,
     api_key: str,
@@ -400,6 +313,17 @@ def get_kibana_client(
 
     verify = not ignore_ssl_errors
     return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
+
+
+def get_default_kibana_client() -> Kibana:
+    """Get a default authenticated Kibana client."""
+    return get_kibana_client(
+        api_key=getdefault("api_key")(),
+        cloud_id=getdefault("cloud_id")(),
+        kibana_url=getdefault("kibana_url")(),
+        space=getdefault("space")(),
+        ignore_ssl_errors=getdefault("ignore_ssl_errors")(),
+    )
 
 
 client_options = {
