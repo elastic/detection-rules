@@ -886,7 +886,9 @@ class ESQLValidator(QueryValidator):
         self.log(f"Extracted indices from query: {', '.join(indices)}")
 
         event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
-        self.log(f"Extracted Event Dataset integrations from query: {', '.join(indices)}")
+        self.log(
+            f"Extracted Event Dataset integrations from query: {', '.join(str(integration) for integration in event_dataset_integrations)}"
+        )
 
         # Get mappings for all matching existing index templates
         existing_mappings, index_lookup, combined_mappings = prepare_mappings(

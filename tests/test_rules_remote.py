@@ -18,8 +18,6 @@ from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
 
-MAX_RETRIES = 3
-
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
 @unittest.skipIf(
@@ -49,7 +47,7 @@ class TestRemoteRules(BaseRuleTest):
             assert integration["package"] == "aws", f"Expected 'aws', but got {integration['package']}"
 
     def test_esql_event_dataset_schema_error(self):
-        """Test an ESQL rules that uses event.dataset field in the query validated the fields correctly."""
+        """Test an ESQL rule that uses event.dataset field in the query that restricts the schema failing validation."""
         # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
@@ -68,7 +66,7 @@ class TestRemoteRules(BaseRuleTest):
             _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_type_mismatch_error(self):
-        """Test an ESQL rules that uses event.dataset field in the query validated the fields correctly."""
+        """Test an ESQL rule that produces a type error comparing a keyword to a number."""
         # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
@@ -87,7 +85,7 @@ class TestRemoteRules(BaseRuleTest):
             _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_syntax_error(self):
-        """Test an ESQL rules that uses event.dataset field in the query validated the fields correctly."""
+        """Test an ESQL rule that incorrectly using = for comparison."""
         # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
