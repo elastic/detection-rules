@@ -740,7 +740,7 @@ class ESQLValidator(QueryValidator):
 
     @property
     def ast(self) -> Any:
-        """Return the AST of the ESQL query. Dependant in ESQL parser which is not implemented"""
+        """Return the AST of the ESQL query. Dependant on an ESQL parser, which is not implemented"""
         # Needs to return none to prevent not implemented error
         return None
 

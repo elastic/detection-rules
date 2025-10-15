@@ -48,7 +48,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_event_dataset_schema_error(self):
         """Test an ESQL rule that uses event.dataset field in the query that restricts the schema failing validation."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
@@ -67,7 +66,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_type_mismatch_error(self):
         """Test an ESQL rule that produces a type error comparing a keyword to a number."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
@@ -86,7 +84,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_syntax_error(self):
         """Test an ESQL rule that incorrectly using = for comparison."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
@@ -105,7 +102,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_filtered_index(self):
         """Test an ESQL rule's schema validation to properly reduce it by the index and handle implicit fields."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
@@ -122,7 +118,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_filtered_index_error(self):
         """Test an ESQL rule's schema validation when reduced by the index and check if the field is present."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
@@ -140,7 +135,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_endpoint_alerts_index(self):
         """Test an ESQL rule's schema validation using ecs fields in the alerts index."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         production_rule = deepcopy(original_production_rule)[0]
@@ -155,7 +149,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_endpoint_unknown_index(self):
         """Test an ESQL rule's index validation. This is expected to error on an unknown index."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         production_rule = deepcopy(original_production_rule)[0]
@@ -189,7 +182,6 @@ class TestRemoteRules(BaseRuleTest):
 
     def test_esql_filtered_keep(self):
         """Test an ESQL rule's schema validation."""
-        # EsqlSchemaError
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
         # Test that a ValidationError is raised if the query doesn't match the schema
