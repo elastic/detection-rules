@@ -7,11 +7,16 @@ updated_date = "2025/10/13"
 [rule]
 author = ["Elastic"]
 description = """
-An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by attaching additional permissions to user groups the compromised user account belongs to. This rule looks for use of the IAM AttachGroupPolicy API operation to attach the highly permissive AdministratorAccess AWS managed policy to an existing IAM user group.
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by attaching
+additional permissions to user groups the compromised user account belongs to. This rule looks for use of the IAM
+AttachGroupPolicy API operation to attach the highly permissive AdministratorAccess AWS managed policy to an existing
+IAM user group.
 """
 false_positives = [
     """
-    While this can be normal behavior, it should be investigated to ensure validity. Verify whether the user identity should be using the IAM `AttachGroupPolicy` API operation to attach the `AdministratorAccess` policy to the user group.
+    While this can be normal behavior, it should be investigated to ensure validity. Verify whether the user identity
+    should be using the IAM `AttachGroupPolicy` API operation to attach the `AdministratorAccess` policy to the user
+    group.
     """,
 ]
 from = "now-6m"
@@ -87,7 +92,6 @@ Adversaries can exploit `iam:AttachGroupPolicy` permissions to escalate privileg
 - **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/): for containment, analysis, and recovery guidance.
 - **AWS Documentation:** [AdministratorAccess Policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html#jf_administrator).
 """
-
 references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachGroupPolicy.html",
     "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AdministratorAccess.html",
@@ -116,23 +120,6 @@ iam where event.dataset == "aws.cloudtrail"
    and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "policyArn=arn:aws:iam::aws:policy/AdministratorAccess")
 '''
-
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "user_agent.original",
-    "source.ip",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "event.action",
-    "group.name",
-    "event.outcome",
-    "cloud.account.id",
-    "cloud.region",
-    "aws.cloudtrail.request_parameters"
-]
 
 
 [[rule.threat]]
@@ -169,4 +156,21 @@ reference = "https://attack.mitre.org/techniques/T1098/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "group.name",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 
