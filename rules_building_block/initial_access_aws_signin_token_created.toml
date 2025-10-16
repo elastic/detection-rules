@@ -9,11 +9,16 @@ updated_date = "2025/10/09"
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Captures requests to the AWS federation endpoint (signin.amazonaws.com) for GetSigninToken. This API exchanges existing temporary AWS credentials (e.g., from STS GetFederationToken or AssumeRole) for a short-lived sign-in token that is embedded in a one-click URL to the AWS Management Console. It is commonly used by custom federation tools and automation to pivot from programmatic access to a browser session. This is a building block rule meant to be used for correlation with other rules to detect suspicious activity.
+Captures requests to the AWS federation endpoint (signin.amazonaws.com) for GetSigninToken. This API exchanges existing
+temporary AWS credentials (e.g., from STS GetFederationToken or AssumeRole) for a short-lived sign-in token that is
+embedded in a one-click URL to the AWS Management Console. It is commonly used by custom federation tools and automation
+to pivot from programmatic access to a browser session. This is a building block rule meant to be used for correlation
+with other rules to detect suspicious activity.
 """
 false_positives = [
     """
-    Legitimate federation workflows, admin portals, SSO helpers, CI/CD jobs, or internal scripts that create one-click console links, commonly invoke GetSigninToken and may generate frequent benign events.
+    Legitimate federation workflows, admin portals, SSO helpers, CI/CD jobs, or internal scripts that create one-click
+    console links, commonly invoke GetSigninToken and may generate frequent benign events.
     """,
 ]
 from = "now-6m"
@@ -38,11 +43,30 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-    event.dataset: "aws.cloudtrail" and 
+event.dataset: "aws.cloudtrail" and 
     event.provider: "signin.amazonaws.com" and 
     event.action : "GetSigninToken" and 
-    event.outcome: "success" 
+    event.outcome: "success"
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.investigation_fields]
 field_names = [
@@ -58,22 +82,6 @@ field_names = [
     "event.action",
     "event.outcome",
     "cloud.account.id",
-    "cloud.region"
+    "cloud.region",
 ]
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
-
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"

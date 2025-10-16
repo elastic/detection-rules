@@ -7,13 +7,16 @@ updated_date = "2025/10/09"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a federated user logs into the AWS Management Console. Federated users are typically given temporary credentials to access AWS services. If a federated user logs into the AWS Management Console without using MFA, it may indicate a security risk, as MFA adds an additional layer of security to the authentication process.
-
-However, CloudTrail does not record whether a Federated User utilized MFA as part of authentication — that MFA decision often occurs at a third-party IdP (e.g., Okta, Azure AD, Google). As a result, CloudTrail fields such as MFAUsed / mfaAuthenticated appear as “No/false” for federated console logins even if IdP MFA was required.
-
-This alert should be correlated with IdP authentication logs to verify whether MFA was enforced
-for the session. Increase priority if you find a related "GetSigninToken" event whose source IP / ASN / geo
-or user-agent differs from the subsequent "ConsoleLogin" (possible token relay/abuse). Same-IP/UA pairs within a short window are more consistent with expected operator behavior and can be triaged with lower severity.
+Identifies when a federated user logs into the AWS Management Console. Federated users are typically given temporary
+credentials to access AWS services. If a federated user logs into the AWS Management Console without using MFA, it may
+indicate a security risk, as MFA adds an additional layer of security to the authentication process. However, CloudTrail
+does not record whether a Federated User utilized MFA as part of authentication — that MFA decision often occurs at a
+third-party IdP (e.g., Okta, Azure AD, Google). As a result, CloudTrail fields such as MFAUsed / mfaAuthenticated appear
+as “No/false” for federated console logins even if IdP MFA was required. This alert should be correlated with IdP
+authentication logs to verify whether MFA was enforced for the session. Increase priority if you find a related
+"GetSigninToken" event whose source IP / ASN / geo or user-agent differs from the subsequent "ConsoleLogin" (possible
+token relay/abuse). Same-IP/UA pairs within a short window are more consistent with expected operator behavior and can
+be triaged with lower severity.
 """
 from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
@@ -83,28 +86,13 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-    event.dataset: "aws.cloudtrail" and 
+event.dataset: "aws.cloudtrail" and 
     event.provider: "signin.amazonaws.com" and 
     event.action : "ConsoleLogin" and 
     aws.cloudtrail.user_identity.type: "FederatedUser" and
     event.outcome: "success"
 '''
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "user_agent.original",
-    "source.ip",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
-    "aws.cloudtrail.user_identity.session_context.session_issuer.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "event.action",
-    "event.outcome",
-    "cloud.account.id",
-    "cloud.region"
-]
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -123,4 +111,21 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
 
