@@ -13,6 +13,7 @@ accessing backups, thereby obstructing recovery efforts after data loss or destr
 used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack
 and complicating incident response.
 """
+event_category_override = "event.provider"
 false_positives = ["Access removal may be a part of normal operations and should be verified before taking action."]
 from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
@@ -20,6 +21,9 @@ language = "eql"
 license = "Elastic License v2"
 name = "AWS EC2 EBS Snapshot Access Removed"
 note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS EC2 EBS Snapshot Access Removed
 
@@ -98,14 +102,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail"  
-  and event.provider == "ec2.amazonaws.com"
+"ec2.amazonaws.com" where event.dataset == "aws.cloudtrail"  
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
   and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
   and stringContains (aws.cloudtrail.request_parameters, "remove={items")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
