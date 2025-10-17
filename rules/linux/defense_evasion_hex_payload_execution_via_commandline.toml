@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ This rule detects when a process executes a command line containing hexadecimal 
 hexadecimal encoding to obfuscate their payload and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Hex Payload Execution via Command-Line"
@@ -78,19 +78,20 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Execution",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.parent.executable != null and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+?process.parent.executable != null and
 process.command_line : "*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*" and
 length(process.command_line) > 50
 '''

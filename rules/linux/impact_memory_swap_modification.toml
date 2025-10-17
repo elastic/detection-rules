@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ the system's memory and potentially impact the system's performance. This behavi
 deploys miner software such as XMRig.
 """
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Memory Swap Modification"
@@ -82,22 +82,23 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Impact",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Impact",
+  "Tactic: Execution",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
-process.parent.executable != null and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+?process.parent.executable != null and
 process.name in ("swapon", "swapoff") or (
   process.command_line like ("*vm.swappiness*", "*/proc/sys/vm/swappiness*") and (
     (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or

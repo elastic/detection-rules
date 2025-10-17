@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ This rule detects when a process executes the curl or wget command with an argum
 api.telegram.org domain. This may indicate command and control behavior.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Telegram API Request"
@@ -91,17 +91,18 @@ For more information on capturing environment variables refer to the [helper gui
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
 process.name in ("curl", "wget") and process.command_line like "*api.telegram.org*"
 '''
 

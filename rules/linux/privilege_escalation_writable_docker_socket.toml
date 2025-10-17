@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/07/25"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ sockets may be able to create and run a container that allows them to escalate p
 the host file system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation through Writable Docker Socket"
@@ -49,19 +49,20 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Domain: Container",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Domain: Container",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
 (
   (process.name == "docker" and process.args : "run" and process.args : "-it"  and
    process.args : ("unix://*/docker.sock", "unix://*/dockershim.sock")) or
