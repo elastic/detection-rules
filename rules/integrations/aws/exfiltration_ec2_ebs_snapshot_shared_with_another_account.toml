@@ -33,7 +33,7 @@ note = """## Triage and analysis
 
 This rule detects when an Amazon Elastic Block Store (EBS) snapshot is shared with another AWS account or made public. EBS snapshots store copies of data volumes that may contain sensitive or regulated information. Adversaries may exploit the `ModifySnapshotAttribute` API to share these snapshots externally, allowing them to copy and access the data in an environment they control. This activity is commonly associated with data exfiltration or persistence techniques, where attackers transfer data outside the victim account or prepare backups they can later retrieve. Public sharing (`group=all`) represents a severe data exposure risk, as it makes the snapshot globally readable.
 
-#### Possible Investigation Steps:
+#### Possible investigation steps:
 
 - **Identify who performed the action**: Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to identify who modified the snapshot’s permissions. Evaluate whether this identity is authorized to share EBS snapshots (check IAM policies for `ec2:ModifySnapshotAttribute`).
 - **Analyze the source of the request**: Examine `source.ip` and `source.geo` fields to determine the geographical origin of the request. An unfamiliar or external location may indicate compromised credentials or unauthorized access. Review `user_agent.original` to confirm whether the request originated from an expected administrative tool or host.
@@ -50,7 +50,7 @@ This rule detects when an Amazon Elastic Block Store (EBS) snapshot is shared wi
   - Check GuardDuty and Security Hub for findings related to data exposure, cross-account sharing, or unauthorized data transfer.
 - **Evaluate timing and intent**: Compare `@timestamp` against scheduled maintenance or approved change windows. Actions performed outside business hours or without documented change tickets should be prioritized for review.
 
-### False Positive Analysis:
+### False positive analysis:
 
 - **Authorized internal sharing**: Confirm if the snapshot sharing was part of an approved workflow, such as internal replication or migration between AWS Organization accounts.  
 - **Automated replication or tooling**: Infrastructure-as-code or backup automation may temporarily share snapshots for cross-region or cross-account transfers. Verify automation identifiers, source IPs, and tags.  
@@ -58,7 +58,7 @@ This rule detects when an Amazon Elastic Block Store (EBS) snapshot is shared wi
 
 If verified as legitimate, document the event under change management and reconcile it against organizational policies for snapshot sharing.
 
-### Response and Remediation:
+### Response and remediation:
 
 **1. Containment and validation**
 - If unauthorized, immediately remove added permissions using the AWS CLI:  
