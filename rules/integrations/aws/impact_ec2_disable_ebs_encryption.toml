@@ -2,13 +2,17 @@
 creation_date = "2020/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/10/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies disabling of Amazon Elastic Block Store (EBS) encryption by default in the current region. Disabling
-encryption by default does not change the encryption status of your existing volumes.
+Detects when Amazon Elastic Block Store (EBS) encryption by default is disabled in an AWS region. EBS encryption ensures
+that newly created volumes and snapshots are automatically protected with AWS Key Management Service (KMS) keys.
+Disabling this setting introduces significant risk as all future volumes created in that region will be unencrypted by
+default, potentially exposing sensitive data at rest. Adversaries may disable encryption to weaken data protection
+before exfiltrating or tampering with EBS volumes or snapshots. This may be a step in preparation for data theft or
+ransomware-style attacks that depend on unencrypted volumes.
 """
 false_positives = [
     """
@@ -17,9 +21,8 @@ false_positives = [
     should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Encryption Disabled"
@@ -30,37 +33,69 @@ note = """## Triage and analysis
 
 ### Investigating AWS EC2 Encryption Disabled
 
-Amazon EC2's EBS encryption ensures data at rest is secure by default. Disabling this feature can expose sensitive data, making it vulnerable to unauthorized access. Adversaries might exploit this by disabling encryption to access or manipulate data without detection. The detection rule monitors CloudTrail logs for successful attempts to disable EBS encryption, alerting security teams to potential misuse.
+Amazon Elastic Block Store (EBS) encryption ensures that all new EBS volumes and snapshots are encrypted at rest using AWS KMS keys.  
+When encryption by default is disabled, new EBS volumes in the region will no longer inherit automatic encryption.  
+This action can have serious security implications as it can weaken the organization’s data protection posture, violate compliance requirements, or enable adversaries to read or exfiltrate sensitive information without triggering encryption-based access controls.
 
-### Possible investigation steps
+#### Possible investigation steps
 
-- Review the CloudTrail logs for the specific event.action: DisableEbsEncryptionByDefault to identify the user or role that initiated the action.
-- Check the event.provider: ec2.amazonaws.com logs to gather additional context about the environment and any related activities around the time of the event.
-- Investigate the IAM policies and permissions associated with the user or role to determine if they have the necessary permissions to disable EBS encryption and if those permissions are appropriate.
-- Assess the event.outcome: success to confirm that the action was completed successfully and identify any subsequent actions taken by the same user or role.
-- Examine the AWS account's security settings and configurations to ensure that no other security features have been altered or disabled.
-- Contact the user or team responsible for the action to understand the rationale behind disabling EBS encryption and verify if it aligns with organizational policies.
+**Identify the initiator and context**
+- Review the `aws.cloudtrail.user_identity` fields to determine who or what performed the `DisableEbsEncryptionByDefault` action.  
+  - Examine the `user_identity.type` (e.g., IAMUser, AssumedRole, Root, FederatedUser).  
+  - Validate whether the actor is authorized to modify account-level encryption defaults.
+- Check `source.ip` and `user_agent.original` to identify the origin of the request and whether it came from a known administrative system, automation process, or an unfamiliar host.
+- Correlate with recent IAM activity such as `AttachUserPolicy`, `UpdateAccountPasswordPolicy`, or `PutAccountSetting` to identify potential privilege escalation or account misuse.
+**Review the timing and scope**
+- Compare the event `@timestamp` with other CloudTrail management events to determine if the encryption change occurred alongside other administrative modifications.  
+- Investigate if similar actions were executed in other AWS regions, disabling encryption regionally may be part of a broader campaign.
+- Review AWS Config or Security Hub findings to determine whether compliance controls or data protection standards (e.g., CIS, PCI-DSS, ISO 27001) have been violated.
+**Assess data exposure risk**
+- Identify newly created or modified EBS volumes after the timestamp of this change.  
+  - Query CloudTrail for `CreateVolume` or `CreateSnapshot` events without `Encrypted:true`.  
+- Determine whether sensitive workloads, such as production databases or applications, rely on unencrypted EBS volumes.  
+- Check for `CopySnapshot` or `ModifySnapshotAttribute` activity that could indicate data staging or exfiltration.
+**Correlate related security events**
+- Look for concurrent detections or GuardDuty findings involving IAM privilege misuse, credential exposure, or configuration tampering.  
+- Review CloudTrail logs for any `DisableKeyRotation` or `ScheduleKeyDeletion` events related to the KMS key used for EBS encryption. These may indicate attempts to disrupt encryption mechanisms entirely.
+- Review AWS Config timeline to confirm whether encryption-by-default was re-enabled or remained off.
 
 ### False positive analysis
 
-- Routine administrative actions may trigger alerts if encryption is disabled for testing or configuration purposes. To manage this, create exceptions for specific IAM roles or users known to perform these tasks regularly.
-- Automated scripts or tools that disable encryption for specific workflows might cause false positives. Identify these scripts and exclude their associated actions from triggering alerts by using specific tags or identifiers.
-- Changes in regional settings or policies that temporarily disable encryption could be misinterpreted as threats. Monitor these changes and adjust the detection rule to account for legitimate policy updates.
-- Scheduled maintenance or updates that require temporary encryption disabling should be documented and excluded from alerts by setting time-based exceptions during known maintenance windows.
+- **Administrative changes**: System or cloud administrators may disable default encryption temporarily for troubleshooting or migration. Verify if the user identity, role, or automation process is part of a legitimate change.  
+- **Infrastructure testing**: Non-production environments may disable encryption for cost or performance benchmarking. These should be tagged and excluded.  
+- **Service misconfiguration**: Some provisioning frameworks or scripts may unintentionally disable encryption defaults during environment setup. Ensure automation code uses explicit encryption flags when creating resources.
+
+If confirmed as expected, document the change request, implementation window, and user responsible for traceability.
 
 ### Response and remediation
 
-- Immediately isolate the affected EC2 instances to prevent further unauthorized access or data manipulation. This can be done by modifying security group rules or network ACLs to restrict access.
-- Re-enable EBS encryption by default in the affected region to ensure that all new volumes are encrypted. This can be done through the AWS Management Console or AWS CLI.
-- Conduct a thorough review of recent changes in the AWS environment to identify any unauthorized modifications or access patterns. Focus on CloudTrail logs for any suspicious activity related to EBS encryption settings.
-- Notify the security operations team and relevant stakeholders about the incident, providing them with details of the alert and any initial findings.
-- Implement additional monitoring and alerting for any future attempts to disable EBS encryption by default, ensuring that security teams are promptly notified of similar activities.
-- Review and update IAM policies to ensure that only authorized personnel have the necessary permissions to modify EBS encryption settings, reducing the risk of accidental or malicious changes.
-- If any data manipulation is detected, initiate data recovery procedures to restore affected data from backups, ensuring data integrity and availability.
+**1. Containment and restoration**
+- Re-enable EBS encryption by default in the affected region to restore protection for new volumes:
+  - Via AWS Console: EC2 → Account Attributes → EBS encryption → Enable by default.  
+  - Or via CLI/API: `enable-ebs-encryption-by-default`.  
+- Audit recently created EBS volumes and snapshots.  
+  - Identify any unencrypted resources and re-encrypt them using KMS keys or snapshot-copy encryption workflows.  
+- Verify that AWS Config rules and Security Hub controls related to EBS encryption (`ec2-ebs-encryption-by-default-enabled`) are enabled and compliant.
+**2. Investigate and scope**
+- Review IAM policies to ensure only designated administrators have the `ec2:DisableEbsEncryptionByDefault` permission.  
+- Check for other regional encryption settings (e.g., S3 default encryption) that may have been modified by the same user or automation role.  
+- Examine whether any new IAM roles or policies were added that allow similar encryption or security modifications.
+**3. Long-term hardening**
+- Enable organization-level service control policies (SCPs) to prevent future disabling of encryption-by-default across accounts.  
+- Establish AWS Config conformance packs or Security Hub standards to continuously monitor this setting.  
+- Integrate detection correlation (e.g., link EBS encryption disablement with subsequent unencrypted `CreateVolume` events) for improved alert fidelity.
+- Educate administrators on data protection implications and require change approvals for encryption-related settings.
+**4. Recovery validation**
+- After restoring encryption-by-default, validate the change in CloudTrail and AWS Config timelines.  
+- Confirm that subsequent EBS volumes are created with `Encrypted:true`.  
+- Conduct a short post-incident review to document root cause, impact, and lessons learned for compliance audits.
 
-## Setup
+### Additional information
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- **[AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**: guidance for investigating unauthorized access to modify account settings.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/)**: Example framework for customers to create, develop, and integrate security playbooks in preparation for potential attack scenarios when using AWS services
+- **AWS Documentation: [EBS Encryption at Rest](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)**
+"""
 references = [
     "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html",
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/disable-ebs-encryption-by-default.html",
@@ -102,4 +137,20 @@ reference = "https://attack.mitre.org/techniques/T1565/001/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.response_elements",
+]
 
