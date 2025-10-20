@@ -25,7 +25,8 @@ import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
 import requests.exceptions
 import yaml
-from elasticsearch import Elasticsearch
+from elasticsearch import BadRequestError, Elasticsearch
+from elasticsearch import ConnectionError as ESConnectionError
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
@@ -39,6 +40,9 @@ from .config import parse_rules_config
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
+from .esql_errors import (
+    ESQL_EXCEPTION_TYPES,
+)
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .integrations import (
@@ -50,7 +54,13 @@ from .integrations import (
     load_integrations_manifests,
 )
 from .main import root
-from .misc import PYTHON_LICENSE, add_client, raise_client_error
+from .misc import (
+    PYTHON_LICENSE,
+    add_client,
+    get_default_elasticsearch_client,
+    get_default_kibana_client,
+    raise_client_error,
+)
 from .packaging import CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package
 from .rule import (
     AnyRuleData,
@@ -63,6 +73,7 @@ from .rule import (
     TOMLRuleContents,
 )
 from .rule_loader import RuleCollection, production_filter
+from .rule_validators import ESQLValidator
 from .schemas import definitions, get_stack_versions
 from .utils import check_version_lock_double_bumps, dict_hash, get_etc_path, get_path
 from .version_lock import VersionLockFile, loaded_version_lock
@@ -1401,6 +1412,72 @@ def rule_event_search(  # noqa: PLR0913
         )
     else:
         raise_client_error("Rule is not a query rule!")
+
+
+@test_group.command("esql-remote-validation")
+@click.option(
+    "--verbosity",
+    type=click.IntRange(0, 1),
+    default=0,
+    help="Set verbosity level: 0 for minimal output, 1 for detailed output.",
+)
+def esql_remote_validation(
+    verbosity: int,
+) -> None:
+    """Search using a rule file against an Elasticsearch instance."""
+
+    rule_collection: RuleCollection = RuleCollection.default().filter(production_filter)
+    esql_rules = [r for r in rule_collection if r.contents.data.type == "esql"]
+
+    click.echo(f"ESQL rules loaded: {len(esql_rules)}")
+
+    if not esql_rules:
+        return
+    # TODO(eric-forte-elastic): @add_client https://github.com/elastic/detection-rules/issues/5156  # noqa: FIX002
+    with get_default_kibana_client() as kibana_client, get_default_elasticsearch_client() as elastic_client:
+        if not kibana_client or not elastic_client:
+            raise_client_error("Skipping remote validation due to missing client")
+
+        failed_count = 0
+        fail_list: list[str] = []
+        max_retries = 3
+        for r in esql_rules:
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
+                    _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
+                    break
+                except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
+                    e_type = type(e)  # type: ignore[reportUnknownMemberType]
+                    if isinstance(e, ESQL_EXCEPTION_TYPES):
+                        click.echo(click.style(f"{r.contents.data.rule_id} ", fg="red", bold=True), nl=False)
+                        _ = e.show()  # type: ignore[reportUnknownMemberType]
+                    else:
+                        click.echo(f"FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
+                    fail_list.append(f"{r.contents.data.rule_id}  FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
+                    failed_count += 1
+                    break
+                except ESConnectionError as e:
+                    retry_count += 1
+                    click.echo(f"Connection error: {e}. Retrying {retry_count}/{max_retries}...")
+                    time.sleep(30)
+                    if retry_count == max_retries:
+                        click.echo(f"FAILURE: {e} after {max_retries} retries")
+                        fail_list.append(f"FAILURE: {e} after {max_retries} retries")
+                        failed_count += 1
+
+        click.echo(f"Total rules: {len(esql_rules)}")
+        click.echo(f"Failed rules: {failed_count}")
+
+        _ = Path("failed_rules.log").write_text("\n".join(fail_list), encoding="utf-8")
+        click.echo("Failed rules written to failed_rules.log")
+        if failed_count > 0:
+            click.echo("Failed rule IDs:")
+            uuids = {line.split()[0] for line in fail_list}
+            click.echo("\n".join(uuids))
+            ctx = click.get_current_context()
+            ctx.exit(1)
 
 
 @test_group.command("rule-survey")
