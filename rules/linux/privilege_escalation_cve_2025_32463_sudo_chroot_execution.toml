@@ -2,7 +2,7 @@
 creation_date = "2025/10/01"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/01"
+updated_date = "2025/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -38,7 +38,7 @@ This rule highlights sudo invoked with the chroot (-R/--chroot) option outside n
 - Extract the chroot target path from the event and enumerate its etc and lib directories for attacker-seeded NSS artifacts (nsswitch.conf, libnss_*, ld.so.preload) and fake passwd/group files, noting recent mtime, ownership, and world-writable files.
 - Pivot to file-creation and modification telemetry to identify processes and users that populated that path shortly before execution (e.g., curl, wget, tar, git, gcc), linking them to the invoking user to establish intent.
 - Review session and process details to see if a shell or interpreter was launched inside the chroot and whether an euid transition to 0 occurred, indicating a successful privilege escalation.
-- Confirm sudo’s package version and build options and the user’s sudoers policy (secure_path/env_* settings and any NOPASSWD allowances) to assess exploitability and whether chroot usage was authorized.
+- Confirm sudo's package version and build options and the user’s sudoers policy (secure_path/env_* settings and any NOPASSWD allowances) to assess exploitability and whether chroot usage was authorized.
 - Collect and preserve the chroot directory contents and relevant audit/log artifacts, and scope by searching for similar chroot invocations or NSS file seeds across the host and fleet.
 
 ### False positive analysis
@@ -105,7 +105,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
-process.name == "sudo" and process.args in ("-R", "--chroot") and
+process.name == "sudo" and process.args like ("-R", "--chroot*") and
 // To enforce the -R and --chroot arguments to be for sudo specifically, while wildcarding potential full sudo paths
 process.command_line like ("*sudo -R*", "*sudo --chroot*") 
 '''
