@@ -1120,7 +1120,7 @@ class TestIntegrationRules(BaseRuleTest):
 
         # map current rules by id and name for quick lookup
         current_rules = {rule.contents.data.get("rule_id"): rule.contents.data.get("name") for rule in self.all_rules}
-        failures = []
+        failures: list[str] = []
         for rule_id, rule_name in protected_rules.items():
             if rule_id in current_rules:
                 if rule_name != current_rules.get(rule_id):
