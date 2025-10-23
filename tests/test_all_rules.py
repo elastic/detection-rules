@@ -1112,6 +1112,32 @@ class TestIntegrationRules(BaseRuleTest):
                 f"The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}"
             )
 
+    def test_preserve_upstream_protected_rule_id_name(self):
+        """
+        Ensure upstream referenced rule IDs and rule names remain unchanged
+        """
+        protected_rules = {"9a1a2dae-0b5f-4c3d-8305-a268d404c306": "Endpoint Security (Elastic Defend)"}
+
+        # map current rules by id and name for quick lookup
+        current_rules = {rule.contents.data.get("rule_id"): rule.contents.data.get("name") for rule in self.all_rules}
+        failures = []
+        for rule_id, rule_name in protected_rules.items():
+            if rule_id in current_rules:
+                if rule_name != current_rules.get(rule_id):
+                    failures.append(
+                        f"Protected rule_id {rule_id} name modified from '{rule_name}' to '{current_rules.get(rule_id)}' - review upstream impact"
+                    )
+            else:
+                failures.append(
+                    f"Protected rule: {rule_name} rule_id: {rule_id} missing/modified - review upstream impact"
+                )
+
+        if failures:
+            fail_msg = """
+            The following protected prebuilt rules have missing/modified rule IDs or names \n
+            """
+            self.fail(fail_msg + "\n".join(failures))
+
 
 class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
