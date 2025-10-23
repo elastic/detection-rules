@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2025/10/23"
 
 [transform]
 [[transform.osquery]]
@@ -147,13 +147,15 @@ sequence by process.entity_id with maxspan=1m
                                     "C:\\Program Files (x86)\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
                                     "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe"))
   ]
-  [network where dns.question.name != null and
+  [network where dns.question.name != null and dns.question.name : "*.*" and
       not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
         "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
         "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
         "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com", "_ldap._tcp.*", "..localmachine", "secure.globalsign.com",
-        "acroipm2.adobe.com", "www.ssl.com", "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
-        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local") and
+        "www.ssl.com", "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
+        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local", "crl3.digicert.com",
+        "collect.installeranalytics.com", "ocsps.ssl.com", "*.oh.us", "api.cdnjs.com", "buddi.bentley.com", "crl.sectigo.com",
+        "sw.symcd.com", "crl.globalsign.com", "updates.macrium.com", "www.google.com", "s.symcb.com") and
 
       not (process.name : "mshta.exe" and
            dns.question.name : ("client.teamviewer.com", "www.teamviewer.com", "images-na.ssl-images-amazon.com", "searcherbar.tilda.ws")) and
