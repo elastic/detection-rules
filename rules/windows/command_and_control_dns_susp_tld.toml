@@ -2,7 +2,7 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2025/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -72,7 +72,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and dns.question.name != null and
+network where host.os.type == "windows" and dns.question.name != null and process.name != null and
  (
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
                   "bitsadmin.exe", "InstallUtil.exe", "python.exe", "regsvr32.exe", "dllhost.exe", "node.exe",
@@ -81,7 +81,21 @@ network where host.os.type == "windows" and dns.question.name != null and
   ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
   ?process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe")
  ) and
-dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)"""
+dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""" and
+not ?process.executable : ("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                           "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+                           "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                           "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+                           "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+                           "C:\\Program Files\\Microsoft Office\\root\\Office16\\*.EXE",
+                           "C:\\Windows\\System32\\ipconfig.exe",
+                           "C:\\Program Files (x86)\\Sorenson Communications\\ntouch PC\\ntouchPC.exe",
+                           "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+                           "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\msedgewebview2.exe",
+                           "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\NisSrv.exe",
+                           "C:\\Program Files\\Windows Defender Advanced Threat Protection\\MsSense.exe",
+                           "C:\\Program Files\\infocyte\\agent\\dattoav\\Endpoint Protection SDK\\endpointprotection.exe") and
+not (process.name in ("msedge.exe", "chrome.exe", "firefox.exe", "brave.exe", "MsSense.exe") and event.dataset == "crowdstrike.fdr")
 '''
 
 
