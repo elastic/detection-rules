@@ -53,11 +53,9 @@ class TestRemoteRules(BaseRuleTest):
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws_bedrock"]
         production_rule["rule"]["query"] = """
-        from logs-aws_bedrock.invocation-*
-
+        from logs-aws_bedrock.invocation-* metadata _id, _version, _index
         // Filter for access denied errors from GenAI responses
         | where gen_ai.response.error_code == "AccessDeniedException"
-
         // keep ECS and response fields
         | keep
         user.id,
