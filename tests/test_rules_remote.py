@@ -46,6 +46,30 @@ class TestRemoteRules(BaseRuleTest):
         for integration in related_integrations:
             assert integration["package"] == "aws", f"Expected 'aws', but got {integration['package']}"
 
+    def test_esql_non_dataset_package_related_integrations(self):
+        """Test an ESQL rule has its related integrations built correctly with a non dataset package."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws_bedrock"]
+        production_rule["rule"]["query"] = """
+        from logs-aws_bedrock.invocation-*
+
+        // Filter for access denied errors from GenAI responses
+        | where gen_ai.response.error_code == "AccessDeniedException"
+
+        // keep ECS and response fields
+        | keep
+        user.id,
+        gen_ai.request.model.id,
+        cloud.account.id,
+        gen_ai.response.error_code
+        """
+        rule = RuleCollection().load_dict(production_rule)
+        related_integrations = rule.contents.to_api_format()["related_integrations"]
+        for integration in related_integrations:
+            assert integration["package"] == "aws_bedrock", f"Expected 'aws_bedrock', but got {integration['package']}"
+
     def test_esql_event_dataset_schema_error(self):
         """Test an ESQL rule that uses event.dataset field in the query that restricts the schema failing validation."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
