@@ -112,7 +112,57 @@ jobs:
             git tag $RELEASE_TAG
             git push origin $RELEASE_TAG
 
+        - name: Check out container repository
+          env:
+            DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+            DR_API_KEY: ${{ secrets.dr_api_key }}
+          if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+          with:
+            path: elastic-container
+            repository: peasead/elastic-container
+
+        - name: Build and run containers
+          env:
+            DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+            DR_API_KEY: ${{ secrets.dr_api_key }}
+          if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }} 
+          run: |
+            cd elastic-container
+            GENERATED_PASSWORD=$(openssl rand -base64 16)
+            sed -i "s|changeme|$GENERATED_PASSWORD|" .env
+            echo "::add-mask::$GENERATED_PASSWORD"
+            echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
+            set -x
+            bash elastic-container.sh start
+          
+        - name: Get API Key and setup auth
+          env:
+            DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+            DR_API_KEY: ${{ secrets.dr_api_key }}
+            DR_ELASTICSEARCH_URL: "https://localhost:9200"
+            ES_USER: "elastic"
+            ES_PASSWORD: ${{ env.GENERATED_PASSWORD }}
+          if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
+          run: |
+            cd detection-rules
+            response=$(curl -k -X POST -u "$ES_USER:$ES_PASSWORD" -H "Content-Type: application/json" -d '{
+              "name": "tmp-api-key",
+              "expiration": "1d"
+            }' "$DR_ELASTICSEARCH_URL/_security/api_key")
+
+            DR_API_KEY=$(echo "$response" | jq -r '.encoded')
+            echo "::add-mask::$DR_API_KEY"
+            echo "DR_API_KEY=$DR_API_KEY" >> $GITHUB_ENV
+
         - name: Build release package
+          env:
+            DR_REMOTE_ESQL_VALIDATION: "true"
+            DR_CLOUD_ID: ${{ secrets.dr_cloud_id || '' }}
+            DR_KIBANA_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:5601' || '' }}
+            DR_ELASTICSEARCH_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:9200' || '' }}
+            DR_API_KEY: ${{ secrets.dr_api_key || env.DR_API_KEY }}
+            DR_IGNORE_SSL_ERRORS: ${{ secrets.dr_cloud_id == '' && 'true' || '' }}
           run: |
             cd detection-rules
             python -m detection_rules dev build-release
