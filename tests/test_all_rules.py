@@ -1118,16 +1118,14 @@ class TestIntegrationRules(BaseRuleTest):
         """
         protected_rules = {"9a1a2dae-0b5f-4c3d-8305-a268d404c306": "Endpoint Security (Elastic Defend)"}
 
-        # map current rules by id and name for quick lookup
-        current_rules = {rule.contents.data.get("rule_id"): rule.contents.data.get("name") for rule in self.all_rules}
         failures: list[str] = []
         for rule_id, rule_name in protected_rules.items():
-            if rule_id in current_rules:
-                if rule_name != current_rules.get(rule_id):
+            try:
+                if rule_name != self.rc.id_map[rule_id].name:
                     failures.append(
-                        f"Protected rule_id {rule_id} name modified from '{rule_name}' to '{current_rules.get(rule_id)}' - review upstream impact"
+                        f"Protected rule_id {rule_id} name modified from '{rule_name}' to '{self.rc.id_map[rule_id].name}' - review upstream impact"
                     )
-            else:
+            except KeyError:
                 failures.append(
                     f"Protected rule: {rule_name} rule_id: {rule_id} missing/modified - review upstream impact"
                 )
