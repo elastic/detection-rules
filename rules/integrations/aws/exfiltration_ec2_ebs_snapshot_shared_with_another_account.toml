@@ -2,7 +2,7 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/16"
+updated_date = "2025/10/24"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ ModifySnapshotAttribute to share snapshots with external accounts or the public,
 in an environment they control. This activity often precedes data exfiltration or persistence operations, where the
 attacker transfers stolen data out of the victim account or prepares a staging area for further exploitation.
 """
-event_category_override = "event.provider"
+event_category_override = "event.type"
 false_positives = [
     """
     AMI sharing is a common practice in AWS environments. Ensure that the sharing is authorized before taking action.
@@ -109,11 +109,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-"ec2.amazonaws.com" where event.dataset == "aws.cloudtrail"  
+info where event.dataset == "aws.cloudtrail"  
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
   and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
-  and stringContains (aws.cloudtrail.request_parameters, "add={items")
+  and stringContains (aws.cloudtrail.request_parameters, "add=")
 '''
 
 

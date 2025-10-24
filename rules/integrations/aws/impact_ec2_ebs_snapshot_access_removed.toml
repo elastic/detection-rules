@@ -2,7 +2,7 @@
 creation_date = "2024/06/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/16"
+updated_date = "2025/10/24"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ accessing backups, thereby obstructing recovery efforts after data loss or destr
 used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack
 and complicating incident response.
 """
-event_category_override = "event.provider"
+event_category_override = "event.type"
 false_positives = ["Access removal may be a part of normal operations and should be verified before taking action."]
 from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
@@ -102,11 +102,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-"ec2.amazonaws.com" where event.dataset == "aws.cloudtrail"  
+info where event.dataset == "aws.cloudtrail"  
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
   and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
-  and stringContains (aws.cloudtrail.request_parameters, "remove={items")
+  and stringContains (aws.cloudtrail.request_parameters, "remove=")
 '''
 
 [[rule.threat]]
