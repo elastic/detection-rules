@@ -106,6 +106,12 @@ jobs:
       - name: Lock the versions
         env:
           BRANCHES: "${{github.event.inputs.branches}}"
+          DR_REMOTE_ESQL_VALIDATION: "true"
+          DR_CLOUD_ID: ${{ secrets.dr_cloud_id || '' }}
+          DR_KIBANA_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:5601' || '' }}
+          DR_ELASTICSEARCH_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:9200' || '' }}
+          DR_API_KEY: ${{ secrets.dr_api_key || env.DR_API_KEY }}
+          DR_IGNORE_SSL_ERRORS: ${{ secrets.dr_cloud_id == '' && 'true' || '' }}
         run: |
           ./detection_rules/etc/lock-multiple.sh $BRANCHES
           git add detection_rules/etc/version.lock.json
