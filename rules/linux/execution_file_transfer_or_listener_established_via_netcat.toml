@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2025/10/15"
 
@@ -20,7 +20,10 @@ false_positives = [
 ]
 from = "now-9m"
 index = [
-    "logs-endpoint.events.network*",
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
 ]
@@ -120,23 +123,24 @@ tags = [
     "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
 ]
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and
-(
+process.args like~ (
   /* bind shell to specific port or listener */
-  process.args:("-*l*","-*p*") or
+  "-*l*","-*p*",
   /* reverse shell to command-line interpreter used for command execution */
-  (process.args:("-*e*")) or
-  /* file transfer via stdout */
-  process.args:(">","<") or
-  /* file transfer via pipe */
-  (process.args:"|")
-) and
-not process.command_line like~ ("*127.0.0.1*", "*localhost*")
+  "-*e*",
+  /* file transfer via stdout/pipe */
+  ">","<", "|"
+)
 '''
 
 [[rule.threat]]
