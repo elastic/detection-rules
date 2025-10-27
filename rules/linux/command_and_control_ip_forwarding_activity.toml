@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ forwarding can be used to route network traffic between different network interf
 pivot between networks, exfiltrate data, or establish command and control channels.
 """
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "IPv4/IPv6 Forwarding Activity"
@@ -55,21 +55,22 @@ risk_score = 21
 rule_id = "5a138e2e-aec3-4240-9843-56825d0bc569"
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
-process.parent.executable != null and process.command_line like (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event", "ProcessRollup2") and
+?process.parent.executable != null and process.command_line like (
   "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
   "*/proc/sys/net/ipv6/conf/all/forwarding*"
 ) and (
