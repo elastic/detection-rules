@@ -373,9 +373,13 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         return list({str(f) for f in self.ast if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
-    def auto_add_field(self, validation_checks_error: eql.EqlParseError, index_or_dataview: str) -> None:
+    def auto_add_field(
+        self, validation_checks_error: eql.EqlParseError, index_or_dataview: str, field: str | None = None
+    ) -> None:
         """Auto add a missing field to the schema."""
-        field_name = extract_error_field(self.query, validation_checks_error)
+        field_name = field
+        if not field:
+            field_name = extract_error_field(self.query, validation_checks_error)
         if not field_name:
             raise ValueError("No field name found")
         field_type = ecs.get_all_flattened_schema().get(field_name)
@@ -606,7 +610,7 @@ class EQLValidator(QueryValidator):
             )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
             for t in ordered_targets:
-                exc = self.validate_query_text_with_schema(
+                exc, field = self.validate_query_text_with_schema(
                     t.query_text,
                     t.schema,
                     err_trailer=t.err_trailer,
@@ -629,7 +633,7 @@ class EQLValidator(QueryValidator):
                 and RULES_CONFIG.auto_gen_schema_file
                 and data.index_or_dataview
             ):
-                self.auto_add_field(first_error, data.index_or_dataview[0])  # type: ignore[reportArgumentType]
+                self.auto_add_field(first_error, data.index_or_dataview[0], field=field)  # type: ignore[reportArgumentType]
                 continue
 
             # Raise the enriched parse error (includes target trailer + metadata)
@@ -645,7 +649,7 @@ class EQLValidator(QueryValidator):
         min_stack_version: str,
         beat_types: list[str] | None = None,
         integration_types: list[str] | None = None,
-    ) -> EQL_ERROR_TYPES | ValueError | None:
+    ) -> tuple[EQL_ERROR_TYPES | ValueError | None, str | None]:
         """Validate the provided EQL query text against the schema (variant of validate_query_with_schema)."""
         try:
             config = set_eql_config(min_stack_version)
@@ -663,7 +667,7 @@ class EQLValidator(QueryValidator):
                 and ("Unknown field" in message or "Field not recognized" in message)
                 and f"?{field}" in self.query
             ):
-                return None
+                return None, field
             if "Unknown field" in message and beat_types:
                 trailer_parts.insert(0, "Try adding event.module or event.dataset to specify beats module")
             elif "Field not recognized" in message and isinstance(schema, ecs.KqlSchema2Eql):
@@ -691,10 +695,11 @@ class EQLValidator(QueryValidator):
                 exc.source,  # type: ignore[reportUnknownArgumentType]
                 len(exc.caret.lstrip()),
                 trailer=trailer,
-            )
+            ), field
         except Exception as exc:  # noqa: BLE001
             print(err_trailer)
-            return exc  # type: ignore[reportReturnType]
+            return exc, None  # type: ignore[reportReturnType]
+        return None, None
 
     def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> tuple[list[str], bool]:
         """Validate EQL rule type configurations (timestamp_field, event_category_override, tiebreaker_field).
@@ -929,20 +934,11 @@ class ESQLValidator(QueryValidator):
         return response
 
 
-def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError, max_attempts: int = 10) -> str | None:
+def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:
     """Extract the field name from an EQL or KQL parse error."""
-    # If error reported in subquery and exc references exc.source rather than source, adjust source accordingly
-    if exc.source != source and len(exc.source.splitlines()) > exc.line:  # type: ignore[reportUnknownMemberType]
-        source = exc.source  # type: ignore[reportUnknownMemberType]
-    lines = source.splitlines()  # type: ignore[reportUnknownMemberType]
+    lines = source.splitlines()
     mod = -1 if exc.line == len(lines) else 0  # type: ignore[reportUnknownMemberType]
     line = lines[exc.line + mod]  # type: ignore[reportUnknownMemberType]
-    start: int = exc.column  # type: ignore[reportUnknownMemberType]
-    # Handle cases where subqueries cause column alignment to be off
-    for _ in range(max_attempts):
-        if line[start - 1].isalnum() or line[start - 1] == ".":  # type: ignore[reportUnknownMemberType]
-            start -= 1  # type: ignore[reportUnknownMemberType]
-        else:
-            break
+    start = exc.column  # type: ignore[reportUnknownMemberType]
     stop = start + len(exc.caret.strip())  # type: ignore[reportUnknownVariableType]
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
