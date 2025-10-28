@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2025/10/23"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful export tasks of EC2 instances via the APIs CreateInstanceExportTask, ExportImage, or
+CreateStoreImageTask. These exports can be used by administrators for legitimate VM migration or backup workflows
+however, an attacker with access to an EC2 instance or AWS credentials can export a VM or its image and then transfer it
+off-account for exfiltration of data.
+"""
+false_positives = [
+    """
+    VM export and EC2 image creation may be done by system administrators, DevOps or migration teams as part of planned
+    maintenance, disaster-recovery or known backup methods. Verify whether the user identity, user agent, and/or
+    hostname should be making changes in your environment. Exports from unfamiliar users or hosts should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Export Task"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Export Task
+
+The APIs `CreateInstanceExportTask`, `ExportImage`, and `CreateStoreImageTask` allow the export of a running or stopped EC2 instance (or its AMI/image) to external storage (e.g., S3) or image formats. While often used for migration, cloning or backup, adversaries can leverage these actions to copy full VM state or images out of the environment for exfiltration.
+
+#### Possible investigation steps
+
+**Identify the actor and context**  
+   - Check `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, `aws.cloudtrail.user_identity.access_key_id` to identify who made the call.  
+   - Verify `user_agent.original`, `source.ip` and `@timestamp` to determine whether the action is by known automation, trusted operator, or an unexpected identity or location.  
+   - Confirm `cloud.account.id` and `cloud.region` match the expected account/region for export tasks.
+
+**Examine the specific export/image task details**  
+   - Review `aws.cloudtrail.request_parameters` for details such as the `InstanceId`, `TargetEnvironment`, `S3Bucket`, `S3Key`, `DiskImageFormat`, `ContainerFormat`. 
+   - Check `aws.cloudtrail.response_elements` for the resulting export task ID and status.  
+   - Determine whether the exported instance or image contained sensitive workloads (e.g., production databases, critical systems) via instance tags or asset inventory.
+
+**Pivot to related API calls/events**  
+   - Look for follow-on tasks such as:  
+     - S3 bucket writes or cross-account bucket ACL changes (`PutBucketAcl`/`PutBucketPolicy`) referencing the export S3 bucket or key.  
+     - `CopyImage`, `ModifyImageAttribute`, or `ShareImage` events if the exported image is copied or shared.  
+     - Network or usage anomalies in the region or from the S3 bucket (large downloads from the exported object).  
+   - Check for preceding suspicious actions that could indicate compromise: `AssumeRole`, `CreateAccessKey`, `AttachUserPolicy`, or unusual `Describe*` operations.
+
+**Assess legitimacy and risk**  
+   - Confirm whether this export was authorized (via change ticket or migration workflow) and whether the principal has a documented justification for VM export.  
+   - If unauthorized, assess what was exported, where it is stored, how it may be transferred or used externally, and the data risk exposure.
+
+### False positive analysis
+
+- Legitimate migration or backup workflows may trigger these export/image APIs.  
+- Development/test environments may export VM images or instances for sandbox cloning.  
+- Known automation tools may create exports at scheduled times.  
+
+### Response and remediation
+
+- Immediately identify and disable or isolate any object/resource created by the export (e.g., the S3 bucket/object, image ID) that is suspected of unauthorized use.  
+- Revoke the access credentials (`aws.cloudtrail.user_identity.access_key_id`) used if they show unusual activity.  
+- Rotate keys, enforce MFA, and review IAM permissions for the principal.  
+- Audit the exported VM/image: review its contents if possible, check whether it has been moved off-account.  
+- Strengthen monitoring: set alerts for subsequent large data transfers from the S3 export location, cross-account sharing of exported images, or anomalous AMI imports.  
+- Update policy: restrict who can perform exports, monitor export actions via AWS Config or CloudTrail, tag and track export tasks and their destinations.
+"""
+references = [
+    "https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html",
+    "https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html",
+    "https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ami-store-s3-exfiltration.html,",
+]
+risk_score = 47
+rule_id = "deee5856-25ba-438d-ae53-09d66f41b127"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Asset Visibility",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and 
+    event.provider: "ec2.amazonaws.com" and 
+    event.action: ("CreateInstanceExportTask" or "ExportImage" or "CreateStoreImageTask") and 
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[[rule.threat.technique]]
+id = "T1119"
+name = "Automated Collection"
+reference = "https://attack.mitre.org/techniques/T1119/"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
