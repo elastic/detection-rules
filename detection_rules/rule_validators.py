@@ -931,8 +931,8 @@ class ESQLValidator(QueryValidator):
 
 def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError, max_attempts: int = 10) -> str | None:
     """Extract the field name from an EQL or KQL parse error."""
-    # If error reported in subquery, adjust source accordingly
-    if exc.source != source:  # type: ignore[reportUnknownMemberType]
+    # If error reported in subquery and exc references exc.source rather than source, adjust source accordingly
+    if exc.source != source and len(exc.source.splitlines()) > exc.line:  # type: ignore[reportUnknownMemberType]
         source = exc.source  # type: ignore[reportUnknownMemberType]
     lines = source.splitlines()  # type: ignore[reportUnknownMemberType]
     mod = -1 if exc.line == len(lines) else 0  # type: ignore[reportUnknownMemberType]
