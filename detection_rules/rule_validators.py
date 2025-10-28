@@ -937,8 +937,8 @@ def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError,
     start: int = exc.column  # type: ignore[reportUnknownMemberType]
     # Handle cases where subqueries cause column alignment to be off
     for _ in range(max_attempts):
-        if line[start - 1] != " ":
-            start -= 1 # type: ignore[reportUnknownMemberType]
+        if line[start - 1].isalnum() or line[start - 1] == ".":  # type: ignore[reportUnknownMemberType]
+            start -= 1  # type: ignore[reportUnknownMemberType]
         else:
             break
     stop = start + len(exc.caret.strip())  # type: ignore[reportUnknownVariableType]
