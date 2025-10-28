@@ -929,11 +929,17 @@ class ESQLValidator(QueryValidator):
         return response
 
 
-def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:
+def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError, max_attempts: int = 10) -> str | None:
     """Extract the field name from an EQL or KQL parse error."""
     lines = source.splitlines()
     mod = -1 if exc.line == len(lines) else 0  # type: ignore[reportUnknownMemberType]
     line = lines[exc.line + mod]  # type: ignore[reportUnknownMemberType]
-    start = exc.column  # type: ignore[reportUnknownMemberType]
+    start: int = exc.column  # type: ignore[reportUnknownMemberType]
+    # Handle cases where subqueries cause column alignment to be off
+    for _ in range(max_attempts):
+        if line[start - 1] != " ":
+            start -= 1
+        else:
+            break
     stop = start + len(exc.caret.strip())  # type: ignore[reportUnknownVariableType]
     return re.sub(r"^\W+|\W+$", "", line[start:stop])  # type: ignore[reportUnknownArgumentType]
