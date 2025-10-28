@@ -29,6 +29,8 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import load_current_package_version, parse_rules_config
+from .esql import get_esql_query_event_dataset_integrations
+from .esql_errors import EsqlSemanticError
 from .integrations import (
     find_least_compatible_version,
     get_integration_schema_fields,
@@ -650,8 +652,6 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        if isinstance(self, ESQLValidator):
-            return []
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
@@ -665,7 +665,9 @@ class QueryValidator:
         # construct integration schemas
         packages_manifest = load_integrations_manifests()
         integrations_schemas = load_integrations_schemas()
-        datasets, _ = beats.get_datasets_and_modules(self.ast)
+        datasets: set[str] = set()
+        if self.ast:
+            datasets, _ = beats.get_datasets_and_modules(self.ast)
         package_integrations = parse_datasets(list(datasets), packages_manifest)
         int_schema: dict[str, Any] = {}
         data = {"notify": False}
@@ -692,6 +694,9 @@ class QueryValidator:
                     field_type = beat_schema.get(fld, {}).get("type")
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
+
+            if not field_type and isinstance(self, ESQLValidator):
+                field_type = self.get_unique_field_type(fld)
 
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 
@@ -959,7 +964,7 @@ class ESQLRuleData(QueryRuleData):
     def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
         if data.get("index"):
-            raise ValidationError("Index is not a valid field for ES|QL rule type.")
+            raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
 
         # Convert the query string to lowercase to handle case insensitivity
         query_lower = data["query"].lower()
@@ -977,7 +982,7 @@ class ESQLRuleData(QueryRuleData):
 
         # Ensure that non-aggregate queries have metadata
         if not combined_pattern.search(query_lower):
-            raise ValidationError(
+            raise EsqlSemanticError(
                 f"Rule: {data['name']} contains a non-aggregate query without"
                 f" metadata fields '_id', '_version', and '_index' ->"
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
@@ -987,7 +992,7 @@ class ESQLRuleData(QueryRuleData):
         # Match | followed by optional whitespace/newlines and then 'keep'
         keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
         if not keep_pattern.search(query_lower):
-            raise ValidationError(
+            raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
 
@@ -1074,10 +1079,17 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+# ThresholdQueryRuleData needs to be first in this union to handle cases where there is ambiguity between
+# ThresholdAlertSuppression and AlertSuppressionMapping. Since AlertSuppressionMapping has duration as an
+# optional field, ThresholdAlertSuppression objects can be mistakenly loaded as an AlertSuppressionMapping
+# object with group_by and missing_fields_strategy as missing parameters, resulting in an error.
+# Checking the type against ThresholdQueryRuleData first in the union prevent this from occurring.
+# Please also keep issue 1141 in mind when handling union schemas.
+
 AnyRuleData = (
-    EQLRuleData
+    ThresholdQueryRuleData
+    | EQLRuleData
     | ESQLRuleData
-    | ThresholdQueryRuleData
     | ThreatMatchRuleData
     | MachineLearningRuleData
     | QueryRuleData
@@ -1500,21 +1512,28 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     ) -> list[dict[str, Any]] | None:
         packaged_integrations: list[dict[str, Any]] = []
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
-
+        if isinstance(data, ESQLRuleData):
+            dataset_objs = get_esql_query_event_dataset_integrations(data.query)
+            datasets.update(str(obj) for obj in dataset_objs)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
         # of machine learning analytic packages
 
-        rule_integrations = meta.get("integration", [])
-        if rule_integrations:
-            for integration in rule_integrations:
-                ineligible_integrations = [
-                    *definitions.NON_DATASET_PACKAGES,
-                    *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-                ]
-                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
-                    packaged_integrations.append({"package": integration, "integration": None})
+        rule_integrations: str | list[str] = meta.get("integration") or []
+        if isinstance(rule_integrations, str):
+            rule_integrations = [rule_integrations]
+        for integration in rule_integrations:
+            ineligible_integrations = [
+                *definitions.NON_DATASET_PACKAGES,
+                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
+            ]
+            if (
+                integration in ineligible_integrations
+                or isinstance(data, MachineLearningRuleData)
+                or (isinstance(data, ESQLRuleData) and integration not in datasets)
+            ):
+                packaged_integrations.append({"package": integration, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 
@@ -1828,7 +1847,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         else:
             package = value
 
-        if package in list(package_manifest):
+        if package in package_manifest:
             packaged_integrations.append({"package": package, "integration": integration})
     return packaged_integrations
 

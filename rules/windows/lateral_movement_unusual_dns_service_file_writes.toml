@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/10/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,24 +12,48 @@ may indicate activity related to remote code execution or other forms of exploit
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "Unusual File Modification by dns.exe"
+name = "Unusual File Operation by dns.exe"
 note = """## Triage and analysis
 
-### Investigating Unusual File Modification by dns.exe
-Detection alerts from this rule indicate potential unusual/abnormal file writes from the DNS Server service process (`dns.exe`) after exploitation from CVE-2020-1350 (SigRed) has occurred. Here are some possible avenues of investigation:
-- Post-exploitation, adversaries may write additional files or payloads to the system as additional discovery/exploitation/persistence mechanisms.
-- Any suspicious or abnormal files written from `dns.exe` should be reviewed and investigated with care.
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual File Operation by dns.exe
+
+The rule flags Windows DNS Server (dns.exe) creating, changing, or deleting files that aren’t typical DNS zone or log files, which signals exploitation for code execution or abuse to stage payloads for lateral movement. After gaining execution in dns.exe via DNS RPC or parsing bugs, attackers often write a malicious EXE into System32 and register a new service, leveraging the trusted service context on a domain controller to persist and pivot.
+
+### Possible investigation steps
+
+- Validate the modified file’s full path, type, and provenance, prioritizing writes in %SystemRoot%\\System32, NETLOGON, or SYSVOL, and confirm signature, hash reputation, and compile timestamp to rapidly classify the artifact.
+- Pivot to persistence telemetry around the same timestamp by hunting for new services or scheduled tasks (e.g., SCM 7045, Security 4697, TaskScheduler 106/200) and registry autoruns that reference the file.
+- Correlate with DNS service network activity and logs for unusual RPC calls, authenticated connections from non-admin hosts, or spikes in failures/crashes that could indicate exploitation.
+- Inspect the service’s runtime state for injection indicators by reviewing recent module loads, unsigned DLLs, suspicious memory sections, and ETW/Sysmon events mapping threads that performed the write.
+- If the file is executable or a script or placed in execution-friendly locations, detonate it in a sandbox and scope the blast radius by pivoting on its hash, filename, and path across the fleet.
+
+### False positive analysis
+
+- DNS debug logging configured to write to a file with a non-.log extension (e.g., .txt) causes dns.exe to legitimately create or rotate that file during troubleshooting.
+- An administrator exports a zone to a custom-named file with a nonstandard extension (e.g., .txt or .xml), leading dns.exe to create or modify that file as part of routine maintenance.
+
+### Response and remediation
+
+- Isolate the host by removing it from DNS rotation and restricting network access to management-only, then capture and quarantine any files dns.exe created or modified outside %SystemRoot%\\System32\\Dns or with executable extensions.
+- Delete or quarantine suspicious artifacts written by dns.exe (e.g., .exe, .dll, .ps1, .js) in %SystemRoot%\\System32, NETLOGON, or SYSVOL, record their hashes, and block them fleetwide via EDR or application control.
+- Remove persistence by disabling and deleting any new or altered Windows services, scheduled tasks, or Run/Autorun registry entries that reference the dns.exe-written file path, and restore legitimate service ImagePath values.
+- Recover by repairing system files with SFC/DISM, restoring affected directories from known-good backups, and restarting the DNS service, then validate zone integrity, AD replication, and client name-resolution.
+- Immediately escalate to incident response if dns.exe wrote an executable or script into NETLOGON or SYSVOL or if a service binary path was changed to point to a newly dropped file, indicating probable domain controller compromise and lateral movement.
+- Harden by applying the latest Windows Server DNS patches, enforcing WDAC/AppLocker to block execution from SYSVOL/NETLOGON and restrict dns.exe writes to the DNS and log directories, and enable auditing on service creation and file writes in System32/NETLOGON/SYSVOL.
 """
 references = [
     "https://research.checkpoint.com/2020/resolving-your-way-into-domain-admin-exploiting-a-17-year-old-bug-in-windows-dns-servers/",
     "https://msrc-blog.microsoft.com/2020/07/14/july-2020-security-update-cve-2020-1350-vulnerability-in-windows-domain-name-system-dns-server/",
     "https://www.elastic.co/security-labs/detection-rules-for-sigred-vulnerability",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "c7ce36c0-32ff-4f9a-bfc2-dcb242bf99f9"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -42,15 +66,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-file where host.os.type == "windows" and process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
-  not file.name : "dns.log" and not
-  (file.extension : ("old", "temp", "bak", "dns", "arpa") and file.path : "C:\\Windows\\System32\\dns\\*") and
-
-  /* DNS logs with custom names, header converts to "DNS Server log" */
-  not ?file.Ext.header_bytes : "444e5320536572766572206c6f67*"
+event.category : "file" and host.os.type : "windows" and
+  event.type : ("creation" or "deletion" or "change") and process.name : "dns.exe" and
+  not file.extension : ("old" or "temp" or "bak" or "dns" or "arpa" or "log")
 '''
 
 
@@ -67,3 +88,10 @@ id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "host.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/10/01"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious use of sudo's --chroot / -R option consistent with attempts to exploit CVE-2025-32463
+(the "sudo chroot" privilege escalation), where an attacker tricks sudo into using attacker-controlled
+NSS files or libraries to gain root.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential CVE-2025-32463 Sudo Chroot Execution Attempt"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential CVE-2025-32463 Sudo Chroot Execution Attempt
+
+This rule highlights sudo invoked with the chroot (-R/--chroot) option outside normal administration, a behavior tied to CVE-2025-32463 where attackers force sudo to load attacker-controlled NSS configs or libraries and escalate to root. An attacker pattern: running sudo -R /tmp/fakechroot /bin/sh after seeding that directory with malicious nsswitch.conf and libnss to obtain a root shell. Treat unexpected chrooted sudo on Linux hosts as high-risk privilege escalation activity.
+
+### Possible investigation steps
+
+- Extract the chroot target path from the event and enumerate its etc and lib directories for attacker-seeded NSS artifacts (nsswitch.conf, libnss_*, ld.so.preload) and fake passwd/group files, noting recent mtime, ownership, and world-writable files.
+- Pivot to file-creation and modification telemetry to identify processes and users that populated that path shortly before execution (e.g., curl, wget, tar, git, gcc), linking them to the invoking user to establish intent.
+- Review session and process details to see if a shell or interpreter was launched inside the chroot and whether an euid transition to 0 occurred, indicating a successful privilege escalation.
+- Confirm sudo's package version and build options and the user’s sudoers policy (secure_path/env_* settings and any NOPASSWD allowances) to assess exploitability and whether chroot usage was authorized.
+- Collect and preserve the chroot directory contents and relevant audit/log artifacts, and scope by searching for similar chroot invocations or NSS file seeds across the host and fleet.
+
+### False positive analysis
+
+- A legitimate offline maintenance session where an administrator chroots into a mounted system under /mnt or /srv using sudo --chroot to run package or initramfs commands, which will trigger when the invoked program is not in the whitelist.
+- An image-building or OS bootstrap workflow that stages a root filesystem and uses sudo -R to execute a shell or build/configuration scripts inside the chroot, producing the same pattern from a known user or host context.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network, revoke the invoking user’s sudo privileges, and terminate any chrooted shells or child processes spawned via “sudo -R <path> /bin/sh” or similar executions.
+- Preserve evidence and then remove attacker-seeded NSS and loader artifacts within the chroot path—delete or replace nsswitch.conf, libnss_*.so, ld.so.preload, passwd, and group files, and clean up world-writable staging directories like /tmp/fakechroot.
+- Upgrade sudo to a fixed build that addresses CVE-2025-32463, and recover by restoring any modified system NSS and loader files from known-good backups while validating ownership, permissions, and hashes.
+- Escalate to full incident response if a root shell or process with euid 0 is observed, if /etc/ld.so.preload or /lib/libnss_*.so outside the chroot show unauthorized changes, or if similar “sudo -R” executions appear across multiple hosts.
+- Harden by updating sudoers to remove NOPASSWD for chrooted commands, enforce Defaults env_reset and secure_path with noexec, disable “--chroot” usage for non-admin workflows, and monitor for creation of libnss_*.so or nsswitch.conf in non-standard directories.
+- Add platform controls by enabling SELinux/AppArmor policies on sudo and the dynamic loader, applying nodev,nosuid,noexec mounts to /tmp and build paths, and setting immutability (chattr +i) on /etc/nsswitch.conf where operationally feasible.
+"""
+references = [
+    "https://www.stratascale.com/vulnerability-alert-CVE-2025-32463-sudo-chroot",
+    "https://github.com/kh4sh3i/CVE-2025-32463",
+]
+risk_score = 73
+rule_id = "1d485649-c486-4f1d-a99c-8d64795795ad"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Use Case: Vulnerability",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
+process.name == "sudo" and process.args like ("-R", "--chroot*") and
+// To enforce the -R and --chroot arguments to be for sudo specifically, while wildcarding potential full sudo paths
+process.command_line like ("*sudo -R*", "*sudo --chroot*") 
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
