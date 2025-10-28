@@ -2,7 +2,7 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/03/10"
+updated_date = "2025/10/03"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ indicate an attempt to bypass conditional access policies (CAP) and multi-factor
 app ID specified may not be commonly used by the user based on their historical sign-in activity.
 """
 from = "now-9m"
-index = ["filebeat-*", "logs-azure*"]
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Entra ID Rare App ID for Principal Authentication"
@@ -88,6 +88,24 @@ event.dataset: "azure.signinlogs" and event.category: "authentication"
     and azure.signinlogs.properties.user_type: "Member"
     and not azure.signinlogs.properties.client_app_used: "Browser"
     and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
+    and not azure.signinlogs.properties.app_id: (
+        "1b3c667f-cde3-4090-b60b-3d2abd0117f0" or
+        "26a7ee05-5602-4d76-a7ba-eae8b7b67941" or
+        "4b0964e4-58f1-47f4-a552-e2e1fc56dcd7" or
+        "ecd6b820-32c2-49b6-98a6-444530e5a77a" or
+        "268761a2-03f3-40df-8a8b-c3db24145b6b" or
+        "fc0f3af4-6835-4174-b806-f7db311fd2f3" or
+        "de50c81f-5f80-4771-b66b-cebd28ccdfc1" or
+        "ab9b8c07-8f02-4f72-87fa-80105867a763" or
+        "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3" or
+        "d7b530a4-7680-4c23-a8bf-c52c121d2e87" or
+        "52c2e0b5-c7b6-4d11-a89c-21e42bcec444" or
+        "38aa3b87-a06d-4817-b275-7a316988d93b" or
+        "27922004-5251-4030-b22d-91ecd9a37ea4" or
+        "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" or
+        "cab96880-db5b-4e15-90a7-f3f1d62ffe39" or
+        "3a4d129e-7f50-4e0d-a7fd-033add0a29f4"
+    )
 '''
 
 
@@ -107,6 +125,18 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.new_terms]
 field = "new_terms_fields"

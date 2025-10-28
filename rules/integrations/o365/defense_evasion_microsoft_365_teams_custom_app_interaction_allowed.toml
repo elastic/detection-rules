@@ -2,7 +2,7 @@
 creation_date = "2020/11/30"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +17,8 @@ false_positives = [
     expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-from = "now-30m"
-index = ["filebeat-*", "logs-o365*"]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Teams Custom Application Interaction Allowed"
@@ -66,7 +66,7 @@ references = ["https://docs.microsoft.com/en-us/microsoftteams/platform/concepts
 risk_score = 47
 rule_id = "bbd1a775-8267-41fa-9232-20e5582596ac"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -80,9 +80,14 @@ o365.audit.NewValue:True and event.outcome:success
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

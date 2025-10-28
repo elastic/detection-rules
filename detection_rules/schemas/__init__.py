@@ -331,6 +331,12 @@ def migrate_to_9_1(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("9.2")
+def migrate_to_9_2(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
+    """Default migration for 9.2."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(
     api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None
 ) -> dict[str, Any]:
@@ -393,6 +399,12 @@ def get_stack_versions(drop_patch: bool = False) -> list[str]:
             abridged_versions.append(abridged)
         return abridged_versions
     return versions
+
+
+def get_latest_stack_version(drop_patch: bool = False) -> str:
+    """Get the latest defined and supported stack version."""
+    parsed_versions = [Version.parse(version) for version in get_stack_versions(drop_patch=drop_patch)]
+    return str(max(parsed_versions))
 
 
 @cached
