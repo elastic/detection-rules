@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Schemas and dataclasses for GitHub releases."""
+"""Schemas and dataclasses for GitHub releases"""
 
 import dataclasses
 import hashlib
