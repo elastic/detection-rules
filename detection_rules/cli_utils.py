@@ -92,11 +92,11 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
     )
 
     while True:
-        result = value or input(prompt) or default
+        result = value if value is not None else input(prompt) or default
         if result == "n/a":
             result = None
 
-        if not result:
+        if result is None:
             if is_required:
                 value = None
                 continue
@@ -318,7 +318,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
                 contents[name] = threat_map
             continue
 
-        if kwargs.get(name):
+        if name in kwargs:
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
