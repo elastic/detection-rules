@@ -375,7 +375,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
         # if failing due to a query, loop until resolved or terminated
         while True:
             try:
-                contents["query"] = click.edit(contents["query"], extension=".eql")
+                contents["query"] = click.edit(contents["query"], extension=".eql")  # type: ignore[reportUnknownArgumentType]
                 rule = TOMLRule(
                     path=Path(path),
                     contents=TOMLRuleContents.from_dict({"rule": contents, "metadata": meta}),
