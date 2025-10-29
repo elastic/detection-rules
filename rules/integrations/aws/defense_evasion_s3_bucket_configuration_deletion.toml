@@ -2,21 +2,29 @@
 creation_date = "2020/05/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/10/29"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies the deletion of various Amazon Simple Storage Service (S3) bucket configuration components."
+description = """
+Identifies the deletion of critical Amazon S3 bucket configurations such as bucket policies, lifecycle configurations
+or encryption settings. These actions are typically administrative but may also represent
+adversarial attempts to remove security controls, disable data retention mechanisms, or conceal evidence of malicious
+activity. Adversaries who gain access to AWS credentials may delete logging, lifecycle, or policy configurations to
+disrupt forensic visibility and inhibit recovery. For example, deleting a bucket policy can open a bucket to public
+access or remove protective access restrictions, while deleting lifecycle rules can prevent object archival or automatic
+backups. Such actions often precede data exfiltration or destructive operations and should be reviewed in context with
+related S3 or IAM events.
+"""
 false_positives = [
     """
-    Bucket components may be deleted by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Bucket component deletions by unfamiliar users or
+    Bucket configurations may be deleted by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Bucket configuration deletions by unfamiliar users or
     hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Configuration Deletion"
@@ -27,37 +35,59 @@ note = """## Triage and analysis
 
 ### Investigating AWS S3 Bucket Configuration Deletion
 
-Amazon S3 is a scalable storage service where configurations like policies, replication, and encryption ensure data security and compliance. Adversaries may delete these configurations to evade defenses, disrupt data protection, or conceal malicious activities. The detection rule monitors successful deletions of these configurations, signaling potential defense evasion attempts by correlating specific CloudTrail events.
+Amazon S3 is a scalable storage service where configurations like policies, replication, and encryption ensure data security and compliance. The detection rule monitors successful deletions of these configurations via the following APIs: `DeleteBucketPolicy`, `DeleteBucketReplication`, `DeleteBucketCors`, `DeleteBucketEncryption` or `DeleteBucketLifecycle`. These operations can be used by an adversary to remove visibility, erase governance or compliance controls, or prepare a bucket for destructive or exfiltration activity.  
+Deleting or disabling important configurations may hamper audit trails, hide malicious changes, or reduce the ability for recovery. The detection of these deletes is therefore a potential indicator of defense evasion or impact techniques.
 
-### Possible investigation steps
+#### Possible investigation steps
 
-- Review the CloudTrail logs for the specific event.provider:s3.amazonaws.com and event.action values to identify the user or role responsible for the deletion actions.
-- Examine the event.outcome:success field to confirm that the deletion actions were completed successfully and not attempted or failed.
-- Investigate the IAM policies and permissions associated with the user or role identified to determine if they have legitimate access to perform such deletions.
-- Check for any recent changes in IAM roles or policies that might have inadvertently granted excessive permissions.
-- Correlate the timing of the deletion events with other suspicious activities or alerts in the AWS environment to identify potential patterns or coordinated actions.
-- Assess the impact of the deleted configurations on data security and compliance, and determine if any critical data protection mechanisms were affected.
+- **Identify the Actor and Context**  
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.access_key_id` and `aws.cloudtrail.user_identity.type` to identify who performed the deletion.  
+  - Determine whether the actor typically manages bucket configurations, or if this is an unusual identity for this kind of operation.  
+  - Check `source.ip`, `user_agent.original`, `cloud.region` for anomalous behaviour (unfamiliar IPs, new tooling or region, off-hours actions).
+
+- **Determine the Affected Bucket and Configuration Type**  
+  - Examine `aws.cloudtrail.request_parameters` (and `aws.cloudtrail.resources.arn`) to identify the bucket and the sub-resource that was removed. 
+  - Determine whether the bucket is used for critical data (audit logs, backups, data warehouse). If so, the deletion is higher risk.
+
+- **Correlate with Other Activity to Establish Chain of Events**  
+  - Search for preceding or concurrent CloudTrail events by the same actor or on the same bucket, e.g.:  
+    - Removal of logging or access controls (`PutBucketLogging`, `PutBucketAcl`, `PutBucketPolicy`).  
+    - Object-level actions soon after configuration removal (`DeleteObject`, `DeleteObjects`, `PutObject`, cross-account copy) that suggest data removal or exfiltration.  
+  - Review for configuration additions or changes immediately prior (e.g., versioning disabled, replication removed) — could form part of a larger attack sequence.  
+
+- **Evaluate Intent and Risk**  
+  - Confirm whether the change is aligned with an approved change control process (maintenance, re-architecting, cost-optimization).  
+  - If no documented justification, or if it affects buckets with sensitive or compliance-related data, treat it as potential malicious behavior.  
+  - Prioritize buckets where configuration deletion significantly reduces visibility or recovery capability.
 
 ### False positive analysis
 
-- Routine administrative actions by authorized personnel may trigger alerts when they update or remove bucket configurations as part of regular maintenance. To manage this, create exceptions for specific user roles or IAM users known to perform these tasks regularly.
-- Automated scripts or tools used for infrastructure management might delete and recreate bucket configurations as part of their operation. Identify these scripts and exclude their associated actions from triggering alerts by using specific identifiers or tags.
-- Scheduled policy updates or compliance checks that involve temporary removal of configurations can also result in false positives. Implement time-based exceptions for these known activities to prevent unnecessary alerts.
-- Development and testing environments often undergo frequent configuration changes, which can mimic suspicious behavior. Exclude these environments from the rule by using environment-specific tags or identifiers.
+- **Scheduled Maintenance or Re-architecture**:  
+  - Valid operations may include migrating buckets, retiring services, or reorganizing storage; verify through change logs.  
+- **Automation/DevOps Activity**:  
+  - Infrastructure-as-Code pipelines or lifecycle clean-up tasks may remove configurations; validate known automation scopes and service-principals.  
+- **Test/Development Buckets**:  
+  - Non-production environments may frequently change bucket configurations; document and consider whitelisting accordingly.
 
 ### Response and remediation
 
-- Immediately revoke any unauthorized access to the affected S3 bucket by reviewing and updating the bucket's access policies and permissions.
-- Restore the deleted configurations by applying the latest known good configuration settings for policies, replication, encryption, and other affected components.
-- Conduct a thorough audit of recent IAM activity to identify any unauthorized or suspicious actions related to the S3 bucket configurations.
-- Escalate the incident to the security operations team for further investigation and to determine if additional AWS resources or accounts have been compromised.
-- Implement additional monitoring and alerting for any future unauthorized configuration changes to S3 buckets, focusing on the specific actions identified in the detection rule.
-- Review and enhance IAM policies to enforce the principle of least privilege, ensuring only authorized users have the necessary permissions to modify S3 bucket configurations.
-- Coordinate with the incident response team to assess the impact of the configuration deletions on data security and compliance, and take necessary steps to mitigate any identified risks.
+**1. Containment & Immediate Actions**  
+- Temporarily restrict the IAM user or role that performed the deletion, especially for `DeleteBucketPolicy`, `DeleteBucketEncryption`, or `DeleteBucketLifecycle`. 
+- Restore missing configurations as soon as possible (e.g., re-apply bucket policy, lifecycle rules, inventory configuration) to prevent further blind spots.
 
-## Setup
+**2. Investigation & Scope Assessment**  
+- Using CloudTrail and S3 Data Events, check object‐level activity from the timeframe immediately before and after the configuration deletion. Look for bulk deletes, new uploads, or copies to external accounts.  
+- Check whether other buckets in the account suffered similar configuration changes – potentially part of a wider campaign.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+**3. Recovery & Hardening**  
+- Recover affected bucket configurations and ensure they match your organizational baseline and compliance standards (e.g., logging enabled, inventory configured, lifecycle rules active).  
+- Enable AWS Config rules such as `s3-bucket-policy-check`, `s3-bucket-lifecycle-configuration-check`, `s3-bucket-logging-enabled` to monitor for unauthorized changes.  
+- Apply least‐privilege for configuration deletion permissions; segregate duties so bucket config deletion can only be done via controlled workflows and require multi-step approval.
+
+**4. Lessons Learned & Prevention**  
+- Conduct a post-incident review to determine root cause (credential compromise, misconfigured automation, malicious insider) and strengthen monitoring, alerting and access controls accordingly.
+
+"""
 references = [
     "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketPolicy.html",
     "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketReplication.html",
@@ -72,18 +102,24 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: Amazon S3",
     "Use Case: Asset Visibility",
     "Tactic: Defense Evasion",
+    "Tactic: Impact",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:s3.amazonaws.com and
-  event.action:(DeleteBucketPolicy or DeleteBucketReplication or DeleteBucketCors or
-                DeleteBucketEncryption or DeleteBucketLifecycle)
-  and event.outcome:success
+event.dataset:aws.cloudtrail and 
+    event.provider:s3.amazonaws.com and
+    event.action:(DeleteBucketPolicy or 
+                    DeleteBucketReplication or 
+                    DeleteBucketCors or 
+                    DeleteBucketEncryption or 
+                    DeleteBucketLifecycle) and 
+    event.outcome:success
 '''
 
 
@@ -94,9 +130,50 @@ id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
 
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 
