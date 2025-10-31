@@ -2,58 +2,115 @@
 creation_date = "2024/04/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/17"
+updated_date = "2025/10/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an AWS S3 bucket policy change to share permissions with an external account. Adversaries may attempt to
-backdoor an S3 bucket by sharing it with an external account. This can be used to exfiltrate data or to provide access
-to other adversaries. This rule identifies changes to a bucket policy via the `PutBucketPolicy` API call where the
-policy includes an `Effect=Allow` statement that does not contain the AWS account ID of the bucket owner.
+Detects when an Amazon S3 bucket policy is modified to share access with an external AWS account. This rule analyzes
+PutBucketPolicy events and compares the S3 bucket’s account ID to any account IDs referenced in the policy’s
+Effect=Allow statements. If the policy includes principals from accounts other than the bucket owner’s, the rule
+triggers an alert. This behavior may indicate an adversary backdooring a bucket for data exfiltration or cross-account
+persistence. For example, an attacker who compromises credentials could attach a policy allowing access from an external
+AWS account they control, enabling continued access even after credentials are rotated. Note: This rule will not alert
+if the account ID is part of the bucket’s name or appears in the resource ARN. Such cases are common in standardized
+naming conventions (e.g., “mybucket-123456789012”). To ensure full coverage, use complementary rules to monitor for
+suspicious PutBucketPolicy API requests targeting buckets with account IDs embedded in their names or resources.
 """
+event_category_override = "event.type"
 false_positives = [
     """
-    Legitimate changes to share an S3 bucket with an external account may be identified as false positive but are not
-    best practice.
+    Legitimate changes to share an S3 bucket with an external account may be identified as false positives.
     """,
 ]
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Policy Added to Share with External Account"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS S3 Bucket Policy Added to Share with External Account
 
-This rule detects when an AWS S3 bucket policy is changed to share permissions with an external account. Adversaries may attempt to backdoor an S3 bucket by sharing it with an external account to exfiltrate data or provide access to other adversaries. This rule identifies changes to a bucket policy via the `PutBucketPolicy` API call where the policy includes an `Effect=Allow` statement that does not contain the AWS account ID of the bucket owner.
+This rule detects when an S3 bucket policy is modified using the `PutBucketPolicy` API call to include an external AWS account ID.
+It compares the bucket’s `recipient_account_id` to any account IDs included in the policy’s `Effect=Allow` statement, triggering
+an alert if the two do not match.  
 
-#### Possible Investigation Steps:
+Adversaries may exploit this to backdoor a bucket and exfiltrate sensitive data by granting permissions to another AWS account
+they control, enabling ongoing access to the bucket’s contents even if IAM credentials are rotated or revoked.
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific changes made to the bucket policy. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
-- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+This detection specifically focuses on policy-based sharing and does not alert when:
+- The account ID appears within the bucket or object name being shared.
+- The account owner explicitly matches the policy’s condition keys on something other than an ARN or account id (i.e. IP address).
+  
+To fully monitor for suspicious sharing behavior, use this rule in combination with detections for:
+- Unusual PutBucketPolicy requests
+- Cross-account object access (e.g., `GetObject`, `PutObject`)
+- Changes to bucket ACLs or access points
 
-### False Positive Analysis:
+#### Possible investigation steps
 
-- **Legitimate Administrative Actions**: Confirm if the bucket policy change aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+- **Identify the Actor and Context**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to identify who made the change.
+  - Determine if the identity typically manages S3 bucket policies.  
+  - Examine `aws.cloudtrail.resources.arn` to determine which bucket is being shared.
 
-### Response and Remediation:
+- **Analyze the Policy Change**
+  - Review `aws.cloudtrail.request_parameters` to extract the policy JSON and identify the external AWS account ID(s) referenced.  
+  - Check for `Effect=Allow` statements granting broad permissions such as `"Action": "s3:*"` or `"Resource": "*"`.  
+  - Verify if the added principals correspond to known partners or external vendors.
+  - If AWS account ID(s) were only part of `Effect=Deny` statements, then this rule can be closed as a false positive. 
 
-- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, update the bucket policy to remove any unauthorized permissions and restore it to its previous state.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive data or permissions.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning bucket policy management and sharing permissions.
-- **Audit Bucket Policies and Permissions**: Conduct a comprehensive audit of all bucket policies and associated permissions to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+- **Review Context and Source**
+  - Check `source.ip`, `source.geo`, and `user_agent.original` for anomalies — such as new IP ranges, access from unfamiliar geographies, or use of programmatic clients (`boto3`, `aws-cli`).
 
-### Additional Information:
+- **Correlate with Related Activity**
+  - Search CloudTrail for subsequent activity by the external AWS account ID(s):
+    - `GetObject`, `ListBucket`, or `PutObject` events that indicate data access or exfiltration.
+  - Look for additional configuration changes by the same actor, such as:
+    - `PutBucketAcl`, `PutBucketVersioning`, or `PutBucketReplication` — often part of a larger bucket compromise chain.
+  - Determine if multiple buckets were modified in quick succession.
 
-For further guidance on managing S3 bucket policies and securing AWS environments, refer to the [AWS S3 documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-cloudtrail-logging-for-s3.html) and AWS best practices for security.
+- **Validate Intent**
+  - Review internal change requests or documentation to confirm whether this external sharing was approved.  
+  - If no approval exists, escalate immediately for potential compromise.
+
+### False positive analysis
+
+- **Authorized Cross-Account Access**
+  - Some organizations legitimately share S3 buckets across accounts within a trusted AWS Organization or partner accounts.  
+  - Validate whether the external account ID belongs to a known entity or service provider and is documented in your allowlist.
+- **Automation or Deployment Pipelines**
+  - Continuous integration/deployment pipelines may temporarily attach cross-account policies for replication or staging.  
+  - Verify the `user_agent.original` or role name — automation often includes identifiable strings.
+- **Naming and Rule Logic Limitations**
+  - This rule excludes detections where the account ID appears in the bucket resource ARN (e.g., `mybucket-123456789012`).  
+  - Such patterns are common in automated provisioning. For those scenarios, rely on complementary rules that directly monitor `PutBucketPolicy` events against those buckets.
+
+### Response and remediation
+
+- **Immediate Review and Containment**
+  - If unauthorized sharing is confirmed, use the AWS CLI or Console to delete or revert the modified policy (`aws s3api delete-bucket-policy` or restore from version control).  
+  - Remove external principals and reapply the correct bucket policy.  
+  - Rotate access keys for the actor involved, especially if API access came from unexpected locations or tools.
+
+- **Investigation and Scoping**
+  - Identify whether data was accessed by the external account via `GetObject` or `ListBucket` operations.  
+  - Search CloudTrail logs for other buckets modified by the same actor or IP within the same timeframe.
+  - Use AWS Config to review version history of affected bucket policies and detect similar cross-account permissions.
+
+- **Recovery and Hardening**
+  - Restrict `s3:PutBucketPolicy` to a limited set of administrative roles using least privilege.
+  - Enable AWS Config rule `s3-bucket-policy-grantee-check` to monitor for unauthorized policy additions.
+  - Use AWS GuardDuty or Security Hub findings to correlate policy changes with data exfiltration or credential compromise events.
+  - Apply service control policies (SCPs) to block cross-account sharing unless explicitly approved.
+
+### Additional information
+  - **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+  - **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+  - **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
 """
 references = [
     "https://stratus-red-team.cloud/attack-techniques/AWS/aws.exfiltration.s3-backdoor-bucket-policy/",
@@ -61,11 +118,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "e8c9ff14-fd1e-11ee-a0df-f661ea17fbce"
-setup = """
-## Setup
-
-S3 data event types must be collected in the AWS CloudTrail logs. Please refer to [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-cloudtrail-logging-for-s3.html) for more information.
-"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -74,17 +126,25 @@ tags = [
     "Data Source: AWS S3",
     "Use Case: Threat Detection",
     "Tactic: Exfiltration",
+    "Tactic: Collection",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail"
+info where event.dataset == "aws.cloudtrail"
     and event.provider == "s3.amazonaws.com"
-    and event.action == "PutBucketPolicy" and event.outcome == "success"
+    and event.action == "PutBucketPolicy" 
     and stringContains(aws.cloudtrail.request_parameters, "Effect=Allow")
-    and not stringContains(aws.cloudtrail.request_parameters, aws.cloudtrail.recipient_account_id)
+    and (
+        stringContains(aws.cloudtrail.request_parameters, "AWS=") or 
+        stringContains(aws.cloudtrail.request_parameters, "aws:PrincipalAccount=") or
+        stringContains(aws.cloudtrail.request_parameters, "aws:SourceAccount=")
+        )
+and not stringContains(aws.cloudtrail.request_parameters, "arn:aws:cloudfront::")  
+and not stringContains(aws.cloudtrail.request_parameters, "arn:aws:iam::cloudfront:user")
+and not stringContains(aws.cloudtrail.request_parameters, aws.cloudtrail.recipient_account_id)
 '''
 
 
@@ -100,4 +160,35 @@ reference = "https://attack.mitre.org/techniques/T1537/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 
