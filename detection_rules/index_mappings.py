@@ -289,8 +289,11 @@ def get_filtered_index_schema(
     filtered_index_lookup.update(custom_mapping)
 
     # Reduce the combined mappings to only the matched indices (local schema validation source of truth)
+    # Custom and non-ecs mappings are filtered before being sent to this function in prepare mappings
     combined_mappings: dict[str, Any] = {}
     utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
+    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_mapping))
+    utils.combine_dicts(combined_mappings, deepcopy(custom_mapping))
     for match in matches:
         utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
 
