@@ -2,16 +2,12 @@
 creation_date = "2022/01/06"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/11/08"
 
 [rule]
 author = ["Elastic"]
 description = """
-In Microsoft Entra ID, permissions to manage resources are assigned using roles. The Global Administrator / Company Administrator
-is a role that enables users to have access to all administrative features in Entra ID and services that use Entra ID
-identities like the Microsoft 365 Defender portal, the Microsoft 365 compliance center, Exchange, SharePoint Online, and
-Skype for Business Online. Adversaries can add users as Global Administrators to maintain access and manage all
-subscriptions and their settings and resources.
+Identifies when the Microsoft 365 Global Administrator or Company Administrator role is assigned to a user or service principal. The Global Administrator role has extensive privileges across Entra ID and Microsoft 365 services, making it a high-value target for adversaries seeking persistent access. Successful assignments of this role may indicate potential privilege escalation or unauthorized access attempts, especially if performed by accounts that do not typically manage high-privilege roles.
 """
 from = "now-9m"
 index = ["logs-o365.audit-*"]
@@ -63,6 +59,7 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: SaaS",
+    "Domain: Identity",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft 365 Audit Logs",
     "Use Case: Identity and Access Audit",
@@ -82,7 +79,6 @@ event.dataset:o365.audit
     )
     and o365.audit.AzureActiveDirectoryEventType: 1
     and o365.audit.RecordType: 8
-    and not o365.audit.Target.Type: (4 or 5 or 6)
 '''
 
 
