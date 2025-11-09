@@ -4,7 +4,7 @@ This folder contains Windows related audit policies that need to be implemented 
 
 Audit Policies:
 
-* [Audit Audit Policy Change](audit_audit_policy_change.md)
+* [Audit Audit Policy Change](audit_policy_change.md)
 * [Audit Authorization Policy Change](audit_authorization_policy_change.md)
 * [Audit Detailed File Share](audit_detailed_file_share.md)
 * [Audit Directory Service Access](audit_directory_service_access.md)
