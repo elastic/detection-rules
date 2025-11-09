@@ -1,6 +1,6 @@
 # Windows Audit Policies
 
-This folder contains Windows related audit policies that need to be implemented in order to generate the events that power our detection rules. It serves as a centralized view of the policies we use so you don't need to go through every rule to know the different audit policies required.
+Windows related audit policies that need to be implemented in order to generate the events that power our detection rules. It serves as a centralized view of the policies we use so you don't need to go through every rule to know the different audit policies required.
 
 Audit Policies:
 
@@ -24,11 +24,14 @@ Audit Policies:
 * [Audit User Account Management](audit_user_account_management.md)
 * [Audit Powershell Script Block Logging](audit_powershell_scriptblock.md)
 
+---
+
 # Sysmon Configuration Guides
 
 **Caution:** The following guides provide minimal configuration examples designed to enable specific Sysmon Event IDs. Collecting Sysmon events without a tailored configuration for your environment will cause high data volume and potentially high CPU-load, and these setup instructions require significant tuning to be production-ready.
 
 To build an efficient and production-ready configuration, we strongly recommend exploring these community resources:
+
  - https://github.com/trustedsec/SysmonCommunityGuide
  - https://github.com/olafhartong/sysmon-modular
  - https://github.com/Neo23x0/sysmon-config
