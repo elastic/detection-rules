@@ -40,4 +40,4 @@ When this audit policy is enabled, the following event IDs may be generated:
 
 Use the following GitHub search to identify rules that use the events listed:
 
-https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224624%22+OR+%22logged-in%22+OR+%224625%22+OR+%22logon-failed%22+OR+%224648%22+OR+%22logged-in-explicit%22+OR+%224675%22+OR+%22sids-filtered%22%29++language%3ATOML+AND+NOT+%28%22%28for+example%2C+4624%29%22+OR+%22Review+the+event+ID+4624%22+OR+%22e.g.%2C+4624%22+OR+%22Correlate+security+events+4662+and+4624%22%29&type=code
+[Elastic Detection Rules Github Repo Search](https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224624%22+OR+%22logged-in%22+OR+%224625%22+OR+%22logon-failed%22+OR+%224648%22+OR+%22logged-in-explicit%22+OR+%224675%22+OR+%22sids-filtered%22%29++language%3ATOML+AND+NOT+%28%22%28for+example%2C+4624%29%22+OR+%22Review+the+event+ID+4624%22+OR+%22e.g.%2C+4624%22+OR+%22Correlate+security+events+4662+and+4624%22%29&type=code)

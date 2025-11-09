@@ -32,9 +32,9 @@ Audit Policies:
 
 To build an efficient and production-ready configuration, we strongly recommend exploring these community resources:
 
- - https://github.com/trustedsec/SysmonCommunityGuide
- - https://github.com/olafhartong/sysmon-modular
- - https://github.com/Neo23x0/sysmon-config
+ - [TrustedSec Sysmon Community Guide](https://github.com/trustedsec/SysmonCommunityGuide)
+ - [olafhartong - sysmon-modular](https://github.com/olafhartong/sysmon-modular)
+ - [Neo23x0 - sysmon-config](https://github.com/Neo23x0/sysmon-config)
 
 For a production-ready and more integrated solution that is designed to work with our detection rules and also provide native Endpoint Protection and Response, check out [Elastic Endpoint Security](https://www.elastic.co/security/endpoint-security).
 

@@ -41,4 +41,4 @@ When this audit policy is enabled, the following event IDs may be generated:
 
 Use the following GitHub search to identify rules that use the events listed:
 
-https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224610%22+OR+%22authentication-package-loaded%22+OR+%224611%22+OR+%22trusted-logon-process-registered%22+OR+%224614%22+OR+%22notification-package-loaded%22+OR+%224622%22+OR+%22security-package-loaded%22+OR+%224697%22+OR+%22service-installed%22%29++language%3ATOML&type=code
+[Elastic Detection Rules Github Repo Search](https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224610%22+OR+%22authentication-package-loaded%22+OR+%224611%22+OR+%22trusted-logon-process-registered%22+OR+%224614%22+OR+%22notification-package-loaded%22+OR+%224622%22+OR+%22security-package-loaded%22+OR+%224697%22+OR+%22service-installed%22%29++language%3ATOML&type=code)

@@ -46,4 +46,4 @@ When this audit policy is enabled, the following event IDs may be generated:
 
 Use the following GitHub search to identify rules that use the events listed:
 
-https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%225031%22+OR+%225150%22+OR+%225151%22+OR+%225154%22+OR+%225155%22+OR+%225156%22+OR+%22windows-firewall-connection%22+OR+%225157%22+OR+%22windows-firewall-packet-block%22+OR+%225158%22+OR+%22windows-firewall-bind-local-port%22+OR+%225159%22%29+language%3ATOML+AND+NOT+%28%224605157a5b80%22+OR+%225151a804f31b%22%29&type=code
+[Elastic Detection Rules Github Repo Search](https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%225031%22+OR+%225150%22+OR+%225151%22+OR+%225154%22+OR+%225155%22+OR+%225156%22+OR+%22windows-firewall-connection%22+OR+%225157%22+OR+%22windows-firewall-packet-block%22+OR+%225158%22+OR+%22windows-firewall-bind-local-port%22+OR+%225159%22%29+language%3ATOML+AND+NOT+%28%224605157a5b80%22+OR+%225151a804f31b%22%29&type=code)

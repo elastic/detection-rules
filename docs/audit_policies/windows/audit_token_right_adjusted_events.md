@@ -39,4 +39,4 @@ When this audit policy is enabled, the following event ID may be generated:
 
 Use the following GitHub search to identify rules that use the events listed:
 
-https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224703%22+OR+%22Token+Right+Adjusted+Events%22%29++language%3ATOML&type=code
+[Elastic Detection Rules Github Repo Search](https://github.com/search?q=repo%3Aelastic%2Fdetection-rules+%22Windows+Security+Event+Logs%22+AND+%28%224703%22+OR+%22Token+Right+Adjusted+Events%22%29++language%3ATOML&type=code)
