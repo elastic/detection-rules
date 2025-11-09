@@ -4,14 +4,17 @@ This folder contains Windows related audit policies that need to be implemented 
 
 Audit Policies:
 
-* [Audit Audit Policy Change](audit_policy_change.md)
 * [Audit Authorization Policy Change](audit_authorization_policy_change.md)
+* [Audit Computer Account Management](audit_computer_account_management.md)
 * [Audit Detailed File Share](audit_detailed_file_share.md)
 * [Audit Directory Service Access](audit_directory_service_access.md)
 * [Audit Directory Service Changes](audit_directory_service_changes.md)
 * [Audit Filtering Platform Connection](audit_filtering_platform_connection.md)
+* [Audit Filtering Platform Packet Drop](audit_filtering_platform_packet_drop.md)
 * [Audit Handle Manipulation](audit_handle_manipulation.md)
 * [Audit Logon](audit_logon.md)
+* [Audit Other Object Access Events](audit_other_object_access_events)
+* [Audit Policy Change](audit_policy_change.md)
 * [Audit Process Creation and Command Line](audit_process_creation_and_command_line.md)
 * [Audit Security Group Management](audit_security_group_management.md)
 * [Audit Security System Extension](audit_security_system_extension.md)
