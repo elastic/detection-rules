@@ -1,3 +1,5 @@
+# Audit User Account Management
+
 ## Setup
 
 Some detection rules require monitoring user account management activities to detect unauthorized account creations, modifications, or deletions. Enabling this setting ensures visibility into critical account changes, helping maintain security and compliance by tracking administrative actions related to user accounts.

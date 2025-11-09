@@ -1,3 +1,5 @@
+# Audit Filtering Platform Packet Drop
+
 ## Setup
 
 Some detection rules require monitoring Filtering Platform Packet Drop events to detect when network packets are being dropped by the Windows Filtering Platform (WFP). Enabling this setting provides visibility into network traffic that is being blocked, which can be an indicator of malicious activity or network reconnaissance.

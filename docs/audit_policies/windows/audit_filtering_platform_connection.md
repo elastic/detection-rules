@@ -1,3 +1,5 @@
+# Audit Filtering Platform Connection
+
 ## Setup
 
 Some detection rules require monitoring network connections managed by the Windows Filtering Platform (WFP) to detect unauthorized or suspicious network activity.

@@ -1,3 +1,5 @@
+# Audit Powershell Scriptblock
+
 ## Setup
 
 Some detection rules require enabling PowerShell Script Block Logging to record the content of processed script blocks in the Windows Event Log.

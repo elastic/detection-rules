@@ -1,3 +1,5 @@
+# Audit Computer Account Management
+
 ## Setup
 
 Some detection rules require monitoring computer account management events to track changes to computer accounts in the domain. Enabling this setting provides visibility into when computer accounts are created, changed, or deleted, which is crucial for detecting potential malicious activity like adding unauthorized computer accounts.

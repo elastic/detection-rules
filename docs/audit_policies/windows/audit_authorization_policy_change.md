@@ -1,3 +1,5 @@
+# Audit Authorization Policy Change
+
 ## Setup
 
 Some detection rules require monitoring changes to authorization policies to detect unauthorized modifications or misconfigurations. Enabling this setting ensures visibility into changes affecting user rights and security policies, helping maintain compliance and security.

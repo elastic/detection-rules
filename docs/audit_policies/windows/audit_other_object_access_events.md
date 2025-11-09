@@ -1,3 +1,5 @@
+# Audit Other Object Access Events
+
 ## Setup
 
 Some detection rules require monitoring other object access events to detect unauthorized actions or system modifications. Enabling this setting allows you to monitor operations with scheduled tasks, COM+ objects and indirect object access requests.

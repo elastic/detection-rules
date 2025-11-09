@@ -1,3 +1,5 @@
+# Audit Detailed File Share
+
 ## Setup
 
 Some detection rules require monitoring file share access to detect unauthorized access attempts or modifications. Enabling this setting helps improve security visibility and ensures compliance by tracking access to shared files and folders.

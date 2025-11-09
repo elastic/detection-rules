@@ -1,3 +1,5 @@
+# Audit Handle Manipulation
+
 ## Setup
 
 Some detection rules require monitoring handle manipulation to detect unauthorized access attempts or suspicious interactions with system objects. Enabling this setting helps improve security visibility by tracking when handles to objects (such as files, registry keys, or processes) are opened or modified.

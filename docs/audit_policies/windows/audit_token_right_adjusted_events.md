@@ -1,3 +1,5 @@
+# Audit Token Right Adjusted Events
+
 ## Setup
 
 Some detection rules require monitoring token right adjustments to detect privilege changes in user sessions. Token right adjustments occur when a user's security token is modified to grant or revoke privileges, which can indicate privilege escalation attempts or administrative activity. Enabling this setting enhances visibility into security-sensitive changes affecting user privileges.

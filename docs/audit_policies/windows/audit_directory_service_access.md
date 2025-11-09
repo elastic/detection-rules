@@ -1,3 +1,5 @@
+# Audit Directory Service Access
+
 ## Setup
 
 Some detection rules require configuring audit policies to generate events when Active Directory objects are accessed. These audit policies apply exclusively to Domain Controllers, as other servers do not produce events related to Active Directory object modifications.

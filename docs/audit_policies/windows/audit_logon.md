@@ -1,3 +1,5 @@
+# Audit Logon
+
 ## Setup
 
 Some detection rules require monitoring logon events to track user authentication attempts, detect unauthorized access, and investigate security incidents. Enabling this setting provides visibility into successful and failed logon attempts, helping strengthen security and compliance.

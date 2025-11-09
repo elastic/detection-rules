@@ -1,3 +1,5 @@
+# Audit Sysmon Event ID 17 18 Pipe Event
+
 ## Setup
 
 **Caution:** Collecting Sysmon events without a tailored configuration for your environment will cause high data volume. These setup instructions would need significant tuning in order to be production-ready. For more specific configurations, we recommend you to explore the following resources:

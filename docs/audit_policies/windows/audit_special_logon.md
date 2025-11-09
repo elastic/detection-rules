@@ -1,3 +1,5 @@
+# Audit Special Logon
+
 ## Setup
 
 Some detection rules require monitoring special logon events to track privileged account usage. Special logon events indicate that an account with elevated privileges (such as administrators or service accounts) has logged in, helping detect unauthorized access or privilege escalation attempts.

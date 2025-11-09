@@ -1,3 +1,5 @@
+# Audit Policy Change
+
 ## Setup
 
 Some detection rules require tracking changes to audit policies to detect unauthorized modifications or misconfigurations. Enabling this setting ensures visibility into audit policy changes, helping to maintain compliance and security.

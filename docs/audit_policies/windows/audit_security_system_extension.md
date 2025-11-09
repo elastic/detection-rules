@@ -1,3 +1,5 @@
+# Audit Security System Extension
+
 ## Setup
 
 Some detection rules require monitoring security system extensions to detect unauthorized modifications, such as the installation of new system services, drivers, or security-related components. Enabling this setting helps ensure visibility into critical system changes that could impact security and system integrity.

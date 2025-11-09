@@ -1,3 +1,5 @@
+# Audit Security Group Management
+
 ## Setup
 
 Some detection rules require monitoring security group management to detect unauthorized changes to user group memberships, which can affect access control and security policies. Enabling this setting ensures visibility into modifications of security groups, helping maintain security and compliance.

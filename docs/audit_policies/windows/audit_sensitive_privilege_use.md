@@ -1,3 +1,5 @@
+# Audit Sensitive Privilege Use
+
 ## Setup
 
 Some detection rules require monitoring the use of sensitive privileges to detect privilege escalation attempts or unauthorized actions. Enabling this setting provides visibility into when sensitive privileges are used, helping to strengthen security and compliance.

@@ -1,3 +1,5 @@
+# Audit Process Creation And Command Line
+
 ## Setup
 
 If leveraging process creation events from the Windows Security log for detections, enabling command line auditing for Windows Event ID 4688 (Process Creation) is required. When enabled, Windows records the full command line of newly created processes in the Security event log.
