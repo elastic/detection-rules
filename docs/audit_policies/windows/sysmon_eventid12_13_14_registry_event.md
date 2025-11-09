@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 12 13 14 Registry Event
+# Sysmon Event ID 12, 13, 14: Registry Events
 
 ## Setup
 

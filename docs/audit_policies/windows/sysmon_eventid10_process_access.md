@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 10 Process Access
+# Sysmon Event ID 10: Process Access
 
 ## Setup
 

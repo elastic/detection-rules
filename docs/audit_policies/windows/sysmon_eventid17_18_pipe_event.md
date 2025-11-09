@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 17 18 Pipe Event
+# Sysmon Event ID 17, 18: Pipe Events
 
 ## Setup
 

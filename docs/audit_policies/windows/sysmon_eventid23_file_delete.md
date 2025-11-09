@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 23 File Delete
+# Sysmon Event ID 23: File Delete
 
 ## Setup
 

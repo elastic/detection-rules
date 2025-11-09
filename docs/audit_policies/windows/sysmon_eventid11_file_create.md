@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 11 File Create
+# Sysmon Event ID 11: File Create
 
 ## Setup
 

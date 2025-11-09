@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 2 File Creation Time Changed
+# Sysmon Event ID 2: File Creation Time Changed
 
 ## Setup
 

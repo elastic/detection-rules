@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 8 Create Remote Thread
+# Sysmon Event ID 8: Create Remote Thread
 
 ## Setup
 

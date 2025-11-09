@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 1 Process Creation
+# Sysmon Event ID 1: Process Creation
 
 ## Setup
 

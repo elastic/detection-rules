@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 19 20 21 WMI Event
+# Sysmon Event ID 19, 20, 21: WMI Events
 
 ## Setup
 

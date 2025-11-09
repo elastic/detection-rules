@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 3 Network Connection
+# Sysmon Event ID 3: Network Connection
 
 ## Setup
 

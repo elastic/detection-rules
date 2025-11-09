@@ -1,4 +1,4 @@
-# Audit Sysmon Event ID 22 DNS Query
+# Sysmon Event ID 22: DNS Query
 
 ## Setup
 
