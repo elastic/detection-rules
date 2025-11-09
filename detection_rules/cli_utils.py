@@ -7,7 +7,10 @@ import copy
 import datetime
 import functools
 import os
+import re
+import time
 import typing
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -18,12 +21,111 @@ import kql  # type: ignore[reportMissingTypeStubs]
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
 from .config import parse_rules_config
+from .mixins import get_dataclass_required_fields
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
+
+
+def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
+    """Interactively prompt based on schema requirements."""
+    field_type = options.get("type")
+    pattern: str | None = options.get("pattern")
+    enum = options.get("enum", [])
+    minimum = int(options["minimum"]) if "minimum" in options else None
+    maximum = int(options["maximum"]) if "maximum" in options else None
+    min_item = int(options.get("min_items", 0))
+    max_items = int(options.get("max_items", 9999))
+
+    default = options.get("default")
+    if default is not None and str(default).lower() in ("true", "false"):
+        default = str(default).lower()
+
+    if "date" in name:
+        default = time.strftime("%Y/%m/%d")
+
+    if name == "rule_id":
+        default = str(uuid.uuid4())
+
+    if len(enum) == 1 and is_required and field_type not in ("array", ["array"]):
+        return enum[0]
+
+    def _check_type(_val: Any) -> bool:  # noqa: PLR0911
+        if field_type in ("number", "integer") and not str(_val).isdigit():
+            print(f"Number expected but got: {_val}")
+            return False
+        if pattern:
+            match = re.match(pattern, _val)
+            if not match or len(match.group(0)) != len(_val):
+                print(f"{_val} did not match pattern: {pattern}!")
+                return False
+        if enum and _val not in enum:
+            print("{} not in valid options: {}".format(_val, ", ".join(enum)))
+            return False
+        if minimum and (type(_val) is int and int(_val) < minimum):
+            print(f"{_val!s} is less than the minimum: {minimum!s}")
+            return False
+        if maximum and (type(_val) is int and int(_val) > maximum):
+            print(f"{_val!s} is greater than the maximum: {maximum!s}")
+            return False
+        if type(_val) is str and field_type == "boolean" and _val.lower() not in ("true", "false"):
+            print(f"Boolean expected but got: {_val!s}")
+            return False
+        return True
+
+    def _convert_type(_val: Any) -> Any:
+        if field_type == "boolean" and type(_val) is not bool:
+            _val = _val.lower() == "true"
+        return int(_val) if field_type in ("number", "integer") else _val
+
+    prompt = (
+        "{name}{default}{required}{multi}".format(
+            name=name,
+            default=f' [{default}] ("n/a" to leave blank) ' if default else "",
+            required=" (required) " if is_required else "",
+            multi=(" (multi, comma separated) " if field_type in ("array", ["array"]) else ""),
+        ).strip()
+        + ": "
+    )
+
+    while True:
+        result = value or input(prompt) or default
+        if result == "n/a":
+            result = None
+
+        if not result:
+            if is_required:
+                value = None
+                continue
+            return None
+
+        if field_type in ("array", ["array"]):
+            result_list = result.split(",")
+
+            if not (min_item < len(result_list) < max_items):
+                if is_required:
+                    value = None
+                    break
+                return []
+
+            for value in result_list:
+                if not _check_type(value):
+                    if is_required:
+                        value = None  # noqa: PLW2901
+                        break
+                    return []
+            if is_required and value is None:
+                continue
+            return [_convert_type(r) for r in result_list]
+        if _check_type(result):
+            return _convert_type(result)
+        if is_required:
+            value = None
+            continue
+        return None
 
 
 def single_collection(f: Callable[..., Any]) -> Callable[..., Any]:
@@ -144,7 +246,6 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     **kwargs: Any,
 ) -> TOMLRule | str:
     """Prompt loop to build a rule."""
-    from .misc import schema_prompt
 
     additional_required = additional_required or []
     creation_date = datetime.date.today().strftime("%Y/%m/%d")  # noqa: DTZ011
@@ -166,9 +267,10 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     )
 
     target_data_subclass = TOMLRuleContents.get_data_subclass(rule_type_val)
+    required_fields = get_dataclass_required_fields(target_data_subclass)
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
-    required_fields = schema.get("required", []) + additional_required
+    required_fields = sorted(required_fields + additional_required)
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 
