@@ -15,8 +15,8 @@ Windows Settings >
 Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
-Logon/Logoff
-**Audit Logon (Success,Failure)
+Logon/Logoff >
+Audit Logon (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

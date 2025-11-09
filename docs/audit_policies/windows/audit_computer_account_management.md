@@ -15,8 +15,8 @@ Windows Settings >
 Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
-Account Management
-**Audit Computer Account Management (Success,Failure)
+Account Management >
+Audit Computer Account Management (Success,Failure)
 ```
 
 ### Enable Locally using auditpol
