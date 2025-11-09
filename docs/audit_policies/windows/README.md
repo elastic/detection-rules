@@ -13,7 +13,7 @@ Audit Policies:
 * [Audit Filtering Platform Packet Drop](audit_filtering_platform_packet_drop.md)
 * [Audit Handle Manipulation](audit_handle_manipulation.md)
 * [Audit Logon](audit_logon.md)
-* [Audit Other Object Access Events](audit_other_object_access_events)
+* [Audit Other Object Access Events](audit_other_object_access_events.md)
 * [Audit Policy Change](audit_policy_change.md)
 * [Audit Process Creation and Command Line](audit_process_creation_and_command_line.md)
 * [Audit Security Group Management](audit_security_group_management.md)
