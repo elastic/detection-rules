@@ -17,7 +17,7 @@ Security Settings >
 Advanced Audit Policy Configuration >
 Audit Policies >
 Object Access >
-**Audit Handle Manipulation (Success,Failure)**
+Audit Handle Manipulation (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

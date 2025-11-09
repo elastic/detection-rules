@@ -16,7 +16,7 @@ Security Settings >
 Advanced Audit Policies Configuration > 
 Audit Policies > 
 Logon/Logoff > 
-**Audit Special Logon (Success)**
+**Audit Special Logon (Success)
 ```
 
 ### Enable Locally using auditpol

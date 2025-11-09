@@ -15,7 +15,7 @@ Security Settings >
 Advanced Security Audit Policy Settings >
 Audit Policies >
 Policy Change >
-**Audit Audit Policy Change (Success,Failure)**
+Audit Audit Policy Change (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

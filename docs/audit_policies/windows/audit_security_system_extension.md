@@ -16,7 +16,7 @@ Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
 System >
-**Audit Security System Extension (Success)**
+Audit Security System Extension (Success)
 ```
 
 ### Enable Locally using auditpol

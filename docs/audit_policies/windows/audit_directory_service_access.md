@@ -18,7 +18,7 @@ Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
 DS Access >
-**Audit Directory Service Access (Success,Failure)**
+Audit Directory Service Access (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

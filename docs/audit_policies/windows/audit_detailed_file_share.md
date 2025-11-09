@@ -18,7 +18,7 @@ Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
 Object Access >
-**Audit Detailed File Share (Success,Failure)**
+Audit Detailed File Share (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

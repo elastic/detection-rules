@@ -16,7 +16,7 @@ Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
 Account Management >
-**Audit Security Group Management (Success,Failure)**
+Audit Security Group Management (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

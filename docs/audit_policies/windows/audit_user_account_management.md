@@ -16,7 +16,7 @@ Security Settings >
 Advanced Audit Policies Configuration >
 Audit Policies >
 Account Management >
-**Audit User Account Management (Success,Failure)**
+Audit User Account Management (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

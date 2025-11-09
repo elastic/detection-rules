@@ -15,7 +15,7 @@ Security Settings >
 Advanced Audit Policy Configuration >
 Audit Policies >
 Object Access >
-**Audit Other Object Access Events (Success,Failure)**
+Audit Other Object Access Events (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

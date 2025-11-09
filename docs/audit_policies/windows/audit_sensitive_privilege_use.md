@@ -18,7 +18,7 @@ Security Settings >
 Advanced Audit Policies Configuration > 
 Audit Policies > 
 Privilege Use > 
-**Audit Sensitive Privilege Use (Success)**
+**Audit Sensitive Privilege Use (Success)
 ```
 
 ### Enable Locally using auditpol

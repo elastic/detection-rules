@@ -18,7 +18,7 @@ Security Settings >
 Advanced Audit Policies Configuration > 
 Audit Policies > 
 Object Access
-**Audit Filtering Platform Packet Drop (Success,Failure)**
+**Audit Filtering Platform Packet Drop (Success,Failure)
 ```
 
 ### Enable Locally using auditpol

@@ -13,7 +13,7 @@ Computer Configuration >
 Administrative Templates >
 System >
 Audit Process Creation >
-**Include command line in process creation events (Enable)**
+Include command line in process creation events (Enable)
 ```
 
 Additionally, confirm that the Audit Process Creation policy is enabled:
@@ -25,7 +25,7 @@ Windows Settings >
 Security Settings >
 Advanced Audit Configuration >
 Detailed Tracking >
-**Audit Process Creation (Success)**
+Audit Process Creation (Success)
 ```
 
 ### Enable Locally
