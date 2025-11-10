@@ -3,9 +3,7 @@ creation_date = "2025/07/31"
 integration = ["microsoft_sentinel"]
 maturity = "production"
 promotion = true
-min_stack_version = "8.18.0"
-min_stack_comments = "Introduced support for Microsoft Sentinel alert promotion"
-updated_date = "2025/08/04"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -69,13 +67,19 @@ If this rule is enabled alongside the External Alerts promotion rule (UUID: eb07
 For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
 """
 severity = "medium"
-tags = ["Data Source: Microsoft Sentinel", "Use Case: Threat Detection", "Resources: Investigation Guide", "Promotion: External Alerts"]
+tags = [
+    "Data Source: Microsoft Sentinel",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Promotion: External Alerts",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.kind: alert and data_stream.dataset: microsoft_sentinel.alert
 '''
+
 
 [[rule.risk_score_mapping]]
 field = "microsoft_sentinel.alert.properties.confidence_score"
@@ -105,3 +109,5 @@ field = "event.severity"
 operator = "equals"
 severity = "critical"
 value = "99"
+
+
