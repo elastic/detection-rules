@@ -2,60 +2,90 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/10/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies AWS EC2 EBS snaphots being shared with another AWS account or made public. EBS virtual disks can be copied
-into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this in
-order to copy the snapshot into an environment they control, to access the data.
+Detects when an Amazon Elastic Block Store (EBS) snapshot is shared with another AWS account or made public. EBS
+snapshots contain copies of data volumes that may include sensitive or regulated information. Adversaries may exploit
+ModifySnapshotAttribute to share snapshots with external accounts or the public, allowing them to copy and access data
+in an environment they control. This activity often precedes data exfiltration or persistence operations, where the
+attacker transfers stolen data out of the victim account or prepares a staging area for further exploitation.
 """
+event_category_override = "event.type"
 false_positives = [
     """
     AMI sharing is a common practice in AWS environments. Ensure that the sharing is authorized before taking action.
     """,
 ]
 from = "now-6m"
-interval = "5m"
-language = "esql"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "AWS EC2 EBS Snapshot Shared or Made Public"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS EC2 EBS Snapshot Shared or Made Public
 
-This rule detects when an AWS EC2 EBS snapshot is shared with another AWS account or made public. EBS virtual disks can be copied into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this to copy the snapshot into an environment they control to access the data. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+This rule detects when an Amazon Elastic Block Store (EBS) snapshot is shared with another AWS account or made public. EBS snapshots store copies of data volumes that may contain sensitive or regulated information. Adversaries may exploit the `ModifySnapshotAttribute` API to share these snapshots externally, allowing them to copy and access the data in an environment they control. This activity is commonly associated with data exfiltration or persistence techniques, where attackers transfer data outside the victim account or prepare backups they can later retrieve. Public sharing (`group=all`) represents a severe data exposure risk, as it makes the snapshot globally readable.
 
-#### Possible Investigation Steps:
+#### Possible investigation steps:
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific changes made to the snapshot permissions. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
-- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
-- **Review UserID**: Check the `userId` field to identify the AWS account with which the snapshot was shared. Verify if this account is authorized to access the data or if it belongs to a known third party. If this value is `all`, the snapshot is made public.
+- **Identify who performed the action**: Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to identify who modified the snapshot’s permissions. Evaluate whether this identity is authorized to share EBS snapshots (check IAM policies for `ec2:ModifySnapshotAttribute`).
+- **Analyze the source of the request**: Examine `source.ip` and `source.geo` fields to determine the geographical origin of the request. An unfamiliar or external location may indicate compromised credentials or unauthorized access. Review `user_agent.original` to confirm whether the request originated from an expected administrative tool or host.
+- **Examine the scope of the change**:
+  - Review `aws.cloudtrail.request_parameters` to determine which AWS account(s) were added to the `createVolumePermission` list.  
+    - If the account ID matches the snapshot owner’s account, this is redundant and typically non-malicious.  
+    - If another account ID or `group=all` appears, verify whether the target is an approved AWS Organization account or an external party.  
+  - Cross-check the affected `snapshotId` in the AWS console or via CLI (`describe-snapshot-attribute`) to confirm current sharing status.  
+  - Identify whether other snapshots or AMIs were shared in the same timeframe.
+- **Correlate with other activities**:
+  - Search CloudTrail for related events involving the same actor or `source.ip`.  
+    - Look for `CreateSnapshot`, `CopySnapshot`, `ExportImage`, or `PutBucketAcl` events that could indicate broader exfiltration or replication behavior.  
+    - Correlate with detections such as `EBS Snapshot Access Removed` or `EBS Encryption Disabled`, which may signal a coordinated campaign involving both exfiltration and impact.  
+  - Check GuardDuty and Security Hub for findings related to data exposure, cross-account sharing, or unauthorized data transfer.
+- **Evaluate timing and intent**: Compare `@timestamp` against scheduled maintenance or approved change windows. Actions performed outside business hours or without documented change tickets should be prioritized for review.
 
-### False Positive Analysis:
+### False positive analysis:
 
-- **Legitimate Administrative Actions**: Confirm if the snapshot sharing aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+- **Authorized internal sharing**: Confirm if the snapshot sharing was part of an approved workflow, such as internal replication or migration between AWS Organization accounts.  
+- **Automated replication or tooling**: Infrastructure-as-code or backup automation may temporarily share snapshots for cross-region or cross-account transfers. Verify automation identifiers, source IPs, and tags.  
+- **Self-account addition**: Adding the owner’s own account ID to `createVolumePermission` has no operational impact and can be safely ignored.  
 
-### Response and Remediation:
+If verified as legitimate, document the event under change management and reconcile it against organizational policies for snapshot sharing.
 
-- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, update the snapshot permissions to remove any unauthorized accounts and restore it to its previous state.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive data or permissions.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning snapshot management and sharing permissions.
-- **Audit Snapshots and Policies**: Conduct a comprehensive audit of all snapshots and associated policies to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+### Response and remediation:
 
-### Additional Information:
+**1. Containment and validation**
+- If unauthorized, immediately remove added permissions using the AWS CLI:  
+  `aws ec2 modify-snapshot-attribute --snapshot-id <id> --create-volume-permission "Remove=[{UserId=<unauthorized_id>}]"`  
+- Revoke public sharing (`group=all`) to prevent external access.  
+- Restrict `ec2:ModifySnapshotAttribute` permissions to trusted administrative roles only.
+**2. Investigate for data exfiltration or persistence**
+- Determine whether the shared snapshot was copied to another account (`CopySnapshot`).  
+- Engage AWS Support if evidence suggests external copying or data theft.  
+- Review subsequent API calls or IAM changes for further persistence or data movement.
+**3. Strengthen detection and monitoring**
+- Enable AWS Config rules such as `ebs-snapshot-public-restorable-check`.  
+- Implement continuous monitoring for `ModifySnapshotAttribute` and `CopySnapshot` operations.  
+- Correlate future detections by actor, access key, and source IP to identify repeated or automated exfiltration attempts.
+**4. Recovery and hardening**
+- Enable default encryption and validate that all snapshots remain private.  
+- Apply Service Control Policies (SCPs) to prevent public snapshot sharing organization-wide.  
+- Audit existing snapshots to ensure no others have unauthorized permissions.  
+- Implement least-privilege IAM principles and enforce multi-factor authentication (MFA) for administrative accounts.
 
-For further guidance on managing EBS snapshots and securing AWS environments, refer to the [AWS EBS documentation](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html) and AWS best practices for security. Additionally, consult the following resources for specific details on EBS snapshot security:
-- [AWS EBS Snapshot Permissions](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
-- [AWS API ModifySnapshotAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html)
-- [AWS EBS Snapshot Dump](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ebs-snapshot-dump)
+### Additional information
+
+- **[AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**: reference playbooks for investigating data exfiltration and unauthorized access.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/)**: example framework for developing custom playbooks for snapshot configuration and data protection.  
+- **AWS Documentation**  
+  - [EBS Snapshot Permissions](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)  
+  - [ModifySnapshotAttribute API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html)  
 """
 references = [
     "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html",
@@ -63,9 +93,9 @@ references = [
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ebs-snapshot-dump",
     "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "4182e486-fc61-11ee-a05d-f661ea17fbce"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
@@ -76,35 +106,14 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where
-  event.provider == "ec2.amazonaws.com"
+info where event.dataset == "aws.cloudtrail"  
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
-
-// Extract snapshotId, attribute type, operation type, and userId
-| dissect aws.cloudtrail.request_parameters
-  "{%{?snapshotId}=%{Esql.aws_cloudtrail_request_parameters_snapshot_id},%{?attributeType}=%{Esql.aws_cloudtrail_request_parameters_attribute_type},%{?createVolumePermission}={%{Esql.aws_cloudtrail_request_parameters_operation_type}={%{?items}=[{%{?userId}=%{Esql_priv.aws_cloudtrail_request_parameters_user_id}}]}}}"
-
-// Check for snapshot permission added for another AWS account
-| where
-  Esql.aws_cloudtrail_request_parameters_operation_type == "add"
-  and cloud.account.id != Esql_priv.aws_cloudtrail_request_parameters_user_id
-
-// keep ECS and derived fields
-| keep
-  @timestamp,
-  aws.cloudtrail.user_identity.arn,
-  cloud.account.id,
-  event.action,
-  Esql.aws_cloudtrail_request_parameters_snapshot_id,
-  Esql.aws_cloudtrail_request_parameters_attribute_type,
-  Esql.aws_cloudtrail_request_parameters_operation_type,
-  Esql_priv.aws_cloudtrail_request_parameters_user_id,
-  source.ip
+  and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
+  and stringContains (aws.cloudtrail.request_parameters, "add=")
 '''
 
 
@@ -120,4 +129,22 @@ reference = "https://attack.mitre.org/techniques/T1537/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 
