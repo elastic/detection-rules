@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/08/21"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Detects the use of the AWS CLI with the `--endpoint-url` argument, which allows users to specify a custom endpoint URL for AWS services. This can be leveraged by adversaries to redirect API requests to non-standard or malicious endpoints, potentially bypassing typical security controls and logging mechanisms. This behavior may indicate an attempt to interact with unauthorized or compromised infrastructure, exfiltrate data, or perform other malicious activities under the guise of legitimate AWS operations.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = ["logs-endpoint.events.process-*", "logs-crowdstrike.fdr*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CLI Command with Custom Endpoint URL"
@@ -21,12 +21,13 @@ risk_score = 47
 rule_id = "349276c0-5fcf-11ef-b1a9-f661ea17fbce"
 severity = "medium"
 tags = [
-    "Data Source: Elastic Defend",
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Resources: Investigation Guide",
+  "Data Source: Elastic Defend",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 type = "new_terms"
 timestamp_override = "event.ingested"

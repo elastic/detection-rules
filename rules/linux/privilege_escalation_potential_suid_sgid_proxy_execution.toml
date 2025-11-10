@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2025/10/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/10/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potential privilege escalation via SUID/SGID proxy execution on Linux systems. Attackers may exploit binaries with the
+SUID/SGID bit set to execute commands with elevated privileges. This rule identifies instances where a process is executed with
+root privileges (user ID 0 or group ID 0) while the real user or group ID is non-root, indicating potential misuse of SUID/SGID
+binaries. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via SUID/SGID Proxy Execution"
+references = [
+    "https://dfir.ch/posts/today_i_learned_binfmt_misc/",
+    "https://gtfobins.github.io/#+suid",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+]
+risk_score = 21
+rule_id = "341c6e18-9ef1-437e-bf18-b513f3ae2130"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.user.id == "0" and process.real_user.id != "0") or
+  (process.group.id == "0" and process.real_group.id != "0")
+) and process.args in (
+  "/bin/su", "/usr/bin/su",
+  "/usr/bin/sudo",
+  "/bin/mount", "/usr/bin/mount",
+  "/bin/umount", "/usr/bin/umount",
+  "/usr/bin/fusermount3",
+  "/bin/passwd", "/usr/bin/passwd",
+  "/bin/chfn", "/usr/bin/chfn",
+  "/bin/chsh", "/usr/bin/chsh",
+  "/bin/gpasswd", "/usr/bin/gpasswd",
+  "/bin/newgrp", "/usr/bin/newgrp",
+  "/sbin/unix_chkpwd", "/usr/sbin/unix_chkpwd",
+  "/usr/bin/newuidmap", "/usr/bin/newgidmap",
+  "/usr/lib/dbus-1.0/dbus-daemon-launch-helper", "/usr/libexec/dbus-daemon-launch-helper",
+  "/usr/lib/openssh/ssh-keysign", "/usr/libexec/openssh/ssh-keysign",
+  "/usr/bin/pkexec", "/usr/libexec/pkexec", "/usr/lib/polkit-1/pkexec",
+  "/usr/lib/polkit-1/polkit-agent-helper-1", "/usr/libexec/polkit-agent-helper-1",
+  "/usr/lib/snapd/snap-confine"
+) and process.parent.args_count == 1 
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
