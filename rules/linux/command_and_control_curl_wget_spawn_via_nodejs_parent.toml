@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/09/18"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/06"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ command and control behavior. Adversaries may use Node.js to download additional
 the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Curl or Wget Spawned via Node.js"
@@ -75,17 +75,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "node" and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.parent.name == "node" and (
   (
     process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
     process.args == "-c" and process.command_line like~ ("*curl*", "*wget*")

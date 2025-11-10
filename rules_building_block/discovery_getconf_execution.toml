@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/01/07"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,13 @@ variables and system limits. Adversaries may use this command to gather informat
 of open files, and other system limits, to aid in further exploration and exploitation of the system.
 """
 from = "now-119m"
-index = ["logs-endpoint.events.process*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = [
+  "logs-endpoint.events.process*",
+  "endgame-*",
+  "auditbeat-*",
+  "logs-auditd_manager.auditd-*",
+  "logs-crowdstrike.fdr*",
+]
 interval = "60m"
 language = "eql"
 license = "Elastic License v2"
@@ -23,19 +29,20 @@ risk_score = 21
 rule_id = "90e5976d-ed8c-489a-a293-bfc57ff8ba89"
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Rule Type: BBR",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Rule Type: BBR",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
 process.name == "getconf"
 '''
 
