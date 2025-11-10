@@ -2,16 +2,24 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/09/10"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an AWS Identity and Access Management (IAM) customer-managed policy is attached to a role by an unusual or unauthorized user. Customer-managed policies are policies created and controlled within an AWS account, granting specific permissions to roles or users when attached. This rule identifies potential privilege escalation by flagging cases where a customer-managed policy is attached to a role by an unexpected actor, which could signal unauthorized access or misuse. Attackers may attach policies to roles to expand permissions and elevate their privileges within the AWS environment. This is a New Terms rule that uses the "cloud.account.id", "user.name" and "target.entity.id" fields to check if the combination of the actor identity and target role name has not been seen before.
+Detects when an AWS Identity and Access Management (IAM) customer-managed policy is attached to a role by an unusual or
+unauthorized user. Customer-managed policies are policies created and controlled within an AWS account, granting
+specific permissions to roles or users when attached. This rule identifies potential privilege escalation by flagging
+cases where a customer-managed policy is attached to a role by an unexpected actor, which could signal unauthorized
+access or misuse. Attackers may attach policies to roles to expand permissions and elevate their privileges within the
+AWS environment. This is a New Terms rule that uses the "cloud.account.id", "user.name" and "target.entity.id" fields to
+check if the combination of the actor identity and target role name has not been seen before.
 """
 false_positives = [
     """
-    Legitimate IAM administrators may attach customer-managed policies to roles for various reasons, such as granting temporary permissions or updating existing policies. Ensure that the user attaching the policy is authorized to do so and that the action is expected.
+    Legitimate IAM administrators may attach customer-managed policies to roles for various reasons, such as granting
+    temporary permissions or updating existing policies. Ensure that the user attaching the policy is authorized to do
+    so and that the action is expected.
     """,
 ]
 from = "now-6m"
@@ -87,21 +95,6 @@ event.dataset: "aws.cloudtrail"
     and not related.entity: arn\:aws\:iam\:\:aws\:policy*
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "user_agent.original",
-    "source.ip",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "target.entity.id",
-    "event.action",
-    "event.outcome",
-    "cloud.account.id",
-    "cloud.region",
-    "aws.cloudtrail.request_parameters"
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -120,6 +113,22 @@ reference = "https://attack.mitre.org/techniques/T1548/005/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 
 [rule.new_terms]
 field = "new_terms_fields"
