@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/30"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ rule type, this rule can identify uncommon process command lines that may indica
 named pipe.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Named Pipe Creation"
@@ -81,18 +81,19 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Execution",
+  "Tactic: Command and Control",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:mkfifo and
+host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2) and process.name:mkfifo and
 process.parent.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
 process.args:((/dev/shm/* or /tmp/* or /var/tmp/*) and not /*fifo*)
 '''
