@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2025/11/11"
+maturity = "production"
+updated_date = "2025/11/11"
+
+
+[rule]
+author = ["Elastic"]
+description = "This detection correlate security alerts from different datasources related to the same domain name and from different datasources."
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Security Alerts by Domain Name"
+note = """## Triage and analysis
+
+### Investigating Multiple Security Alerts by Domain Name
+
+This detection correlate security alerts from different datasources related to the same domain name.
+
+### Possible investigation steps
+
+- Review the specific domain involved dns.question.name reputation and relevance in your environment.
+- Examine the involved correlated rules captured by Esql.kibana_alert_rule_name_values.
+- Examine the involved datasources captured by Esql.event_dataset_values.
+
+### False positive analysis
+
+- Benign domain name and unrelated to commonly abused web services for command and control.
+
+### Response and remediation
+
+- Isolate the affected user account immediately to prevent further unauthorized access.
+- Block the domain in your network security devices to stop any ongoing malicious activity.
+- Conduct a thorough review of the affected user's recent activities and access logs to identify any unauthorized actions or data access. This will help in understanding the scope of the compromise.
+- Remove any malicious software or unauthorized tools that may have been installed on the user's system. Use endpoint detection and response (EDR) tools to scan and clean the system.
+- Restore any altered or deleted data from backups, ensuring that the restored data is free from any malicious modifications.
+- Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
+- Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
+- Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
+
+risk_score = 73
+rule_id = "6f925986-f508-4b85-87c0-1a2ece84a68f"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Use Case : Multi Domain", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.alerts* metadata _id
+| where signal.rule.name is not NULL AND dns.question.name IS NOT NULL
+| stats
+   cc = count(*),
+   Esql.event_module_count_distinct = COUNT_DISTINCT(event.module),
+   Esql.kibana_alert_rule_name_count_distinct = COUNT_DISTINCT(kibana.alert.rule.name),
+   Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
+   Esql.event_module_values = VALUES(event.module),
+   Esql.event_dataset_values = VALUES(event.dataset),
+   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+
+  by dns.question.name
+// Same domain reported by at least two unique integrations and from more than 2 datasources and rules
+| where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
+        Esql.agent_id_count_distinct >= 2 and Esql.agent_id_count_distinct <= 5
+'''
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0011/"
+id = "TA0011"
+name = "Command and Control"
+
