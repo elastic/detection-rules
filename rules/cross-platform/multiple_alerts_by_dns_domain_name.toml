@@ -47,7 +47,7 @@ type = "esql"
 
 query = '''
 FROM .alerts-security.alerts* metadata _id
-| where signal.rule.name is not NULL AND dns.question.name IS NOT NULL
+| where kibana.alert.rule.name is not NULL AND dns.question.name IS NOT NULL
 | stats
    cc = count(*),
    Esql.event_module_count_distinct = COUNT_DISTINCT(event.module),
@@ -55,8 +55,7 @@ FROM .alerts-security.alerts* metadata _id
    Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
    Esql.event_module_values = VALUES(event.module),
    Esql.event_dataset_values = VALUES(event.dataset),
-   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
-
+   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name)
   by dns.question.name
 // Same domain reported by at least two unique integrations and from more than 2 datasources and rules
 | where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
