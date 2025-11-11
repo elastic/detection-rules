@@ -285,6 +285,8 @@ def get_filtered_index_schema(
     filtered_index_lookup = {
         key.replace("logs-endpoint.", "logs-endpoint.events."): value for key, value in filtered_index_lookup.items()
     }
+    # This overwrites any conflicts with non-ecs preferring what is defined in custom mappings
+    # This can be done safely as we have a specific non-ecs-index that will also be included with only non-ecs mappings
     filtered_index_lookup.update(non_ecs_mapping)
     filtered_index_lookup.update(custom_mapping)
 
