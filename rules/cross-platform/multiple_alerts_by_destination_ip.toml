@@ -63,7 +63,8 @@ FROM .alerts-security.alerts* metadata _id
    Esql.process_executable_values = VALUES(process.executable),
    Esql.agent_id_values = VALUES(agent.id)
   by destination.address
-// Same domain reported by at least two unique integrations and from more than 2 datasources and rules
+// Same destination address reported by at least by two unique integrations and from more than 2 datasources and rules
+// One of the datasource captures process.executable information to correlate endpoint with network
 | where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
         Esql.agent_id_count_distinct >= 2 and Esql.agent_id_count_distinct <= 5 and Esql.process_executable_count_distinct >= 1
 '''
