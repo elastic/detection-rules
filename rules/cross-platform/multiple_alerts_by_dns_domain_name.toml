@@ -22,6 +22,7 @@ This detection correlate security alerts from different datasources related to t
 - Review the specific domain involved dns.question.name reputation and relevance in your environment.
 - Examine the involved correlated rules captured by Esql.kibana_alert_rule_name_values.
 - Examine the involved datasources captured by Esql.event_dataset_values.
+- Review alerts from the involved agents Esql.agent_id_values.
 
 ### False positive analysis
 
@@ -58,7 +59,8 @@ FROM .alerts-security.alerts* metadata _id
    Esql.event_module_values = VALUES(event.module),
    Esql.event_dataset_values = VALUES(event.dataset),
    Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
-   Esql.process_executable_values = VALUES(process.executable)
+   Esql.process_executable_values = VALUES(process.executable),
+   Esql.agent_id_values = VALUES(agent.id)
   by dns.question.name
 // Same domain reported by at least two unique integrations and from more than 2 datasources and rules
 | where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
