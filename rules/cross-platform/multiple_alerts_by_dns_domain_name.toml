@@ -57,6 +57,7 @@ FROM .alerts-security.alerts* metadata _id
    Esql.event_module_count_distinct = COUNT_DISTINCT(event.module),
    Esql.kibana_alert_rule_name_count_distinct = COUNT_DISTINCT(kibana.alert.rule.name),
    Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
+   Esql.process_executable_count_distinct = COUNT_DISTINCT(process.executable),
    Esql.event_module_values = VALUES(event.module),
    Esql.event_dataset_values = VALUES(event.dataset),
    Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
@@ -64,8 +65,9 @@ FROM .alerts-security.alerts* metadata _id
    Esql.agent_id_values = VALUES(agent.id)
   by dns.question.name
 // Same domain reported by at least two unique integrations and from more than 2 datasources and rules
+// One of the datasource captures process.executable information to correlate endpoint with network
 | where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
-        Esql.agent_id_count_distinct >= 2 and Esql.agent_id_count_distinct <= 5
+        Esql.agent_id_count_distinct >= 2 and Esql.agent_id_count_distinct <= 5 and and Esql.process_executable_count_distinct >= 1
 '''
 
 
