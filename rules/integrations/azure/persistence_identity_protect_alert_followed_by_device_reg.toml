@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/09/30"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,8 @@ type = "eql"
 
 query = '''
 sequence with maxspan=5m
-[any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
+[any where event.dataset == "azure.identity_protection" and
+ not azure.identityprotection.properties.risk_detail in ("aiConfirmedSigninSafe", "none", "userChangedPasswordOnPremises")] by azure.identityprotection.properties.user_principal_name
 [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
 '''
 

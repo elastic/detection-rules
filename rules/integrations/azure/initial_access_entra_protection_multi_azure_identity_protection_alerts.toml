@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,8 @@ type = "eql"
 
 query = '''
 sequence by azure.identityprotection.properties.user_principal_name with maxspan=10m
-[any where event.module == "azure" and event.dataset == "azure.identity_protection"] with runs=2
+[any where event.module == "azure" and event.dataset == "azure.identity_protection" and
+ not azure.identityprotection.properties.risk_detail in ("aiConfirmedSigninSafe", "userPassedMFADrivenByRiskBasedPolicy", "none")] with runs=2
 '''
 
 
