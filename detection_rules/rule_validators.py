@@ -588,6 +588,8 @@ class EQLValidator(QueryValidator):
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
+        # base field declaration
+        field = None
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             return
 
@@ -662,7 +664,7 @@ class EQLValidator(QueryValidator):
             # treat this target as non-fatal to honor EQL optional semantics.
 
             # To support EQL sequence and sub query validation we need to return this field to overwrite
-            # what would have been parsed via auto_add_field as the error message and query may be our of sync
+            # what would have been parsed via auto_add_field as the error message and query may be out of sync
             # depending on how the method is called.
             field = extract_error_field(query_text, exc)
             if (
