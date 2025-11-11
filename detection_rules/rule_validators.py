@@ -662,7 +662,7 @@ class EQLValidator(QueryValidator):
             # treat this target as non-fatal to honor EQL optional semantics.
 
             # To support EQL sequence and sub query validation we need to return this field to overwrite
-            # what would have been parsed via auto_add_field as the error message and query may be our of sync
+            # what would have been parsed via auto_add_field as the error message and query may be out of sync
             # depending on how the method is called.
             field = extract_error_field(query_text, exc)
             if (
