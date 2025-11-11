@@ -292,8 +292,6 @@ def get_filtered_index_schema(
     # Custom and non-ecs mappings are filtered before being sent to this function in prepare mappings
     combined_mappings: dict[str, Any] = {}
     utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
-    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_mapping))
-    utils.combine_dicts(combined_mappings, deepcopy(custom_mapping))
     for match in matches:
         utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
 
@@ -461,20 +459,29 @@ def prepare_mappings(  # noqa: PLR0913
     index_lookup.update(integration_index_lookup)
 
     # Load non-ecs schema and convert to index mapping format (nested schema)
+    # For non_ecs we need both a mapping and a schema as custom schemas can override non-ecs fields
+    # In these cases we need to accept the overwrite keep the original non-ecs field in the schema
+    non_ecs_schema: dict[str, Any] = {}
     non_ecs_mapping: dict[str, Any] = {}
     non_ecs = ecs.get_non_ecs_schema()
     for index in indices:
-        non_ecs_mapping.update(non_ecs.get(index, {}))
-    non_ecs_mapping = ecs.flatten(non_ecs_mapping)
-    non_ecs_mapping = utils.convert_to_nested_schema(non_ecs_mapping)
+        index_mapping = non_ecs.get(index, {})
+        non_ecs_schema.update(index_mapping)
+        index_mapping = ecs.flatten(index_mapping)
+        index_mapping = utils.convert_to_nested_schema(index_mapping)
+        non_ecs_mapping.update({index: index_mapping})
+
+    non_ecs_schema = ecs.flatten(non_ecs_schema)
+    non_ecs_schema = utils.convert_to_nested_schema(non_ecs_schema)
 
     # Load custom schema and convert to index mapping format (nested schema)
     custom_mapping: dict[str, Any] = {}
     custom_indices = ecs.get_custom_schemas()
     for index in indices:
-        custom_mapping.update(custom_indices.get(index, {}))
-    custom_mapping = ecs.flatten(custom_mapping)
-    custom_mapping = utils.convert_to_nested_schema(custom_mapping)
+        index_mapping = custom_indices.get(index, {})
+        index_mapping = ecs.flatten(index_mapping)
+        index_mapping = utils.convert_to_nested_schema(index_mapping)
+        custom_mapping.update({index: index_mapping})
 
     # Load ECS in an index mapping format (nested schema)
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
@@ -487,8 +494,8 @@ def prepare_mappings(  # noqa: PLR0913
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
 
-    if (not integration_mappings or existing_mappings) and not non_ecs_mapping and not ecs_schema:
+    if (not integration_mappings or existing_mappings) and not non_ecs_schema and not ecs_schema:
         raise ValueError("No mappings found")
-    index_lookup.update({"rule-non-ecs-index": non_ecs_mapping})
+    index_lookup.update({"rule-non-ecs-index": non_ecs_schema})
 
     return existing_mappings, index_lookup, combined_mappings
