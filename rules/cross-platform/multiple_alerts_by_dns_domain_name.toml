@@ -26,6 +26,8 @@ This detection correlate security alerts from different datasources related to t
 ### False positive analysis
 
 - Benign domain name and unrelated to commonly abused web services for command and control.
+- Generic domain names like google, youtube, CDN (content delivery network) and alike.
+- Company internal domains.
 
 ### Response and remediation
 
@@ -55,7 +57,8 @@ FROM .alerts-security.alerts* metadata _id
    Esql.agent_id_count_distinct = COUNT_DISTINCT(agent.id),
    Esql.event_module_values = VALUES(event.module),
    Esql.event_dataset_values = VALUES(event.dataset),
-   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name)
+   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+   Esql.process_executable_values = VALUES(process.executable)
   by dns.question.name
 // Same domain reported by at least two unique integrations and from more than 2 datasources and rules
 | where Esql.event_module_count_distinct >= 2 and Esql.kibana_alert_rule_name_count_distinct >= 2 and
