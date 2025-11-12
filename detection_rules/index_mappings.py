@@ -174,7 +174,7 @@ def prune_mappings_of_unsupported_types(
     nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
     for field in nested_flattened_fields:
         # Remove both .fields and .properties entries for flattened fields
-        # properties entries can occur when being merged with non-ecs or custom schemas
+        # .properties entries can occur when being merged with non-ecs or custom schemas
         field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
         property_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".properties"
         log(
