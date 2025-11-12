@@ -50,12 +50,12 @@ process where
 or
 /* service or systemctl used to stop Elastic Agent on Linux */
 (event.type == "end" and
-  (process.name : ("systemctl", "service") and
+  (process.name : ("systemctl", "service", "chkconfig", "update-rc.d") and
     process.args : ("elastic-agent", "elastic-agent.service") and
-    process.args : ("stop", "disable"))
+    process.args : ("stop", "disable", "remove", "off", "kill", "mask"))
   or
   /* pkill , killall used to stop Elastic Agent on Linux */
-  ( event.type == "end" and process.name : ("pkill", "killall") and process.args: "elastic-agent")
+  ( event.type == "end" and process.name : ("pkill", "killall", "kill") and process.args: "elastic-agent")
   or
   /* Unload Elastic Agent extension on MacOS */
   (process.name : "kextunload" and
