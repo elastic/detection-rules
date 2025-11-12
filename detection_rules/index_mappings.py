@@ -408,7 +408,7 @@ def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any
 
 
 def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = "") -> list[str]:
-    """Recursively search for fields of type 'flattened' that have a 'fields' key in Elasticsearch mappings."""
+    """Recursively search for type 'flattened' that have a 'fields' or 'properties' key in Elasticsearch mappings."""
     flattened_fields_with_subfields: list[str] = []
 
     for field, properties in mapping.items():
