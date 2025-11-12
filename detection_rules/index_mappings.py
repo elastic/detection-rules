@@ -159,6 +159,29 @@ def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: s
     return template["template"]["mappings"]["properties"]
 
 
+def prune_mappings_of_unsupported_types(
+    integration: str, stream: str, stream_mappings: dict[str, Any], log: Callable[[str], None]
+) -> dict[str, Any]:
+    """Prune fields with unsupported types (ES|QL) from the provided mappings."""
+    nested_multifields = find_nested_multifields(stream_mappings)
+    for field in nested_multifields:
+        field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
+        log(
+            f"Warning: Nested multi-field `{field}` found in `{integration}-{stream}`. "
+            f"Removing parent field from schema for ES|QL validation."
+        )
+        delete_nested_key_from_dict(stream_mappings, field_name)
+    nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
+    for field in nested_flattened_fields:
+        field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
+        log(
+            f"Warning: flattened field `{field}` found in `{integration}-{stream}` with sub fields. "
+            f"Removing parent field from schema for ES|QL validation."
+        )
+        delete_nested_key_from_dict(stream_mappings, field_name)
+    return stream_mappings
+
+
 def prepare_integration_mappings(  # noqa: PLR0913
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
@@ -199,22 +222,7 @@ def prepare_integration_mappings(  # noqa: PLR0913
         for stream in package_schema:
             flat_schema = package_schema[stream]
             stream_mappings = flat_schema_to_index_mapping(flat_schema)
-            nested_multifields = find_nested_multifields(stream_mappings)
-            for field in nested_multifields:
-                field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
-                log(
-                    f"Warning: Nested multi-field `{field}` found in `{integration}-{stream}`. "
-                    f"Removing parent field from schema for ES|QL validation."
-                )
-                delete_nested_key_from_dict(stream_mappings, field_name)
-            nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
-            for field in nested_flattened_fields:
-                field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
-                log(
-                    f"Warning: flattened field `{field}` found in `{integration}-{stream}` with sub fields. "
-                    f"Removing parent field from schema for ES|QL validation."
-                )
-                delete_nested_key_from_dict(stream_mappings, field_name)
+            stream_mappings = prune_mappings_of_unsupported_types(integration, stream, stream_mappings, log)
             utils.combine_dicts(integration_mappings, deepcopy(stream_mappings))
             index_lookup[f"{integration}-{stream}"] = stream_mappings
 
@@ -285,17 +293,19 @@ def get_filtered_index_schema(
     filtered_index_lookup = {
         key.replace("logs-endpoint.", "logs-endpoint.events."): value for key, value in filtered_index_lookup.items()
     }
-    # This overwrites any conflicts with non-ecs preferring what is defined in custom mappings
-    # This can be done safely as we have a specific non-ecs-index that will also be included with only non-ecs mappings
-    filtered_index_lookup.update(non_ecs_mapping)
-    filtered_index_lookup.update(custom_mapping)
 
     # Reduce the combined mappings to only the matched indices (local schema validation source of truth)
     # Custom and non-ecs mappings are filtered before being sent to this function in prepare mappings
     combined_mappings: dict[str, Any] = {}
     utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
     for match in matches:
-        utils.combine_dicts(combined_mappings, deepcopy(filtered_index_lookup.get(match, {})))
+        base = filtered_index_lookup.get(match, {})
+        # Update filtered index with non-ecs and custom mappings
+        # Need to user a merge here to not overwrite existing fields
+        utils.combine_dicts(base, deepcopy(non_ecs_mapping.get(match, {})))
+        utils.combine_dicts(base, deepcopy(custom_mapping.get(match, {})))
+        filtered_index_lookup[match] = base
+        utils.combine_dicts(combined_mappings, deepcopy(base))
 
     # Reduce the index lookup to only the matched indices (remote/Kibana schema validation source of truth)
     filtered_index_mapping: dict[str, Any] = {}
@@ -473,8 +483,12 @@ def prepare_mappings(  # noqa: PLR0913
         index_mapping = utils.convert_to_nested_schema(index_mapping)
         non_ecs_mapping.update({index: index_mapping})
 
+    # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
+    # and also at a per index level as custom schemas can override non-ecs fields and/or indices
     non_ecs_schema = ecs.flatten(non_ecs_schema)
     non_ecs_schema = utils.convert_to_nested_schema(non_ecs_schema)
+    non_ecs_schema = prune_mappings_of_unsupported_types("non-ecs", "non-ecs", non_ecs_schema, log)
+    non_ecs_mapping = prune_mappings_of_unsupported_types("non-ecs", "non-ecs", non_ecs_mapping, log)
 
     # Load custom schema and convert to index mapping format (nested schema)
     custom_mapping: dict[str, Any] = {}
@@ -484,6 +498,7 @@ def prepare_mappings(  # noqa: PLR0913
         index_mapping = ecs.flatten(index_mapping)
         index_mapping = utils.convert_to_nested_schema(index_mapping)
         custom_mapping.update({index: index_mapping})
+    custom_mapping = prune_mappings_of_unsupported_types("custom", "custom", custom_mapping, log)
 
     # Load ECS in an index mapping format (nested schema)
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
@@ -499,5 +514,6 @@ def prepare_mappings(  # noqa: PLR0913
     if (not integration_mappings or existing_mappings) and not non_ecs_schema and not ecs_schema:
         raise ValueError("No mappings found")
     index_lookup.update({"rule-non-ecs-index": non_ecs_schema})
+    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_schema))
 
     return existing_mappings, index_lookup, combined_mappings
