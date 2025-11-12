@@ -104,10 +104,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:file and host.os.type:linux and event.action:creation and
-process.name:(scp or sshd or ssh or ftp or sftp or vsftpd or sftp-server or rsync) and
-file.path:(/tmp* or /var/tmp* or /dev/shm/*) and
-not user.id:0 and
-not file.path:(/tmp/ansible-tmp-* or /var/tmp/ansible-tmp-*)
+process.name:(ftp or rsync or scp or sftp or sftp-server or ssh or sshd or vsftpd) and
+file.path:((/dev/shm/* or /tmp* or /var/tmp*) and not (/tmp/ansible-tmp-* or /var/tmp/ansible-tmp-*)) and
+not user.id:0
 '''
 
 [[rule.threat]]
