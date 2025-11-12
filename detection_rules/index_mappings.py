@@ -173,12 +173,16 @@ def prune_mappings_of_unsupported_types(
         delete_nested_key_from_dict(stream_mappings, field_name)
     nested_flattened_fields = find_flattened_fields_with_subfields(stream_mappings)
     for field in nested_flattened_fields:
+        # Remove both .fields and .properties entries for flattened fields
+        # properties entries can occur when being merged with non-ecs or custom schemas
         field_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".fields"
+        property_name = str(field).split(".fields.")[0].replace(".", ".properties.") + ".properties"
         log(
             f"Warning: flattened field `{field}` found in `{integration}-{stream}` with sub fields. "
             f"Removing parent field from schema for ES|QL validation."
         )
         delete_nested_key_from_dict(stream_mappings, field_name)
+        delete_nested_key_from_dict(stream_mappings, property_name)
     return stream_mappings
 
 
@@ -246,12 +250,13 @@ def get_index_to_package_lookup(indices: list[str], index_lookup: dict[str, Any]
     return index_lookup_indices
 
 
-def get_filtered_index_schema(
+def get_filtered_index_schema(  # noqa: PLR0913
     indices: list[str],
     index_lookup: dict[str, Any],
     ecs_schema: dict[str, Any],
     non_ecs_mapping: dict[str, Any],
     custom_mapping: dict[str, Any],
+    log: Callable[[str], None],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Check if the provided indices are known based on the integration format. Returns the combined schema."""
 
@@ -304,7 +309,7 @@ def get_filtered_index_schema(
         # Need to use a merge here to not overwrite existing fields
         utils.combine_dicts(base, deepcopy(non_ecs_mapping.get(match, {})))
         utils.combine_dicts(base, deepcopy(custom_mapping.get(match, {})))
-        filtered_index_lookup[match] = base
+        filtered_index_lookup[match] = prune_mappings_of_unsupported_types("index", match, base, log)
         utils.combine_dicts(combined_mappings, deepcopy(base))
 
     # Reduce the index lookup to only the matched indices (remote/Kibana schema validation source of truth)
@@ -413,6 +418,9 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
             # Check if the field is of type 'flattened' and has a 'fields' key
             if properties.get("type") == "flattened" and "fields" in properties:  # type: ignore[reportUnknownVariableType]
                 flattened_fields_with_subfields.append(current_path)  # type: ignore[reportUnknownVariableType]
+            # Check if the field is of type 'flattened' and has a 'properties' key
+            if properties.get("type") == "flattened" and "properties" in properties:  # type: ignore[reportUnknownVariableType]
+                flattened_fields_with_subfields.append(current_path)  # type: ignore[reportUnknownVariableType]
 
             # Recurse into subfields
             if "properties" in properties:
@@ -506,7 +514,7 @@ def prepare_mappings(  # noqa: PLR0913
 
     # Filter combined mappings based on the provided indices
     combined_mappings, index_lookup = get_filtered_index_schema(
-        indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping
+        indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping, log
     )
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
