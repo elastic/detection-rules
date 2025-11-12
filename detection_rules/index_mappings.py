@@ -301,7 +301,7 @@ def get_filtered_index_schema(
     for match in matches:
         base = filtered_index_lookup.get(match, {})
         # Update filtered index with non-ecs and custom mappings
-        # Need to user a merge here to not overwrite existing fields
+        # Need to use a merge here to not overwrite existing fields
         utils.combine_dicts(base, deepcopy(non_ecs_mapping.get(match, {})))
         utils.combine_dicts(base, deepcopy(custom_mapping.get(match, {})))
         filtered_index_lookup[match] = base
