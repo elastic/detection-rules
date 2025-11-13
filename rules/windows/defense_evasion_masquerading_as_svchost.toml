@@ -64,8 +64,8 @@ type = "esql"
 query = '''
 FROM logs-* metadata _id, _version, _index
 | where event.category == "process" and event.type == "start" and
-  match(process.name, "svchost.exe", { "fuzziness": "AUTO", "max_expansions": 10 }) and
-  not process.executable in ("C:\\Windows\\System32\\sihost.exe", "C:\\Windows\\SysWOW64\\svchost.exe", "C:\\Windows\\System32\\svchost.exe") and
+  match(process.name, "svchost.exe", { "fuzziness": 1, "max_expansions": 10 }) and
+  not process.executable in ("C:\\Windows\\SysWOW64\\svchost.exe", "C:\\Windows\\System32\\svchost.exe") and
   not process.executable like """\\Device\\HarddiskVolume*\\Windows\\System32\\svchost.exe""" and
   not process.executable like """\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\svchost.exe"""
 | keep event.dataset, host.name, host.id, user.id, user.name, process.executable, process.parent.executable, process.command_line
