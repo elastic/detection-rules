@@ -57,7 +57,7 @@ Adversaries sometimes replace ASCII characters with visually similar Unicode mod
 - Block and update indicators related to this activity (hashes, exact normalized command patterns, codepoint sequences, IPs/domains).
 - Run global hutning queries for same Unicode patterns, normalized variants, and identical parent/child process chains.
 """
-references = ["https://argfuscator.net/about.html"]
+references = ["https://www.wietzebeukema.nl/blog/windows-command-line-obfuscation"]
 risk_score = 73
 rule_id = "37148ae6-c6ec-4fe4-88b1-02f40aed93a9"
 severity = "high"
@@ -81,8 +81,8 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
  (
-   process.name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "cmd.exe", "powershell.exe", "conhost.exe", "wscript.exe", "cscript.exe", "regsvr32.exe", "rundll32.exe", "procdump.exe", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "vssadmin.exe", "wbadmin.exe", "sftp.exe") or
-   ?process.pe.original_file_name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "cmd.exe", "powershell.exe", "conhost.exe", "wscript.exe", "cscript.exe", "regsvr32.exe", "rundll32.exe", "procdump", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "vssadmin.exe", "wbadmin.exe", "sftp.exe")
+   process.name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump.exe", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe") or
+   ?process.pe.original_file_name in ("reg.exe", "net.exe", "net1.exe", "CertUtil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe")
  ) and
  process.command_line regex """.*[ʰ-˿ᴬ-ᶻ]+.*"""
 '''
