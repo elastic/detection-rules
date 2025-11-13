@@ -1,0 +1,78 @@
+[metadata]
+creation_date = "2025/11/13"
+maturity = "production"
+updated_date = "2025/11/13"
+
+
+[rule]
+author = ["Elastic"]
+description = "This detection correlate cloud related security alerts and external alerts by source.ip."
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Cloud and Network Alert by Source Address"
+note = """## Triage and analysis
+
+### Investigating Cloud and Network Alert by Source Address
+
+This detection correlate security alerts from different datasources related to the same source address.
+
+### Possible investigation steps
+
+- Review the specific involved source.ip reputation and relevance in your environment.
+- Examine the involved correlated rules captured by Esql.kibana_alert_rule_name_values.
+- Examine the involved datasources captured by Esql.event_dataset_values.
+- Examine the involved process executable details (reputation and relevance).
+- Review alerts from the involved agents Esql.agent_id_values.
+
+### False positive analysis
+
+- Normal expected network traffics.
+- Company internal servers and proxy gateway.
+
+### Response and remediation
+
+- Isolate the affected user account immediately to prevent further unauthorized access.
+- Block the domain in your network security devices to stop any ongoing malicious activity.
+- Conduct a thorough review of the affected user's recent activities and access logs to identify any unauthorized actions or data access. This will help in understanding the scope of the compromise.
+- Remove any malicious software or unauthorized tools that may have been installed on the user's system. Use endpoint detection and response (EDR) tools to scan and clean the system.
+- Restore any altered or deleted data from backups, ensuring that the restored data is free from any malicious modifications.
+- Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
+- Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
+- Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
+
+risk_score = 73
+rule_id = "ac0ad276-68e6-456e-9d4a-216e157d6ad4"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Use Case : Multi Domain", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.alerts* metadata _id
+| where kibana.alert.rule.name is not NULL and
+  source.ip is not null and
+  (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts") and
+  not CIDR_MATCH(TO_IP(source.ip), "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+                 "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24",
+                 "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15",
+                 "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8", "8.8.8.8")
+
+| eval
+  mail_access_src_ip = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed", source.ip, null),
+  azure_src_ip = case(event.dataset == "azure.signinlogs" and event.category == "authentication" and event.outcome == "success", source.ip, null),
+  network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts", source.ip, null)
+
+| stats
+  Esql.is_mail_access_distinct_count = COUNT_DISTINCT(mail_access_src_ip),
+  Esql.is_azure_distinct_count = COUNT_DISTINCT(azure_src_ip),
+  Esql.event_dataset_distinct_count = COUNT_DISTINCT(event.dataset),
+  Esql.network_alert_distinct_count = COUNT_DISTINCT(network_alert_src_ip),
+  Esql.event_dataset_values = VALUES(event.dataset),
+  Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+  Esql.event_category_values = VALUES(event.category) by source.ip
+
+| where Esql.network_alert_distinct_count  >= 1 and Esql.event_dataset_distinct_count >= 2 and (Esql.is_mail_access_distinct_count  > 0 or Esql.is_azure_distinct_count > 0)
+'''
+
+
