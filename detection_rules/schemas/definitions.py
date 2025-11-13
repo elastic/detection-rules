@@ -245,7 +245,7 @@ NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=0, max=100))]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
 SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
 SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]
