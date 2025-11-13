@@ -30,9 +30,10 @@ type = "esql"
 
 query = '''
 from logs-endpoint.*  metadata _id
-| where event.agent_id_status is not null and tags != "forwarded"
-| stats Esql.count_distinct_host_ids = count_distinct(host.id), Esql.host_id_values = values(host.id), Esql.user_id_values(user.id), Esql.user_id_values(user.name)  by agent.id
+| where event.agent_id_status is not null 
+| stats Esql.count_distinct_host_ids = count_distinct(host.id), Esql.host_id_values = values(host.id), Esql.user_id_values_user_id = values(user.id) by agent.id
 | where Esql.count_distinct_host_ids >= 2
+| keep Esql.count_distinct_host_ids, Esql.host_id_values, Esql.user_id_values_user_id, agent.id
 '''
 note = """## Triage and analysis
 
