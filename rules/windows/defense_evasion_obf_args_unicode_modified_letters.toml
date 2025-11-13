@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/11/13"
-integration = ["windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
 updated_date = "2025/11/13"
 
@@ -11,7 +11,18 @@ Identifies the presence of unicode modifier letters in the process command_line.
 with visually similar Unicode modifier letters or combining marks to evade simple string-based detections.
 """
 from = "now-9m"
-language = "esql"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
 license = "Elastic License v2"
 name = "Command Obfuscation via Unicode Modifier Letters"
 note = """ ## Triage and analysis
@@ -55,20 +66,25 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-from logs-* metadata _id, _version, _index
-| where event.category == "process" and event.type == "start" and host.os.type == "windows" and
-  (
-   to_lower(process.name) in ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "powershell.exe", "wscript.exe", "regsvr32.exe", "rundll32.exe", "procdump.exe", "ntdsutil.exe", "diskshadow.exe") or
-   to_lower(process.pe.original_file_name) in ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "powershell.exe", "wscript.exe", "regsvr32.exe", "rundll32.exe", "procdump", "ntdsutil.exe", "diskshadow.exe")
-   ) and
-  process.command_line RLIKE """.*[ʰ-˿ᴬ-ᶻ]+.*"""
-| keep host.id, host.name, user.id, user.name, process.executable, process.command_line, process.parent.executable, event.dataset
+process where host.os.type == "windows" and event.type == "start" and
+ (
+   process.name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "cmd.exe", "powershell.exe", "conhost.exe", "wscript.exe", "cscript.exe", "regsvr32.exe", "rundll32.exe", "procdump.exe", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "vssadmin.exe", "wbadmin.exe", "sftp.exe") or
+   ?process.pe.original_file_name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "mshta.exe", "msiexec.exe", "bitsadmin.exe", "certreq.exe", "msbuild.exe", "curl.exe", "ssh.exe", "cmd.exe", "powershell.exe", "conhost.exe", "wscript.exe", "cscript.exe", "regsvr32.exe", "rundll32.exe", "procdump", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "vssadmin.exe", "wbadmin.exe", "sftp.exe")
+ ) and
+ process.command_line regex """.*[ʰ-˿ᴬ-ᶻ]+.*"""
 '''
 
 
