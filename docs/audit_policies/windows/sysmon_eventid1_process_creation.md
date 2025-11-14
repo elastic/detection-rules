@@ -9,7 +9,7 @@
 
 Some detection rules support the use of Sysmon Event ID 1 (Process Creation) events to detect malicious and suspicious process execution activity.
 
-To collect these logs, use the [Windows Integration](https://www.elastic.co/docs/current/integrations/windows)and select the `Sysmon Operational` channel on the integration setup page.
+To collect these logs, use the [Windows Integration](https://www.elastic.co/docs/current/integrations/windows) and select the `Sysmon Operational` channel on the integration setup page.
 
 ## Configuration Example
 
