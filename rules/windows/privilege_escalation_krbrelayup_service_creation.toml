@@ -2,7 +2,7 @@
 creation_date = "2022/04/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/06/19"
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,7 @@ type = "eql"
 
 query = '''
 sequence by winlog.computer_name with maxspan=5m
- [authentication where
+ [authentication where host.os.type == "windows" and
 
   /* event 4624 need to be logged */
   event.action == "logged-in" and event.outcome == "success" and winlog.event_data.ElevatedToken == "%%1843" and process.pid == 0 and 
@@ -81,7 +81,7 @@ sequence by winlog.computer_name with maxspan=5m
   /* authenticate locally using relayed kerberos Ticket */
   winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and cidrmatch(source.ip, "127.0.0.0/8", "::1")] by winlog.event_data.TargetLogonId
 
-  [any where
+  [any where host.os.type == "windows" and
    /* event 4697 need to be logged */
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''
