@@ -6,14 +6,17 @@ updated_date = "2025/11/13"
 
 [rule]
 author = ["Elastic"]
-description = "This detection correlate Azure or Office365 alerts with other external alerts sharing same source.ip."
+description = """
+This detection correlate a cloud related security alerts with other external alerts sharing same source.ip. This may indicate
+a multi stage attack from the same source.
+"""
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "Cloud and Network Alert by Source Address"
+name = "Cloud and External Alert by Source Address"
 note = """## Triage and analysis
 
-### Investigating Cloud and Network Alert by Source Address
+### Investigating Cloud and External Alert by Source Address
 
 This detection correlate security alerts from different datasources related to the same source address.
 
@@ -54,7 +57,7 @@ FROM .alerts-security.* metadata _id
                  "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24",
                  "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15",
                  "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8", "8.8.8.8")
-| keep event.dataset, event.category, source.ip, kibana.alert.rule.name, cluster_uuid
+| keep event.dataset, event.category, source.ip, kibana.alert.rule.name
 | eval
   o365_src_ip = case(event.dataset like "o365.*", source.ip, null),
   azure_src_ip = case(event.dataset like "azure.*", source.ip, null),
@@ -75,7 +78,7 @@ FROM .alerts-security.* metadata _id
 
   Esql.event_dataset_values = VALUES(event.dataset),
   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
-  Esql.event_category_values = VALUES(event.category) by source.ip, cluster_uuid
+  Esql.event_category_values = VALUES(event.category) by source.ip
 
 // At least one cloud alert and one external alert for the same source.ip
 | where Esql.external_alert_distinct_count >= 1 and Esql.event_dataset_distinct_count >= 2 and Esql.alerts_count <= 100 and (Esql.is_o365_distinct_count > 0 or Esql.is_azure_distinct_count > 0 or Esql.is_aws_distinct_count > 0 or Esql.is_github_distinct_count > 0 or Esql.is_okta_distinct_count > 0)
