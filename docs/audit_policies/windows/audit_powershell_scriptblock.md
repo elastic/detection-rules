@@ -4,7 +4,7 @@
 
 Some detection rules require enabling PowerShell Script Block Logging to record the content of processed script blocks in the Windows Event Log.
 
-To collect these logs, use the [Windows Integration](https://www.elastic.co/docs/current/integrations/windows)and select the `Powershell Operational` channel on the integration setup page.
+To collect these logs, use the [Windows Integration](https://www.elastic.co/docs/current/integrations/windows) and select the `Powershell Operational` channel on the integration setup page.
 
 ### Enable Audit Policy via Group Policy
 
