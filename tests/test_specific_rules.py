@@ -49,12 +49,7 @@ class TestEndpointQuery(BaseRuleTest):
 
             err_msg = f"{self.rule_str(rule)} missing required field for endpoint rule"
             if "host.os.type" not in fields:
-                # Exception for Forwarded Events which contain Windows-only fields.
-                if rule.path.parent.name == "windows":
-                    if not any(field.startswith("winlog.") for field in fields):
-                        self.assertIn("host.os.type", fields, err_msg)
-                else:
-                    self.assertIn("host.os.type", fields, err_msg)
+                self.assertIn("host.os.type", fields, err_msg)
 
 
 class TestNewTerms(BaseRuleTest):
