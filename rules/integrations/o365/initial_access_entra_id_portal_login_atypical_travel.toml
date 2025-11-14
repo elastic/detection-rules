@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/10/30"
 
 [rule]
 author = ["Elastic"]
@@ -23,10 +23,10 @@ from = "now-15m"
 index = ["logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "M365 Portal Login (Atypical Travel)"
+name = "M365 Identity Login from Atypical Travel Location"
 note = """## Triage and analysis
 
-### Investigating M365 Portal Login (Atypical Travel)
+### Investigating M365 Identity Login from Atypical Travel Location
 
 Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon locations, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access attempts by analyzing login events and user location patterns.
 
@@ -37,7 +37,7 @@ Microsoft 365 is a cloud-based suite offering productivity tools accessible from
 - Review the ISP information for the login attempts to identify any unusual or suspicious providers.
 - Review the authorization request type to understand the context of the login attempts and whether they align with the user's typical behavior.
 - Analyze the client application used for the login attempts to determine if it is consistent with the user's normal usage patterns (Teams, Office, etc.)
-- Analyze the user-agent associated with the login attempts to identify any unusual or suspicious patterns.
+- Analyze the user-agent associated with the login attempts to identify any unusual or suspicious patterns. These could also indicate mobile and endpoint logins causing false-positives.
 
 ### False positive analysis
 
@@ -50,6 +50,7 @@ Microsoft 365 is a cloud-based suite offering productivity tools accessible from
 - If the login attempt is deemed suspicious, consider implementing additional security measures, such as requiring multi-factor authentication (MFA) for logins from unusual locations.
 - Educate users about the risks of accessing corporate resources from unfamiliar locations and the importance of using secure connections (e.g., VPNs) when doing so.
 - Monitor for any subsequent login attempts from the same location or IP address to identify potential patterns of malicious activity.
+- Consider adding exceptions to this rule for the user or source application ID if the login attempts are determined to be legitimate and not a security concern.
 """
 references = ["https://www.huntress.com/blog/time-travelers-busted-how-to-detect-impossible-travel-"]
 risk_score = 47
@@ -57,7 +58,7 @@ rule_id = "32d3ad0e-6add-11ef-8c7b-f661ea17fbcc"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: SaaS",
+    "Domain: Identity",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft 365 Audit Logs",
     "Use Case: Threat Detection",
@@ -76,10 +77,7 @@ event.dataset:o365.audit and
     o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
     o365.audit.UserId:(* and not "Not Available") and
     source.geo.region_iso_code:* and
-    o365.audit.Target.ID:(
-        00000006-0000-0ff1-ce00-000000000000 or
-        4765445b-32c6-49b0-83e6-1d93765276ca
-    ) and not o365.audit.ApplicationId:(
+    not o365.audit.ApplicationId:(
         29d9ed98-a469-4536-ade2-f981bc1d605e or
         38aa3b87-a06d-4817-b275-7a316988d93b or
         a809996b-059e-42e2-9866-db24b99a9782
