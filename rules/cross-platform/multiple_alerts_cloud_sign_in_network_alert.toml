@@ -46,32 +46,40 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM .alerts-security.alerts* metadata _id
+FROM .alerts-security.* metadata _id
 
-| where kibana.alert.rule.name is not NULL and source.ip is not null and
-  (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts") and
+| where kibana.alert.rule.name is not NULL and source.ip is not null and kibana.alert.rule.type != "threat_match" and
+  (event.dataset like "o365.*" or event.dataset like "azure.*" or event.dataset like "aws.*" or event.dataset like "github.*" or event.dataset like "okta.*" or kibana.alert.rule.name == "External Alerts") and
   not CIDR_MATCH(TO_IP(source.ip), "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
                  "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24",
                  "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15",
                  "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8", "8.8.8.8")
-
+| keep event.dataset, event.category, source.ip, kibana.alert.rule.name, cluster_uuid
 | eval
-  mail_access_src_ip = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed", source.ip, null),
-  azure_src_ip = case(event.dataset == "azure.signinlogs" and event.category == "authentication" and event.outcome == "success", source.ip, null),
-  network_alert_src_ip = case(kibana.alert.rule.name == "External Alerts", source.ip, null)
+  o365_src_ip = case(event.dataset like "o365.*", source.ip, null),
+  azure_src_ip = case(event.dataset like "azure.*", source.ip, null),
+  aws_src_ip = case(event.dataset == "aws.*", source.ip, null),
+  github_src_ip = case(event.dataset like "github.*", source.ip, null),
+  okta_src_ip = CASE(event.dataset like "okta.*", source.ip, null),
+  external_alert_src_ip = case(kibana.alert.rule.name == "External Alerts", source.ip, null)
 
 | stats
   Esql.alerts_count = COUNT(*),
-  Esql.is_mail_access_distinct_count = COUNT_DISTINCT(mail_access_src_ip),
-  Esql.is_azure_distinct_count = COUNT_DISTINCT(azure_src_ip),
   Esql.event_dataset_distinct_count = COUNT_DISTINCT(event.dataset),
-  Esql.network_alert_distinct_count = COUNT_DISTINCT(network_alert_src_ip),
+  Esql.is_o365_distinct_count = COUNT_DISTINCT(o365_src_ip),
+  Esql.is_azure_distinct_count = COUNT_DISTINCT(azure_src_ip),
+  Esql.is_aws_distinct_count = COUNT_DISTINCT(aws_src_ip),
+  Esql.is_github_distinct_count = COUNT_DISTINCT(github_src_ip),
+  Esql.is_okta_distinct_count = COUNT_DISTINCT(okta_src_ip),
+  Esql.external_alert_distinct_count = COUNT_DISTINCT(external_alert_src_ip),
+
   Esql.event_dataset_values = VALUES(event.dataset),
   Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
-  Esql.event_category_values = VALUES(event.category) by source.ip
+  Esql.event_category_values = VALUES(event.category) by source.ip, cluster_uuid
 
-// At least one External alert and one Azure or Office 365 related alert and both from the same source.ip
-| where Esql.network_alert_distinct_count  >= 1 and Esql.event_dataset_distinct_count >= 2 and (Esql.is_mail_access_distinct_count  > 0 or Esql.is_azure_distinct_count > 0) and Esql.alerts_count <= 100
+// At least one cloud alert and one external alert for the same source.ip
+| where Esql.external_alert_distinct_count >= 1 and Esql.event_dataset_distinct_count >= 2 and Esql.alerts_count <= 100 and (Esql.is_o365_distinct_count > 0 or Esql.is_azure_distinct_count > 0 or Esql.is_aws_distinct_count > 0 or Esql.is_github_distinct_count > 0 or Esql.is_okta_distinct_count > 0)
+| keep Esql.event_dataset_values, Esql.event_category_values, Esql.kibana_alert_rule_name_values, source.ip, Esql.alerts_count
 '''
 
 
