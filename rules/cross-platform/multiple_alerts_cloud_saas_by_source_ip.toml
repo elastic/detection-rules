@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2025/11/14"
+maturity = "production"
+updated_date = "2025/11/14"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection correlate cloud security alerts from different integrations and sharing same source.ip. This may indicate
+a multi stage attack from the same source.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multi Cloud Security Alert by Source Address"
+note = """## Triage and analysis
+
+### Investigating Multi Cloud Security Alert by Source Address
+
+This detection correlate security alerts from different datasources related to the same source address.
+
+### Possible investigation steps
+
+- Review the specific involved source.ip reputation and relevance in your environment.
+- Review all alerts related to the same source.ip.
+- Examine the involved correlated rules captured by Esql.kibana_alert_rule_name_values.
+- Examine the involved datasources captured by Esql.event_dataset_values.
+
+### False positive analysis
+
+- Normal expected network traffics.
+- Company internal servers and proxy gateway.
+
+### Response and remediation
+
+- Isolate the affected user account immediately to prevent further unauthorized access.
+- Block the source.ip in your network security devices to stop any malicious activity.
+- Conduct a thorough review of the affected user's recent activities and access logs to identify any unauthorized actions or data access. This will help in understanding the scope of the compromise.
+- Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
+- Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
+- Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
+
+risk_score = 73
+rule_id = "dafd4f3a-321c-4e10-b569-f9209426c337"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Use Case : Multi Domain", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.* metadata _id
+
+// Alerts from GCP or Azure or O365 or Github or AWS
+| where kibana.alert.rule.name is not NULL and source.ip is not null and kibana.alert.rule.type != "threat_match" and
+  (event.dataset like "o365.*" or event.dataset like "azure.*" or event.dataset like "aws.*" or event.dataset like "github.*" or event.dataset like "okta.*" or event.dataset like "gcp.*")
+| keep event.dataset, event.category, source.ip, kibana.alert.rule.name, cluster_uuid, source.user.name
+| stats
+  Esql.alerts_count = COUNT(*),
+  Esql.event_dataset_distinct_count = COUNT_DISTINCT(event.dataset),
+  Esql.kibana_alert_rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
+  Esql.event_category_values = VALUES(event.category),
+  Esql.event_dataset_values = VALUES(event.dataset),
+  Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+  Esql.source_user_name_values = VALUES(source.user.name) by source.ip
+
+// at least 3 different dataset and 2 unique rules sharing same source.ip
+| where Esql.event_dataset_distinct_count >= 3 and Esql.kibana_alert_rule_name_distinct_count >= 2
+| keep Esql.event_dataset_values, Esql.event_category_values, Esql.kibana_alert_rule_name_values, source.ip, Esql.alerts_count, Esql.source_user_name_values
+'''
+
+
