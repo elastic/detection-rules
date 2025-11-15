@@ -2,17 +2,19 @@
 creation_date = "2024/04/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an AWS IAM Roles Anywhere Trust Anchor with an external certificate authority is created. AWS Roles
-Anywhere profiles are legitimate profiles that can be created by administrators to allow access from any location. This
-rule detects when a trust anchor is created with an external certificate authority that is not managed by AWS
-Certificate Manager Private Certificate Authority (ACM PCA). Adversaries may accomplish this to maintain persistence in
-the environment.
+Detects the creation of an AWS IAM Roles Anywhere Trust Anchor that uses an external certificate authority (CA) rather
+than an AWS-managed Certificate Manager Private CA (ACM PCA). While Roles Anywhere enables secure, short-term credential
+issuance for workloads outside AWS, adversaries can exploit this feature by registering their own external CA as a
+trusted root. This allows them to generate valid client certificates that persistently authenticate to AWS roles from
+any location, even after key rotation or credential revocation events. This rule helps detect persistence or
+unauthorized federation attempts by flagging trust anchors configured with non-AWS CAs.
 """
+event_category_override = "event.type"
 false_positives = [
     """
     AWS IAM Roles Anywhere Trust Anchors are legitimate profiles that can be created by administrators to allow access
@@ -20,47 +22,85 @@ false_positives = [
     certificate authority is authorized.
     """,
 ]
-from = "now-30m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM Roles Anywhere Trust Anchor Created with External CA"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
 
 ### Investigating AWS IAM Roles Anywhere Trust Anchor Created with External CA
 
-This rule detects when an AWS IAM Roles Anywhere Trust Anchor with an external certificate authority is created. AWS Roles Anywhere profiles are legitimate profiles that can be created by administrators to allow access from any location. This rule identifies when a trust anchor is created with an external certificate authority that is not managed by AWS Certificate Manager Private Certificate Authority (ACM PCA). Adversaries may accomplish this to maintain persistence in the environment.
+AWS IAM Roles Anywhere allows workloads outside AWS (such as on-premises servers or CI/CD agents) to assume AWS IAM roles by presenting X.509 certificates. A trust anchor defines which certificate authority (CA) AWS trusts to validate 
+these external identities. Normally, organizations use AWS Certificate Manager Private CA (ACM PCA) to control issuance 
+and revocation. 
 
-#### Possible Investigation Steps:
+This detection rule identifies when a trust anchor is created using an **external CA** (`sourceType= "CERTIFICATE_BUNDLE" or "SELF_SIGNED_REPOSITORY"`) rather than an ACM-managed CA (`sourceType="AWS_ACM_PCA"`). This can indicate an adversary establishing persistent external access, enabling them to authenticate using certificates signed by their own CA.
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific details of the trust anchor creation. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
-- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the trust anchor was created. Changes during non-business hours or outside regular maintenance windows might require further scrutiny.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
-- **Verify the Certificate Authority**: Ensure that the external certificate authority used is authorized and recognized. Unauthorized external CAs can be a red flag for malicious activity.
+#### Possible investigation steps
 
-### False Positive Analysis:
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id`.
+  - Determine whether this user or role is normally responsible for IAM configuration or Roles Anywhere setup.
 
-- **Legitimate Administrative Actions**: Confirm if the trust anchor creation aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the creation was successful and intended according to policy.
+- **Review the trust anchor details**
+  - In `aws.cloudtrail.request_parameters`, confirm the `sourceType` and inspect the certificate chain.
+  - Look for non-AWS issuer names, custom organization fields, or self-signed CA certificates.
 
-### Response and Remediation:
+- **Assess the scope and risk**
+  - Identify which IAM roles are linked to this trust anchor via `Profile` associations.
+  - Determine whether any of those roles provide privileged or cross-account access.
+  - Check for subsequent API calls like `CreateProfile`, `CreateRole`, or `AssumeRoleWithCertificate` to gauge whether 
+    the external CA has been used.
 
-- **Immediate Review and Reversal if Necessary**: If the creation was unauthorized, remove the trust anchor and revoke any associated permissions.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving the creation of trust anchors with external certificate authorities.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning IAM Roles Anywhere and the use of certificate authorities.
-- **Audit IAM Roles and Policies**: Conduct a comprehensive audit of all IAM roles and associated policies to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+- **Correlate related activity**
+  - Search for preceding reconnaissance or setup activity:
+    - `ListTrustAnchors`, `ListProfiles`, `GetRole`
+    - Attempts to create additional credential paths (`CreateAccessKey`, `CreateOpenIDConnectProvider`)
+  - Investigate other actions by the same user identity, particularly IAM role or trust policy modifications.
 
-### Additional Information:
+- **Validate legitimacy**
+  - Confirm with identity management or security engineering teams whether the external CA is an approved authority.
+  - Review internal PKI or certificate inventories to ensure this CA is registered in the organization’s trust chain.
 
-For further guidance on managing IAM Roles Anywhere and securing AWS environments, refer to the [AWS IAM Roles Anywhere documentation](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html) and AWS best practices for security. Additionally, consult the following resources for specific details on IAM roles and trust anchors:
-- [AWS IAM Roles Anywhere Introduction](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html)
-- [Ermetic Blog on IAM Users and Third Parties](https://ermetic.com/blog/aws/keep-your-iam-users-close-keep-your-third-parties-even-closer-part-1/)
+### False positive analysis
+
+- **Legitimate external CA use**
+  - Some organizations integrate trusted third-party PKI providers (e.g., Venafi, DigiCert, Entrust) for workload identity management. Validate whether the CA is part of your documented PKI ecosystem.
+- **Testing and lab accounts**
+  - Development or testing environments may temporarily use self-signed certificates to validate Roles Anywhere integrations.
+  - Confirm that such activity occurs in isolated accounts and not in production.
+- **Expected administrative setup**
+  - Initial configuration by security engineers or platform teams may trigger this rule. Verify via change tickets or 
+    deployment logs before treating as suspicious.
+
+### Response and remediation
+
+- **Containment**
+  - If the CA is unauthorized, immediately delete the trust anchor using 
+    `aws rolesanywhere delete-trust-anchor --trust-anchor-id <id>`.
+  - Review for any certificates already used to assume roles and revoke those certificates from the external CA.
+
+- **Investigation**
+  - Identify all IAM Roles Anywhere profiles linked to the trust anchor (`ListProfiles`).
+  - Check CloudTrail for any successful `AssumeRoleWithCertificate` calls associated with the external CA.
+  - Assess whether lateral movement or data exfiltration occurred after the trust anchor creation.
+
+- **Recovery and hardening**
+  - Replace unauthorized CAs with ACM PCA-managed ones.
+  - Restrict `rolesanywhere:CreateTrustAnchor` permissions to security administrators only.
+  - Monitor for new trust anchor creations and external certificate sources via AWS Config rules or Security Hub findings.
+  - Implement GuardDuty or Security Hub integrations to detect anomalous IAM and Roles Anywhere behavior.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
 """
 references = [
     "https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html",
@@ -80,14 +120,14 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.dataset: aws.cloudtrail
-    and event.provider: rolesanywhere.amazonaws.com
-    and event.action: CreateTrustAnchor
-    and event.outcome: success
-    and not aws.cloudtrail.request_parameters: *sourceType=AWS_ACM_PCA*
+info where event.dataset == "aws.cloudtrail"
+  and event.provider == "rolesanywhere.amazonaws.com"
+  and event.action == "CreateTrustAnchor"
+  and event.outcome == "success"
+  and not stringContains(aws.cloudtrail.request_parameters, "sourceType=AWS_ACM_PCA")
 '''
 
 
@@ -108,4 +148,22 @@ reference = "https://attack.mitre.org/techniques/T1098/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 
