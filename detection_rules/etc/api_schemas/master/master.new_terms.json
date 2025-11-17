@@ -35,29 +35,33 @@
               "type": "string"
             },
             "value": {
+              "minimum": 1,
               "type": "integer"
             }
           },
           "required": [
-            "unit",
-            "value"
+            "unit"
           ],
           "type": "object"
         },
         "group_by": {
           "items": {
+            "minLength": 1,
             "type": "string"
           },
+          "maxItems": 3,
+          "minItems": 1,
           "type": "array"
         },
         "missing_fields_strategy": {
+          "enum": [
+            "suppress",
+            "doNotSuppress"
+          ],
+          "enumNames": [],
           "type": "string"
         }
       },
-      "required": [
-        "group_by",
-        "missing_fields_strategy"
-      ],
       "type": "object"
     },
     "author": {
@@ -137,15 +141,15 @@
       ]
     },
     "interval": {
-      "type": [
-        "string"
-      ]
+      "pattern": "^\\d+[mshd]$",
+      "type": "string"
     },
     "investigation_fields": {
       "additionalProperties": false,
       "properties": {
         "field_names": {
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "type": "array"
@@ -172,9 +176,8 @@
       ]
     },
     "max_signals": {
-      "type": [
-        "integer"
-      ]
+      "minimum": 1,
+      "type": "integer"
     },
     "meta": {
       "additionalProperties": {
@@ -197,6 +200,7 @@
       "additionalProperties": false,
       "properties": {
         "field": {
+          "minLength": 1,
           "type": "string"
         },
         "history_window_start": {
@@ -204,31 +208,26 @@
             "additionalProperties": false,
             "properties": {
               "field": {
-                "type": "string"
-              },
-              "value": {
+                "minLength": 1,
                 "type": "string"
               }
             },
-            "required": [
-              "field",
-              "value"
-            ],
             "type": "object"
           },
           "type": "array"
         },
         "value": {
           "items": {
+            "minLength": 1,
             "type": "string"
           },
+          "maxItems": 3,
+          "minItems": 1,
           "type": "array"
         }
       },
       "required": [
-        "field",
-        "history_window_start",
-        "value"
+        "history_window_start"
       ],
       "type": "object"
     },
@@ -253,22 +252,11 @@
       "items": {
         "additionalProperties": false,
         "properties": {
-          "integration": {
-            "type": [
-              "string"
-            ]
-          },
           "package": {
-            "type": "string"
-          },
-          "version": {
+            "minLength": 1,
             "type": "string"
           }
         },
-        "required": [
-          "package",
-          "version"
-        ],
         "type": "object"
       },
       "min_compat": "8.3",
@@ -284,16 +272,12 @@
             "type": "boolean"
           },
           "name": {
-            "type": "string"
-          },
-          "type": {
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "ecs",
-          "name",
-          "type"
+          "ecs"
         ],
         "type": "object"
       },
@@ -309,6 +293,8 @@
       ]
     },
     "risk_score": {
+      "maximum": 100,
+      "minimum": 1,
       "type": "integer"
     },
     "risk_score_mapping": {
@@ -342,6 +328,7 @@
       ]
     },
     "rule_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^7eb54028-ca72-4eb7-8185-b6864572347db$",
       "type": "string"
     },
     "rule_name_override": {
@@ -429,13 +416,13 @@
                 "type": "string"
               },
               "reference": {
+                "pattern": "^https://attack.mitre.org/tactics/TA[0-9]+/$",
                 "type": "string"
               }
             },
             "required": [
               "id",
-              "name",
-              "reference"
+              "name"
             ],
             "type": "object"
           },
@@ -450,6 +437,7 @@
                   "type": "string"
                 },
                 "reference": {
+                  "pattern": "^https://attack.mitre.org/techniques/T[0-9]+/$",
                   "type": "string"
                 },
                 "subtechnique": {
@@ -463,13 +451,13 @@
                         "type": "string"
                       },
                       "reference": {
+                        "pattern": "^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$",
                         "type": "string"
                       }
                     },
                     "required": [
                       "id",
-                      "name",
-                      "reference"
+                      "name"
                     ],
                     "type": "object"
                   },
@@ -480,8 +468,7 @@
               },
               "required": [
                 "id",
-                "name",
-                "reference"
+                "name"
               ],
               "type": "object"
             },
@@ -506,14 +493,10 @@
       ]
     },
     "timeline_id": {
-      "type": [
-        "string"
-      ]
+      "type": "string"
     },
     "timeline_title": {
-      "type": [
-        "string"
-      ]
+      "type": "string"
     },
     "timestamp_override": {
       "type": [
@@ -532,20 +515,16 @@
       "type": "string"
     },
     "version": {
-      "type": [
-        "integer"
-      ]
+      "minimum": 1,
+      "type": "integer"
     }
   },
   "required": [
     "author",
     "description",
     "language",
-    "name",
     "new_terms",
     "query",
-    "risk_score",
-    "rule_id",
     "severity",
     "type"
   ],
