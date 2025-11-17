@@ -2,7 +2,7 @@
 creation_date = "2024/04/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
@@ -35,19 +35,16 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-sequence by host.id, user.id with maxspan=1s
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sshd" and
-    process.args == "-D" and process.args == "-R"] by process.pid, process.entity_id
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd" and
-  process.executable != null and not (
-    process.executable in ("/usr/sbin/sshd", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/bin/fipscheck") or
-    process.args like ("rsync*", "systemctl*", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/sbin/aad_certhandler*") or
-    process.command_line like "sh -c /usr/bin/env -i PATH=*"
-  )] by process.parent.pid, process.parent.entity_id
- [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.pid, process.entity_id
- [network where host.os.type == "linux" and event.type == "end" and event.action == "disconnect_received" and process.name == "sshd"] by process.pid, process.entity_id
+sequence by host.id with maxspan=1m
+  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.parent.name == "sshd" and process.parent.args == "-D" and process.parent.args == "-R" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+   not (
+     process.args like ("rsync*", "systemctl*", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/sbin/aad_certhandler*") or
+     process.command_line like ("sh -c /usr/bin/env -i PATH=*", "sh -c -- /usr/bin/env -i PATH=*") 
+   )] by process.parent.entity_id
 '''
 note = """## Triage and analysis
 
