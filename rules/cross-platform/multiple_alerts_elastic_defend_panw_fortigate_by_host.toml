@@ -61,7 +61,39 @@ FROM logs-endpoint.alerts-default-*, logs-panw.panos-default-*, logs-fortinet_fo
         Esql.destination_ip_values = VALUES(destination.ip)
         by Esql.source_ip
 | where Esql.event_module_distinct_count >= 2
-| keep Esql.alerts_count, Esql.host_source_ip, Esql.destination_ip_values, Esql.host_id_values, Esql.user_name_values, Esql.event_module_values, Esql.message_values, Esql.process_executable_values
+| keep Esql.alerts_count, Esql.host_sFROM logs-endpoint.alerts-default-*, logs-panw.panos-default-*, logs-fortinet_fortigate.log-default-* metadata _id
+| WHERE
+        // PANW suspicious events
+        (event.dataset == "panw.panos" and
+         event.action in ("virus_detected", "wildfire_virus_detected", "c2_communication", "spyware_detected", "large_upload", "denied") or network.application in ("dns-over-https", "ms-dc-replication")) or
+
+        // Fortigate suspicious events
+        (event.dataset == "fortinet_fortigate.log" and
+         (event.action in ("outbreak-prevention", "deny", "infected", "blocked") or message like "backdoor*" or message like "Proxy*" or message like "anomaly*" or message like "P2P*" or message like "misc*" or message like "DNS.Over.HTTPS" or message like "Remote.Access")) or
+
+        // Elastic Defend Alerts
+        (event.module == "endpoint" and event.dataset == "endpoint.alerts")
+
+// extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
+|eval fw_alert_source_ip = CASE(event.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
+      elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", host.ip, null)
+| eval Esql.source_ip = COALESCE(fw_alert_source_i, elastic_defend_alert_host_ip)
+| where Esql.source_ip is not null
+
+// group by host_source_ip shared between FG/PANW and Elastic Defend
+| stats Esql.alerts_count = COUNT(*),
+        Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
+        Esql.event_module_values = VALUES(event.module),
+        Esql.message_values = VALUES(message),
+        Esql.event_action_values = VALUES(event.action),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.host_id_values = VALUES(host.id),
+        Esql.user_name_values = VALUES(user.name),
+        Esql.destination_ip_values = VALUES(destination.ip)
+        by Esql.source_ip
+| where Esql.event_module_distinct_count >= 2
+| keep Esql.alerts_count, Esql.source_ip, Esql.destination_ip_values, Esql.host_id_values, Esql.user_name_values, Esql.event_module_values, Esql.message_values, Esql.process_executable_values
+ource_ip, Esql.destination_ip_values, Esql.host_id_values, Esql.user_name_values, Esql.event_module_values, Esql.message_values, Esql.process_executable_values
 '''
 note = """## Triage and analysis
 
