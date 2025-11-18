@@ -46,7 +46,7 @@ FROM logs-endpoint.alerts-default-*, logs-panw.panos-default-*, logs-fortinet_fo
 // extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
 |eval fw_alert_source_ip = CASE(event.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
       elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", host.ip, null)
-| eval Esql.source_ip = COALESCE(fw_alert_source_i, elastic_defend_alert_host_ip)
+| eval Esql.source_ip = COALESCE(fw_alert_source_ip, elastic_defend_alert_host_ip)
 | where Esql.source_ip is not null
 
 // group by host_source_ip shared between FG/PANW and Elastic Defend
