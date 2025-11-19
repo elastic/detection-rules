@@ -6,12 +6,12 @@ updated_date = "2025/11/18"
 [rule]
 author = ["Elastic"]
 description = """
-This rule correlate any Elastic Defend alert with a set of suspicious events from Next-Gen Firewall like Palo Alto
+This rule correlate any Elastic Defend alert with a set of suspicious events from Network security devices like Palo Alto
 Networks (PANW) and Fortinet Fortigate by host.ip and source.ip. This may indicate that this host is compromised and
 triggering multi-datasource alerts.
 """
 from = "now-9m"
-interval = "1h"
+interval = "8m"
 language = "esql"
 license = "Elastic License v2"
 name = "Elastic Defend and NG-Firewall Alerts Correlation"
@@ -32,6 +32,9 @@ type = "esql"
 query = '''
 FROM logs-* metadata _id
 | WHERE
+        // Elastic Defend Alerts
+        (event.module == "endpoint" and event.dataset == "endpoint.alerts") or
+
         // PANW suspicious events
         (event.dataset == "panw.panos" and
          event.action in ("virus_detected", "wildfire_virus_detected", "c2_communication", "spyware_detected", "large_upload", "denied", "exploit_detected")) or
@@ -40,8 +43,8 @@ FROM logs-* metadata _id
         (event.dataset == "fortinet_fortigate.log" and
          (event.action in ("outbreak-prevention", "deny", "infected", "blocked") or message like "backdoor*" or message like "Proxy*" or message like "anomaly*" or message like "P2P*" or message like "misc*" or message like "DNS.Over.HTTPS" or message like "Remote.Access")) or
 
-        // Elastic Defend Alerts
-        (event.module == "endpoint" and event.dataset == "endpoint.alerts")
+        // Suricata
+        (event.dataset == "suricata.eve" and message in ("Command and Control Traffic", "Potentially Bad Traffic", "A Network Trojan was detected", "Detection of a Network Scan", "Domain Observed Used for C2 Detected", "Malware Command and Control Activity Detected"))
 
 // extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
 |eval fw_alert_source_ip = CASE(event.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
