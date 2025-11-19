@@ -23,6 +23,7 @@ severity = "medium"
 tags = [
     "Domain Scope: Single",
     "Domain: Web",
+    "Domain: Network",
     "OS: Linux",
     "OS: macOS",
     "OS: Windows",
@@ -46,6 +47,7 @@ from
   logs-iis.access-*
 | where
     @timestamp > now() - 1 hours and
+    (url.original is not null or url.full is not null) and
     http.request.method == "GET" and 
     http.response.status_code in (
       500, // Internal Server Error
@@ -53,6 +55,9 @@ from
       503, // Service Unavailable
       504 // Gateway Timeout
     )
+| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql_url_lower = to_lower(Esql_url_text)
+
 | keep
     @timestamp,
     event.dataset,
@@ -61,7 +66,8 @@ from
     url.path,
     source.ip,
     agent.id,
-    host.name
+    host.name,
+    Esql_url_lower
 | stats
     Esql.event_count = count(),
     Esql.http_response_status_code_count = count(http.response.status_code),
@@ -70,7 +76,7 @@ from
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),
-    Esql.url_path_values = values(url.path),
+    Esql.url_path_values = values(Esql_url_lower),
     Esql.event_dataset_values = values(event.dataset)
     by source.ip
 | where
