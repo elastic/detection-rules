@@ -47,15 +47,12 @@ from .alerts-security.alerts*
         Esql.process_command_line_values = VALUES(process.command_line),
         Esql.process_entity_id_distinct_count = COUNT_DISTINCT(process.entity_id) by host.id
 
-// filter hosts with more than 5 unique rules and 4 different tactics and less than 25 unique PID to avoid noisy FPs
-| where Esql.kibana_alert_rule_name_distinct_count >= 5 and Esql.threat_tactic_id_distinct_count >= 4 and
-        Esql.process_entity_id_distinct_count <= 25
-
 // divide the sum of risk scores by the total number of alerts
 | eval Esql.risk_alerts_count_ratio = Esql.kibana_alert_risk_score_sum/Esql.alerts_count
 
-// filter for risk_alerts_count_ratio more than 50 and total number of alerts is less than 500 to avoid very noisy rules influencing risk score
-| where Esql.risk_alerts_count_ratio >= 50 and Esql.alerts_count <= 500
+// filter for risky hosts by risk score and unique counts
+| where (Esql.kibana_alert_rule_name_distinct_count >= 5 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.process_entity_id_distinct_count <= 25  and Esql.risk_alerts_count_ratio >= 60 and Esql.alerts_count <= 500) or
+        (Esql.kibana_alert_rule_name_distinct_count >= 3 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.risk_alerts_count_ratio >= 80)
 
 // fiels populated in the resulting alert
 | keep host.id,
