@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["network_traffic", "nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential web server discovery or fuzzing activity by identifying a high volume of HTTP GET requests resulting
+in 404 or 403 status codes from a single source IP address within a short timeframe. Such patterns may indicate that an attacker
+is attempting to discover hidden or unlinked resources on a web server, which can be a precursor to more targeted attacks.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Discovery or Fuzzing Activity"
+risk_score = 21
+rule_id = "8383a8d0-008b-47a5-94e5-496629dc3590"
+severity = "low"
+tags = [
+    "Domain: Single",
+    "Domain: Web",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Network Packet Capture",
+    "Data Source: Nginx Access Logs",
+    "Data Source: Apache Access Logs",
+    "Data Source: Apache Tomcat Access Logs",
+    "Data Source: IIS Access Logs",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-network_traffic.http-*,
+  logs-network_traffic.tls-*,
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    @timestamp > now() - 1 hours and
+    http.request.method == "GET" and 
+    http.response.status_code in (404, 403)
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.dataset,
+    http.request.method,
+    http.response.status_code,
+    url.path,
+    source.ip,
+    agent.id,
+    host.name
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(url.path),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_path_values = values(url.path),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip
+| where
+  Esql.event_count > 500 and Esql.url_path_count_distinct > 250
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
