@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis", "network_traffic"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual spikes in web server requests with uncommon or suspicious user-agent strings. Such activity may
+indicate reconnaissance attempts by attackers trying to identify vulnerabilities in web applications or servers. These
+user-agents are often associated with automated tools used for scanning, vulnerability assessment, or brute-force attacks.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Unusual User Agent Request"
+risk_score = 21
+rule_id = "a1b7ffa4-bf80-4bf1-86ad-c3f4dc718b35"
+severity = "low"
+tags = [
+    "Domain Scope: Single",
+    "Domain: Web",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Data Source: Network Packet Capture",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-network_traffic.http-*,
+  logs-network_traffic.tls-*,
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+  @timestamp > now() - 1 hours and
+  (
+		user_agent.original like "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36" or // Nikto
+		user_agent.original like "nikto*" or // Nikto
+		user_agent.original like "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)" or // Nessus
+		user_agent.original like "sqlmap/*" or // SQLMap
+		user_agent.original like "WPScan *" or // WPScan
+		user_agent.original like "feroxbuster/*" or // Feroxbuster 
+		user_agent.original like "masscan*" or // Masscan & masscan-ng
+		user_agent.original like "Fuzz*" or // Ffuf
+		user_agent.original like "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/user_agent.original like~ 87.0.4280.88 Safari/537.36" or // Dirsearch
+		user_agent.original like "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)" or // Dirb
+		user_agent.original like "DirBuster*" or // Dirbuster
+		user_agent.original like "gobuster/*" or // Gobuster
+		user_agent.original like "*nmap*" or // Nmap Scripting Engine
+        user_agent.original like "*hydra*" // Hydra Brute Forcer
+  )
+| keep
+    @timestamp,
+    event.dataset,
+    user_agent.original,
+    url.path,
+    source.ip,
+    agent.id,
+    host.name
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(url.path),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.url_path_values = values(url.path),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip
+| where
+    Esql.event_count > 50 and Esql.url_path_count_distinct > 10
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.001"
+name = "Scanning IP Blocks"
+reference = "https://attack.mitre.org/techniques/T1595/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
