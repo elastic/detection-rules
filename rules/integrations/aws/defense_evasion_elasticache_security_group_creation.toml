@@ -2,11 +2,16 @@
 creation_date = "2021/07/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/18"
 
 [rule]
 author = ["Austin Songer"]
-description = "Identifies when an ElastiCache security group has been created."
+description = """
+Identifies when an ElastiCache security group has been created. Amazon EC2-Classic and ElastiCache CacheSecurityGroups
+have been retired. Modern ElastiCache deployments run in a VPC and use standard EC2 security groups instead. This rule
+should be retained only for historical log analysis on legacy CloudTrail data. We recommend relying on "AWS EC2 Security
+Group Configuration Change" rule for network-control changes impacting ElastiCache in VPC-based deployments.
+"""
 false_positives = [
     """
     A ElastiCache security group may be created by a system or network administrator. Verify whether the user identity,
@@ -20,13 +25,13 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS ElastiCache Security Group Created"
+name = "Deprecated - AWS ElastiCache Security Group Created"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating AWS ElastiCache Security Group Created
+### Investigating Deprecated - AWS ElastiCache Security Group Created
 
 AWS ElastiCache security groups control access to cache clusters, ensuring only authorized traffic can interact with them. Adversaries might create new security groups to bypass existing restrictions, facilitating unauthorized access or data exfiltration. The detection rule monitors for successful creation events of these groups, signaling potential defense evasion tactics by identifying unusual or unauthorized configurations.
 
@@ -66,7 +71,13 @@ references = [
 risk_score = 21
 rule_id = "7b3da11a-60a2-412e-8aa7-011e1eb9ed47"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: AWS", "Data Source: Amazon Web Services", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
