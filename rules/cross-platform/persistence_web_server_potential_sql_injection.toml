@@ -1,0 +1,214 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis", "network_traffic"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential SQL injection attempts in web server requests by identifying common SQL injection patterns
+in URLs. Such activity may indicate reconnaissance or exploitation attempts by attackers trying to manipulate backend
+databases or extract sensitive information.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Potential SQL Injection Request"
+risk_score = 21
+rule_id = "7f7a0ee1-7b6f-466a-85b4-110fb105f5e2"
+severity = "low"
+tags = [
+    "Domain Scope: Single",
+    "Domain: Web",
+    "Domain: Network",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Data Source: Network Packet Capture",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-network_traffic.http-*,
+  logs-network_traffic.tls-*,
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    @timestamp > now() - 1d and
+    (url.original is not null or url.full is not null)
+
+| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql_url_lower = to_lower(Esql_url_text)
+
+| where
+    (
+        Esql_url_lower like "*%20order%20by%*" or 
+        Esql_url_lower like "*dbms_pipe.receive_message%28chr%*" or 
+        Esql_url_lower like "*waitfor%20delay%20*" or 
+        Esql_url_lower like "*%28select%20*from%20pg_sleep%285*" or 
+        Esql_url_lower like "*%28select%28sleep%285*" or 
+        Esql_url_lower like "*%3bselect%20pg_sleep%285*" or 
+        Esql_url_lower like "*select%20concat%28concat*" or 
+        Esql_url_lower like "*xp_cmdshell*" or
+        Esql_url_lower like "*select*case*when*" or 
+        Esql_url_lower like "*and*extractvalue*select*" or 
+        Esql_url_lower like "*from*information_schema.tables*" or 
+        Esql_url_lower like "*boolean*mode*having*" or
+        Esql_url_lower like "*extractvalue*concat*" or 
+        Esql_url_lower like "*case*when*sleep*" or 
+        Esql_url_lower like "*select*sleep*" or 
+        Esql_url_lower like "*dbms_lock.sleep*" or 
+        Esql_url_lower like "*and*sleep*" or 
+        Esql_url_lower like "*like*sleep*" or 
+        Esql_url_lower like "*csleep*" or 
+        Esql_url_lower like "*pgsleep*" or 
+        Esql_url_lower like "*char*char*char*" or 
+        Esql_url_lower like "*union*select*" or 
+        Esql_url_lower like "*concat*select*" or 
+        Esql_url_lower like "*select*else*drop*" or
+        Esql_url_lower like "*having*like*" or 
+        Esql_url_lower like "*case*else*end*" or 
+        Esql_url_lower like "*if*sleep*" or 
+        Esql_url_lower like "*where*and*select*" or 
+        Esql_url_lower like "*or*1=1*" or 
+        Esql_url_lower like "or *'1'='1'*" or 
+        Esql_url_lower like """*"1"="1"*""" or 
+        Esql_url_lower like "*or*'a'='a*" or 
+        Esql_url_lower like "*into*outfile*" or 
+        Esql_url_lower like "*into%20outfile*" or 
+        Esql_url_lower like "*into*dumpfile*" or 
+        Esql_url_lower like "*load_file%28*" or 
+        Esql_url_lower like "*load%5ffile%28*" or 
+        Esql_url_lower like "*cast%28*" or 
+        Esql_url_lower like "*convert%28*" or 
+        Esql_url_lower like "*cast%28%*" or 
+        Esql_url_lower like "*convert%28%*" or 
+        Esql_url_lower like "*@@version*" or 
+        Esql_url_lower like "*@@version_comment*" or 
+        Esql_url_lower like "*version%28*" or 
+        Esql_url_lower like "*user%28*" or 
+        Esql_url_lower like "*current_user%28*" or 
+        Esql_url_lower like "*database%28*" or 
+        Esql_url_lower like "*schema_name%28*" or 
+        Esql_url_lower like "*information_schema.columns*" or 
+        Esql_url_lower like "*information_schema.columns*" or 
+        Esql_url_lower like "*table_schema*" or 
+        Esql_url_lower like "*column_name*" or 
+        Esql_url_lower like "*dbms_pipe*" or 
+        Esql_url_lower like "*dbms_lock%2e*sleep*" or 
+        Esql_url_lower like "*dbms_lock.sleep*" or 
+        Esql_url_lower like "*sp_executesql*" or
+        Esql_url_lower like "*sp_executesql*" or 
+        Esql_url_lower like "*load%20data*" or 
+        Esql_url_lower like "*information_schema*" or 
+        Esql_url_lower like "*information_schema.tables*" or 
+        Esql_url_lower like "*pga_sleep*" or 
+        Esql_url_lower like "*pg_slp*"
+    )
+| keep
+    @timestamp,
+    event.dataset,
+    http.request.method,
+    http.response.status_code,
+    source.ip,
+    agent.id,
+    host.name,
+	Esql_url_lower
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(Esql_url_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_path_values = values(Esql_url_lower),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip
+| where
+    Esql.event_count > 1
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
