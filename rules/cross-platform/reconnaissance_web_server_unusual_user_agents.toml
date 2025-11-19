@@ -22,6 +22,7 @@ severity = "low"
 tags = [
     "Domain Scope: Single",
     "Domain: Web",
+	"Domain: Network",
     "OS: Linux",
     "OS: macOS",
     "OS: Windows",
@@ -45,7 +46,8 @@ from
   logs-apache_tomcat.access-*,
   logs-iis.access-*
 | where
-  @timestamp > now() - 1 hours and
+    @timestamp > now() - 1 hours and
+    (url.original is not null or url.full is not null) and
   (
 		user_agent.original like "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36" or // Nikto
 		user_agent.original like "nikto*" or // Nikto
@@ -62,6 +64,10 @@ from
 		user_agent.original like "*nmap*" or // Nmap Scripting Engine
         user_agent.original like "*hydra*" // Hydra Brute Forcer
   )
+
+| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql_url_lower = to_lower(Esql_url_text)
+
 | keep
     @timestamp,
     event.dataset,
@@ -69,13 +75,14 @@ from
     url.path,
     source.ip,
     agent.id,
-    host.name
+    host.name,
+	Esql_url_lower
 | stats
     Esql.event_count = count(),
     Esql.url_path_count_distinct = count_distinct(url.path),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
-    Esql.url_path_values = values(url.path),
+    Esql.url_path_values = values(Esql_url_lower),
     Esql.user_agent_original_values = values(user_agent.original),
     Esql.event_dataset_values = values(event.dataset)
     by source.ip
