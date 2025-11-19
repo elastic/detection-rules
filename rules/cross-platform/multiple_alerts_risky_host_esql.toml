@@ -10,7 +10,7 @@ This rule uses alert data to determine when multiple alerts in different phases 
 triggered and where the accumulated risk score is higher than a defined threshold. Analysts can use this to prioritize
 triage and response, as these hosts are more likely to be compromised.
 """
-from = "now-24h"
+from = "now-8h"
 interval = "1h"
 language = "esql"
 license = "Elastic License v2"
@@ -23,7 +23,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from .alerts-security.alerts*
+from .alerts-security.alerts*  metadata _id, _index
 
 // filter for alerts with populated risk score, excluding threat_match rules, deprecated and some other noisy ones.
 | where kibana.alert.risk_score > 0 and
@@ -52,7 +52,7 @@ from .alerts-security.alerts*
 
 // filter for risky hosts by risk score and unique counts
 | where (Esql.kibana_alert_rule_name_distinct_count >= 5 and Esql.threat_tactic_id_distinct_count >= 4 and Esql.process_entity_id_distinct_count <= 25  and Esql.risk_alerts_count_ratio >= 60 and Esql.alerts_count <= 500) or
-        (Esql.kibana_alert_rule_name_distinct_count >= 4 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.risk_alerts_count_ratio >= 80)
+        (Esql.kibana_alert_rule_name_distinct_count >= 3 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.risk_alerts_count_ratio >= 80 and Esql.process_entity_id_distinct_count <= 25 and Esql.alerts_count <= 500)
 
 // fiels populated in the resulting alert
 | keep host.id,
