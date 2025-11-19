@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/12/16"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Attackers may abuse SSH to maintain persistence on a compromised system, or to e
 potentially resulting in an unusual SSHD child process being created.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual SSHD Child Process"
@@ -21,17 +21,18 @@ risk_score = 47
 rule_id = "4c3c6c47-e38f-4944-be27-5c80be973bd7"
 severity = "medium"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+event.category:process and host.os.type:linux and event.type:start and event.action:(exec or ProcessRollup2) and
 process.parent.name:(ssh or sshd) and process.args_count:2 and
 not (
   process.command_line:(-bash or -zsh or -sh) or
