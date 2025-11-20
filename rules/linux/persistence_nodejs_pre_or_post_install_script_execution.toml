@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/09/18"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ this technique to execute arbitrary commands on the system and establish persist
 was observed in the wild as part of the Shai-Hulud worm.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Node.js Pre or Post-Install Script Execution"
@@ -47,20 +47,21 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Execution",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Tactic: Execution",
+  "Tactic: Defense Evasion",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=10s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "node" and process.args == "install"] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "node"] by process.parent.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "node" and process.args == "install"] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.parent.name == "node"] by process.parent.entity_id
 '''
 
 [[rule.threat]]
