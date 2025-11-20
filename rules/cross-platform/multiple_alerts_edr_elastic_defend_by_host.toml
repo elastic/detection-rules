@@ -13,7 +13,7 @@ from = "now-60m"
 interval = "30m"
 language = "esql"
 license = "Elastic License v2"
-name = "Multiple Elastic Defend Alerts by Host"
+name = "Multiple Elastic Defend Alerts by Agent"
 risk_score = 73
 rule_id = "ab25369e-ea5e-46f1-9cd5-478a0a4a131a"
 severity = "high"
@@ -24,20 +24,26 @@ type = "esql"
 query = '''
 from logs-endpoint.alerts-* metadata _id
 | eval target_time_window = DATE_TRUNC(24 hours, @timestamp)
-| where event.code in ("malicious_file", "memory_signature", "shellcode_thread", "behavior")
+| where event.code in ("malicious_file", "memory_signature", "shellcode_thread", "behavior") and
+        agent.id is not null and not rule.name in ("Multi.EICAR.Not-a-virus")
 | stats Esql.alerts_count = COUNT(*),
         Esql.event_code_distinct_count = count_distinct(event.code),
         Esql.rule_name_distinct_count = COUNT_DISTINCT(rule.name),
+        Esql.file_hash_distinct_count = COUNT_DISTINCT(file.hash.sha256),
         Esql.process_name_distinct_count = COUNT_DISTINCT(process.entity_id),
         Esql.event_code_values = VALUES(event.code),
         Esql.rule_name_values = VALUES(rule.name),
         Esql.message_values = VALUES(message),
         Esql.file_path_values = VALUES(file.path),
+        Esql.dll_path_values = VALUES(dll.path),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.process_parent_executable_values = VALUES(process.parent.executable),
-        Esql.process_command_line_values = VALUES(process.command_line) by host.id
-| where (Esql.event_code_distinct_count >= 2 or Esql.rule_name_distinct_count >= 3)
-| keep host.id,
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.process_hash_sha256_values = VALUES(process.hash.sha256),
+        Esql.file_hash_sha256_values = VALUES(file.hash.sha256),
+        Esql.dll_hash_sha256_values = VALUES(dll.hash.sha256) by agent.id
+| where (Esql.event_code_distinct_count >= 2 or Esql.rule_name_distinct_count >= 3 or Esql.file_hash_distinct_count >= 2)
+| keep agent.id,
        Esql.alerts_count,
        Esql.event_code_distinct_count,
        Esql.rule_name_distinct_count,
@@ -47,14 +53,18 @@ from logs-endpoint.alerts-* metadata _id
        Esql.process_executable_values,
        Esql.process_parent_executable_values,
        Esql.process_command_line_values,
-       Esql.file_path_values
+       Esql.file_path_values,
+       Esql.dll_path_values,
+       Esql.process_hash_sha256_values,
+       Esql.file_hash_sha256_values,
+       Esql.dll_hash_sha256_values
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Multiple Elastic Defend Alerts by Host
+### Investigating Multiple Elastic Defend Alerts by Agent
 
 Endpoint security technologies monitor and analyze activities on devices to detect malicious behavior. Adversaries exploit these systems by deploying malware that triggers specific signatures across multiple hosts, indicating a coordinated attack. The detection rule identifies such threats by analyzing alert data for specific malware signatures across several hosts, flagging potential widespread infections for prioritized investigation.
 
