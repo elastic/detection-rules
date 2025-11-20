@@ -59,7 +59,7 @@ tags = [
 type = "eql"
 query = '''
 sequence with maxspan=3s
-  [process where event.type == "start" and event.action == "exec" and process.name in (
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in (
      "aa-exec", "aoss", "awk", "run-parts", "bundle", "bundler", "busctl", "busybox", "byebug", "c89", "c99", "cabal",
      "capsh", "cdist", "certbot", "check_by_ssh", "choom", "cobc", "cowsay", "cowthink", "cpio", "cpulimit", "csvtool",
      "dc", "distcc", "easy_install", "emacs", "enscript", "expect", "find", "flock", "gawk", "gcc", "gdb", "gem",
@@ -96,7 +96,7 @@ sequence with maxspan=3s
      (process.name == "julia" and process.parent.name == "julia")
    )
   ] by process.entity_id
-  [network where event.type == "start" and event.action == "connection_attempted" and
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
    process.name in ("wget", "curl") and not (
      destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
        destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
