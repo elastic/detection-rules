@@ -2,11 +2,16 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = "Identifies the deletion of an Amazon Relational Database Service (RDS) Security group."
+description = """
+Identifies the deletion of an Amazon Relational Database Service (RDS) Security group. Modern RDS deployments run in a
+VPC and use standard EC2 security groups instead. This rule should be retained only for historical log analysis on
+legacy CloudTrail data. We recommend relying on "AWS EC2 Security Group Configuration Change" rule for network-control
+changes impacting RDS in VPC-based deployments.
+"""
 false_positives = [
     """
     An RDS security group deletion may be done by a system or network administrator. Verify whether the user identity,
@@ -20,13 +25,13 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS RDS Security Group Deletion"
+name = "Deprecated - AWS RDS Security Group Deletion"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating AWS RDS Security Group Deletion
+### Investigating Deprecated - AWS RDS Security Group Deletion
 
 Amazon RDS Security Groups control access to RDS instances, acting as a virtual firewall. Adversaries may delete these groups to disrupt database access or cover their tracks. The detection rule monitors AWS CloudTrail logs for successful deletion events of RDS Security Groups, signaling potential unauthorized activity. This helps security analysts quickly identify and respond to suspicious deletions.
 
