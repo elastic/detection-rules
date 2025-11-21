@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2025/11/17"
+integration = ["endpoint", "fortinet_fortigate"]
+maturity = "production"
+updated_date = "2025/11/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection correlates FortiGate's application control SOCKS events with Elastic Defend network event to identify the
+source process performing SOCKS traffic. Adversaries may use a connection proxy to direct network traffic between systems
+or act as an intermediary for network communications to a command and control server to avoid direct connections to their
+infrastructure.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-fortinet_fortigate.log-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SOCKS Traffic from an Unusual Process"
+references = [
+    "https://attack.mitre.org/techniques/T1090/",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.elastic.co/docs/reference/integrations/endpoint"
+]
+risk_score = 47
+rule_id = "6926b708-7964-425f-bed8-6e006379df08"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Fortinet",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by source.port, source.ip, destination.ip with maxspan=1m
+ [network where event.dataset == "fortinet_fortigate.log" and event.action == "signature" and network.application in ("SOCKS4", "SOCKS5")]
+ [network where event.module == "endpoint" and event.action in ("disconnect_received", "connection_attempted")]
+'''
+note = """## Triage and analysis
+
+### Investigating SOCKS Traffic from an Unusual Process
+
+### Possible investigation steps
+
+- Review the process details like command_line, privileges, global relevance and reputation.
+- Review the parent process execution details like command_line, global relevance and reputation.
+- Examine all network connection details performed by the process during last 48h.
+- Examine all localhost network connections performed by the same process to verify if there is any port forwarding with another process on the same machine.
+- Correlate the alert with other security events or logs to identify any patterns or additional indicators of compromise related to the same process or network activity.
+
+### False positive analysis
+
+- Browser proxy extensions and Add-ons.
+- Development and deployment tools.
+- Third party trusted tools using SOCKS for network communication.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate the suspicious processes and all associated children and parents.
+- Conduct a thorough review of the system's configuration files to identify unauthorized changes.
+- Reset credentials for any accounts associated with the source machine.
+- Implement network-level controls to block traffic via SOCKS unless authorized.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
