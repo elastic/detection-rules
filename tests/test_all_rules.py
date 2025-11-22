@@ -239,9 +239,7 @@ class TestThreatMappings(BaseRuleTest):
         """Validate tactic mapping and reference."""
         # Validate techniques are under the correct tactic
         if tactic.name not in framework_module.matrix:
-            self.fail(
-                f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}"
-            )
+            self.fail(f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}")
 
         # Validate tactic ID mapping
         expected_tactic = framework_module.tactics_map.get(tactic.name)
@@ -315,9 +313,7 @@ class TestThreatMappings(BaseRuleTest):
             sub_technique_reference_id = sub_technique.reference.rstrip("/").split("/")[-1]
         else:
             # ATT&CK sub-technique reference format: https://attack.mitre.org/techniques/T1005/005/
-            sub_technique_reference_id = ".".join(
-                sub_technique.reference.rstrip("/").split("/")[-2:]
-            )
+            sub_technique_reference_id = ".".join(sub_technique.reference.rstrip("/").split("/")[-2:])
         self.assertEqual(
             sub_technique.id,
             sub_technique_reference_id,
@@ -357,7 +353,9 @@ class TestThreatMappings(BaseRuleTest):
                         # Validate sub-techniques
                         sub_techniques = technique.subtechnique or []
                         for sub_technique in sub_techniques:
-                            self._validate_subtechnique(framework_module, framework_name, sub_technique, framework, rule)
+                            self._validate_subtechnique(
+                                framework_module, framework_name, sub_technique, framework, rule
+                            )
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""

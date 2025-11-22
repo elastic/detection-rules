@@ -33,10 +33,7 @@ def get_atlas_file_path() -> Path:
 
 def download_atlas_data(save: bool = True) -> dict[str, Any] | None:
     """Download ATLAS data from MITRE."""
-    url = (
-        "https://raw.githubusercontent.com/mitre-atlas/"
-        "atlas-data/main/dist/ATLAS.yaml"
-    )
+    url = "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml"
     r = requests.get(url, timeout=30)
     r.raise_for_status()
     atlas_data = yaml.safe_load(r.text)
@@ -88,10 +85,7 @@ if "matrices" in atlas and len(atlas["matrices"]) > 0:
             # Build matrix: map tactic IDs to technique IDs
             for tech_tactic_id in technique_tactics:
                 # Find tactic name from ID
-                tech_tactic_name = next(
-                    (name for name, tid in tactics_map.items() if tid == tech_tactic_id),
-                    None
-                )
+                tech_tactic_name = next((name for name, tid in tactics_map.items() if tid == tech_tactic_id), None)
                 if tech_tactic_name:
                     if tech_tactic_name not in matrix:
                         matrix[tech_tactic_name] = []
@@ -115,9 +109,7 @@ def refresh_atlas_data(save: bool = True) -> dict[str, Any] | None:
     current_version_str = CURRENT_ATLAS_VERSION
 
     try:
-        current_version = Version.parse(
-            current_version_str, optional_minor_and_patch=True
-        )
+        current_version = Version.parse(current_version_str, optional_minor_and_patch=True)
     except (ValueError, TypeError):
         # If version parsing fails, download anyway
         current_version = Version.parse("0.0.0", optional_minor_and_patch=True)
@@ -147,10 +139,7 @@ def refresh_atlas_data(save: bool = True) -> dict[str, Any] | None:
         print(f"No versions newer than the current detected: {current_version_str}")
         return None
 
-    download = (
-        f"https://raw.githubusercontent.com/mitre-atlas/atlas-data/"
-        f"{latest_release['name']}/dist/ATLAS.yaml"
-    )
+    download = f"https://raw.githubusercontent.com/mitre-atlas/atlas-data/{latest_release['name']}/dist/ATLAS.yaml"
     r = requests.get(download, timeout=30)
     r.raise_for_status()
     atlas_data = yaml.safe_load(r.text)
@@ -165,9 +154,7 @@ def refresh_atlas_data(save: bool = True) -> dict[str, Any] | None:
     return atlas_data
 
 
-def build_threat_map_entry(
-    tactic_name: str, *technique_ids: str
-) -> dict[str, Any]:
+def build_threat_map_entry(tactic_name: str, *technique_ids: str) -> dict[str, Any]:
     """Build rule threat map from ATLAS technique IDs."""
     url_base = "https://atlas.mitre.org/{type}/{id}/"
     tactic_id = tactics_map.get(tactic_name)
@@ -193,10 +180,7 @@ def build_threat_map_entry(
         tech_info = technique_lookup[tid]
         tech_tactic_ids = tech_info.get("tactics", [])
         if tactic_id not in tech_tactic_ids:
-            raise ValueError(
-                f"ATLAS technique ID: {tid} does not fall under "
-                f"tactic: {tactic_name}"
-            )
+            raise ValueError(f"ATLAS technique ID: {tid} does not fall under tactic: {tactic_name}")
 
         # Handle sub-techniques (e.g., AML.T0000.000)
         if "." in tid and tid.count(".") > 1:
@@ -218,8 +202,6 @@ def build_threat_map_entry(
     }
 
     if tech_entries:
-        entry["technique"] = sorted(
-            tech_entries.values(), key=lambda x: x["id"]
-        )
+        entry["technique"] = sorted(tech_entries.values(), key=lambda x: x["id"])
 
     return entry
