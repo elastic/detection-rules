@@ -17,7 +17,7 @@ import kql
 from marshmallow import ValidationError
 from semver import Version
 
-from detection_rules import attack, atlas
+from detection_rules import atlas, attack
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     find_latest_compatible_version,
@@ -226,6 +226,106 @@ class TestThreatMappings(BaseRuleTest):
                 old_new_mapping = "\n".join(f"Actual: {k} -> Expected {v}" for k, v in revoked_techniques.items())
                 self.fail(f"{self.rule_str(rule)} Using deprecated ATT&CK techniques: \n{old_new_mapping}")
 
+    def _get_framework_module(self, framework: str, rule) -> tuple:
+        """Get the framework module and name for the given framework."""
+        if framework == "MITRE ATLAS":
+            return atlas, "ATLAS"
+        if framework == "MITRE ATT&CK":
+            return attack, "ATT&CK"
+        self.fail(f"Unknown framework '{framework}' for rule: {self.rule_str(rule)}")
+        return None, None  # unreachable, but needed for type checking
+
+    def _validate_tactic(self, framework_module, framework_name: str, tactic, rule):
+        """Validate tactic mapping and reference."""
+        # Validate techniques are under the correct tactic
+        if tactic.name not in framework_module.matrix:
+            self.fail(
+                f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}"
+            )
+
+        # Validate tactic ID mapping
+        expected_tactic = framework_module.tactics_map.get(tactic.name)
+        if expected_tactic is None:
+            self.fail(
+                f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+                f"Unknown tactic name: {tactic.name}"
+            )
+        self.assertEqual(
+            expected_tactic,
+            tactic.id,
+            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+            f"expected:  {expected_tactic} for {tactic.name}\n"
+            f"actual: {tactic.id}",
+        )
+
+        # Validate tactic reference
+        tactic_reference_id = tactic.reference.rstrip("/").split("/")[-1]
+        self.assertEqual(
+            tactic.id,
+            tactic_reference_id,
+            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+            f"tactic ID {tactic.id} does not match the reference URL ID "
+            f"{tactic.reference}",
+        )
+
+    def _validate_technique(self, framework_module, framework_name: str, technique, rule):
+        """Validate technique mapping and reference."""
+        if technique.id not in framework_module.technique_lookup:
+            self.fail(
+                f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+                f"Unknown technique ID: {technique.id}"
+            )
+        expected_technique = framework_module.technique_lookup[technique.id]["name"]
+        self.assertEqual(
+            expected_technique,
+            technique.name,
+            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"expected: {expected_technique} for {technique.id}\n"
+            f"actual: {technique.name}",
+        )
+
+        technique_reference_id = technique.reference.rstrip("/").split("/")[-1]
+        self.assertEqual(
+            technique.id,
+            technique_reference_id,
+            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"technique ID {technique.id} does not match the reference URL ID "
+            f"{technique.reference}",
+        )
+
+    def _validate_subtechnique(self, framework_module, framework_name: str, sub_technique, framework: str, rule):
+        """Validate sub-technique mapping and reference."""
+        if sub_technique.id not in framework_module.technique_lookup:
+            self.fail(
+                f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+                f"Unknown sub-technique ID: {sub_technique.id}"
+            )
+        expected_sub_technique = framework_module.technique_lookup[sub_technique.id]["name"]
+        self.assertEqual(
+            expected_sub_technique,
+            sub_technique.name,
+            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"expected: {expected_sub_technique} for {sub_technique.id}\n"
+            f"actual: {sub_technique.name}",
+        )
+
+        # For ATLAS, sub-technique IDs are like AML.T0000.000, so we need to handle differently
+        if framework == "MITRE ATLAS":
+            # ATLAS sub-technique reference format: https://atlas.mitre.org/techniques/AML.T0000.000/
+            sub_technique_reference_id = sub_technique.reference.rstrip("/").split("/")[-1]
+        else:
+            # ATT&CK sub-technique reference format: https://attack.mitre.org/techniques/T1005/005/
+            sub_technique_reference_id = ".".join(
+                sub_technique.reference.rstrip("/").split("/")[-2:]
+            )
+        self.assertEqual(
+            sub_technique.id,
+            sub_technique_reference_id,
+            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"sub-technique ID {sub_technique.id} does not match the reference URL ID "
+            f"{sub_technique.reference}",
+        )
+
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
         for rule in self.all_rules:
@@ -237,113 +337,27 @@ class TestThreatMappings(BaseRuleTest):
                     techniques = entry.technique or []
 
                     # Select the appropriate framework module
-                    if framework == "MITRE ATLAS":
-                        framework_module = atlas
-                        framework_name = "ATLAS"
-                    elif framework == "MITRE ATT&CK":
-                        framework_module = attack
-                        framework_name = "ATT&CK"
-                    else:
-                        self.fail(
-                            f"Unknown framework '{framework}' for rule: {self.rule_str(rule)}"
-                        )
+                    framework_module, framework_name = self._get_framework_module(framework, rule)
 
                     # Validate techniques are under the correct tactic
-                    if tactic.name in framework_module.matrix:
-                        mismatched = [t.id for t in techniques if t.id not in framework_module.matrix[tactic.name]]
-                        if mismatched:
-                            self.fail(
-                                f"mismatched {framework_name} techniques for rule: {self.rule_str(rule)} "
-                                f"{', '.join(mismatched)} not under: {tactic.name}"
-                            )
-                    else:
+                    mismatched = [t.id for t in techniques if t.id not in framework_module.matrix[tactic.name]]
+                    if mismatched:
                         self.fail(
-                            f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}"
+                            f"mismatched {framework_name} techniques for rule: {self.rule_str(rule)} "
+                            f"{', '.join(mismatched)} not under: {tactic.name}"
                         )
 
-                    # tactic
-                    expected_tactic = framework_module.tactics_map.get(tactic.name)
-                    if expected_tactic is None:
-                        self.fail(
-                            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
-                            f"Unknown tactic name: {tactic.name}"
-                        )
-                    self.assertEqual(
-                        expected_tactic,
-                        tactic.id,
-                        f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
-                        f"expected:  {expected_tactic} for {tactic.name}\n"
-                        f"actual: {tactic.id}",
-                    )
+                    # Validate tactic
+                    self._validate_tactic(framework_module, framework_name, tactic, rule)
 
-                    tactic_reference_id = tactic.reference.rstrip("/").split("/")[-1]
-                    self.assertEqual(
-                        tactic.id,
-                        tactic_reference_id,
-                        f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
-                        f"tactic ID {tactic.id} does not match the reference URL ID "
-                        f"{tactic.reference}",
-                    )
-
-                    # techniques
+                    # Validate techniques
                     for technique in techniques:
-                        if technique.id not in framework_module.technique_lookup:
-                            self.fail(
-                                f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
-                                f"Unknown technique ID: {technique.id}"
-                            )
-                        expected_technique = framework_module.technique_lookup[technique.id]["name"]
-                        self.assertEqual(
-                            expected_technique,
-                            technique.name,
-                            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
-                            f"expected: {expected_technique} for {technique.id}\n"
-                            f"actual: {technique.name}",
-                        )
+                        self._validate_technique(framework_module, framework_name, technique, rule)
 
-                        technique_reference_id = technique.reference.rstrip("/").split("/")[-1]
-                        self.assertEqual(
-                            technique.id,
-                            technique_reference_id,
-                            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
-                            f"technique ID {technique.id} does not match the reference URL ID "
-                            f"{technique.reference}",
-                        )
-
-                        # sub-techniques
+                        # Validate sub-techniques
                         sub_techniques = technique.subtechnique or []
-                        if sub_techniques:
-                            for sub_technique in sub_techniques:
-                                if sub_technique.id not in framework_module.technique_lookup:
-                                    self.fail(
-                                        f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
-                                        f"Unknown sub-technique ID: {sub_technique.id}"
-                                    )
-                                expected_sub_technique = framework_module.technique_lookup[sub_technique.id]["name"]
-                                self.assertEqual(
-                                    expected_sub_technique,
-                                    sub_technique.name,
-                                    f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
-                                    f"expected: {expected_sub_technique} for {sub_technique.id}\n"
-                                    f"actual: {sub_technique.name}",
-                                )
-
-                                # For ATLAS, sub-technique IDs are like AML.T0000.000, so we need to handle differently
-                                if framework == "MITRE ATLAS":
-                                    # ATLAS sub-technique reference format: https://atlas.mitre.org/techniques/AML.T0000.000/
-                                    sub_technique_reference_id = sub_technique.reference.rstrip("/").split("/")[-1]
-                                else:
-                                    # ATT&CK sub-technique reference format: https://attack.mitre.org/techniques/T1005/005/
-                                    sub_technique_reference_id = ".".join(
-                                        sub_technique.reference.rstrip("/").split("/")[-2:]
-                                    )
-                                self.assertEqual(
-                                    sub_technique.id,
-                                    sub_technique_reference_id,
-                                    f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
-                                    f"sub-technique ID {sub_technique.id} does not match the reference URL ID "
-                                    f"{sub_technique.reference}",
-                                )
+                        for sub_technique in sub_techniques:
+                            self._validate_subtechnique(framework_module, framework_name, sub_technique, framework, rule)
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
