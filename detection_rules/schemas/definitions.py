@@ -105,9 +105,9 @@ NON_PUBLIC_FIELDS = {
     "setup": (Version.parse("8.3.0"), None),
 }
 INTERVAL_PATTERN = r"^\d+[mshd]$"
-TACTIC_URL = r"^https://attack.mitre.org/tactics/TA[0-9]+/$"
-TECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/$"
-SUBTECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$"
+TACTIC_URL = r"^(https://attack.mitre.org/tactics/TA[0-9]+/|https://atlas.mitre.org/tactics/AML\.TA[0-9]+/)$"
+TECHNIQUE_URL = r"^(https://attack.mitre.org/techniques/T[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+/)$"
+SUBTECHNIQUE_URL = r"^(https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+\.[0-9]+/)$"
 MACHINE_LEARNING = "machine_learning"
 QUERY = "query"
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]

@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a Model Context Protocol (MCP) server process spawns any child process. MCP servers are typically used by
+AI/LLM tools (e.g., Claude Desktop, Gemini CLI, Cursor) to interact with systems and provide context to AI models
+through tool invocations. While MCP servers may legitimately spawn some helper processes, any child process from an MCP
+server is worth investigating as it may indicate malicious command execution, data exfiltration, or unauthorized system
+access. Attackers may compromise MCP servers or abuse their tool invocation capabilities to execute arbitrary commands,
+access sensitive data, or establish persistence. MCP enables AI agents to invoke tools and interact with external
+systems, which creates a potential attack surface if not properly secured. Malicious actors may exploit MCP server
+configurations to execute unauthorized commands, exfiltrate data through tool invocations, or use the server as a
+conduit for lateral movement. This rule provides broad coverage to catch any suspicious activity from MCP servers, or
+benign child processes that may be part of a larger attack chain.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "MCP Server Spawning Any Child Process"
+note = """## Triage and analysis
+
+### Investigating MCP Server Spawning Any Child Process
+
+Model Context Protocol (MCP) servers are legitimate tools used by AI assistants and development environments to interact with systems. However, any child process spawned by an MCP server should be investigated as it may indicate malicious activity. This rule provides broad coverage to detect any process execution from MCP servers.
+
+### Possible investigation steps
+
+- Review the MCP server process command line to identify which MCP server is running and verify if it's an expected/authorized tool.
+- Investigate the user account associated with the MCP server process to determine if this activity is expected for that user.
+- Review network connections from the MCP server or child process to identify any command and control communications.
+- Look for file modifications or registry changes that may indicate persistence mechanisms or data exfiltration.
+- Determine if the MCP server is running with unexpected tool capabilities (filesystem, command execution, network access).
+- Inspect the MCP configuration JSON or manifests for non-default tool definitions.
+- Evaluate whether the MCP server was launched by an LLM/agent (Cursor, Claude Desktop, Gemini CLI) or manually by a developer.
+
+### False positive analysis
+
+- Legitimate MCP servers may spawn helper processes or utilities as part of their normal operation.
+- Development workflows that use MCP servers for automation may trigger this rule.
+- Cursor, Claude Desktop, and Gemini CLI may perform initial probing actions when setting up MCP tools.
+
+### Response and remediation
+
+- Review the MCP server and child process to determine if the activity is legitimate or malicious.
+- Review and revoke any API keys, tokens, or credentials that may have been exposed or used by the MCP server.
+- Investigate the MCP server configuration files to identify how it was configured and what tools it was authorized to use.
+- If the MCP server appears malicious or unauthorized, block or remove the server package (npm, pip, uvx, etc.) at the endpoint and validate other systems for similar installations.
+"""
+references = [
+  "https://atlas.mitre.org/techniques/AML.T0053",
+  "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+  "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 47
+rule_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567891"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0053",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start"
+  and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2")
+
+  // MCP server parent process: known MCP clients and common MCP server launch patterns
+  and(
+
+    // Known MCP-capable GenAI clients
+    process.parent.name in (
+      "gemini-cli.exe", "gemini-cli",
+      "claude.exe", "claude",
+      "cursor.exe", "cursor"
+    )
+
+    // TypeScript/Node: npx/pnpm/yarn/bunx running @modelcontextprotocol server packages
+    or (process.parent.name in ("npx", "pnpm", "yarn", "bunx")
+        and process.parent.command_line like~ "*@modelcontextprotocol/server-*")
+
+    // Python/Go/etc.: binaries named mcp-server-*
+    or process.parent.name like~ "mcp-server*"
+
+    // Node/Deno: direct server entrypoints
+    or (process.parent.name in ("node.exe", "node", "deno.exe", "deno")
+        and process.parent.command_line like~ (
+          "*@modelcontextprotocol/server-*",
+          "*mcp-server-*"
+        ))
+
+    // Python: module invocations and console scripts
+    or (process.parent.name like~ "python*"
+        and process.parent.command_line like~ (
+          "* -m mcp_server_*",
+          "*mcp-server-*"
+        ))
+  )
+
+  // Any child process from MCP server (including encoding/compression tools: base64, gzip, tar, zip, split, 7z, 7za, 7zr)
+  and process.name != null
+
+  // Exclude bootstrap helpers: env when launching node/python/deno scripts, and git
+  and not (
+    process.name == "git" or
+    (process.name == "env" and process.command_line like~ ("*node*", "*python*", "*deno*"))
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "AML.TA0005"
+  reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+  [[rule.threat.technique]]
+  name = "AI Agent Tool Invocation"
+  id = "AML.T0053"
+  reference = "https://atlas.mitre.org/techniques/AML.T0053/"
