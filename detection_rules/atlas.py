@@ -27,7 +27,7 @@ def get_atlas_file_path() -> Path:
     """Get the path to the ATLAS YAML file."""
     if not ATLAS_FILE.exists():
         # Try to download it if it doesn't exist
-        download_atlas_data()
+        _ = download_atlas_data()
     return ATLAS_FILE
 
 
@@ -39,7 +39,7 @@ def download_atlas_data(save: bool = True) -> dict[str, Any] | None:
     atlas_data = yaml.safe_load(r.text)
 
     if save:
-        ATLAS_FILE.write_text(r.text)
+        _ = ATLAS_FILE.write_text(r.text)
         print(f"Downloaded ATLAS data to {ATLAS_FILE}")
 
     return atlas_data
