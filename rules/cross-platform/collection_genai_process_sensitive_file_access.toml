@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2025/11/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a recognized Generative AI (GenAI) tool or agent framework accesses monitored sensitive files. Legitimate
+GenAI development tools typically work within project folders or user-sanctioned workspaces, but access to credential
+stores (e.g., .aws/credentials, .ssh/ keys, browser password databases), key libraries, browser profile data,
+cloud-access tokens, or private SSH/key directories strongly suggests credential harvesting or data-collection activity.
+In MCP/agent-enabled workflows (e.g., via AutoGPT, LangChain, or other GenAI frameworks), this behavior aligns with the
+"private data access" threat model for AI agents where an agent with access to private data becomes an exfiltration
+risk. Attackers may leverage GenAI tools to systematically search for and access sensitive files, then use the AI to
+process and summarize the data before exfiltration to reduce payload size and evade detection. Because these GenAI
+processes are not ordinarily expected to touch protected file stores, this behavior is high signal for potential
+malicious use and should be investigated immediately.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI Process Accessing Sensitive Files"
+note = """## Triage and analysis
+
+### Investigating GenAI Process Accessing Sensitive Files
+
+Generative AI tools are increasingly used in development environments, but they typically only access files within active project folders. When a GenAI process accesses sensitive files (credentials, keys, browser data, etc.) that are monitored by Elastic Defend, it strongly indicates suspicious credential harvesting or data collection activity. Attackers use GenAI to process and summarize sensitive data before extraction to reduce payload size and evade detection.
+
+### Possible investigation steps
+
+- Review the GenAI process that triggered the alert to identify which tool is being used and verify if it's an expected/authorized tool.
+- Investigate the user account associated with the GenAI process to determine if this activity is expected for that user.
+- Review the types of sensitive files being accessed (credentials, keys, browser data, etc.) to assess the potential impact of credential harvesting or data exfiltration.
+- Check for other alerts or suspicious activity on the same host around the same time, particularly network exfiltration events.
+- Verify if the GenAI tool or extension is from a trusted source and if it's authorized for use in your environment.
+- Determine if the GenAI process accessed multiple sensitive directories in sequence, an indication of credential harvesting.
+- Check if the GenAI tool recently created or accessed AI agent config files, which may contain instructions enabling autonomous file scanning.
+- Review whether the access was preceded by an MCP server, LangChain agent, or background automation.
+
+### False positive analysis
+
+- Automated security scanning or auditing tools that leverage GenAI may access sensitive files as part of their normal operation.
+- Development workflows that use GenAI tools for code analysis may occasionally access credential files.
+
+### Response and remediation
+
+- Immediately review the GenAI process that accessed the documents to determine if it's compromised or malicious.
+- Review, rotate, and revoke any API keys, tokens, or credentials that may have been exposed or used by the GenAI tool.
+- Investigate the document access patterns to determine the scope of potential data exfiltration.
+- Update security policies to restrict or monitor GenAI tool usage in the environment, especially for access to sensitive files.
+"""
+references = [
+  "https://atlas.mitre.org/techniques/AML.T0085",
+  "https://atlas.mitre.org/techniques/AML.T0085.001",
+  "https://atlas.mitre.org/techniques/AML.T0055",
+  "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+  "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 73
+rule_id = "c0136397-f82a-45e5-9b9f-a3651d77e21a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0085",
+    "Mitre Atlas: T0085.001",
+    "Mitre Atlas: T0055",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=5m
+  [process where event.type == "start" and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2") and
+
+    // GenAI-related processes: well-known GenAI tools/IDEs/frameworks
+    (
+      process.name in ("ollama.exe", "ollama", "textgen.exe", "textgen", "lmstudio.exe", "lmstudio", "claude.exe", "claude", "cursor.exe", "cursor", "copilot.exe", "copilot") or
+
+      // Node-related processes with GenAI indicators in command line
+      (process.name in ("node.exe", "node", "deno.exe", "deno") and process.command_line like~ ("*ollama*", "*mcp*", "*langchain*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*")) or
+
+      // Python processes ONLY when clearly GenAI-related
+      (process.name like "python*" and process.command_line like~ ("*ollama*", "*mcp*", "*langchain*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*")) or
+
+      // GenAI frameworks and tools via command line
+      process.command_line like~ ("*ollama*", "*textgen*", "*lmstudio*", "*mcp*", "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic*", "*llama*", "*haystack*", "*transformers*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*", "*openai*", "*anthropic*", "*cohere*", "*mistral*", "*perplexity*", "*replicate*", "*huggingface*" )
+    )
+  ]
+  [file where (event.action == "open" or event.action == "modification") and event.outcome == "success" and
+    not (process.name like "claude*" and file.path like "?:\\Users\\*\\AppData\\Roaming\\Claude\\Local State")
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "AML.TA0009"
+  reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data from AI Services"
+  id = "AML.T0085"
+  reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "AI Agent Tools"
+    id = "AML.T0085.001"
+    reference = "https://atlas.mitre.org/techniques/AML.T0085.001"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+  [rule.threat.tactic]
+  name = "Credential Access"
+  id = "AML.TA0013"
+  reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
+
+  [[rule.threat.technique]]
+  name = "Unsecured Credentials"
+  id = "AML.T0055"
+  reference = "https://atlas.mitre.org/techniques/AML.T0055/"

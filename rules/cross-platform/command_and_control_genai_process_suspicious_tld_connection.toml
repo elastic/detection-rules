@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2025/11/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Generative AI (GenAI) tools and frameworks establish network connections to suspicious top-level domains (TLDs)
+commonly abused by malware for command and control (C2) operations. GenAI tools connecting to suspicious TLDs (e.g., .top, .xyz,
+.ml, .cf, .gq, .onion) may indicate compromised tools, malicious GenAI agents, or adversaries using GenAI tools to establish
+C2 communications. Attackers may leverage GenAI tools to generate and execute code that connects to malicious infrastructure,
+or compromise legitimate GenAI tools to use them as a conduit for C2 traffic. This rule focuses on native GenAI executables
+(e.g., Ollama, LM Studio, Claude Desktop, Cursor) and package managers (npx, pnpm, yarn, bunx) commonly used with GenAI frameworks.
+The use of suspicious TLDs is a strong indicator of malicious intent, as legitimate GenAI services typically use well-established
+domains.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI Process Connection to Suspicious Top Level Domain"
+note = """## Triage and analysis
+
+### Investigating GenAI Process Connection to Suspicious Top Level Domain
+
+GenAI tools connecting to suspicious TLDs is highly suspicious and may indicate a compromised GenAI tool being used for C2 communications, a malicious GenAI agent establishing command and control, or an adversary using GenAI tools to evade detection by using suspicious domains.
+
+### Possible investigation steps
+
+- Review the GenAI process command line to identify which tool is running and verify if it's an expected/authorized tool.
+- Examine the network connection details (destination IP, port, protocol) to understand the nature of the communication.
+- Check the process execution chain to identify the full attack path and initial entry point.
+- Investigate the user account associated with the GenAI process to determine if this activity is expected for that user.
+- Review network traffic patterns to identify data exfiltration or command and control communications.
+- Check for other alerts or suspicious activity on the same host around the same time.
+- Verify if the GenAI tool is from a trusted source and if it's authorized for use in your environment.
+- Confirm whether the suspicious domain is used by package registries, CDN mirrors, or AI plugin repos.
+- Check if the GenAI tool attempted follow-up actions such as downloading scripts, connecting to IPs directly, or loading remote models.
+- Inspect whether the domain matches prompt-redirections, malicious AI plugins, or compromised package dependencies.
+
+### False positive analysis
+
+- Legitimate GenAI tools may occasionally connect to domains using suspicious TLDs if they're legitimate services.
+- Package managers (npx, pnpm, yarn, bunx) may connect to package registries or CDNs that use suspicious TLDs. Review and exclude known legitimate package registries if needed.
+- Some third-party AI plugin ecosystems (VSCode AI plugins, Cursor extensions) may download assets from unusual TLDs; verify allowlists.
+
+### Response and remediation
+
+- Terminate the GenAI process and any spawned child processes to stop the malicious activity.
+- Review and revoke any API keys, tokens, or credentials that may have been exposed or used by the GenAI tool.
+- Block the identified suspicious domains at the network level.
+- Investigate the GenAI tool configuration to identify how it was configured and what it was authorized to access.
+- Update security policies to restrict or monitor GenAI tool usage in the environment, especially for network communications.
+- Add detection for secondary indicators (reverse shells, encoded C2 traffic, odd user-agent strings).
+"""
+references = [
+  "https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains",
+  "https://atlas.mitre.org/techniques/AML.T0086",
+  "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 73
+rule_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0086",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type in ("macos", "windows") and
+  // Native GenAI related executables
+  process.name in (
+    "ollama.exe", "ollama",
+    "textgen.exe", "textgen",
+    "lmstudio.exe", "lmstudio",
+    "claude.exe", "claude",
+    "cursor.exe", "cursor",
+    "copilot.exe", "copilot",
+    "gemini-cli.exe", "gemini-cli",
+    "genaiscript.exe", "genaiscript",
+    "grok.exe", "grok",
+    "qwen.exe", "qwen",
+    "deno.exe", "deno",
+    "npx", "pnpm", "yarn", "bunx"
+  ) and
+  (
+    // Windows DNS events - supported by Elastic Defend, Crowdstrike, and SentinelOne
+    (host.os.type == "windows" and dns.question.name != null and
+     dns.question.name like~ ("*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.monster", "*.cyou", "*.quest", "*.cc", "*.bar", "*.cfd", "*.click", "*.cam",
+                               "*.surf", "*.tk", "*.shop", "*.club", "*.icu", "*.pw", "*.ws", "*.online", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.skin", "*.motorcycles", "*.christmas", "*.lol", "*.makeup",
+                               "*.mom", "*.rest", "*.monster", "*.bond", "*.beauty", "*.biz", "*.live")) or
+    // macOS network events - Elastic Defend only
+    (host.os.type == "macos" and destination.domain != null and
+     destination.domain like~ ("*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.monster", "*.cyou", "*.quest", "*.cc", "*.bar", "*.cfd", "*.click", "*.cam",
+                               "*.surf", "*.tk", "*.shop", "*.club", "*.icu", "*.pw", "*.ws", "*.online", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.skin", "*.motorcycles", "*.christmas", "*.lol", "*.makeup",
+                               "*.mom", "*.rest", "*.monster", "*.bond", "*.beauty", "*.biz", "*.live"))
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "DNS"
+    id = "T1071.004"
+    reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "AML.TA0010"
+  reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration via AI Agent Tool Invocation"
+  id = "AML.T0086"
+  reference = "https://atlas.mitre.org/techniques/AML.T0086/"
+
