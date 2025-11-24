@@ -12,20 +12,16 @@ as vulnerability scanning or fuzzing attempts by adversaries. These activities o
 responses as they probe for weaknesses in web applications. Error response codes may potentially indicate server-side
 issues that could be exploited.
 """
-from = "now-61m"
-interval = "1h"
+from = "now-9m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Unusual Spike in Error Logs"
-risk_score = 47
+risk_score = 21
 rule_id = "6631a759-4559-4c33-a392-13f146c8bcc4"
-severity = "medium"
+severity = "low"
 tags = [
-    "Domain Scope: Single",
     "Domain: Web",
-    "OS: Linux",
-    "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
     "Data Source: Nginx",
@@ -41,8 +37,6 @@ from
   logs-apache_tomcat.error-*,
   logs-apache.error-*,
   logs-iis.error-*
-| where
-    @timestamp > now() - 1 hours
 | keep
     @timestamp,
     event.type,
@@ -55,7 +49,7 @@ from
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
     Esql.event_dataset_values = values(event.dataset)
-    by source.ip
+    by source.ip, agent.id
 | where
     Esql.event_count > 25
 | limit 100
