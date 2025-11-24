@@ -80,26 +80,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by process.entity_id with maxspan=5m
-  [process where event.type == "start" and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2") and
-
-    // GenAI-related processes: well-known GenAI tools/IDEs/frameworks
-    (
-      process.name in ("ollama.exe", "ollama", "textgen.exe", "textgen", "lmstudio.exe", "lmstudio", "claude.exe", "claude", "cursor.exe", "cursor", "copilot.exe", "copilot") or
-
-      // Node-related processes with GenAI indicators in command line
-      (process.name in ("node.exe", "node", "deno.exe", "deno") and process.command_line like~ ("*ollama*", "*mcp*", "*langchain*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*")) or
-
-      // Python processes ONLY when clearly GenAI-related
-      (process.name like "python*" and process.command_line like~ ("*ollama*", "*mcp*", "*langchain*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*")) or
-
-      // GenAI frameworks and tools via command line
-      process.command_line like~ ("*ollama*", "*textgen*", "*lmstudio*", "*mcp*", "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic*", "*llama*", "*haystack*", "*transformers*", "*gpt*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*", "*openai*", "*anthropic*", "*cohere*", "*mistral*", "*perplexity*", "*replicate*", "*huggingface*" )
-    )
-  ]
-  [file where (event.action == "open" or event.action == "modification") and event.outcome == "success" and
-    not (process.name like "claude*" and file.path like "?:\\Users\\*\\AppData\\Roaming\\Claude\\Local State")
-  ]
+file where event.action == "open" and event.outcome == "success" and
+    process.name in ("ollama.exe", "ollama", "textgen.exe", "textgen", "lmstudio.exe", "lmstudio", "claude.exe", "claude", "cursor.exe", "cursor", "copilot.exe", "copilot") and 
+    not (process.name in ("claude.exe", "claude") and file.path like "?:\\Users\\*\\AppData\\Roaming\\Claude\\Local State")
 '''
 
 [[rule.threat]]
