@@ -2,7 +2,7 @@
 creation_date = "2024/05/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/30"
+updated_date = "2025/10/21"
 
 [rule]
 author = ["Elastic"]
@@ -75,10 +75,10 @@ from logs-endpoint.events.file-* metadata _id, _version, _index
 // truncate the timestamp to a 60-second window
 | eval Esql.time_window_date_trunc = date_trunc(60 seconds, @timestamp)
 
-| keep file.path, file.name, process.entity_id, Esql.time_window_date_trunc
+| keep user.id, user.name, file.path, file.name, process.entity_id, Esql.time_window_date_trunc, host.name, host.ip
 
 // filter for same file name dropped in at least 3 unique paths by the System virtual process
-| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path)  by process.entity_id , file.name, Esql.time_window_date_trunc
+| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path), Esql.host_ip_values = values(host.ip) by host.name, user.name, user.id, process.entity_id , file.name, Esql.time_window_date_trunc
 | where Esql.file_path_count_distinct >= 3
 '''
 

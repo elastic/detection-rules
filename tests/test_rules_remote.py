@@ -218,3 +218,20 @@ class TestRemoteRules(BaseRuleTest):
         """
         with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_non_ecs_schema_conflict_resolution(self):
+        """Test an ESQL rule that has a known conflict between non_ecs and integrations for correct handling."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["azure", "o365"]
+        production_rule["rule"]["query"] = """
+        from logs-azure.signinlogs-* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and event.dataset in ("azure.signinlogs")
+        and event.outcome == "success"
+        and azure.signinlogs.properties.user_id is not null
+        | keep
+        event.outcome
+        """
+        _ = RuleCollection().load_dict(production_rule)

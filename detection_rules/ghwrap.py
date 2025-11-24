@@ -35,7 +35,7 @@ def get_gh_release(repo: Repository, release_name: str | None = None, tag_name: 
 
     releases = repo.get_releases()
     for release in releases:
-        if (release_name and release_name == release.title) or (tag_name and tag_name == release.tag_name):
+        if (release_name and release_name == release.name) or (tag_name and tag_name == release.tag_name):
             return release
     return None
 
@@ -211,7 +211,7 @@ class ManifestManager:
             raise ValueError(f"No release found for {tag_name or release_name}")
 
         if not self.release_name:
-            self.release_name = self.release.title
+            self.release_name = self.release.name
 
         self.manifest_name = f"manifest-{self.release_name}.json"
         self.assets = self._get_enriched_assets_from_release()
