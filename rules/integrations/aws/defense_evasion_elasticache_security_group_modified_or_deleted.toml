@@ -2,11 +2,17 @@
 creation_date = "2021/07/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/18"
 
 [rule]
 author = ["Austin Songer"]
-description = "Identifies when an ElastiCache security group has been modified or deleted."
+description = """
+Identifies when an ElastiCache security group has been modified or deleted. Amazon EC2-Classic and ElastiCache
+CacheSecurityGroups have been retired. Modern ElastiCache deployments run in a VPC and use standard EC2 security groups
+instead. This rule should be retained only for historical log analysis on legacy CloudTrail data. We recommend relying
+on "AWS EC2 Security Group Configuration Change" rule for network-control changes impacting ElastiCache in VPC-based
+deployments.
+"""
 false_positives = [
     """
     A ElastiCache security group deletion may be done by a system or network administrator. Verify whether the user
@@ -20,13 +26,13 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS ElastiCache Security Group Modified or Deleted"
+name = "Deprecated - AWS ElastiCache Security Group Modified or Deleted"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating AWS ElastiCache Security Group Modified or Deleted
+### Investigating Deprecated - AWS ElastiCache Security Group Modified or Deleted
 
 AWS ElastiCache security groups control inbound and outbound traffic to cache clusters, ensuring only authorized access. Adversaries may modify or delete these groups to bypass security controls, facilitating unauthorized data access or exfiltration. The detection rule monitors specific API actions related to security group changes, flagging successful modifications or deletions as potential defense evasion attempts.
 
@@ -64,7 +70,13 @@ references = ["https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference
 risk_score = 21
 rule_id = "1ba5160d-f5a2-4624-b0ff-6a1dc55d2516"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: AWS", "Data Source: Amazon Web Services", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
