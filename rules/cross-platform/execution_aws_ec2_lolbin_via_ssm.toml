@@ -8,7 +8,7 @@ updated_date = "2025/11/23"
 author = ["Elastic"]
 description = """
 Identifies the execution of Living Off the Land Binaries (LOLBins) or GTFOBins on EC2 instances via AWS Systems Manager
-(SSM) "SendCommand" API. This detection correlates AWS CloudTrail "SendCommand" events with endpoint process execution
+(SSM) `SendCommand` API. This detection correlates AWS CloudTrail `SendCommand` events with endpoint process execution
 by matching SSM command IDs. While AWS redacts command parameters in CloudTrail logs, this correlation technique reveals
 the actual commands executed on EC2 instances. Adversaries may abuse SSM to execute malicious commands remotely without
 requiring SSH or RDP access, using legitimate system utilities for data exfiltration, establishing reverse shells, or
@@ -109,7 +109,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
     AND host.os.type == "linux"
     AND (
       // SSM shell (_script.sh) runner
-      process.command_line LIKE "*/document/orchestration/*/awsrunShellScript/*/_script.sh"
+      process.command_line LIKE "*/document/orchestration/%/awsrunShellScript/*/_script.sh"
       // LOLBins / GTFOBins
       OR process.executable IN (
         "/usr/bin/base64",
@@ -132,12 +132,10 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
   )
 
 // Endpoint leg: extract SSM command ID from parent command line
-//   .../document/orchestration/<ssm_command_id>/AWS-RunShellScript/...
 | DISSECT process.parent.command_line
     "%{}/document/orchestration/%{Esql.process_parent_command_line_ssm_command_id}/%{}"
 
 // CloudTrail leg: extract SSM command ID from response_elements
-//   ...commandId=<ssm_command_id>,...
 | DISSECT aws.cloudtrail.response_elements
     "%{}commandId=%{Esql.aws_cloudtrail_response_elements_ssm_command_id},%{}"
 
@@ -174,7 +172,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
     Esql.aws_cloudtrail_first_event_ts              = MIN(CASE(Esql.is_cloud_event, @timestamp, null)),
     Esql.endpoint_events_process_first_lolbin_ts    = MIN(CASE(Esql.is_lolbin_process, @timestamp, null)),
 
-    // AWS / CloudTrail identity & request context (PII → Esql_priv.)
+    // AWS / CloudTrail identity & request context
     Esql_priv.aws_cloudtrail_user_identity_arn_values          =
       VALUES(CASE(Esql.is_cloud_event, aws.cloudtrail.user_identity.arn, null)),
     Esql_priv.aws_cloudtrail_user_identity_access_key_id_values =
@@ -221,7 +219,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
         Esql.aws_cloudtrail_first_event_ts
       ) <= 5
 | SORT Esql.aws_cloudtrail_first_event_ts ASC
-| KEEP Esql.*, Esql_priv.*
+| KEEP Esql.*, Esql_priv.*, @timestamp
 '''
 
 
