@@ -1112,6 +1112,7 @@ class TestIntegrationRules(BaseRuleTest):
                 f"The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}"
             )
 
+    @unittest.skipIf(os.environ.get("CUSTOM_RULES_DIR"), "Skipping test for custom rules.")
     def test_preserve_upstream_protected_rule_id_name(self):
         """
         Ensure upstream referenced rule IDs and rule names remain unchanged
