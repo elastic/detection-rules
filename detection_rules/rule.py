@@ -228,7 +228,7 @@ class Tactic(BaseThreatEntry):
 class ThreatMapping(MarshmallowDataclassMixin):
     """Mapping to a threat framework."""
 
-    framework: Literal["MITRE ATT&CK"]
+    framework: Literal["MITRE ATT&CK", "MITRE ATLAS"]
     tactic: Tactic
     technique: list[Technique] | None = None
 
