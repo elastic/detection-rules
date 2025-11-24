@@ -11,8 +11,8 @@ This rule detects potential web server discovery or fuzzing activity by identify
 in 404 or 403 status codes from a single source IP address within a short timeframe. Such patterns may indicate that an attacker
 is attempting to discover hidden or unlinked resources on a web server, which can be a precursor to more targeted attacks.
 """
-from = "now-61m"
-interval = "1h"
+from = "now-9m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Discovery or Fuzzing Activity"
@@ -20,12 +20,8 @@ risk_score = 21
 rule_id = "8383a8d0-008b-47a5-94e5-496629dc3590"
 severity = "low"
 tags = [
-    "Domain Scope: Single",
     "Domain: Web",
     "Domain: Network",
-    "OS: Linux",
-    "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
     "Data Source: Network Packet Capture",
@@ -45,13 +41,12 @@ from
   logs-apache_tomcat.access-*,
   logs-iis.access-*
 | where
-    @timestamp > now() - 1 hours and
     (url.original is not null or url.full is not null) and
     http.request.method == "GET" and 
     http.response.status_code in (404, 403)
 
 | eval Esql_url_text  = case(url.original is not null, url.original, url.full)
-| eval Esql_url_lower = to_lower(Esql_url_text)
+| eval Esql.url_lower = to_lower(Esql_url_text)
 
 | keep
     @timestamp,
@@ -61,15 +56,15 @@ from
     source.ip,
     agent.id,
     host.name,
-    Esql_url_lower
+    Esql.url_lower
 | stats
     Esql.event_count = count(),
-    Esql.url_lower_count_distinct = count_distinct(Esql_url_lower),
+    Esql.url_lower_count_distinct = count_distinct(Esql.url_lower),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),
-    Esql.url_path_values = values(Esql_url_lower),
+    Esql.url_path_values = values(Esql.url_lower),
     Esql.event_dataset_values = values(event.dataset)
     by source.ip
 | where
