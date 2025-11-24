@@ -109,7 +109,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
     AND host.os.type == "linux"
     AND (
       // SSM shell (_script.sh) runner
-      process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
+      process.command_line LIKE "*/document/orchestration/%/awsrunShellScript/*/_script.sh"
       // LOLBins / GTFOBins
       OR process.executable IN (
         "/usr/bin/base64",
@@ -159,7 +159,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
 // Identify the SSM shell processes (the _script.sh runners)
 | EVAL Esql.is_ssm_shell_process =
     Esql.is_endpoint_event
-    AND process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
+    AND process.command_line LIKE "*/document/orchestration/*/awsrunShellScript/*/_script.sh"
 
 // LOLBins / GTFOBins on Linux
 | EVAL Esql.is_lolbin_process =
