@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis", "network_traffic"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual spikes in web server requests with uncommon or suspicious user-agent strings. Such activity may
+indicate reconnaissance attempts by attackers trying to identify vulnerabilities in web applications or servers. These
+user-agents are often associated with automated tools used for scanning, vulnerability assessment, or brute-force attacks.
+"""
+from = "now-9m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Suspicious User Agent Requests"
+risk_score = 21
+rule_id = "a1b7ffa4-bf80-4bf1-86ad-c3f4dc718b35"
+severity = "low"
+tags = [
+    "Domain: Web",
+	"Domain: Network",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Data Source: Network Packet Capture",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-network_traffic.http-*, logs-network_traffic.tls-*, logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+
+| eval Esql.user_agent_original_lower = to_lower(user_agent.original)
+
+| where
+    (url.original is not null or url.full is not null) and
+  (
+		Esql.user_agent_original_lower like "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/74.0.3729.169 safari/537.36" or // Nikto
+		Esql.user_agent_original_lower like "nikto*" or // Nikto
+		Esql.user_agent_original_lower like "mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)" or // Nessus Vulnerability Scanner
+        Esql.user_agent_original_lower like "*nessus*" or // Nessus Vulnerability Scanner
+		Esql.user_agent_original_lower like "sqlmap/*" or // SQLMap
+		Esql.user_agent_original_lower like "wpscan*" or // WPScan
+		Esql.user_agent_original_lower like "feroxbuster/*" or // Feroxbuster
+		Esql.user_agent_original_lower like "masscan*" or // Masscan & masscan-ng
+		Esql.user_agent_original_lower like "fuzz*" or // Ffuf
+		Esql.user_agent_original_lower like "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/user_agent.original like~ 87.0.4280.88 safari/537.36" or // Dirsearch
+		Esql.user_agent_original_lower like "mozilla/4.0 (compatible; msie 6.0; windows nt 5.1)" or // Dirb
+		Esql.user_agent_original_lower like "dirbuster*" or // Dirbuster
+		Esql.user_agent_original_lower like "gobuster/*" or // Gobuster
+        Esql.user_agent_original_lower like "*dirsearch*" or // dirsearch
+		Esql.user_agent_original_lower like "*nmap*" or // Nmap Scripting Engine
+        Esql.user_agent_original_lower like "*hydra*" or // Hydra Brute Forcer
+        Esql.user_agent_original_lower like "*w3af*" or // w3af Web Application Attack and Audit Framework
+        Esql.user_agent_original_lower like "*arachni*" or // Arachni Web Application Security Scanner
+        Esql.user_agent_original_lower like "*skipfish*" or // Skipfish Web Application Security Scanner
+        Esql.user_agent_original_lower like "*openvas*" or // OpenVAS Vulnerability Scanner
+        Esql.user_agent_original_lower like "*acunetix*" or // Acunetix Vulnerability Scanner
+        Esql.user_agent_original_lower like "*zap*" or // OWASP ZAP
+        Esql.user_agent_original_lower like "*burp*" // Burp Suite
+  )
+
+| eval Esql.url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql.url_lower = to_lower(Esql.url_text)
+
+| keep
+    @timestamp,
+    event.dataset,
+    user_agent.original,
+    source.ip,
+    agent.id,
+    host.name,
+	Esql.url_lower,
+    Esql.user_agent_original_lower
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(Esql.url_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.url_path_values = values(Esql.url_lower),
+    Esql.user_agent_original_values = values(Esql.user_agent_original_lower),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip, agent.id
+| where
+    Esql.event_count > 50 and Esql.url_path_count_distinct > 10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.001"
+name = "Scanning IP Blocks"
+reference = "https://attack.mitre.org/techniques/T1595/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
