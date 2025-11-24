@@ -74,9 +74,9 @@ references = [
     "https://hackingthe.cloud/aws/post_exploitation/run_shell_commands_on_ec2/",
     "https://gtfobins.github.io/",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "a8b3e2f0-8c7d-11ef-b4c6-f661ea17fbcd"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Endpoint",
@@ -109,24 +109,23 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
     AND host.os.type == "linux"
     AND (
       // SSM shell (_script.sh) runner
-      process.command_line LIKE "*/document/orchestration/%/awsrunShellScript/*/_script.sh"
+      process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
       // LOLBins / GTFOBins
-      OR process.executable IN (
-        "/usr/bin/base64",
-        "/usr/bin/curl",
-        "/usr/bin/wget",
-        "/usr/bin/openssl",
-        "/usr/bin/nc", "/bin/nc",
-        "/usr/bin/ncat", "/usr/bin/netcat",
-        "/usr/bin/socat",
-        "/usr/bin/python", "/usr/bin/python3",
-        "/usr/bin/perl",
-        "/usr/bin/php",
-        "/usr/bin/ruby",
-        "/usr/bin/ssh",
-        "/usr/bin/scp",
-        "/usr/bin/sftp",
-        "/usr/bin/rsync"
+      OR process.name IN (
+        "base64",
+        "curl",
+        "wget",
+        "openssl",
+        "nc", "ncat", "netcat",
+        "socat",
+        "python", "python3",
+        "perl",
+        "php",
+        "ruby",
+        "ssh",
+        "scp",
+        "sftp",
+        "rsync"
       )
     )
   )
@@ -139,15 +138,11 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
 | DISSECT aws.cloudtrail.response_elements
     "%{}commandId=%{Esql.aws_cloudtrail_response_elements_ssm_command_id},%{}"
 
-// Normalize into a single SSM command id
-| EVAL Esql.aws_ssm_command_id =
-    CASE(
-      event.dataset == "aws.cloudtrail", Esql.aws_cloudtrail_response_elements_ssm_command_id,
-      CASE(
-        event.dataset == "endpoint.events.process", Esql.process_parent_command_line_ssm_command_id,
-        null
-      )
-    )
+// Coalesce SSM command ID from both data sources
+| EVAL Esql.aws_ssm_command_id = COALESCE(
+    Esql.aws_cloudtrail_response_elements_ssm_command_id,
+    Esql.process_parent_command_line_ssm_command_id
+)
 | WHERE Esql.aws_ssm_command_id IS NOT NULL
 
 // Role flags
@@ -157,7 +152,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
 // Identify the SSM shell processes (the _script.sh runners)
 | EVAL Esql.is_ssm_shell_process =
     Esql.is_endpoint_event
-    AND process.command_line LIKE "*/document/orchestration/*/awsrunShellScript/*/_script.sh"
+    AND process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
 
 // LOLBins / GTFOBins on Linux
 | EVAL Esql.is_lolbin_process =
@@ -219,7 +214,7 @@ FROM logs-aws.cloudtrail*, logs-endpoint.* METADATA _id, _version, _index
         Esql.aws_cloudtrail_first_event_ts
       ) <= 5
 | SORT Esql.aws_cloudtrail_first_event_ts ASC
-| KEEP Esql.*, Esql_priv.*, @timestamp
+| KEEP Esql.*, Esql_priv.*
 '''
 
 
