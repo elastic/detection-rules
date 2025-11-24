@@ -11,8 +11,8 @@ This rule detects unusual spikes in web server requests with uncommon or suspici
 indicate reconnaissance attempts by attackers trying to identify vulnerabilities in web applications or servers. These
 user-agents are often associated with automated tools used for scanning, vulnerability assessment, or brute-force attacks.
 """
-from = "now-61m"
-interval = "1h"
+from = "now-9m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Suspicious User Agent Request Spike"
@@ -20,12 +20,8 @@ risk_score = 21
 rule_id = "a1b7ffa4-bf80-4bf1-86ad-c3f4dc718b35"
 severity = "low"
 tags = [
-    "Domain Scope: Single",
     "Domain: Web",
 	"Domain: Network",
-    "OS: Linux",
-    "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
     "Tactic: Credential Access",
@@ -46,7 +42,6 @@ from
   logs-apache_tomcat.access-*,
   logs-iis.access-*
 | where
-    @timestamp > now() - 1 hours and
     (url.original is not null or url.full is not null) and
   (
 		user_agent.original like "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36" or // Nikto
@@ -62,11 +57,20 @@ from
 		user_agent.original like "DirBuster*" or // Dirbuster
 		user_agent.original like "gobuster/*" or // Gobuster
 		user_agent.original like "*nmap*" or // Nmap Scripting Engine
-        user_agent.original like "*hydra*" // Hydra Brute Forcer
+        user_agent.original like "*hydra*" or // Hydra Brute Forcer
+        user_agent.original like "*w3af*" or // w3af Web Application Attack and Audit Framework
+        user_agent.original like "*Arachni*" or // Arachni Web Application Security Scanner
+        user_agent.original like "*Skipfish*" or // Skipfish Web Application Security Scanner
+        user_agent.original like "*OpenVAS*" or // OpenVAS Vulnerability Scanner
+        user_agent.original like "*Acunetix*" or // Acunetix Vulnerability Scanner
+        user_agent.original like "*Nessus*" or // Nessus Vulnerability Scanner
+        user_agent.original like "*dirsearch*" or // dirsearch 
+        user_agent.original like "*ZAP*" or // OWASP ZAP 
+        user_agent.original like "*Burp*" // Burp Suite
   )
 
-| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
-| eval Esql_url_lower = to_lower(Esql_url_text)
+| eval Esql.url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql.url_lower = to_lower(Esql.url_text)
 
 | keep
     @timestamp,
@@ -75,16 +79,16 @@ from
     source.ip,
     agent.id,
     host.name,
-	Esql_url_lower
+	Esql.url_lower
 | stats
     Esql.event_count = count(),
-    Esql.url_path_count_distinct = count_distinct(Esql_url_lower),
+    Esql.url_path_count_distinct = count_distinct(Esql.url_lower),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
-    Esql.url_path_values = values(Esql_url_lower),
+    Esql.url_path_values = values(Esql.url_lower),
     Esql.user_agent_original_values = values(user_agent.original),
     Esql.event_dataset_values = values(event.dataset)
-    by source.ip
+    by source.ip, agent.id
 | where
     Esql.event_count > 50 and Esql.url_path_count_distinct > 10
 | limit 100
