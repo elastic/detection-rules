@@ -13,8 +13,8 @@ applications to inject and execute arbitrary commands on the server, often using
 PHP, or shell commands. By monitoring for these indicators in web traffic, security teams can identify and respond to
 potential threats early.
 """
-from = "now-61m"
-interval = "1h"
+from = "now-9m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Potential Command Injection Request"
@@ -22,12 +22,8 @@ risk_score = 21
 rule_id = "f3ac6734-7e52-4a0d-90b7-6847bf4308f2"
 severity = "low"
 tags = [
-    "Domain Scope: Single",
     "Domain: Web",
     "Domain: Network",
-    "OS: Linux",
-    "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
     "Tactic: Credential Access",
@@ -48,53 +44,86 @@ from
   logs-apache_tomcat.access-*,
   logs-iis.access-*
 | where
-    @timestamp > now() - 1d and
-    (url.original is not null or url.full is not null)
+    (url.original is not null or url.full is not null) and
+    // Limit to 200 response code to reduce noise
+    http.response.status_code == 200
 
-| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
-| eval Esql_url_lower = to_lower(Esql_url_text)
+| eval Esql.url_lower  = case(url.original is not null, url.original, url.full)
+| eval Esql.url_lower = to_lower(Esql.url_lower)
 
-| eval contains_interpreter = case(Esql_url_lower like "*python* -c*" or Esql_url_lower like "*perl* -e*" or Esql_url_lower like "*ruby* -e*" or Esql_url_lower like "*ruby* -rsocket*" or Esql_url_lower like "*lua* -e*" or Esql_url_lower like "*php* -r*" or Esql_url_lower like "*node* -e*", 1, 0)
-| eval contains_shell = case(Esql_url_lower like "*/bin/bash*" or Esql_url_lower like "*bash*-c*" or Esql_url_lower like "*/bin/sh*" or Esql_url_lower rlike "*sh.{1,2}-c*", 1, 0)
-| eval contains_nc = case(Esql_url_lower like "*netcat*" or Esql_url_lower like "*ncat*" or Esql_url_lower rlike """.*nc.{1,2}[0-9]{1,3}(\.[0-9]{1,3}){3}.{1,2}[0-9]{1,5}.*""" or Esql_url_lower like "*nc.openbsd*" or Esql_url_lower like "*nc.traditional*" or Esql_url_lower like "*socat*", 1, 0)
-| eval contains_devtcp = case(Esql_url_lower like "*/dev/tcp/*" or Esql_url_lower like "*/dev/udp/*", 1, 0)
-| eval contains_helpers = case(Esql_url_lower like "*mkfifo*" or Esql_url_lower like "*nohup*" or Esql_url_lower like "*setsid*" or Esql_url_lower like "*busybox*", 1, 0)
-| eval contains_sus_cli = case(Esql_url_lower like "*import*pty*spawn*" or Esql_url_lower like "*import*subprocess*call*" or Esql_url_lower like "*tcpsocket.new*" or Esql_url_lower like "*tcpsocket.open*" or Esql_url_lower like "*io.popen*" or Esql_url_lower like "*os.execute*" or Esql_url_lower like "*fsockopen*", 1, 0)
-| eval contains_privileges = case(Esql_url_lower like "*chmod*" or Esql_url_lower like "*chown*", 1, 0)
-| eval contains_downloader = case(Esql_url_lower like "*curl *" or Esql_url_lower like "*wget *" , 1, 0)
-| eval contains_file_read_keywords = case(Esql_url_lower like "*/etc/shadow*" or Esql_url_lower like "*/etc/passwd*" or Esql_url_lower like "*/root/.ssh/*" or Esql_url_lower like "*/home/*/.ssh/*" or Esql_url_lower like "*~/.ssh/*" or Esql_url_lower like "*/proc/self/environ*", 1, 0)
-| eval contains_base64_cmd = case(Esql_url_lower like "*base64*-d*" or Esql_url_lower like "*xxd*" or Esql_url_lower like "*echo*|*base64*", 1, 0)
-| eval contains_suspicious_path = case(Esql_url_lower like "*/tmp/*" or Esql_url_lower like "*/var/tmp/*" or Esql_url_lower like "*/dev/shm/*" or Esql_url_lower like "*/root/*" or Esql_url_lower like "*/home/*/*" or Esql_url_lower like "*/var/www/*" or Esql_url_lower like "*/etc/cron.*/*", 1, 0)
+| eval Esql.contains_interpreter = case(Esql.url_lower like "*python* -c*" or Esql.url_lower like "*perl* -e*" or Esql.url_lower like "*ruby* -e*" or Esql.url_lower like "*ruby* -rsocket*" or Esql.url_lower like "*lua* -e*" or Esql.url_lower like "*php* -r*" or Esql.url_lower like "*node* -e*", 1, 0)
+| eval Esql.contains_shell = case(Esql.url_lower like "*/bin/bash*" or Esql.url_lower like "*bash*-c*" or Esql.url_lower like "*/bin/sh*" or Esql.url_lower rlike "*sh.{1,2}-c*", 1, 0)
+| eval Esql.contains_nc = case(Esql.url_lower like "*netcat*" or Esql.url_lower like "*ncat*" or Esql.url_lower rlike """.*nc.{1,2}[0-9]{1,3}(\.[0-9]{1,3}){3}.{1,2}[0-9]{1,5}.*""" or Esql.url_lower like "*nc.openbsd*" or Esql.url_lower like "*nc.traditional*" or Esql.url_lower like "*socat*", 1, 0)
+| eval Esql.contains_devtcp = case(Esql.url_lower like "*/dev/tcp/*" or Esql.url_lower like "*/dev/udp/*", 1, 0)
+| eval Esql.contains_helpers = case((Esql.url_lower like "*/bin/*" or Esql.url_lower like "*/usr/bin/*") and (Esql.url_lower like "*mkfifo*" or Esql.url_lower like "*nohup*" or Esql.url_lower like "*setsid*" or Esql.url_lower like "*busybox*"), 1, 0)
+| eval Esql.contains_sus_cli = case(Esql.url_lower like "*import*pty*spawn*" or Esql.url_lower like "*import*subprocess*call*" or Esql.url_lower like "*tcpsocket.new*" or Esql.url_lower like "*tcpsocket.open*" or Esql.url_lower like "*io.popen*" or Esql.url_lower like "*os.execute*" or Esql.url_lower like "*fsockopen*", 1, 0)
+| eval Esql.contains_privileges = case(Esql.url_lower like "*chmod*+x", 1, 0)
+| eval Esql.contains_downloader = case(Esql.url_lower like "*curl *" or Esql.url_lower like "*wget *" , 1, 0)
+| eval Esql.contains_file_read_keywords = case(Esql.url_lower like "*/etc/shadow*" or Esql.url_lower like "*/etc/passwd*" or Esql.url_lower like "*/root/.ssh/*" or Esql.url_lower like "*/home/*/.ssh/*" or Esql.url_lower like "*~/.ssh/*" or Esql.url_lower like "*/proc/self/environ*", 1, 0)
+| eval Esql.contains_base64_cmd = case(Esql.url_lower like "*base64*-d*" or Esql.url_lower like "*echo*|*base64*", 1, 0)
+| eval Esql.contains_suspicious_path = case(Esql.url_lower like "*/tmp/*" or Esql.url_lower like "*/var/tmp/*" or Esql.url_lower like "*/dev/shm/*" or Esql.url_lower like "*/root/*" or Esql.url_lower like "*/home/*/*" or Esql.url_lower like "*/var/www/*" or Esql.url_lower like "*/etc/cron.*/*", 1, 0)
 
-| eval any_payload_keyword = case(
-    contains_interpreter == 1 or contains_shell == 1 or contains_nc == 1 or contains_devtcp == 1 or
-    contains_helpers == 1 or contains_sus_cli == 1 or contains_privileges == 1 or contains_downloader == 1 or
-    contains_file_read_keywords == 1 or contains_base64_cmd == 1 or contains_suspicious_path == 1, 1, 0)
+| eval Esql.any_payload_keyword = case(
+    Esql.contains_interpreter == 1 or Esql.contains_shell == 1 or Esql.contains_nc == 1 or Esql.contains_devtcp == 1 or
+    Esql.contains_helpers == 1 or Esql.contains_sus_cli == 1 or Esql.contains_privileges == 1 or Esql.contains_downloader == 1 or
+    Esql.contains_file_read_keywords == 1 or Esql.contains_base64_cmd == 1 or Esql.contains_suspicious_path == 1, 1, 0)
 
 | keep
     @timestamp,
-    Esql_url_lower,
-    any_payload_keyword,
-    contains_interpreter,
-    contains_shell,
-    contains_nc,
-    contains_devtcp,
-    contains_helpers,
-    contains_sus_cli,
-    contains_privileges,
-    contains_downloader,
-    contains_file_read_keywords,
-    contains_base64_cmd,
-    contains_suspicious_path,
+    Esql.url_lower,
+    Esql.any_payload_keyword,
+    Esql.contains_interpreter,
+    Esql.contains_shell,
+    Esql.contains_nc,
+    Esql.contains_devtcp,
+    Esql.contains_helpers,
+    Esql.contains_sus_cli,
+    Esql.contains_privileges,
+    Esql.contains_downloader,
+    Esql.contains_file_read_keywords,
+    Esql.contains_base64_cmd,
+    Esql.contains_suspicious_path,
     source.ip,
     destination.ip,
     agent.id,
     http.request.method,
     http.response.status_code,
-    user_agent.original
+    user_agent.original,
+    host.name,
+    event.dataset
 
-| where any_payload_keyword == 1
-| limit 100
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(Esql.url_lower),
+
+    // General fields
+
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.url_path_values = values(Esql.url_lower),
+    Esql.http.response.status_code_values = values(http.response.status_code),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.event_dataset_values = values(event.dataset),
+
+    // Rule Specific fields
+    Esql.any_payload_keyword_max = max(Esql.any_payload_keyword),
+    Esql.contains_interpreter_values = values(Esql.contains_interpreter),
+    Esql.contains_shell_values = values(Esql.contains_shell),
+    Esql.contains_nc_values = values(Esql.contains_nc),
+    Esql.contains_devtcp_values = values(Esql.contains_devtcp),
+    Esql.contains_helpers_values = values(Esql.contains_helpers),
+    Esql.contains_sus_cli_values = values(Esql.contains_sus_cli),
+    Esql.contains_privileges_values = values(Esql.contains_privileges),
+    Esql.contains_downloader_values = values(Esql.contains_downloader),
+    Esql.contains_file_read_keywords_values = values(Esql.contains_file_read_keywords),
+    Esql.contains_base64_cmd_values = values(Esql.contains_base64_cmd),
+    Esql.contains_suspicious_path_values = values(Esql.contains_suspicious_path)
+    
+    by source.ip, agent.id
+
+| where
+    // Filter for potential command injection attempts with low event counts to reduce false positives
+    Esql.any_payload_keyword_max == 1 and Esql.event_count < 5
 '''
 
 [[rule.threat]]
