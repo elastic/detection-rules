@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2025/11/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of curl or wget binaries through a GTFOBin (living-off-the-land) technique in Linux
+environments. Attackers may exploit these utilities to download and execute malicious files from the internet while
+attempting to evade detection. The rule specifically targets binaries that are capable of executing shell commands
+directly from the proxied binary, rather than just spawning a shell.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-endpoint.events.network*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Curl or Wget Egress Network Connection via LoLBin"
+references = ["https://gtfobins.github.io/#+shell"]
+risk_score = 47
+rule_id = "d1ee711a-a3ba-4d73-b5ab-84cab5b37fb3"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+query = '''
+sequence with maxspan=3s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in (
+     "aa-exec", "aoss", "awk", "run-parts", "bundle", "bundler", "busctl", "busybox", "byebug", "c89", "c99", "cabal",
+     "capsh", "cdist", "certbot", "check_by_ssh", "choom", "cobc", "cowsay", "cowthink", "cpio", "cpulimit", "csvtool",
+     "dc", "distcc", "easy_install", "emacs", "enscript", "expect", "find", "flock", "gawk", "gcc", "gdb", "gem",
+     "genie", "ghc", "ghci", "gimp", "grc", "gtester", "ionice", "irb", "jjs", "jrunscript", "knife", "latex",
+     "latexmk", "lftp", "logsave", "ltrace", "mail", "mawk", "msgfilter", "multitime", "mysql", "nawk", "neofetch",
+     "nice", "nohup", "npm", "nroff", "nsenter", "octave", "openvpn", "pandoc", "pdb", "pdflatex", "pdftex", "perf",
+     "pexec", "pip", "rake", "rc", "rlwrap", "rpmdb", "rpmquery", "rpmverify", "rsync", "rtorrent", "runscript",
+     "rview", "rvim", "script", "scrot", "sed", "service", "setarch", "setlock", "sg", "socat", "softlimit", "split",
+     "sqlite3", "sqlmap", "sshpass", "start-stop-daemon", "stdbuf", "tar", "taskset",
+     "tasksh", "tex", "time", "tmate", "torify", "torsocks", "tshark", "valgrind", "vi", "view",
+     "vim", "vimdiff", "watch", "xdg-user-dir", "xdotool", "xelatex", "xetex", "yarn", "zip", "zypper"
+   ) and not (
+     process.executable == "/tmp/newroot/unshare" or
+     process.parent.args in (
+       "/etc/.agent/server_agent.sh", "/nessus/update2.sh", "/etc/cron.daily/spamassassin", "/etc/cron.daily/rkhunter",
+       "buildkit-runc", "/usr/sbin/spamassassin-maint"
+     ) or
+     process.parent.executable like (
+       "/usr/local/bin/fail2ban_cluster.sh", "/script/downloadArtifacts.sh", "/etc/cron.daily/rkhunter",
+       "/usr/bin/bbb-conf", "/usr/sbin/sos", "/usr/bin/make", "/var/lib/amagent/*", "/etc/cron.daily/spamassassin",
+       "/usr/lib/cron/run-crons", "/usr/sbin/spamassassin-maint", "/usr/sbin/oracle-libs-update"
+     ) or
+     process.parent.name in ("rkhunter", "vivaldi-stable.postinst", "runc") or
+     process.parent.command_line == "runc init" or
+     process.parent.command_line like "/home/*/bin/DownloadExchangeFiles_mcx*" or
+     process.command_line in (
+       "nice -10 /opt/aws/discovery/update", "xargs -n 1 curl -o lpsc -L", "/usr/bin/ruby /usr/bin/rake run:server_hooks",
+       "nohup ./update2.sh"
+     ) or
+     process.parent.command_line in ("/bin/sh -c nice -n 15 $HOME/bin/cron.pl > /dev/null 2>&1", "/bin/sh /etc/cron.daily/rkhunter") or
+     process.command_line like ("*/home/linuxbrew/.linuxbrew/*", "*Homebrew*", "*webhook*") or
+     process.args like ("/usr/lib/jvm/*", "/root/.forge/provision-*.sh", "/usr/src/ucrm/scripts/update-certificates.sh", "/etc/periodic/weekly/update_mmdb.sh") or
+     (process.name == "nohup" and process.command_line like "nohup /usr/*/*.sh") or
+     (process.name == "julia" and process.parent.name == "julia")
+   )
+  ] by process.entity_id
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
+   process.name in ("wget", "curl") and not (
+     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+       "FF00::/8"
+     )
+   )
+  ] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1218"
+    name = "System Binary Proxy Execution"
+    reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0011"
+  name = "Command and Control"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0010"
+  name = "Exfiltration"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
