@@ -12,21 +12,17 @@ reconnaissance activities such as vulnerability scanning or fuzzing attempts by 
 generate a high volume of error responses as they probe for weaknesses in web applications. Error response codes
 may potentially indicate server-side issues that could be exploited.
 """
-from = "now-61m"
-interval = "1h"
+from = "now-9m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Unusual Spike in Error Response Codes"
-risk_score = 47
+risk_score = 21
 rule_id = "6fa3abe3-9cd8-41de-951b-51ed8f710523"
-severity = "medium"
+severity = "low"
 tags = [
-    "Domain Scope: Single",
     "Domain: Web",
     "Domain: Network",
-    "OS: Linux",
-    "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
     "Data Source: Network Packet Capture",
@@ -46,7 +42,6 @@ from
   logs-apache_tomcat.access-*,
   logs-iis.access-*
 | where
-    @timestamp > now() - 1 hours and
     (url.original is not null or url.full is not null) and
     http.request.method == "GET" and 
     http.response.status_code in (
@@ -55,8 +50,8 @@ from
       503, // Service Unavailable
       504 // Gateway Timeout
     )
-| eval Esql_url_text  = case(url.original is not null, url.original, url.full)
-| eval Esql_url_lower = to_lower(Esql_url_text)
+| eval Esql.url_text  = case(url.original is not null, url.original, url.full)
+| eval Esql.url_lower = to_lower(Esql.url_text)
 
 | keep
     @timestamp,
@@ -66,7 +61,7 @@ from
     source.ip,
     agent.id,
     host.name,
-    Esql_url_lower
+    Esql.url_lower
 | stats
     Esql.event_count = count(),
     Esql.http_response_status_code_count = count(http.response.status_code),
@@ -75,9 +70,9 @@ from
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),
-    Esql.url_path_values = values(Esql_url_lower),
+    Esql.url_path_values = values(Esql.url_lower),
     Esql.event_dataset_values = values(event.dataset)
-    by source.ip
+    by source.ip, agent.id
 | where
     Esql.http_response_status_code_count > 10
 | limit 100
