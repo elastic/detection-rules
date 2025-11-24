@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual spikes in error logs from web servers, which may indicate reconnaissance activities such
+as vulnerability scanning or fuzzing attempts by adversaries. These activities often generate a high volume of error
+responses as they probe for weaknesses in web applications. Error response codes may potentially indicate server-side
+issues that could be exploited.
+"""
+from = "now-9m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Spike in Web Server Error Logs"
+risk_score = 21
+rule_id = "6631a759-4559-4c33-a392-13f146c8bcc4"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-nginx.error-*, logs-apache_tomcat.error-*, logs-apache.error-*, logs-iis.error-*
+| keep
+    @timestamp,
+    event.type,
+    event.dataset,
+    source.ip,
+    agent.id,
+    host.name
+| where source.ip is not null
+| stats
+    Esql.event_count = count(),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip, agent.id
+| where
+    Esql.event_count > 25
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
