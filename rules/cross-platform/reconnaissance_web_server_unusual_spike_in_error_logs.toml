@@ -17,6 +17,37 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Spike in Web Server Error Logs"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Spike in Web Server Error Logs
+
+This detection flags spikes of web server error responses across HTTP/TLS and common server platforms, signaling active scanning or fuzzing that can expose misconfigurations or exploitable paths. A typical pattern is an automated scanner sweeping endpoints like /admin/, /debug/, /.env, /.git, and backup archives while mutating query parameters, producing repeated 404/403 and occasional 500 responses across multiple applications within minutes.
+
+### Possible investigation steps
+
+- Pivot on the noisy client IP(s) to build a minute-by-minute timeline across affected hosts showing request rate, status codes, methods, and top paths to distinguish automated scanning from a localized application failure.
+- Enrich the client with ASN, geolocation, hosting/Tor/proxy reputation, historical sightings, and maintenance windows to quickly decide if it matches a known external scanner or an internal scheduled test.
+- Aggregate the most requested URIs and verbs and look for telltale patterns such as /.env, /.git, backup archives, admin consoles, or unusual verbs like PROPFIND/TRACE, then correlate any 5xx bursts with application and server error logs and recent deploys or config changes.
+- Hunt for follow-on success from the same client by checking for subsequent 200/302s to sensitive paths, authentication events and session creation, or evidence of file writes and suspicious child processes on the web hosts.
+- If traffic traverses a CDN/WAF/load balancer, pivot to those logs to recover true client IPs, review rule matches and throttling, and determine whether similar patterns occurred across multiple edges or regions.
+
+### False positive analysis
+
+- Internal QA or integration tests that systematically crawl application routes after a deployment can generate bursts of 404/403 and occasional 500s from a single client IP, closely resembling active scanning.
+- A transient backend outage or misconfiguration (broken asset paths or auth flows) can cause legitimate traffic to return many errors aggregated under a shared egress IP (NAT), pushing per-IP counts above the threshold without adversary activity.
+
+### Response and remediation
+
+- Immediately block or throttle the noisy client IPs at the WAF/CDN and load balancer by enabling per-IP rate limits and signatures for scanner patterns such as repeated hits to /.env, /.git, /admin, backup archives, or unusual verbs like PROPFIND/TRACE.
+- If errors include concentrated 5xx responses from one web host, drain that node from service behind the load balancer, capture its web and application error logs, and roll back the most recent deploy or config change until error rates normalize.
+- Remove risky exposures uncovered by the scan by denying access to environment files and VCS directories (.env, .git), disabling directory listing, locking down admin consoles, and rejecting unsupported HTTP methods at the web server.
+- Escalate to Incident Response if the same client shifts from errors to successful access on sensitive endpoints (200/302 to /admin, /login, or API keys), if you observe file writes under the webroot or suspicious child processes, or if multiple unrelated clients show the same pattern across regions.
+- Recover service by redeploying known-good builds, re-enabling health checks, running smoke tests against top routes, and restoring normal WAF/CDN policies while keeping a temporary blocklist for the offending IPs.
+- Harden long term by tuning WAF/CDN to auto-throttle bursty 404/403/500 patterns, disabling TRACE/OPTIONS where unused, minimizing verbose error pages, and ensuring logs capture the true client IP via X-Forwarded-For or True-Client-IP headers.
+"""
 risk_score = 21
 rule_id = "6631a759-4559-4c33-a392-13f146c8bcc4"
 severity = "low"
@@ -28,6 +59,7 @@ tags = [
     "Data Source: Apache",
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
