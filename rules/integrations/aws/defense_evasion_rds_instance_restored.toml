@@ -2,24 +2,131 @@
 creation_date = "2021/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/24"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
 description = """
-An adversary with a set of compromised credentials may attempt to make copies of running or deleted RDS databases in order to evade defense mechanisms or access data. This rule identifies successful attempts to restore a DB instance using the RDS `RestoreDBInstanceFromDBSnapshot` or `RestoreDBInstanceFromS3` API operations.
+Identifies the restoration of an AWS RDS database instance from a snapshot or S3 backup. Adversaries with access to
+valid credentials may restore copies of existing databases to bypass logging and monitoring controls or to exfiltrate
+sensitive data from a duplicated environment. This rule detects successful restoration operations using
+"RestoreDBInstanceFromDBSnapshot" or "RestoreDBInstanceFromS3", which may indicate unauthorized data access or
+post-compromise defense evasion.
 """
+event_category_override = "event.type"
 false_positives = [
     """
-    Restoring DB instances may be done by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Instance restoration by unfamiliar users or hosts
-    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Restoring an RDS DB instance may be performed legitimately during troubleshooting, development refresh processes,
+    migrations, or disaster-recovery drills. Validate the user identity, source IP, automation context, and whether the
+    restoration aligns with a known maintenance or testing workflow before treating the event as suspicious. Expected
+    behavior can be exempted through rule exceptions.
     """,
 ]
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS RDS DB Instance Restored"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
+
+### Investigating AWS RDS DB Instance Restored
+
+Restoring an RDS DB instance from a snapshot or from S3 is a powerful operation that recreates a full database environment. While legitimate for recovery, migrations, or cloning, adversaries may use restore actions to access historical data, duplicate sensitive environments, evade guardrails, or prepare for data exfiltration. 
+
+This rule detects successful invocation of `RestoreDBInstanceFromDBSnapshot` and `RestoreDBInstanceFromS3`, both of which may indicate attempts to rehydrate old datasets, bypass deletion protection, or establish a shadow environment for further malicious actions.
+
+#### Possible investigation steps
+
+- **Identify the actor and execution context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id`.
+  - Check `user.name`, `source.ip`, and `user_agent.original` to determine how the restore was executed (console, CLI, automation, SDK).
+
+- **Understand what was restored and why**
+  - Inspect `aws.cloudtrail.request_parameters` to identify:
+    - Snapshot identifier or S3 location used as the restore source.
+    - The new DB instance identifier and configuration parameters.
+  - Determine:
+    - Whether the snapshot/backup used for the restore contains sensitive or high-value data.
+    - Whether this restore created a publicly accessible instance, changed security groups, or used unusual storage/instance classes.
+
+- **Reconstruct the activity flow**
+  - Use `@timestamp` to correlate the restore event with:
+    - Snapshot creation, copy, or export events.
+    - IAM policy changes or privilege escalations.
+    - Deletion or modification of the original database.
+    - Other RDS lifecycle actions such as `ModifyDBInstance`, `DeleteDBInstance`, or backup configuration changes.
+  - Look for signs of attacker staging:
+    - Prior enumeration activity (`DescribeDBSnapshots`, `DescribeDBInstances`).
+    - Recent logins from unusual IPs or federated sessions without MFA.
+
+- **Correlate with broader behavior**
+  - Pivot in CloudTrail on:
+    - The same snapshot identifier.
+    - The same actor or access key ID.
+    - The newly created DB instance identifier.
+  - Examine:
+    - Whether the restored DB was modified immediately after (e.g., security groups opened, deletion protection disabled).
+    - Whether there were large-volume read operations or export actions following the restore.
+    - Whether the restore is part of a pattern of parallel suspicious activity (snapshot copying, S3 backups, cross-account actions).
+
+- **Validate intent with owners**
+  - Confirm with the application/database/platform teams:
+    - Whether the restore was requested or part of an authorized operational workflow.
+    - Whether this restore corresponds to migration, testing, DR drill, or another planned activity.
+    - Whether the restored environment should exist (and for how long).
+
+### False positive analysis
+
+- **Legitimate maintenance and DR workflows**
+  - Many teams restore databases for patch testing, DR validation, schema testing, or migration.
+- **Automated restore workflows**
+  - CI/CD pipelines or internal automation may restore DBs to generate staging or dev environments.
+- **Third-party tooling**
+  - Backup/DR solutions, migration tools, or observability platforms may restore DB instances for operational reasons. Tune based on `user_agent.original` or known service roles.
+
+### Response and remediation
+
+- **Contain the restored environment**
+  - If unauthorized:
+    - Apply restrictive security groups to block access.
+    - Disable public accessibility if enabled.
+    - Evaluate whether deletion protection or backup retention is misconfigured.
+
+- **Assess data exposure and intent**
+  - Work with data owners to evaluate:
+    - The sensitivity of the restored environment.
+    - Whether any reads, dumps, or exports occurred post-restore.
+    - Whether the restore enabled the attacker to access older or deleted data.
+
+- **Investigate scope and related activity**
+  - Review CloudTrail for:
+    - Additional restores, exports, or copies.
+    - IAM changes allowing expanded privileges.
+    - Unusual authentication events or federated sessions without MFA.
+    - Related destructive actions (snapshot deletion, backup disabled, instance deletion).
+
+- **Hardening and preventive controls**
+  - Enforce least privilege for `rds:RestoreDBInstanceFromDBSnapshot` and `rds:RestoreDBInstanceFromS3`.
+  - Use IAM conditions to restrict restore actions by network, principal, or region.
+  - Add AWS Config and Security Hub controls for monitoring:
+    - Unapproved restores.
+    - Public or misconfigured restored instances.
+  - Consider SCPs that prevent RDS restores in production accounts except through controlled roles.
+
+- **Post-incident improvements**
+  - Rotate credentials for affected IAM users/roles.
+  - Update change management processes to ensure restore actions are tracked and approved.
+  - Adjust rule exceptions sparingly and ensure high-risk restores continue to generate alerts.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
 references = [
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_RestoreDBInstanceFromDBSnapshot.html",
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_RestoreDBInstanceFromS3.html",
@@ -42,46 +149,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail"
+info where event.dataset == "aws.cloudtrail"
     and event.provider == "rds.amazonaws.com"
     and event.action in ("RestoreDBInstanceFromDBSnapshot", "RestoreDBInstanceFromS3")
     and event.outcome == "success"
 '''
-note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS RDS DB Instance Restored
-
-Amazon RDS (Relational Database Service) allows users to set up, operate, and scale databases in the cloud. Adversaries may exploit RDS by restoring DB instances from snapshots or S3 to access sensitive data or bypass security controls. The detection rule identifies successful restoration attempts, signaling potential unauthorized access or data exfiltration activities, by monitoring specific API operations and outcomes.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to identify the user or role associated with the successful `RestoreDBInstanceFromDBSnapshot` or `RestoreDBInstanceFromS3` API call by examining the `user.identity` field.
-- Check the source IP address and location from which the API call was made using the `sourceIPAddress` field to determine if it aligns with expected or known locations.
-- Investigate the timing of the restoration event by looking at the `@timestamp` field to see if it coincides with any other suspicious activities or anomalies in the environment.
-- Examine the specific DB instance details restored, such as the DB instance identifier, to assess the sensitivity of the data involved and potential impact.
-- Verify if there are any associated alerts or logs indicating unauthorized access or data exfiltration attempts around the same time frame.
-- Contact the user or team responsible for the credentials used, if legitimate, to confirm whether the restoration was authorized and intended.
-
-### False positive analysis
-
-- Routine database maintenance or testing activities may trigger the rule. Organizations should identify and document regular restoration activities performed by authorized personnel and exclude these from alerts.
-- Automated backup and restore processes used for disaster recovery or data migration can result in false positives. Users should configure exceptions for known automated processes by filtering based on specific user accounts or roles.
-- Development and staging environments often involve frequent restoration of databases for testing purposes. Exclude these environments by identifying and filtering out specific instance identifiers or tags associated with non-production environments.
-- Scheduled tasks or scripts that restore databases as part of regular operations can be mistaken for unauthorized activity. Ensure these tasks are well-documented and create exceptions based on the source IP or IAM role used for these operations.
-- Third-party services or integrations that require database restoration for functionality may trigger alerts. Verify these services and exclude their associated actions by identifying their unique user agents or API keys.
-
-### Response and remediation
-
-- Immediately isolate the restored RDS instance to prevent unauthorized access. This can be done by modifying the security group rules to restrict inbound and outbound traffic.
-- Conduct a thorough review of CloudTrail logs to identify the source of the compromised credentials and any other suspicious activities associated with the same user or account.
-- Revoke the compromised credentials and issue new credentials for the affected user or service account. Ensure that multi-factor authentication (MFA) is enabled for all accounts.
-- Notify the security team and relevant stakeholders about the incident, providing details of the unauthorized restoration and any potential data exposure.
-- Perform a security assessment of the restored RDS instance to identify any unauthorized changes or data exfiltration. This includes checking for unusual queries or data exports.
-- Implement additional monitoring and alerting for similar API operations to detect future unauthorized restoration attempts promptly.
-- Review and update IAM policies to ensure that only authorized users have the necessary permissions to restore RDS instances, reducing the risk of future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -93,14 +166,34 @@ reference = "https://attack.mitre.org/techniques/T1578/"
 id = "T1578.002"
 name = "Create Cloud Instance"
 reference = "https://attack.mitre.org/techniques/T1578/002/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1578.004"
 name = "Revert Cloud Instance"
 reference = "https://attack.mitre.org/techniques/T1578/004/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 
