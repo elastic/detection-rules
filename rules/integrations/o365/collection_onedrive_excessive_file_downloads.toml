@@ -2,7 +2,7 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/09/26"
+updated_date = "2025/11/25"
 
 [rule]
 author = ["Elastic"]
@@ -83,28 +83,32 @@ type = "esql"
 query = '''
 from logs-o365.audit-*
 | where
-    @timestamp > now() - 14d and
     event.dataset == "o365.audit" and
     event.provider == "OneDrive" and
     event.action == "FileDownloaded" and
     o365.audit.AuthenticationType == "OAuth" and
     event.outcome == "success"
-| eval
-    Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
-| keep
-    Esql.time_window_date_trunc,
-    o365.audit.UserId,
-    file.name,
-    source.ip
+    and (user.id is not null and o365.audit.ApplicationId is not null)
+| eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
+| where session.id is not null
+| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
 | stats
+    Esql.file_directory_values = values(file.directory),
+    Esql.file_extension_values = values(file.extension),
+    Esql.application_name_values = values(application.name),
     Esql.file_name_count_distinct = count_distinct(file.name),
+    Esql.o365_audit_Site_values = values(o365.audit.Site),
+    Esql.o365_audit_SiteUrl_values = values(o365.audit.SiteUrl),
+    Esql.user_domain_values = values(user.domain),
+    Esql.token_id_values = values(token.id),
     Esql.event_count = count(*)
-  by
+by
     Esql.time_window_date_trunc,
-    o365.audit.UserId,
-    source.ip
-| where
-    Esql.file_name_count_distinct >= 25
+    user.id,
+    session.id,
+    source.ip,
+    o365.audit.ApplicationId
+| where Esql.file_name_count_distinct >= 25
 '''
 
 
