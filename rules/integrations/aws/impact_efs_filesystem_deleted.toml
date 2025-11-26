@@ -1,0 +1,174 @@
+[metadata]
+creation_date = "2021/08/27"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/11/26"
+
+[rule]
+author = ["Austin Songer", "Elastic"]
+description = """
+Identifies the deletion of an Amazon EFS file system using the "DeleteFileSystem" API operation. Deleting an EFS file
+system permanently removes all stored data and cannot be reversed. This action is rare in most environments and
+typically limited to controlled teardown workflows. Adversaries with sufficient permissions may delete a file system to
+destroy evidence, disrupt workloads, or impede recovery efforts.
+"""
+false_positives = [
+    """
+    Legitimate teardown or environment decommissioning processes may delete EFS file systems. Verify whether the calling
+    user, role, automation system, or CI/CD workflow is expected to perform destructive actions in the affected account.
+    File system deletions by unfamiliar identities, from unusual IP addresses, or occurring outside approved change
+    windows should be carefully reviewed. If known automation routinely deletes ephemeral test file systems, consider
+    adding scoped exceptions.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EFS File System Deleted"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
+
+### Investigating AWS EFS File System Deleted
+
+Amazon Elastic File System (EFS) provides scalable, shared file storage used by EC2, container workloads, analytics jobs, and other persistent applications. Deleting an EFS file system (`DeleteFileSystem`) permanently removes all stored data and cannot be recovered. Mount targets must already be deleted, but those operations are common and do not themselves indicate malicious behavior. This rule focuses exclusively on the irreversible destructive event, which may signal intentional data destruction, ransomware preparation, or a post-compromise cleanup effort.
+
+#### Possible investigation steps
+
+- **Identify the actor and calling context**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id`.
+  - Check `source.ip`, `user_agent.original`, and whether the call originated via console, IAM role, STS session, or long-lived IAM key.
+  - Verify whether this principal typically manages EFS resources or teardown activities.
+
+- **Determine what was deleted**
+  - Inspect `aws.cloudtrail.request_parameters` to identify the deleted file system ID.
+  - Map the resource to:
+    - Application or owner team
+    - Environment classification (prod / dev / test)
+    - Dependency surfaces (EC2 instances, ECS tasks, Lambda, analytics pipelines)
+
+- **Reconstruct timeline and intent**
+  - Use `@timestamp` to correlate with:
+    - Recent `UpdateFileSystem` events (e.g., deletion protection, lifecycle policies)
+    - IAM policy or trust policy changes
+    - EC2 or container runtime disruption shortly before deletion
+    - Unexpected regional activity or off-hours execution
+  - Determine if mount target deletions occurred immediately beforehand (expected lifecycle) or unexpectedly earlier (possibly suspicious when paired with other anomalies).
+
+- **Correlate with broader account activity**
+  - Pivot in CloudTrail on:
+    - The same access key or session
+    - The same EFS file system ID
+  - Look for:
+    - Privilege escalation (new policy attachments, role assumptions)
+    - Lateral movement (SSM sessions, unusual EC2 access)
+    - Signs of cleanup or anti-forensics (CloudWatch log group deletions, RDS snapshot deletions)
+    - Network isolation actions (security-group or NACL updates)
+
+- **Validate with owners**
+  - Confirm with application or infrastructure teams:
+    - Whether the deletion was planned, approved, or part of an environment teardown
+    - Whether a migration or infrastructure rotation is in progress
+    - Whether the deleted file system contained production or sensitive workloads
+
+### False positive analysis
+
+- **Expected teardown activity**
+  - Some pipelines (Terraform, CloudFormation, CDK, custom IaC) delete file systems as part of environment rotation or decommissioning.
+  - Add exceptions for known automation roles or environment tags (e.g., `Environment=Dev`).
+
+- **Ephemeral test environments**
+  - Development, QA, or integration test accounts may routinely create and destroy EFS file systems.
+  - Suppress events for non-production accounts where destructive operations are normal.
+
+- **Automated housekeeping**
+  - Internal tooling or lifecycle processes may remove unused EFS resources.
+  - Identify automation roles and use exceptions based on `aws.cloudtrail.user_identity.arn` or `user_agent.original`.
+
+### Response and remediation
+
+- **Contain and secure**
+  - If unauthorized, revoke or disable the credentials used for the deletion.
+  - Review CloudTrail for additional destructive or privilege-escalating operations from the same actor.
+  - Validate whether any associated compute workloads (EC2, ECS, Lambda) show compromise indicators.
+
+- **Assess impact**
+  - Identify workloads impacted by the file system deletion.
+  - Determine whether alternate backups exist (EFS-to-EFS Backup, AWS Backup vaults).
+  - Evaluate operational disruption and data-loss implications, especially for compliance-bound data.
+
+- **Recover (if possible)**
+  - Restore from AWS Backup if a protected resource existed.
+  - Rebuild infrastructure dependencies that relied on the deleted file system.
+
+- **Hardening and prevention**
+  - Restrict use of `elasticfilesystem:DeleteFileSystem` to tightly controlled IAM roles.
+  - Use IAM conditions (e.g., `aws:PrincipalArn`, `aws:SourceIp`, `aws:RequestedRegion`) to limit destructive operations.
+  - Ensure AWS Backup policies include EFS resources with sufficient retention.
+  - Use AWS Config or Security Hub controls to detect:
+    - EFS file systems without backup plans
+    - Unexpected changes to file system policies
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
+references = [
+    "https://docs.aws.amazon.com/efs/latest/ug/API_DeleteFileSystem.html",
+    "https://docs.aws.amazon.com/efs/latest/ug/API_DeleteMountTarget.html",
+]
+risk_score = 47
+rule_id = "536997f7-ae73-447d-a12d-bff1e8f5f0a0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EFS",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" 
+    and event.provider: "elasticfilesystem.amazonaws.com" 
+    and event.action: "DeleteFileSystem" 
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
