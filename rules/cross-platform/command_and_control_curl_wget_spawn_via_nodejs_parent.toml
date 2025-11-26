@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/09/18"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/11/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,19 @@ command and control behavior. Adversaries may use Node.js to download additional
 the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Curl or Wget Spawned via Node.js"
@@ -77,22 +89,32 @@ severity = "low"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
+  "OS: Windows",
+  "OS: macOS",
   "Use Case: Threat Detection",
   "Tactic: Command and Control",
-  "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: Elastic Defend",
+  "Data Source: Windows Security Event Logs",
+  "Data Source: Microsoft Defender for Endpoint",
+  "Data Source: Sysmon",
+  "Data Source: SentinelOne",
+  "Data Source: Crowdstrike",
+  "Data Source: Auditd Manager",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.parent.name == "node" and (
+process where event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.parent.name in ("node", "bun", "node.exe", "bun.exe") and (
   (
-    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-    process.args == "-c" and process.command_line like~ ("*curl*", "*wget*")
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "cmd.exe", "bash.exe", "powershell.exe") and
+    process.command_line like~ ("*curl*http*", "*wget*http*")
   ) or 
   (
-    process.name in ("curl", "wget")
+    process.name in ("curl", "wget", "curl.exe", "wget.exe")
   )
 )
 '''
