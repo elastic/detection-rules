@@ -2,71 +2,137 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/11/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of an Amazon Relational Database Service (RDS) Aurora database cluster, global database cluster,
-or database instance.
+Identifies the deletion of an Amazon RDS DB instance, Aurora cluster, or global database cluster. Deleting these
+resources permanently destroys stored data and can cause major service disruption. Adversaries with sufficient
+permissions may delete RDS resources to impede recovery, destroy evidence, or inflict operational impact on the
+environment.
 """
 false_positives = [
     """
-    Clusters or instances may be deleted by a system administrator. Verify whether the user identity, user agent, and/or
-    hostname should be making changes in your environment. Cluster or instance deletions by unfamiliar users or hosts
-    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    RDS instances or clusters may be intentionally deleted by database administrators or during planned decommissioning
+    activities. Verify the user identity, source IP, and change context to ensure the deletion is expected.
+    CloudFormation stack removals and automated cleanup workflows may also trigger these events and can be exempted if
+    known and authorized.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS Deletion of RDS Instance or Cluster"
+name = "AWS RDS DB Instance or Cluster Deleted"
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
 
-### Investigating AWS Deletion of RDS Instance or Cluster
+### Investigating AWS RDS DB Instance or Cluster Deleted
 
-Amazon RDS simplifies database management by automating tasks like setup and scaling. However, adversaries can exploit this by deleting RDS instances or clusters, causing data loss and service disruption. The detection rule monitors AWS CloudTrail logs for successful deletion actions, alerting security teams to potential malicious activity aimed at data destruction.
+This rule detects the deletion of an RDS DB instance, Aurora DB cluster, or global database cluster. These operations permanently remove stored data and backups unless final snapshots are explicitly retained. Adversaries may delete RDS resources as part of a destructive attack, to eliminate forensic evidence, or to disrupt critical workloads. Because deletions are irreversible without backups, immediate review is required to determine whether the action was authorized and assess potential data loss.
 
-### Possible investigation steps
+#### Possible investigation steps
 
-- Review the AWS CloudTrail logs to confirm the event details, focusing on the event.provider as rds.amazonaws.com and event.action values such as DeleteDBCluster, DeleteGlobalCluster, or DeleteDBInstance.
-- Identify the user or role responsible for the deletion by examining the user identity information in the CloudTrail logs, and verify if the action aligns with their typical behavior or responsibilities.
-- Check the event time and correlate it with any other suspicious activities or alerts in the AWS environment to determine if the deletion is part of a broader attack pattern.
-- Investigate the context of the deletion by reviewing recent changes or activities in the AWS account, such as IAM policy changes or unusual login attempts, to assess if the account may have been compromised.
-- Assess the impact of the deletion by identifying the specific RDS instance or cluster affected and determining the potential data loss or service disruption caused by the action.
-- Contact the responsible team or individual to verify if the deletion was intentional and authorized, and if not, initiate incident response procedures to mitigate further risk.
+**Identify the Actor**
+- Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine who performed the action.
+- Validate:
+  - Is this user/role authorized to delete DB instances or clusters?
+  - Does this action align with past behavior?
+
+**Review the Deletion Event**
+- Confirm which action was invoked: `DeleteDBInstance`, `DeleteDBCluster` or `DeleteGlobalCluster`
+- Examine `aws.cloudtrail.request_parameters` and `target.entity.id`. Identify which resource was deleted and whether a final snapshot was created before deletion.
+
+**Analyze Source and Access Context**
+- Check `source.ip`, `source.geo` fields and `user_agent.original`
+- Validate whether:
+  - The request originated from a known network or VPN.
+  - The user normally logs in from this location.
+  - The call was made via AWS Console vs CLI vs SDK.
+
+**Correlate Surrounding Activity**
+Search CloudTrail for:
+- Recent IAM role or policy changes.
+- Privilege escalation events (STS AssumeRole, CreateAccessKey, AttachUserPolicy).
+- Disablement of related safety controls:
+  - deletionProtection modified to `false`
+  - backupRetentionPeriod set to `0`
+- Suspicious sequencing:
+  - Snapshots deleted before the instance/cluster deletion.
+  - Network security group modifications enabling broader access before deletion.
+
+**Validate Organizational Intent**
+- Contact the service owner or DB administrator to confirm whether the deletion is expected.
+
+**Assess Impact and Data Recovery Path**
+- Identify which DB instance or cluster was deleted (`target.entity.id`)
+- Evaluate:
+  - Whether automated backups existed.
+  - Whether point-in-time recovery is still possible.
+  - Whether a final snapshot was created.
 
 ### False positive analysis
 
-- Routine maintenance activities by database administrators can trigger alerts when they intentionally delete RDS instances or clusters. To manage this, create exceptions for known maintenance windows or specific administrator actions.
-- Automated scripts or tools used for testing and development purposes might delete RDS resources as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific user or role identifiers.
-- Scheduled decommissioning of outdated or unused RDS instances can also result in false positives. Maintain an updated list of decommissioning schedules and exclude these from the detection rule.
-- CloudFormation stack deletions that include RDS resources can lead to alerts. Monitor CloudFormation activities and correlate them with RDS deletions to differentiate between legitimate and suspicious actions.
+- **Planned decommissioning**:  
+  - Confirm if this action aligns with a scheduled removal or environment cleanup.
+- **CloudFormation stack deletion**:  
+  - Stack teardown often deletes RDS resources; confirm if this occurred.
+- **Automated testing or ephemeral environments**:  
+  - Test/dev pipelines may frequently create and delete clusters.
+- **Infrastructure-as-code workflows**:  
+  - Terraform destroys or GitOps cleanup jobs can generate legitimate deletion events.
 
 ### Response and remediation
 
-- Immediately isolate the affected AWS account to prevent further unauthorized actions. This can be done by revoking access keys and disabling any suspicious IAM user accounts or roles involved in the deletion.
-- Initiate a recovery process for the deleted RDS instance or cluster using available backups or snapshots. Ensure that the restoration is performed in a secure environment to prevent further compromise.
-- Conduct a thorough review of AWS CloudTrail logs to identify any unauthorized access patterns or anomalies leading up to the deletion event. This will help in understanding the scope of the breach and identifying potential entry points.
-- Escalate the incident to the organization's security operations center (SOC) or incident response team for further investigation and to determine if additional systems or data were affected.
-- Implement enhanced monitoring and alerting for AWS RDS and other critical resources to detect similar deletion attempts in the future. This includes setting up alerts for any unauthorized changes to IAM policies or roles.
-- Review and strengthen IAM policies to ensure the principle of least privilege is enforced, reducing the risk of unauthorized deletions by limiting permissions to only those necessary for specific roles.
-- Communicate with stakeholders and affected parties about the incident, outlining the steps taken for recovery and measures implemented to prevent future occurrences.
+**If the deletion was unauthorized:**
+**Immediately restrict the actor**
+   - Disable or revoke the user’s access keys.
+   - Revoke active session tokens.
 
-## Setup
+**Attempt recovery**
+   - Restore from:
+     - Final snapshot (if created)
+     - Automated backups
+   - Rebuild cluster/instance configurations based on IaC or documented templates.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+**Perform full log review**
+   - CloudTrail, RDS Enhanced Monitoring, and VPC Flow Logs
+   - Identify lateral movement or privilege escalation preceding the deletion.
+
+**Scope and contain the incident**
+   - Determine whether:
+     - Additional RDS resources were targeted
+     - IAM permissions were modified
+     - Other destructive API calls were made
+
+**Hardening actions**
+   - Enable deletionProtection on all critical instances/clusters.
+   - Require final snapshot creation for all deletion operations.
+   - Enforce MFA for IAM users with RDS privileges.
+   - Limit RDS modification/deletion permissions to specific IAM roles.
+
+**Documentation and Follow-Up**
+   - Update incident response runbooks.
+   - Communicate with service owners and leadership.
+   - Add enhanced monitoring rules around:
+     - Snapshot deletions
+     - Backup retention modifications
+     - RDS role changes
+     - DeletionProtection disable events
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
 references = [
-    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/delete-db-cluster.html",
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBCluster.html",
-    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/delete-global-cluster.html",
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteGlobalCluster.html",
-    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/delete-db-instance.html",
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBInstance.html",
 ]
 risk_score = 47
@@ -85,8 +151,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(DeleteDBCluster or DeleteGlobalCluster or DeleteDBInstance)
-and event.outcome:success
+event.dataset: aws.cloudtrail 
+    and event.provider: rds.amazonaws.com 
+    and event.action: (DeleteDBCluster or DeleteGlobalCluster or DeleteDBInstance)
+    and event.outcome: success
 '''
 
 
@@ -102,4 +170,22 @@ reference = "https://attack.mitre.org/techniques/T1485/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

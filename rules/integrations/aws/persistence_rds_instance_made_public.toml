@@ -2,16 +2,21 @@
 creation_date = "2024/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/11/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation or modification of an AWS RDS DB instance to enable public access. DB instances may contain sensitive data that can be abused if shared with unauthorized accounts or made public. Adversaries may enable public access on a DB instance to maintain persistence or evade defenses by bypassing access controls.
+Identifies the creation or modification of an Amazon RDS DB instance or cluster where the "publiclyAccessible" attribute
+is set to "true". Publicly accessible RDS instances expose a network endpoint on the public internet, which may allow
+unauthorized access if combined with overly permissive security groups, weak authentication, or misconfigured IAM
+policies. Adversaries may enable public access on an existing instance, or create a new publicly accessible instance, to
+establish persistence, move data outside of controlled network boundaries, or bypass internal access controls.
 """
 false_positives = [
     """
-    Public access is a common configuration used to enable access from outside a private VPC. Ensure that the instance should not be modified in this way before taking action.
+    Public access is a common configuration used to enable access from outside a private VPC. Ensure that the instance
+    should not be modified in this way before taking action.
     """,
 ]
 from = "now-6m"
@@ -19,39 +24,93 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS RDS DB Instance Made Public"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
 
 ### Investigating AWS RDS DB Instance Made Public
 
-This rule identifies when an RDS DB instance is created or modified to enable public access. While publicly accessible DB instances are a common practice, adversaries may exploit this feature to maintain persistence or evade defenses in a compromised environment.
+This rule detects when an Amazon RDS DB instance or cluster is created or modified with
+`publiclyAccessible=true`. While some environments operate publicly accessible RDS instances,
+unexpected exposure of a database to the internet is a meaningful security risk. Adversaries who
+gain access to AWS credentials may modify a DB instance’s public accessibility to exfiltrate data,
+establish persistence, or bypass internal network restrictions. 
 
 #### Possible Investigation Steps
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Creation/Modification Event**: Identify the DB instance involved and review the event details. Look for `ModifyDBInstance`, `CreateDBInstance` or `CreateDBCluster` actions where the publiclyAccessible parameter was set to true.
-    - **Request and Response Parameters**: Check the `aws.cloudtrail.request_parameters` field in the CloudTrail event to identify the DB Instance Identifier and any other modifications made to the instance.
-- **Verify the Created/Modified Instance**: Check the DB instance that was created or modified and its contents to determine the sensitivity of the data stored within it.
-- **Contextualize with Recent Changes**: Compare this event against recent changes in RDS DB or Cluster configurations and deployments. Look for any other recent permissions changes or unusual administrative actions.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this event to see if the same actor or IP address engaged in other potentially suspicious activities.
-- **Interview Relevant Personnel**: If the modification was initiated by a user, verify the intent and authorization for this action with the person or team responsible for managing DB instances.
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `access_key_id` to determine which IAM principal made the change.
+  - Determine whether the user, role, or automation service typically manages RDS configurations.
+
+- **Examine the request parameters**
+  - Review `aws.cloudtrail.request_parameters` for:
+    - `publiclyAccessible=true`
+    - DBInstanceIdentifier / DBClusterIdentifier
+    - Additional changes included in the same modification request (e.g., master user changes, security group updates)
+
+- **Validate the target resource**
+  - Determine the sensitivity of the instance (`target.entity.id`):
+    - What data does it store?
+    - Is it production, staging, dev, or ephemeral?
+  - Confirm whether the instance was previously private.
+
+- **Assess network exposure**
+  - Check associated security groups for:
+    - `0.0.0.0/0` (unrestricted ingress)
+    - Unexpected IP ranges  
+  - Review VPC/subnet placement to determine if the instance is reachable externally.
+
+- **Correlate with other recent CloudTrail activity**
+  - Look for related events performed by the same actor:
+    - `AuthorizeSecurityGroupIngress`
+    - `ModifyDBInstance`
+    - IAM policy modifications enabling broader DB access
+  - Look for indicators of credential misuse:
+    - unusual `source.ip`
+    - unusual `user_agent.original`
+    - MFA not used (`session_context.mfa_authenticated=false`)
+
+- **Validate intent with owners**
+  - Contact the service or database owner to confirm whether the change was an approved part of a deployment or migration.
+
 ### False Positive Analysis
 
-- **Legitimate Instance Configuration**: Confirm if the DB instance creation or modification aligns with legitimate tasks.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
+- **Expected public-access configuration**
+  - Some workloads intentionally require public access (e.g., internet-facing reporting tools).
+  - Validate against change management tickets, deployment pipelines, or Terraform/IaC automation logs.
 
 ### Response and Remediation
 
-- **Immediate Review and Reversal**: If the change was unauthorized, update the instance attributes to remove public access and restore it to its previous state. Determine whether attached security groups have been modified to allow additional access and revert any unauthorized changes.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive data or permissions.
-- **Audit Instances and Policies**: Conduct a comprehensive audit of all instances and associated policies to ensure they adhere to the principle of least privilege.
-- **Policy Update**: Review and possibly update your organization’s policies on DB instance access to tighten control and prevent unauthorized access.
-- **Incident Response**: If malicious intent is confirmed, consider it a data breach incident and initiate the incident response protocol. This includes further investigation, containment, and recovery.
+- **Containment**
+  - If exposure is unauthorized:
+    - Modify the instance to disable public access (`publiclyAccessible=false`).
+    - Restrict the security group inbound rules immediately.
+    - Snapshot the instance to preserve state if compromise is suspected.
+
+- **Investigation**
+  - Review all recent actions from the same IAM principal.
+  - Check for data access patterns (CloudWatch, RDS Enhanced Monitoring, VPC Flow Logs).
+  - Identify whether this exposure correlates with suspicious outbound network activity.
+
+- **Hardening**
+  - Require private-only RDS instances unless explicitly documented.
+  - Enforce security group least privilege and block public DB access via:
+    - AWS Config rules (`rds-instance-public-access-check`)
+    - Service Control Policies (SCPs) preventing public RDS settings
+  - Implement continuous monitoring for network or configuration drift.
+
+- **Recovery**
+  - Restore the database to a private subnet if necessary.
+  - Rotate credentials used by the DB instance and associated applications.
+  - Document the incident and update policies or IaC templates to prevent recurrence.
 
 ### Additional Information:
 
-For further guidance on managing DB instances and securing AWS environments, refer to the [AWS RDS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_RDS_Managing.html) and AWS best practices for security. Additionally, consult the following resources for specific details on DB instance security:
-- [AWS RDS ModifyDBInstance](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html)
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
 """
 references = [
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html",
@@ -86,6 +145,7 @@ any where event.dataset == "aws.cloudtrail"
     )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -96,6 +156,8 @@ reference = "https://attack.mitre.org/techniques/T1556/"
 id = "T1556.009"
 name = "Conditional Access Policies"
 reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -108,3 +170,22 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
