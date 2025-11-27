@@ -69,10 +69,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
-and process.name == "docker" and process.args == "--privileged" and process.args == "run" and
+process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "docker" and process.args == "--privileged" and process.args == "run" and
 process.args == "-v" and process.args like "/:/*" and
-not process.args like ("aktosecurity/mirror-api-logging:k8s_ebpf", "goharbor/prepare:*")
+not (
+  (process.args == "aktosecurity/mirror-api-logging:k8s_ebpf" and process.args == "akto-api-security-traffic-collector") or
+  (process.args like "goharbor/prepare:*" and process.args in ("/:/hostfs", "/:/hostfs/"))
+)
 '''
 
 [[rule.threat]]
