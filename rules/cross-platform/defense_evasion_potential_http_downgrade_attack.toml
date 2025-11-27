@@ -1,0 +1,70 @@
+[metadata]
+creation_date = "2025/11/27"
+integration = ["nginx", "apache", "apache_tomcat", "network_traffic"]
+maturity = "production"
+updated_date = "2025/11/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Through the new_terms rule type, this rule detects potential HTTP downgrade attacks by identifying
+HTTP traffic that uses a different HTTP version than the one typically used in the environment. An
+HTTP downgrade attack occurs when an attacker forces a connection via an older HTTP version, 
+resulting in potentially less secure communication. For example, an attacker might downgrade a
+connection from HTTP/2 to HTTP/1.1 or HTTP/1.0 to exploit known vulnerabilities or weaknesses in
+the older protocol versions.
+"""
+from = "now-9m"
+index = [
+        "logs-network_traffic.http-*",
+        "logs-network_traffic.tls-*",
+        "logs-nginx.access-*",
+        "logs-apache.access-*",
+        "logs-apache_tomcat.access-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential HTTP Downgrade Attack"
+risk_score = 21
+rule_id = "9797d2c8-8ec9-48e6-a022-350cdfbf2d5e"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Network Packet Capture",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+http.version:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.010"
+name = "Downgrade Attack"
+reference = "https://attack.mitre.org/techniques/T1562/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["http.version", "agent.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
