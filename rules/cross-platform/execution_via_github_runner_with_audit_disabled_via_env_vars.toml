@@ -7,16 +7,15 @@ updated_date = "2025/11/27"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the execution of processes via GitHub Actions runners with audit logging disabled through environment variables.
-Such activity may indicate an attempt to evade detection while executing potentially malicious code in a CI/CD environment. This
-activity was observed in the Shai-Hulud worm, which abused GitHub Actions runners to propagate itself while disabling audit
-logging by setting the RUNNER_TRACKING_ID environment variable to 0.
+This rule detects processes spawned by GitHub Actions runners where "RUNNER_TRACKING_ID" is overridden from its
+default "github_*" value. Such tampering has been associated with attempts to evade runner tracking/cleanup on
+self-hosted runners, including behavior observed in the Shai-Hulud 2.0 npm worm campaign.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Execution via GitHub Runner with Audit Disabled via Environment Variables"
+name = "Tampering with RUNNER_TRACKING_ID in GitHub Actions Runners"
 references = [
     "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
     "https://socket.dev/blog/shai-hulud-strikes-again-v2",
