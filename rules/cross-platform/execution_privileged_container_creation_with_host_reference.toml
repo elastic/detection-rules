@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/11/27"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2025/11/27"
 
@@ -13,7 +13,14 @@ potentially leading to privilege escalation and lateral movement within the envi
 the Shai-Hulud supply chain attack targeting Node.js developers.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Privileged Container Creation with Host Directory Mount"
@@ -54,12 +61,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.name == "docker" and
-process.args == "--privileged" and process.args == "run" and process.args == "-v" and process.args like "/:/*"
+process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
+and process.name == "docker" and process.args == "--privileged" and process.args == "run" and
+process.args == "-v" and process.args like "/:/*" and
+not process.args like ("aktosecurity/mirror-api-logging:k8s_ebpf", "goharbor/prepare:*")
 '''
 
 [[rule.threat]]
