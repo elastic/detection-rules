@@ -1,0 +1,163 @@
+[metadata]
+creation_date = "2025/11/27"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects processes spawned by GitHub Actions runners where "RUNNER_TRACKING_ID" is overridden from its
+default "github_*" value. Such tampering has been associated with attempts to evade runner tracking/cleanup on
+self-hosted runners, including behavior observed in the Shai-Hulud 2.0 npm worm campaign.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Tampering with RUNNER_TRACKING_ID in GitHub Actions Runners"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Tampering with RUNNER_TRACKING_ID in GitHub Actions Runners
+
+This rule surfaces processes launched by GitHub Actions runners where RUNNER_TRACKING_ID is deliberately set to a non-default value. Attackers do this to break runner job tracking and cleanup on self-hosted runners, enabling long‑lived or hidden workloads. A common pattern is a workflow step that exports a custom RUNNER_TRACKING_ID and then spawns bash or node to fetch and execute a script via curl|bash or npm install scripts, keeping the process alive after the job finishes to run mining or exfil tasks.
+
+### Possible investigation steps
+
+- Correlate the event to its GitHub Actions run/job and workflow YAML, identify the repository and actor (commit/PR), and verify whether RUNNER_TRACKING_ID was explicitly set in the workflow or injected by a step script.
+- On the runner host, determine if the spawned process persisted beyond job completion by checking for orphaning or reparenting to PID 1, sustained CPU/memory usage, and timestamps relative to the runner process exit.
+- Review nearby telemetry for fetch-and-execute patterns (curl|bash, wget, node/npm lifecycle scripts), unexpected file writes under /tmp or actions-runner/_work, and outbound connections to non-GitHub endpoints.
+- Enumerate persistence artifacts created during the run, including crontab entries, systemd unit files, pm2 or nohup sessions, and changes to authorized_keys or rc.local, and tie them back to the suspicious process.
+- Assess blast radius by listing secrets and tokens available to the job, checking audit logs for their subsequent use from the runner IP or unusual repositories, and decide whether to revoke or rotate credentials.
+
+### False positive analysis
+
+- A self-hosted runner bootstrap script or base image intentionally sets a fixed RUNNER_TRACKING_ID for internal log correlation or debugging, causing all runner-spawned processes to inherit a non-github_* value.
+- A composite action or reusable workflow accidentally overrides RUNNER_TRACKING_ID through env mapping or variable expansion (for example templating it from the run ID), resulting in benign non-default values during standard jobs.
+
+### Response and remediation
+
+- Quarantine the self-hosted runner by stopping Runner.Listener, removing the runner from the repository/organization, and terminating any Runner.Worker children or orphaned processes (PID 1) that carry a non-default RUNNER_TRACKING_ID.
+- Purge persistence by removing artifacts created during the run, including systemd unit files under /etc/systemd/system, crontab entries in /var/spool/cron, pm2/nohup sessions, edits to ~/.ssh/authorized_keys or /etc/rc.local, and files under /tmp and actions-runner/_work linked to the tampered process.
+- Revoke and rotate credentials exposed to the job (GITHUB_TOKEN, personal access tokens, cloud keys), delete leftover containers and caches in actions-runner/_work, invalidate the runner registration, and redeploy the runner from a clean, patched image.
+- Escalate to incident response if you observe outbound connections to non-GitHub endpoints, processes persisting after job completion, modifications to ~/.ssh/authorized_keys or /etc/systemd/system, or repeated RUNNER_TRACKING_ID tampering across runners or repositories.
+- Harden by restricting self-hosted runners to trusted repositories and actors, enforcing ephemeral per-job runners with egress allowlisting to github.com, setting strict job timeouts, and adding a workflow guard step that exits if RUNNER_TRACKING_ID does not start with github_."""
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://www.praetorian.com/blog/self-hosted-github-runners-are-backdoors/",
+]
+risk_score = 47
+rule_id = "df0553c8-2296-45ef-b4dc-3b88c4c130a7"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For Linux, this rule requires the linux.advanced.capture_env_vars variable to be set to "RUNNER_TRACKING_ID".
+- For macOS, this rule requires the macos.advanced.capture_env_vars variable to be set to "RUNNER_TRACKING_ID".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type in ("linux", "macos") and event.type == "start" and event.action == "exec" and
+process.parent.name in ("Runner.Worker", "Runner.Listener") and process.env_vars like~ "RUNNER_TRACKING_ID*" and
+not process.env_vars like~ "RUNNER_TRACKING_ID=github_*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Initial Access"
+  id = "TA0001"
+  reference = "https://attack.mitre.org/tactics/TA0001/"
+
+  [[rule.threat.technique]]
+  name = "Supply Chain Compromise"
+  id = "T1195"
+  reference = "https://attack.mitre.org/techniques/T1195/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Compromise Software Dependencies and Development Tools"
+    id = "T1195.001"
+    reference = "https://attack.mitre.org/techniques/T1195/001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Impair Defenses"
+  id = "T1562"
+  reference = "https://attack.mitre.org/techniques/T1562/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Disable or Modify Tools"
+    id = "T1562.001"
+    reference = "https://attack.mitre.org/techniques/T1562/001/"
