@@ -7,7 +7,7 @@ updated_date = "2025/11/28"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of a self-hosted Github runner from a first time seen user.name in the last 7 days. Adversaries
+This rule detects the creation of a self-hosted Github runner from a first time seen user.name in the last 5 days. Adversaries
 may abuse self-hosted runners to execute workflow jobs on customer infrastructure.
 """
 false_positives = [
@@ -15,7 +15,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-github.audit-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen GitHub Self Hosted Action Runner"
 note = """## Triage and analysis
@@ -86,6 +86,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.name", "github.actor_ip"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
