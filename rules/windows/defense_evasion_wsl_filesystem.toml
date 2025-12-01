@@ -2,13 +2,13 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects files creation and modification on the host system from the the Windows Subsystem for Linux. Adversaries may
-enable and use WSL for Linux to avoid detection.
+Detects file creation and modification on the host system from the Windows Subsystem for Linux. Adversaries may enable
+and use WSL to avoid detection.
 """
 from = "now-9m"
 index = [
@@ -20,13 +20,13 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Host Files System Changes via Windows Subsystem for Linux"
+name = "Host File System Changes via Windows Subsystem for Linux"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Host Files System Changes via Windows Subsystem for Linux
+### Investigating Host File System Changes via Windows Subsystem for Linux
 
 Windows Subsystem for Linux (WSL) allows users to run a Linux environment directly on Windows, facilitating seamless file access between systems. Adversaries may exploit WSL to modify host files stealthily, bypassing traditional security measures. The detection rule identifies suspicious file operations initiated by WSL processes, particularly those involving the Plan9FileSystem, to flag potential defense evasion attempts.
 
@@ -75,11 +75,14 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=5m
- [process where host.os.type == "windows" and event.type == "start" and
-  process.name : "dllhost.exe" and
-   /* Plan9FileSystem CLSID - WSL Host File System Worker */
-  process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
- [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
+[process where host.os.type == "windows" and event.type == "start" and
+ process.name : "dllhost.exe" and
+  /* Plan9FileSystem CLSID - WSL Host File System Worker */
+ process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
+[file where host.os.type == "windows" and process.name : "dllhost.exe" and
+  not file.path : (
+        "?:\\Users\\*\\Downloads\\*",
+        "?:\\Windows\\Prefetch\\DLLHOST.exe-????????.pf")]
 '''
 
 
