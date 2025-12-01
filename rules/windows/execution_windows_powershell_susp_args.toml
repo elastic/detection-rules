@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -150,7 +150,9 @@ process where host.os.type == "windows" and event.type == "start" and
           "*$env:computername*http*",
           "*;InVoKe-ExpRESsIoN $COntent.CONTENt;*",
           "*WebClient*example.com*",
-          "*=iwr $*;iex $*"
+          "*=iwr $*;iex $*",
+          "*ServerXmlHttp*IEX*",
+          "*XmlDocument*IEX*"
     ) or
 
     (process.args : "-c" and process.args : "&{'*") or
@@ -160,6 +162,11 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.args : "-bxor" and process.args : "0x*") or
 
     process.args : "$*$*;set-alias" or
+
+    process.args == "-e" or
+
+    // ATHPowerShellCommandLineParameter
+    process.args : ("-EncodedCommandParamVariation", "-UseEncodedArguments", "-CommandParamVariation") or
 
     (
       process.parent.name : ("explorer.exe", "cmd.exe") and
