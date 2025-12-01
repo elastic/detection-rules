@@ -2,7 +2,7 @@
 creation_date = "2021/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/24"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
@@ -13,7 +13,6 @@ sensitive data from a duplicated environment. This rule detects successful resto
 "RestoreDBInstanceFromDBSnapshot" or "RestoreDBInstanceFromS3", which may indicate unauthorized data access or
 post-compromise defense evasion.
 """
-event_category_override = "event.type"
 false_positives = [
     """
     Restoring an RDS DB instance may be performed legitimately during troubleshooting, development refresh processes,
@@ -23,7 +22,7 @@ false_positives = [
     """,
 ]
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS DB Instance Restored"
 note = """## Triage and analysis
@@ -146,13 +145,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-info where event.dataset == "aws.cloudtrail"
-    and event.provider == "rds.amazonaws.com"
-    and event.action in ("RestoreDBInstanceFromDBSnapshot", "RestoreDBInstanceFromS3")
-    and event.outcome == "success"
+event.dataset: "aws.cloudtrail"
+    and event.provider: "rds.amazonaws.com"
+    and event.action: ("RestoreDBInstanceFromDBSnapshot" or "RestoreDBInstanceFromS3")
+    and event.outcome: "success"
 '''
 
 
