@@ -2,7 +2,7 @@
 creation_date = "2020/04/27"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -98,8 +98,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "shred" and process.args in (
-  "-u", "--remove", "-z", "--zero"
+process where host.os.type == "linux" and event.type == "start" and process.name == "shred" and process.args like (
+  "-*u*", "--remove", "-*z*", "--zero"
 ) and not process.parent.name == "logrotate"
 '''
 
