@@ -2,7 +2,7 @@
 creation_date = "2023/08/22"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -84,7 +84,24 @@ file where host.os.type == "windows" and event.type : "creation" and
     not
     (
       process.name : "firefox.exe" and
-      file.name : ("langpack-*@firefox.mozilla.org.xpi", "*@dictionaries.addons.mozilla.org.xpi")
+      file.name : (
+        "langpack-*@firefox.mozilla.org.xpi",
+        "*@dictionaries.addons.mozilla.org.xpi",
+        "newtab@mozilla.org.xpi",
+        "uBlock0@raymondhill.net.xpi",
+        /* AdBlockPlus */
+        "{d10d0bf8-f5b5-c8b4-a8b2-2b9879e08c5d}.xpi",
+        /* Bitwarden */
+        "{446900e4-71c2-419f-a6a7-df9c091e268b}.xpi",
+        "addon@darkreader.org.xpi",
+        /* 1Password */
+        "{d634138d-c276-4fc8-924b-40a0ea21d284}.xpi",
+        "support@lastpass.com.xpi",
+        /* Grammarly */
+        "87677a2c52b84ad3a151a4a72f5bd3c4@jetpack.xpi",
+        "sentinelone_visibility@sentinelone.com.xpi",
+        "keepassxc-browser@keepassxc.org.xpi"
+      )
     )
   ) or
   /* Chromium-Based Browsers */
