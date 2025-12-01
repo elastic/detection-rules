@@ -45,9 +45,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and (
-  (process.name == "kubectl" and process.args == "run" and process.args == "--restart=Never" and process.args == "--" and process.args in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")) or
+  (process.name == "kubectl" and process.args == "run" and process.args == "--restart=Never" and process.args == "--") or
   (process.name == "docker" and process.args == "run")
-) and process.command_line like~ (
+) and 
+process.args in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.command_line like~ (
   "*atd*", "*cron*", "*/etc/rc.local*", "*/dev/tcp/*", "*/etc/init.d*", "*/etc/update-motd.d*", "*/etc/ld.so*", "*/etc/sudoers*", "*base64 *",
   "*/etc/profile*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*" , "*~/.ssh/*", "*autostart*", "*xxd *", "*/etc/shadow*", "*./.*",
   "*import*pty*spawn*", "*import*subprocess*call*", "*TCPSocket.new*", "*TCPSocket.open*", "*io.popen*", "*os.execute*", "*fsockopen*",
