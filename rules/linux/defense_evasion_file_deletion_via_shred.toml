@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/04/27"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["auditd_manager", "crowdstrike", "endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,12 @@ remove them at the end as part of the post-intrusion cleanup process.
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -88,6 +90,7 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
@@ -98,9 +101,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "shred" and process.args in (
-  "-u", "--remove", "-z", "--zero"
-) and not process.parent.name == "logrotate"
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "shred" and (
+// Any short-flag cluster containing at least one of u/z, and containing no extra "-" after the first one
+process.args regex~ "-[^-]*[uz][^-]*" or
+process.args in ("--remove", "--zero")
+) and
+not process.parent.name == "logrotate"
 '''
 
 
