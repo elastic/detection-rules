@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/11/04"
+updated_date = "2025/12/01"
 
 [transform]
 [[transform.investigate]]
@@ -291,8 +291,9 @@ network where host.os.type == "windows" and
        dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com")
       ) or
 
-      (process.code_signature.subject_name : "Python Software Foundation" and process.code_signature.trusted == true and
-       dns.question.name : "files.pythonhosted.org") or 
+      (process.code_signature.subject_name : ("Python Software Foundation", "Anaconda, Inc.") and
+       process.code_signature.trusted == true and dns.question.name : "files.pythonhosted.org"
+      ) or
 
       /* Zoom */
       (process.name : "Zoom.exe" and (process.code_signature.subject_name : "Zoom Video Communications, Inc." and
