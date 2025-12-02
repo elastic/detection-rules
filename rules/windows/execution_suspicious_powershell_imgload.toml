@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -97,13 +97,18 @@ host.os.type:windows and event.category:library and
     process.code_signature.trusted:true
   ) and
   not (
-    process.executable: C\:\\Windows\\Temp\\\{*\}\\_is*.exe and
+    process.name: (_is*.exe or "DellInstaller_x64.exe") and
     process.code_signature.subject_name:("Dell Technologies Inc." or "Dell Inc" or "Dell Inc.") and
     process.code_signature.trusted:true
   ) and
   not (
     process.executable: C\:\\ProgramData\\chocolatey\\* and
     process.code_signature.subject_name:("Chocolatey Software, Inc." or "Chocolatey Software, Inc") and
+    process.code_signature.trusted:true
+  ) and
+  not (
+    process.name: "Docker Desktop Installer.exe" and
+    process.code_signature.subject_name:"Docker Inc" and
     process.code_signature.trusted:true
   ) and
   not process.executable : (
