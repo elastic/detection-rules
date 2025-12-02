@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/11/19"
-integration = ["network_traffic", "nginx", "apache", "apache_tomcat", "iis"]
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
 maturity = "production"
-updated_date = "2025/11/24"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -53,10 +53,8 @@ rule_id = "6fa3abe3-9cd8-41de-951b-51ed8f710523"
 severity = "low"
 tags = [
     "Domain: Web",
-    "Domain: Network",
     "Use Case: Threat Detection",
     "Tactic: Reconnaissance",
-    "Data Source: Network Packet Capture",
     "Data Source: Nginx",
     "Data Source: Apache",
     "Data Source: Apache Tomcat",
@@ -66,9 +64,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-network_traffic.http-*, logs-network_traffic.tls-*, logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
 | where
-    (url.original is not null or url.full is not null) and
     http.request.method == "GET" and
     http.response.status_code in (
       500, // Internal Server Error
@@ -76,8 +73,8 @@ from logs-network_traffic.http-*, logs-network_traffic.tls-*, logs-nginx.access-
       503, // Service Unavailable
       504 // Gateway Timeout
     )
-| eval Esql.url_text  = case(url.original is not null, url.original, url.full)
-| eval Esql.url_lower = to_lower(Esql.url_text)
+
+| eval Esql.url_original_to_lower = to_lower(url.original)
 
 | keep
     @timestamp,
@@ -87,7 +84,7 @@ from logs-network_traffic.http-*, logs-network_traffic.tls-*, logs-nginx.access-
     source.ip,
     agent.id,
     host.name,
-    Esql.url_lower
+    Esql.url_original_to_lower
 | stats
     Esql.event_count = count(),
     Esql.http_response_status_code_count = count(http.response.status_code),
@@ -96,7 +93,7 @@ from logs-network_traffic.http-*, logs-network_traffic.tls-*, logs-nginx.access-
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),
-    Esql.url_path_values = values(Esql.url_lower),
+    Esql.url_path_values = values(Esql.url_original_to_lower),
     Esql.event_dataset_values = values(event.dataset)
     by source.ip, agent.id
 | where
