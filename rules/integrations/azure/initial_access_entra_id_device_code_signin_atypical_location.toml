@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/12/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Entra ID authentication using device code sign-in from atypical locations. Adversaries may leverage OAuth 2.0
+device code flow phishing techniques to gain unauthorized access to Azure resources from unusual geographic locations.
+This rule detects successful sign-ins using device code authentication originating from locations that deviate from the
+user's typical sign-in patterns, indicating potential malicious activity.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Device Code Auth from Atypical Location"
+references = ["https://www.wiz.io/blog/recent-oauth-attacks-detection-strategies"]
+risk_score = 47
+rule_id = "53df1dfc-cf9b-11f0-8892-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.signinlogs-*
+| where
+    event.category == "authentication" and
+    azure.signinlogs.properties.original_transfer_method == "deviceCodeFlow"
+| eval
+    Esql.interactive_logon = CASE(azure.signinlogs.category == "SignInLogs", source.ip, null),
+    Esql.non_interactive_logon = CASE(azure.signinlogs.category ==  "NonInteractiveUserSignInLogs", source.ip, null)
+| stats
+    Esql.count.logon = count(*),
+    Esql.dc.source_ip = count_distinct(source.ip),
+    Esql.is_interactive = count(Esql.interactive_logon),
+    Esql.is_non_interactive = count(Esql.non_interactive_logon),
+    Esql.user_agent = VALUES(user_agent.original),
+    Esql.dc.user_agents = COUNT_DISTINCT(user_agent.original)
+by azure.signinlogs.properties.session_id
+| where
+    Esql.is_interactive >= 2 and
+    Esql.is_non_interactive >= 1 and
+    (
+        Esql.dc.user_agents >= 2 or
+        Esql.dc.source_ip >= 2
+    )
+| keep
+    Esql.*,
+    Esql_priv.*,
+    azure.signinlogs.*,
+    source.ip,
+    user_agent.original,
+    event.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
