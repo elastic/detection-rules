@@ -1,0 +1,124 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule detects potential SQL injection attempts in web server requests by identifying common SQL injection patterns
+in URLs. Such activity may indicate reconnaissance or exploitation attempts by attackers trying to manipulate backend
+databases or extract sensitive information.
+"""
+from = "now-9m"
+index = [
+        "logs-nginx.access-*",
+        "logs-apache.access-*",
+        "logs-apache_tomcat.access-*",
+        "logs-iis.access-*"
+]
+interval = "10m"
+language = "eql"
+license = "Elastic License v2"
+name = "Web Server Potential SQL Injection Request"
+risk_score = 21
+rule_id = "7f7a0ee1-7b6f-466a-85b4-110fb105f5e2"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where url.original like~ (
+  "*%20order%20by%*", "*dbms_pipe.receive_message%28chr%*", "*waitfor%20delay%20*", "*%28select%20*from%20pg_sleep%285*", "*%28select%28sleep%285*", "*%3bselect%20pg_sleep%285*",
+  "*select%20concat%28concat*", "*xp_cmdshell*", "*select*case*when*", "*and*extractvalue*select*", "*from*information_schema.tables*", "*boolean*mode*having*", "*extractvalue*concat*",
+  "*case*when*sleep*", "*select*sleep*", "*dbms_lock.sleep*", "*and*sleep*", "*like*sleep*", "*csleep*", "*pgsleep*", "*char*char*char*", "*union*select*", "*concat*select*",
+  "*select*else*drop*", "*having*like*", "*case*else*end*", "*if*sleep*", "*where*and*select*", "*or*1=1*", "*\"1\"=\"1\"*", "*or*'a'='a*", "*into*outfile*", "*pga_sleep*",
+  "*into%20outfile*", "*into*dumpfile*", "*load_file%28*", "*load%5ffile%28*", "*cast%28*", "*convert%28*", "*cast%28%*", "*convert%28%*", "*@@version*", "*@@version_comment*",
+  "*version%28*", "*user%28*", "*current_user%28*", "*database%28*", "*schema_name%28*", "*information_schema.columns*", "*information_schema.columns*", "*table_schema*",
+  "*column_name*", "*dbms_pipe*", "*dbms_lock%2e*sleep*", "*dbms_lock.sleep*", "*sp_executesql*", "*sp_executesql*", "*load%20data*", "*information_schema*",  "*pg_slp*",
+  "*information_schema.tables*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
