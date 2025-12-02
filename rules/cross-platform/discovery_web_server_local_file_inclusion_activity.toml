@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/12/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential Local File Inclusion (LFI) activity on web servers by identifying HTTP GET requests that
+attempt to access sensitive local files through directory traversal techniques or known file paths. Attackers may
+exploit LFI vulnerabilities to read sensitive files, gain system information, or further compromise the server.
+"""
+from = "now-9m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Local File Inclusion Activity"
+risk_score = 21
+rule_id = "90e4ceab-79a5-4f8e-879b-513cac7fcad9"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    http.request.method == "GET" and
+    http.response.status_code == 200 and
+    url.original like "*=*"
+
+| eval Esql.url_original_url_decoded_to_lower = to_lower(URL_DECODE(url.original))
+
+| where
+  /* 1) Relative traversal */
+  Esql.url_original_url_decoded_to_lower like "*../../../../*" or           // Unix-style traversal
+  Esql.url_original_url_decoded_to_lower like "*..\\\\..\\\\..\\\\..*" or           // Windows-style traversal
+  // Potential security check bypassing (enforcing multiple dots and shortening the pattern)
+  Esql.url_original_url_decoded_to_lower like "*..././*" or
+  Esql.url_original_url_decoded_to_lower like "*...\\*" or
+  Esql.url_original_url_decoded_to_lower like "*....\\*" or
+
+  /* 2) Linux system identity / basic info */
+  Esql.url_original_url_decoded_to_lower like "*etc/passwd*" or
+  Esql.url_original_url_decoded_to_lower like "*etc/shadow*" or
+  Esql.url_original_url_decoded_to_lower like "*etc/hosts*" or
+  Esql.url_original_url_decoded_to_lower like "*etc/os-release*" or
+  Esql.url_original_url_decoded_to_lower like "*etc/issue*" or
+
+  /* 3) Linux /proc enumeration */
+     Esql.url_original_url_decoded_to_lower like "*proc/self/environ*" or
+     Esql.url_original_url_decoded_to_lower like "*proc/self/cmdline*" or
+     Esql.url_original_url_decoded_to_lower like "*proc/self/fd*" or
+     Esql.url_original_url_decoded_to_lower like "*proc/self/exe*" or
+
+  /* 4) Linux webroots, configs & logs */
+     Esql.url_original_url_decoded_to_lower like "*var/www*" or               // generic webroot
+     Esql.url_original_url_decoded_to_lower like "*wp-config.php*" or         // classic WP config
+     Esql.url_original_url_decoded_to_lower like "*etc/apache2*" or
+     Esql.url_original_url_decoded_to_lower like "*etc/httpd*" or
+     Esql.url_original_url_decoded_to_lower like "*etc/nginx*" or
+     Esql.url_original_url_decoded_to_lower like "*var/log/apache2*" or
+     Esql.url_original_url_decoded_to_lower like "*var/log/httpd*" or
+     Esql.url_original_url_decoded_to_lower like "*var/log/nginx*" or
+
+  /* 5) Windows core files / identity */
+    Esql.url_original_url_decoded_to_lower like "*windows/panther/*unattend*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/debug/netsetup.log*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/win.ini*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/drivers/etc/hosts*" or
+    Esql.url_original_url_decoded_to_lower like "*boot.ini*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/config/*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/repair/sam*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/license.rtf*" or
+
+  /* 6) Windows IIS / .NET configs, webroots & logs */
+     Esql.url_original_url_decoded_to_lower like "*/inetpub/wwwroot*" or
+     Esql.url_original_url_decoded_to_lower like "*/inetpub/logs/logfiles*" or
+     Esql.url_original_url_decoded_to_lower like "*applicationhost.config*" or
+     Esql.url_original_url_decoded_to_lower like "*/microsoft.net/framework64/*/config/web.config*" or
+     Esql.url_original_url_decoded_to_lower like "*windows/system32/inetsrv/*" or
+
+  /* 7) PHP & protocol wrappers */
+     Esql.url_original_url_decoded_to_lower like "*php://*" or
+     Esql.url_original_url_decoded_to_lower like "*zip://*" or
+     Esql.url_original_url_decoded_to_lower like "*phar://*" or
+     Esql.url_original_url_decoded_to_lower like "*expect://*" or
+     Esql.url_original_url_decoded_to_lower like "*file://*" or
+     Esql.url_original_url_decoded_to_lower like "*data://text/plain;base64*"
+
+| keep
+    @timestamp,
+    Esql.url_original_url_decoded_to_lower,
+    source.ip,
+    agent.id,
+    host.name,
+    http.request.method,
+    http.response.status_code,
+    event.dataset
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_url_decoded_to_lower_count_distinct = count_distinct(Esql.url_original_url_decoded_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_original_url_decoded_to_lower_values = values(Esql.url_original_url_decoded_to_lower),
+    Esql.event_dataset_values = values(event.dataset)
+    by source.ip
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
