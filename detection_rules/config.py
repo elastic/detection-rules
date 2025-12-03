@@ -227,7 +227,7 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
             raise ValueError(f"rules config file does not exist: {path}")
         loaded = yaml.safe_load(path.read_text())
     elif CUSTOM_RULES_DIR:
-        path = Path(CUSTOM_RULES_DIR) / "_config.yaml"
+        path = Path(CUSTOM_RULES_DIR).expanduser() / "_config.yaml"
         if not path.exists():
             raise FileNotFoundError(
                 """
