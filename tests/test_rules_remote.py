@@ -155,6 +155,23 @@ class TestRemoteRules(BaseRuleTest):
         with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)
 
+    def test_new_line_split_index(self):
+        """Test an ESQL rule's index validation to ensure that it can handle new line split indices."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloud*, logs-network_traffic.http-*,
+        logs-nginx.access-* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep
+        aws.*
+        """
+        _ = RuleCollection().load_dict(production_rule)
+
     def test_esql_endpoint_alerts_index(self):
         """Test an ESQL rule's schema validation using ecs fields in the alerts index."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
