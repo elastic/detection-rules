@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,17 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "sdbinst.exe" and
   process.args : "?*" and
   not (process.args : "-m" and process.args : "-bg") and
-  not process.args : "-mm"
+  not process.args : (
+    "-mm",
+    "?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\sysMergeInboxStoreApp.sdb",
+    "\"?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\sysMergeInboxStoreApp.sdb\"",
+    "?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\msiMergeInboxStoreApp.sdb",
+    "\"?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\msiMergeInboxStoreApp.sdb\"",
+    "?:\\Program Files (x86)\\Citrix\\ICA Client\\CitrixWorkspaceLegacySWDA.sdb",
+    "Citrix Workspace",
+    "C:\\Program Files\\IIS Express\\iisexpressshim.sdb",
+    "C:\\Program Files (x86)\\IIS Express\\iisexpressshim.sdb"
+  )
 '''
 
 
