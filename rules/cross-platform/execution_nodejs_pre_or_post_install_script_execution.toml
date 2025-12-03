@@ -61,11 +61,12 @@ tags = [
   "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
 ]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=10s
-  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "node" and process.args == "install"] by process.entity_id
+  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "node" and process.args == "install"] by process.entity_id
   [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.parent.name == "node"] by process.parent.entity_id
 '''
 
