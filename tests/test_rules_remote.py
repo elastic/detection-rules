@@ -159,7 +159,6 @@ class TestRemoteRules(BaseRuleTest):
         """Test an ESQL rule's index validation to ensure that it can handle new line split indices."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
