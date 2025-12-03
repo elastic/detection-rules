@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2025/11/27"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/11/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of privileged containers that mount host directories into the container's filesystem.
+Such configurations can be exploited by attackers to escape the container isolation and gain access to the host system,
+potentially leading to privilege escalation and lateral movement within the environment.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Privileged Container Creation with Host Directory Mount"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privileged Container Creation with Host Directory Mount
+
+This rule flags creation of a privileged container that bind-mounts host directories into the container filesystem, breaking isolation and granting direct access to host files and devices. An attacker on a compromised node starts a privileged container via the runtime, bind-mounts the host root (/:) inside it, then chroots and alters critical files or services to seize host control, persist, and pivot.
+
+### Possible investigation steps
+
+- Retrieve the full process tree and execution context (user, controlling TTY, parent, remote source IP) to identify who initiated the container and whether it aligns with a sanctioned change.
+- Run runtime introspection to confirm the container’s mounts and privileges (e.g., docker ps/inspect or CRI equivalents), capturing the container ID, exact hostPath mappings, image, entrypoint, and start time.
+- If orchestrated, correlate with Kubernetes events and kubelet logs at the same timestamp to find any Pod using privileged: true with hostPath volumes, recording the namespace, service account, controller, and requestor.
+- Review audit and file integrity telemetry after container start for host-impacting actions such as chroot into the mount, nsenter into host namespaces, or writes to critical paths (/etc/passwd, /etc/sudoers, /root/.ssh, /var/lib/kubelet, and systemd unit directories).
+- Assess image provenance and intent by resolving the image digest and registry, reviewing history/entrypoint for post-start tooling, and validating with service owners or allowlists whether this privileged host-mount is expected on this node.
+
+### False positive analysis
+
+- An administrator uses docker run --privileged with -v /:/host during a break-glass or troubleshooting session to edit host files or restart services, matching the pattern but aligned with an approved maintenance procedure.
+- Automated provisioning or upgrade workflows intentionally start a privileged container that bind-mounts / to apply system configuration, install packages, or manage kernel modules during node bootstrap, producing an expected event.
+
+### Response and remediation
+
+- Immediately stop and remove the privileged container by its ID using docker, cordon the node to prevent scheduling, and temporarily disable the Docker/CRI socket to block further privileged runs.
+- Preserve forensic artifacts (docker inspect output, container image and filesystem, bash history, /var/log) and remediate by diffing and restoring critical paths (/etc, /root/.ssh, /etc/systemd/system, /var/lib/kubelet), removing rogue users, SSH keys, and systemd units.
+- Rotate credentials potentially exposed by the host mount (SSH keys, kubelet certs, cloud tokens under /var/lib/kubelet or /root), patch the container runtime, and uncordon or rejoin the node only after verifying privileged runs and host-root mounts are blocked.
+- Escalate to incident response if the mount included "/" or if evidence shows chroot or nsenter into host namespaces or writes to /etc/passwd, /etc/sudoers, or systemd unit files, and initiate host reimage and broader fleet scoping.
+- Enforce controls that deny --privileged and hostPath of "/" via admission policy (Pod Security Standards, Kyverno, OPA Gatekeeper), drop CAP_SYS_ADMIN with seccomp/AppArmor, enable Docker userns-remap and no-new-privileges, and restrict membership in the docker group.
+- Establish a break-glass approval workflow and an allowlist for legitimate host mounts, enable file integrity monitoring on /etc and kubelet directories, and add runtime rules to alert and block future docker run -v /:/host attempts."""
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://unit42.paloaltonetworks.com/container-escape-techniques/",
+]
+risk_score = 73
+rule_id = "d1f310cb-5921-4d37-bbdf-cfdab7a6df9c"
+setup = """## Setup
+This rule requires data coming in from Elastic Defend.
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "docker" and process.args == "--privileged" and process.args == "run" and
+process.args == "-v" and process.args like "/:/*" and
+not (
+  (process.args == "aktosecurity/mirror-api-logging:k8s_ebpf" and process.args == "akto-api-security-traffic-collector") or
+  (process.args like "goharbor/prepare:*" and process.args in ("/:/hostfs", "/:/hostfs/"))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
