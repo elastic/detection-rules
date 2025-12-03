@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/12/16"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ false_positives = [
     "Trusted system module updates or allowed Pluggable Authentication Module (PAM) daemon configuration changes.",
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Pluggable Authentication Module (PAM) Source Download"
@@ -29,19 +29,20 @@ risk_score = 21
 rule_id = "53ef31ea-1f8a-493b-9614-df23d8277232"
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Credential Access",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Credential Access",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "ProcessRollup2") and
 process.name in ("curl", "wget") and
 process.args like~ "https://github.com/linux-pam/linux-pam/releases/download/v*/Linux-PAM-*.tar.xz"
 '''
