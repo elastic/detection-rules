@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2025/11/26"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
+maturity = "production"
+updated_date = "2025/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potentially dangerous commands spawned by the GitHub Actions Runner.Worker process on self-hosted runner
+machines. Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute
+arbitrary commands on the runner host. This behavior may indicate malicious or unexpected workflow activity, including
+code execution, file manipulation, or network exfiltration initiated through a compromised repository or unauthorized
+workflow.
+"""
+false_positives = [
+    "Authorized GitHub actions runner with no malicious workflow actions.",
+]
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via GitHub Actions Runner"
+note = """## Triage and analysis
+
+### Investigating Execution via GitHub Actions Runner
+
+Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute arbitrary commands on the runner host.
+
+### Possible investigation steps
+
+- Review the execution details like process.command_line and if it's expected or not.
+- Examine associated network and file activities and if there is any ingress tool transfer activity.
+- Verify if there is adjascent any sensitive file access or collection.
+- Correlate with other alerts and investiguate if this activity is related to a supply chain attack.
+
+### False positive analysis
+
+- Authorized github workflow actions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized command execution and potential lateral movement.
+- Terminate any suspicious child processes that were initiated by the Github actions runner.
+- Conduct a thorough review of the affected system's logs and configurations to identify any unauthorized changes or additional indicators of compromise.
+- Restore the system from a known good backup if any unauthorized changes or malicious activities are confirmed.
+- Implement application whitelisting to prevent unauthorized execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+]
+risk_score = 47
+rule_id = "a640ef5b-e1da-4b17-8391-468fdbd1b517"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.parent.name in ("Runner.Worker", "Runner.Worker.exe") and
+ (
+   process.name like ("curl", "curl.exe", "wget", "wget.exe", "powershell.exe", "cmd.exe", "pwsh.exe", "certutil.exe", "rundll32.exe", "bash", "sh", "zsh", "tar", "rm",
+                     "sed", "osascript", "chmod", "nohup", "setsid", "dash", "ash", "tcsh", "csh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*", "node", "node.exe") or
+   process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "?:\\Users\\*")
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

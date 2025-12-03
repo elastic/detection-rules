@@ -2,7 +2,7 @@
 creation_date = "2025/11/18"
 integration = ["endpoint", "panw", "fortinet_fortigate", "suricata"]
 maturity = "production"
-updated_date = "2025/11/18"
+updated_date = "2025/11/28"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,9 @@ FROM logs-* metadata _id
         Esql.destination_ip_values = VALUES(destination.ip)
         by Esql.source_ip
 | where Esql.event_module_distinct_count >= 2
+| eval concat_module_values = MV_CONCAT(Esql.event_module_values, ",")
+// Make sure an endpoint alert is present along one of the network ones
+| where concat_module_values like "*endpoint*"
 | keep Esql.alerts_count, Esql.source_ip, Esql.destination_ip_values, Esql.host_id_values, Esql.user_name_values, Esql.event_module_values, Esql.message_values, Esql.process_executable_values
 '''
 note = """## Triage and analysis
