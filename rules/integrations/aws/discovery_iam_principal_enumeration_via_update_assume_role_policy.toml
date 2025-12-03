@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2020/07/16"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects repeated failed attempts to update an IAM role’s trust policy in an AWS account, consistent with role and user
+enumeration techniques. In this technique, an attacker who controls credentials in the current account repeatedly calls
+UpdateAssumeRolePolicy on a single role, cycling through guessed cross-account role or user ARNs as the principal. When
+those principals are invalid, IAM returns MalformedPolicyDocumentException, producing a burst of failed
+UpdateAssumeRolePolicy events. This rule alerts on that brute-force pattern originating from this account, which may
+indicate that the account is being used as attack infrastructure or that offensive tooling (such as Pacu) is running
+here. Note: this rule does not detect other accounts enumerating roles, because those API calls are logged in the
+caller’s account, not the target account.
+"""
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Principal Enumeration via UpdateAssumeRolePolicy"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Principal Enumeration via UpdateAssumeRolePolicy
+
+This rule detects bursts of failed attempts to update an IAM role’s trust policy — typically resulting in `MalformedPolicyDocumentException` errors — which can indicate enumeration of IAM principals.  
+Adversaries who have obtained valid AWS credentials may attempt to identify roles or accounts that can be assumed by repeatedly modifying a role’s trust relationship using guessed `Principal` ARNs.  
+When these principals are invalid, IAM rejects the request, creating a recognizable sequence of failed `UpdateAssumeRolePolicy` events.
+
+Because this is a threshold rule, it triggers when the number of failures exceeds a defined count within a short period. This pattern suggests brute-force-style enumeration rather than normal misconfiguration.
+
+#### Possible investigation steps
+
+- **Validate the context of the threshold trigger**
+  - Review the `@timestamp` range for when the burst occurred and the number of failed attempts in the threshold window.
+  - Identify whether all failures targeted the same `RoleName` or multiple roles — targeting a single role is often indicative of brute-force enumeration.
+  - Confirm the source identity and IP address (`aws.cloudtrail.user_identity.arn`, `source.ip`, `user_agent.original`) to determine whether these calls originated from a known automation process or an unexpected host.
+
+- **Correlate with other IAM activity**
+  - Look for any subsequent successful `UpdateAssumeRolePolicy` or `AssumeRole` calls, which may indicate the attacker eventually discovered a valid principal.
+  - Search for reconnaissance-related API calls (`ListRoles`, `ListUsers`, `GetCallerIdentity`) before the threshold event — these often precede enumeration bursts.
+  - Investigate whether other suspicious role- or identity-related actions occurred near the same timeframe, such as `CreateRole`, `PutRolePolicy`, or `AttachRolePolicy`.
+
+- **Identify infrastructure patterns**
+  - Examine the `user_agent.original` field — the presence of automation frameworks or penetration tools (e.g., “Boto3”, “Pacu”) may signal offensive tooling.
+  - Review the `source.ip` or `cloud.account.id` fields to see whether this account may be acting as attacker-controlled infrastructure attempting to enumerate roles in other environments.
+
+- **Validate authorization**
+  - Confirm with your DevOps or Cloud IAM teams whether any expected testing, migration, or cross-account role configuration changes were planned for this time period.
+  - If the identity performing these actions does not typically manage IAM roles or trust relationships, escalate for investigation as a possible credential compromise.
+
+### False positive analysis
+
+- **Legitimate automation retries**
+  - Continuous integration or configuration management systems may retry failed IAM API calls during deployment rollouts.  
+    If the same IAM role was being updated as part of a known change, validate the timing and source identity before closing as benign.
+- **Misconfigured scripts or infrastructure drift**
+  - Scripts that deploy trust policies using outdated or invalid ARNs can cause repetitive failures that mimic brute-force patterns.  
+    Review the `RoleName` and `Principal` ARNs included in the failed requests to confirm if they correspond to known but outdated configurations.
+
+### Response and remediation
+
+- **Immediate review and containment**
+  - Investigate whether the source account is being used for offensive operations or compromised automation.
+  - Disable or suspend the IAM user or access key responsible for the enumeration burst.
+  - If activity originated from a workload or CI/CD system, audit its access keys and environment variables for compromise.
+
+- **Investigation and scoping**
+  - Review CloudTrail logs for other IAM or STS actions from the same source in the preceding and following 24 hours.
+  - Check for any successful privilege changes (`PutRolePolicy`, `AttachRolePolicy`, or `AssumeRole`) by the same identity.
+  - Determine if other roles in the same account experienced similar failed updates or bursts.
+
+- **Recovery and hardening**
+  - Rotate credentials for any identities involved.
+  - Limit permissions to modify trust policies (`iam:UpdateAssumeRolePolicy`) to a small set of administrative roles.
+  - Enable AWS Config rule `iam-role-trust-policy-check` to detect overly permissive or unusual trust relationships.
+  - Use AWS GuardDuty or Security Hub to monitor for subsequent privilege escalation or reconnaissance findings.
+  - Review the event against AWS Incident Response Playbook guidance (containment > investigation > recovery > hardening).
+
+### Additional information
+  - **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+  - **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+  - **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)
+"""
+references = [
+    "https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities",
+    "https://rhinosecuritylabs.com/aws/assume-worst-aws-assume-role-enumeration/",
+]
+risk_score = 47
+rule_id = "ea248a02-bc47-4043-8e94-2885b19b2636"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.dataset: "aws.cloudtrail" 
+    and event.provider: "iam.amazonaws.com" 
+    and event.action: "UpdateAssumeRolePolicy" 
+    and aws.cloudtrail.error_code: "MalformedPolicyDocumentException" 
+    and event.outcome: "failure"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.threshold]
+field = ["cloud.account.id", "user.name", "source.ip"]
+value = 25
+
