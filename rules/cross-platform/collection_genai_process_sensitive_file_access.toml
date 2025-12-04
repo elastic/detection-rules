@@ -124,44 +124,6 @@ file where event.action in ("open", "creation", "modification") and event.outcom
                   "Unattended.xml")
   )
 
-  // Exclusions
-  not (
-    // Claude accessing own credentials
-    (process.name == "security" and
-     process.parent.name in ("claude", "claude.exe", "Claude", "node", "node.exe") and
-     process.command_line like~ ("*Claude Code*", "*Claude Code-credentials*", "*claude-code*")) or
-    
-    // GenAI tools accessing own config
-    (file.path like~ ("*Claude*", "*Cursor*", "*claude-code*", "*/anthropic/*",
-                      "*/.ollama/*", "*Ollama*", "*codex*", "*Jan*", "*/jan/*",
-                      "*Copilot*", "*LM Studio*", "*gpt4all*") and
-     process.parent.name in ("claude", "claude.exe", "Claude", "cursor", "cursor.exe",
-                             "Cursor", "ollama", "ollama.exe", "Ollama", "codex", "codex.exe",
-                             "Jan", "jan", "Copilot", "LM Studio", "gpt4all")) or
-    
-    // IDE extensions accessing state files
-    (file.path like~ ("*/.vscode/*", "*/.cursor/*") and
-     process.executable like~ ("*/.vscode/extensions/*", "*/.cursor/extensions/*")) or
-    
-    // Shell config sourcing (read-only)
-    (event.action == "open" and
-     process.name in ("zsh", "bash", "sh", "fish") and
-     process.parent.name in ("claude", "claude.exe", "cursor", "cursor.exe", "codex", "codex.exe",
-                             "Jan", "jan", "Ollama", "ollama", "LM Studio") and
-     file.path like~ ("*/.zshrc", "*/.bashrc", "*/.bash_profile", "*/.profile")) or
-    
-    // Code search tools
-    (process.name in ("rg", "ripgrep") or process.command_line like~ "*--ripgrep*") or
-    
-    // Git config (not credentials)
-    (process.name == "git" and
-     file.path like~ ("*/.gitconfig", "*/.git/config", "*/.git/HEAD") and
-     not file.path like~ "*/.git-credentials*") or
-    
-    // System info commands
-    process.name in ("uname", "sw_vers", "which", "hostname", "id", "whoami",
-                     "ioreg", "scutil", "defaults", "env", "getconf", "locale")
-  )
 '''
 
 [[rule.threat]]
