@@ -10,13 +10,15 @@ on:
 jobs:
   create_issue:
     runs-on: ubuntu-latest
+    env:
+      KIBANA_ISSUE_NUMBER: 166152  # Define the Kibana issue number as a variable
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
       - name: Get MITRE Attack changed files
         id: changed-attack-files
-        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46.0.5
         with:
           files: detection_rules/etc/attack-v*.json.gz
 
@@ -28,20 +30,14 @@ jobs:
         run: |
           VERSION=$(echo $ADDED_FILE[0] | grep -o 'v[^json]*')
           echo "::set-output name=version::$VERSION"
-
-      - name: Create issue in elastic/kibana repository
+      
+      - name: Add Kibana Issue Comment
         run: |
-          ISSUE_TITLE="[Security Solution] Update MITRE ATT&CK to ${{ steps.extract_version.outputs.version }}"
-          ISSUE_BODY="The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please update the MITRE ATT&CK version in Kibana accordingly."
-
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
+            echo "Adding comment to Kibana issue #${KIBANA_ISSUE_NUMBER}"
+            curl -L \
+            -X POST \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/elastic/kibana/issues \
-            -d '{
-              "title": "'"$ISSUE_TITLE"'",
-              "body": "'"$ISSUE_BODY"'"
-            }'
-
-        env:
-          GITHUB_TOKEN: ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}
+            -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
+            https://api.github.com/repos/elastic/kibana/issues/${KIBANA_ISSUE_NUMBER}/comments \
+            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
+            exit $?

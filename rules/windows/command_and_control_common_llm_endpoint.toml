@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2025/09/01"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/09/05"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies DNS queries to known Large Language Model domains by unsigned binaries or common Windows scripting utilities.
+Malwares may leverage the capabilities of LLM to perform actions in the affected system in a dynamic way.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.network-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Connection to Common Large Language Model Endpoints"
+note = """## Triage and analysis
+
+### Investigating Connection to Common Large Language Model Endpoints
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes or malicious scripts.
+- Verify if the executed process is persistent on the host like common mechanisms Startup folder, task or Run key.
+- Review any unusual network, files or registry events by the same process.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
+
+### False positive analysis
+
+- Trusted applications from an expected process running in the environment.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Immediately block the identified indicators of compromise (IoCs).
+- Implement any temporary network rules, procedures, and segmentation required to contain the attack.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Update firewall rules to be more restrictive.
+- Reimage the host operating system or restore the compromised files to clean versions.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://malpedia.caad.fkie.fraunhofer.de/details/py.lamehug"]
+risk_score = 47
+rule_id = "4ae94fc1-f08f-419f-b692-053d28219380"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and dns.question.name != null and
+(
+  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
+  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+
+  ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+
+  (
+    process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe") and
+    (?process.code_signature.trusted == false or ?process.code_signature.exists == false)
+  )
+ ) and
+    dns.question.name : (
+    // Major LLM APIs
+    "api.openai.com",
+    "*.openai.azure.com",
+    "api.anthropic.com",
+    "api.mistral.ai",
+    "api.cohere.ai",
+    "api.ai21.com",
+    "api.groq.com",
+    "api.perplexity.ai",
+    "api.x.ai",
+    "api.deepseek.com",
+    "api.gemini.google.com",
+    "generativelanguage.googleapis.com",
+    "api.azure.com",
+    "api.bedrock.aws",
+    "bedrock-runtime.amazonaws.com",
+
+    // Hugging Face & other ML infra
+    "api-inference.huggingface.co",
+    "inference-endpoint.huggingface.cloud",
+    "*.hf.space",
+    "*.replicate.com",
+    "api.replicate.com",
+    "api.runpod.ai",
+    "*.runpod.io",
+    "api.modal.com",
+    "*.forefront.ai",
+
+    // Consumer-facing AI chat portals
+    "chat.openai.com",
+    "chatgpt.com",
+    "copilot.microsoft.com",
+    "bard.google.com",
+    "gemini.google.com",
+    "claude.ai",
+    "perplexity.ai",
+    "poe.com",
+    "chat.forefront.ai",
+    "chat.deepseek.com"
+  ) and
+
+  not process.executable : (
+          "?:\\Program Files\\*.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Windows\\System32\\svchost.exe",
+          "?:\\Windows\\SystemApps\\Microsoft.LockApp_*\\LockApp.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe"
+        ) and
+    not (?process.code_signature.trusted == true and
+         ?process.code_signature.subject_name : ("Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.", "Opera Norway AS"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+

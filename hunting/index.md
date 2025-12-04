@@ -36,8 +36,13 @@ Here are the queries currently available:
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
 - [Azure Entra Unusual Failed Authentication Attempts Behind Rare User Agents](./azure/docs/entra_authentication_attempts_behind_rare_user_agents.md) (ES|QL)
-- [Microsoft Entra ID Credentials Added to Rare Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
+- [Microsoft Entra ID Rare Service Principal Activity from Multiple IPs](./azure/docs/entra_rare_actions_by_service_principal.md) (ES|QL)
+- [Microsoft Entra ID Uncommon IP Adding Credentials to Service Principal](./azure/docs/entra_service_principal_credentials_added_to_rare_app.md) (ES|QL)
 - [Microsoft Entra Infrequent Suspicious OData Client Requests](./azure/docs/entra_suspicious_odata_client_requests.md) (ES|QL)
+
+
+## cross-platform
+- [Potential Spoofed `microsoftonline.com` via Fuzzy Match](./cross-platform/docs/potentially_spoofed_microsoft_authentication_domain.md) (ES|QL)
 
 
 ## linux

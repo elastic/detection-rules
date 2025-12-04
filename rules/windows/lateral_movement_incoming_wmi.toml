@@ -2,7 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/05/20"
 
 [rule]
 author = ["Elastic"]
@@ -69,13 +69,12 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan = 2s
+sequence by host.id with maxspan = 20s
 
  /* Accepted Incoming RPC connection by Winmgmt service */
 
   [network where host.os.type == "windows" and process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
-   source.ip != "127.0.0.1" and source.ip != "::1" and source.port >= 49152 and destination.port >= 49152
-  ]
+   source.ip != "127.0.0.1" and source.ip != "::1" and destination.port == 135]
 
   /* Excluding Common FPs Nessus and SCCM */
 

@@ -2,14 +2,14 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/17"
+updated_date = "2025/09/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects the creation of an AWS Identity and Access Management (IAM) user initiated by an assumed role on an EC2
 instance. Assumed roles allow users or services to temporarily adopt different AWS permissions, but the creation of IAM
-users through these roles—particularly from within EC2 instances—may indicate a compromised instance. Adversaries might
+users through these roles, particularly from within EC2 instances, may indicate a compromised instance. Adversaries might
 exploit such permissions to establish persistence by creating new IAM users under unauthorized conditions.
 """
 false_positives = [
@@ -20,7 +20,7 @@ false_positives = [
     review.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -35,15 +35,14 @@ This rule detects when an AWS Identity and Access Management (IAM) user is creat
 
 - **Identify the Assumed Role and Initiating Instance**:
   - **Role and Instance**: Examine the `aws.cloudtrail.user_identity.arn` field to determine the specific EC2 instance and role used for this action (e.g., `arn:aws:sts::[account-id]:assumed-role/[role-name]/[instance-id]`). Verify if this behavior aligns with expected usage or represents an anomaly.
-  - **Session Context**: Check the `session_issuer` fields in `aws.cloudtrail.user_identity.session_context` for details about the role assumed by the instance, along with `mfa_authenticated` to determine if Multi-Factor Authentication (MFA) was used.
 
 - **Analyze the Target IAM User**:
-  - **New User Details**: Inspect `aws.cloudtrail.flattened.request_parameters.userName` to see the username that was created. Look at `aws.cloudtrail.flattened.response_elements.user.userName` for confirmation of successful user creation, and validate if the user is expected or authorized.
+  - **New User Details**: Inspect `aws.cloudtrail.request_parameters` to see the username that was created. Validate if the user is expected or authorized.
   - **Review Creation Time and Context**: Compare the creation time (`@timestamp`) of the user with other activities from the same instance and role to assess if this creation was part of a larger chain of actions.
 
 - **Check User Agent and Tooling**:
   - **User Agent Analysis**: Review `user_agent.original` to see if AWS CLI, SDK, or other tooling was used for this request. Identifiers such as `aws-cli`, `boto3`, or similar SDK names can indicate the method used, which may differentiate automation from interactive actions.
-  - **Source IP and Location**: Use the `source.address` and `source.geo` fields to identify the IP address and geographic location of the event. Verify if this aligns with expected access patterns for your environment.
+  - **Source IP and Location**: Use the `source.ip` and `source.geo` fields to identify the IP address and geographic location of the event. Verify if this aligns with expected access patterns for your environment.
 
 - **Evaluate for Persistence Indicators**:
   - **Role Permissions**: Check the permissions associated with the assumed role (`arn:aws:iam::[account-id]:role/[role-name]`) to determine if creating IAM users is a legitimate activity for this role.
@@ -56,7 +55,7 @@ This rule detects when an AWS Identity and Access Management (IAM) user is creat
 ### False Positive Analysis
 
 - **Expected Automation**: Assumed roles may be used by legitimate automated systems that create users for specific workflows. Confirm if this event aligns with known automation activities.
-- **User Agent and Role Exceptions**: If this action is routine for specific roles or user agents (e.g., `aws-cli`, `boto3`), consider adding those roles or user agents to a monitored exception list for streamlined review.
+- **Role Exceptions**: If this action is routine for specific roles, consider adding those roles to a monitored exception list for streamlined review.
 
 ### Response and Remediation
 
@@ -94,23 +93,26 @@ event.dataset: "aws.cloudtrail"
     and event.action: "CreateUser"
     and event.outcome: "success"
     and aws.cloudtrail.user_identity.type: "AssumedRole"
-    and aws.cloudtrail.user_identity.arn: *i-*
+    and user.id: *\:i-*
 '''
 
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
     "user.name",
-    "source.address",
+    "user_agent.original",
+    "source.ip",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
-    "user_agent.original",
+    "aws.cloudtrail.user_identity.access_key_id",
     "event.action",
     "event.outcome",
+    "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements"
 ]
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -135,6 +137,6 @@ field = "new_terms_fields"
 value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
 
 

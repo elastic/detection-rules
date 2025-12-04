@@ -2,7 +2,7 @@
 creation_date = "2025/03/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/13"
+updated_date = "2025/09/08"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Identifies when an AWS DynamoDB table is scanned by a user who does not typically perform this action. Adversaries may
 use the Scan operation to collect sensitive information or exfiltrate data from DynamoDB tables. This rule detects
 unusual user activity by monitoring for the Scan action in CloudTrail logs. This is a New Terms rule that only flags
-when this behavior is observed by the `aws.cloudtrail.user_identity.arn` for the first time in the last 14 days.
+when this behavior is observed by a user or role for the first time.
 """
 false_positives = [
     """
@@ -18,7 +18,7 @@ false_positives = [
     Ensure that the user has the necessary permissions and that the Scan operation is authorized before taking action.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -29,12 +29,12 @@ note = """## Triage and analysis
 
 This rule identifies when an AWS DynamoDB table is scanned by a user who does not typically perform this action. Adversaries may use the Scan operation to collect sensitive information or exfiltrate data from DynamoDB tables. This rule detects unusual user activity by monitoring for the Scan action in CloudTrail logs.
 
-This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time on a host in the last 14 days.
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time.
 
 #### Possible Investigation Steps
 
 - Identify the Actor: Review the `aws.cloudtrail.user_identity.arn` field to identify the user who requested the subscription. Verify if this actor typically performs such actions and has the necessary permissions. It may be unusual for this activity to originate from certain user types, such as an assumed role or federated user.
-- Review the Source IP: Check the `source.address` field to determine the source of the request. If the request comes from an unexpected location or IP address, it may indicate a compromised account or unauthorized access.
+- Review the Source IP: Check the `source.ip` field to determine the source of the request. If the request comes from an unexpected location or IP address, it may indicate a compromised account or unauthorized access.
 - Analyze the Request Parameters: Examine the `aws.cloudtrail.request_parameters` field to understand the details of the Scan request. Look for any unusual parameters or patterns that may indicate malicious intent. This also details the DynamoDB table being scanned.
 - Review Access Key: Check the `aws.cloudtrail.user_identity.access_key_id` field to identify the access key used for the request. Determine if this key is associated with a legitimate user or if it has been compromised.
 
@@ -53,7 +53,7 @@ This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-
 
 ### Additional Information
 
-For further guidance on managing and securing SNS topics in AWS environments, refer to the [AWS SNS documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/security.html) and AWS best practices for security.
+For further guidance on managing and securing DynamoDB in AWS environments, refer to the [AWS DynamoDB documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/security.html) and AWS best practices for security.
 """
 references = ["https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html"]
 risk_score = 21
@@ -109,24 +109,25 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 field_names = [
     "@timestamp",
     "user.name",
-    "source.address",
+    "user_agent.original",
+    "source.ip",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "user_agent.original",
+    "aws.cloudtrail.resources.arn",     
+    "aws.cloudtrail.resources.type",   
     "event.action",
     "event.outcome",
+    "cloud.account.id",
     "cloud.region",
-    "aws.cloudtrail.flattened.request_parameters.tableName",
-    "aws.cloudtrail.flattened.response_elements.subscriptionArn",
-    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.request_parameters"
 ]
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
 
 

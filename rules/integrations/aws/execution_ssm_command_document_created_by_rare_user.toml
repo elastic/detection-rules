@@ -2,22 +2,19 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/06/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an AWS Systems Manager (SSM) command document is created by a user who does not typically perform this
-action. Adversaries may create SSM command documents to execute commands on managed instances, potentially leading to
-unauthorized access, command and control, data exfiltration and more.
+Identifies when an AWS Systems Manager (SSM) command document is created by a user or role who does not typically perform this action. Adversaries may create SSM command documents to execute commands on managed instances, potentially leading to unauthorized access, command and control, data exfiltration and more.
 """
 false_positives = [
     """
-    Legitimate users may create SSM command documents for legitimate purposes. Ensure that the document is authorized
-    and the user is known before taking action.
+    Legitimate users may create SSM command documents for legitimate purposes. Ensure that the document is authorized and the user is known before taking action.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -34,7 +31,7 @@ This rule identifies when an AWS Systems Manager (SSM) command document is creat
 - **Analyze the Document Details**:
   - **Document Name**: Check the `aws.cloudtrail.request_parameters.name` field for the document name to understand its intended purpose.
   - **Document Content**: If possible, review `aws.cloudtrail.request_parameters.content` for any sensitive or unexpected instructions (e.g., actions for data exfiltration or privilege escalation). If not available via logs, consider reviewing the document in the AWS Management Console.
-- **Contextualize the Activity with Related Events**: Look for other CloudTrail events involving the same user ARN or IP address (`source.address`). Examine actions performed in other AWS services, such as IAM, EC2, or S3, to identify if additional suspicious behavior exists. The `SendCommand` API call may indicate attempts to execute the SSM document on managed instances.
+- **Contextualize the Activity with Related Events**: Look for other CloudTrail events involving the same user ARN or IP address (`source.ip`). Examine actions performed in other AWS services, such as IAM, EC2, or S3, to identify if additional suspicious behavior exists. The `SendCommand` API call may indicate attempts to execute the SSM document on managed instances.
 - **Check Document Status and Metadata**:
   - **Document Status**: Confirm the document creation status in `aws.cloudtrail.response_elements.documentDescription.status`. A status of `Creating` may indicate that the document is in progress.
   - **Execution Permissions**: Review if the document specifies `platformTypes` and `documentVersion` in `aws.cloudtrail.response_elements.documentDescription` to understand which environments may be impacted and if multiple versions exist.
@@ -66,7 +63,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS SNS",
+    "Data Source: AWS SSM",
     "Data Source: AWS Systems Manager",
     "Resources: Investigation Guide",
     "Use Case: Threat Detection",
@@ -80,26 +77,32 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "ssm.amazonaws.com"
     and event.action: "CreateDocument"
     and event.outcome: "success"
-    and aws.cloudtrail.response_elements: *documentType=Command*
+    and aws.cloudtrail.flattened.response_elements.documentDescription.documentType: "Command"
 '''
 
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
     "user.name",
-    "source.address",
+    "user_agent.original",
+    "source.ip",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
-    "user_agent.original",
+    "aws.cloudtrail.user_identity.access_key_id",
     "event.action",
     "event.outcome",
+    "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements",
+    "aws.cloudtrail.response_elements"
 ]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -108,7 +111,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"

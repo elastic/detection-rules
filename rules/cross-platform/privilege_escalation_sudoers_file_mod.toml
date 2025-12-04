@@ -2,7 +2,7 @@
 creation_date = "2020/04/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/07/14"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ advantage of these configurations to execute commands as other users or spawn pr
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Sudoers File Modification"
 references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
@@ -29,12 +29,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-event.category:file and event.type:change and file.path:(/etc/sudoers* or /private/etc/sudoers*) and
-not process.name:(dpkg or platform-python or puppet or yum or dnf) and
-not process.executable:(/opt/chef/embedded/bin/ruby or /opt/puppetlabs/puppet/bin/ruby or /usr/bin/dockerd)
+file where host.os.type in ("linux", "macos") and event.type in ("creation", "change") and
+file.path like ("/etc/sudoers*", "/private/etc/sudoers*") and not (
+  process.name in ("dpkg", "platform-python", "puppet", "yum", "dnf") or
+  process.executable in ("/opt/chef/embedded/bin/ruby", "/opt/puppetlabs/puppet/bin/ruby", "/usr/bin/dockerd")
+)
 '''
 note = """## Triage and analysis
 
@@ -71,30 +72,20 @@ The sudoers file is crucial in Unix-like systems, defining user permissions for 
 - Implement additional monitoring on the affected system and similar systems to detect any further attempts to modify the sudoers file or other privilege escalation activities.
 - Review and update security policies and configurations to prevent similar incidents, ensuring that only authorized processes can modify the sudoers file."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "process.executable", "file.path"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
-

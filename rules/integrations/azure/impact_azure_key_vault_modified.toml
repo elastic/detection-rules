@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2020/08/31"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modifications to a Key Vault in Azure. The Key Vault is a service that safeguards encryption keys and secrets
+like certificates, connection strings, and passwords. Because this data is sensitive and business critical, access to
+key vaults should be secured to allow only authorized applications and users. This is a New Terms rule that detects when this activity hasn't been seen by the user in a specified time frame.
+"""
+false_positives = [
+    """
+    Key vault modifications may be done by a system or network administrator. Verify whether the username, hostname,
+    and/or resource name should be making changes in your environment. Key vault modifications from unfamiliar users or
+    hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Key Vault Modified"
+note = """## Triage and analysis
+
+### Investigating Azure Key Vault Modified
+
+Azure Key Vault is a cloud service that safeguards encryption keys and secrets like certificates, connection strings, and passwords. It is crucial for managing sensitive data in Azure environments. Unauthorized modifications to Key Vaults can lead to data breaches or service disruptions. This rule detects modifications to Key Vaults, which may indicate potential security incidents or misconfigurations.
+
+### Possible investigation steps
+- Review the `azure.activitylogs.operation_name` field to identify the specific operation performed on the Key Vault. Common operations include `Microsoft.KeyVault/vaults/write` for modifications and `Microsoft.KeyVault/vaults/delete` for deletions.
+- Check the `event.outcome` field to confirm the success of the operation. A successful outcome indicates that the modification or deletion was completed.
+- Investigate the `azure.activitylogs.identity.principal_id` or `azure.activitylogs.identity.principal_name` fields to determine the user or service principal that performed the operation. This can help identify whether the action was authorized or potentially malicious.
+- Analyze the `azure.activitylogs.resource_id` field to identify the specific Key Vault that was modified. This can help assess the impact of the change and whether it affects critical resources or applications.
+- Cross-reference the time of the modification with other security events or alerts in the environment to identify any patterns or related activities that may indicate a coordinated attack or misconfiguration.
+- Consult with relevant stakeholders or system owners to verify if the modification was planned or expected, and gather additional context if necessary.
+
+### False positive analysis
+- Routine maintenance activities by administrators can trigger alerts when they modify or delete Key Vaults. To manage this, create exceptions for known maintenance windows or specific administrator accounts.
+- Automated scripts or tools used for Key Vault management might perform frequent updates or deletions, leading to false positives. Identify these scripts and exclude their operations from triggering alerts by using specific identifiers or tags.
+- Changes made by authorized third-party services or integrations that manage Key Vault configurations can also result in false positives. Review and whitelist these services to prevent unnecessary alerts.
+- Regular updates or deployments in a development or testing environment may cause alerts. Consider excluding these environments from monitoring or adjusting the rule to focus on production environments only.
+- Temporary changes for troubleshooting or testing purposes might be flagged. Document these activities and use temporary exceptions to avoid false positives during these periods.
+
+### Response and remediation
+- Immediately isolate the affected Key Vault to prevent further unauthorized access or changes.
+- Review the Azure activity logs to identify the specific operations performed on the Key Vault and their outcomes.
+- Collaborate with security teams to assess the impact of the modifications and determine if any sensitive data was compromised.
+- If unauthorized changes are confirmed, initiate incident response procedures, including notifying affected parties and conducting a thorough investigation.
+- Implement additional monitoring and alerting for the affected Key Vault to detect any further suspicious activity.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/key-vault/general/basic-concepts",
+    "https://docs.microsoft.com/en-us/azure/key-vault/general/secure-your-key-vault",
+    "https://learn.microsoft.com/en-us/azure/key-vault/general/security-features"
+]
+risk_score = 21
+rule_id = "792dd7a6-7e00-4a0a-8a9a-a7c24720b5ec"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Tactic: Impact",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.activitylogs"
+    and azure.activitylogs.operation_name: MICROSOFT.KEYVAULT/VAULTS/*
+    and event.outcome:(Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

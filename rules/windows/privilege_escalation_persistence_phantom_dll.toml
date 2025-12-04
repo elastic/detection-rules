@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -106,8 +106,8 @@ any where host.os.type == "windows" and
       ?dll.code_signature.trusted != true or
       ?dll.code_signature.exists != true or
       (
-        dll.code_signature.trusted == true and
-          not dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation", "Microsoft Windows Publisher")
+        ?dll.code_signature.trusted == true and
+          not ?dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation", "Microsoft Windows Publisher")
       )
   ) or
    /* oci.dll is too noisy due to unsigned Oracle related DLL loaded from random dirs */
@@ -167,23 +167,6 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 [[rule.threat.technique.subtechnique]]
-id = "T1574.002"
-name = "DLL Side-Loading"
-reference = "https://attack.mitre.org/techniques/T1574/002/"
-
-
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-[[rule.threat.technique.subtechnique]]
 id = "T1574.001"
 name = "DLL"
 reference = "https://attack.mitre.org/techniques/T1574/001/"
@@ -191,9 +174,9 @@ reference = "https://attack.mitre.org/techniques/T1574/001/"
 
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -211,4 +194,21 @@ reference = "https://attack.mitre.org/techniques/T1036/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 

@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/05/08"
+updated_date = "2025/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -125,7 +125,11 @@ type = "eql"
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and
 
-  file.path : "C:\\*:*" and
+  file.path : "C:\\*:*" and file.extension in~ (
+    "pdf", "dll", "exe", "dat", "com", "bat", "cmd", "sys", "vbs", "ps1", "hta", "txt", "vbe", "js",
+    "wsh", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "rtf", "gif", "jpg", "png", "bmp", "img", "iso"
+  ) and
+
   not file.path : 
           ("C:\\*:zone.identifier*",
            "C:\\users\\*\\appdata\\roaming\\microsoft\\teams\\old_weblogs_*:$DATA",
@@ -160,12 +164,12 @@ file where host.os.type == "windows" and event.type == "creation" and
           "?:\\windows\\System32\\svchost.exe",
           "?:\\Windows\\System32\\WFS.exe"
   ) and
+  
+  not (
+    ?process.code_signature.trusted == true and
+    file.name : "*:sec.endpointdlp:$DATA"
+  )
 
-  file.extension :
-    (
-      "pdf", "dll", "exe", "dat", "com", "bat", "cmd", "sys", "vbs", "ps1", "hta", "txt", "vbe", "js",
-      "wsh", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "rtf", "gif", "jpg", "png", "bmp", "img", "iso"
-    )
 '''
 
 

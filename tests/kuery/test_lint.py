@@ -4,21 +4,21 @@
 # 2.0.
 
 import unittest
+
 import kql
 
 
 class LintTests(unittest.TestCase):
-
     def validate(self, source, linted, *args):
         self.assertEqual(kql.lint(source), linted, *args)
 
     def test_lint_field(self):
         self.validate("a : b", "a:b")
-        self.validate("\"a\": b", "a:b")
-        self.validate("a : \"b\"", "a:b")
+        self.validate('"a": b', "a:b")
+        self.validate('a : "b"', "a:b")
         self.validate("a : (b)", "a:b")
         self.validate("a:1.234", "a:1.234")
-        self.validate("a:\"1.234\"", "a:1.234")
+        self.validate('a:"1.234"', "a:1.234")
 
     def test_upper_tokens(self):
         queries = [
@@ -80,7 +80,7 @@ class LintTests(unittest.TestCase):
         self.validate("not (not (a:(not b) or c:(not d)))", "not a:b or not c:d")
 
     def test_ip(self):
-        self.validate("a:ff02\\:\\:fb", "a:\"ff02::fb\"")
+        self.validate("a:ff02\\:\\:fb", 'a:"ff02::fb"')
 
     def test_compound(self):
         self.validate("a:1 and b:2 and not (c:3 or c:4)", "a:1 and b:2 and not c:(3 or 4)")

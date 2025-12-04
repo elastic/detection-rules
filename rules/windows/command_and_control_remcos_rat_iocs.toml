@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2025/08/20"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system"]
+maturity = "production"
+updated_date = "2025/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies known execution traces of the REMCOS Remote Access Trojan. Remcos RAT is used by attackers to perform actions on infected machines remotely.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.registry-*",
+    "logs-endpoint.events.file-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential REMCOS Trojan Execution"
+note = """## Triage and analysis
+
+### Investigating Potential REMCOS Trojan Execution
+
+Remcos RAT is used by attackers to perform actions on infected machines remotely.
+
+### Possible investigation steps
+
+- Review the origin of the REMCOS file and the execution chain to identify the initial vector..
+- Examine if the process is set to persist in the affected system via scheduled task, Startup folder or Run key.
+- Check the network, files and child processes activity associated with the every suspicious process in the execution chain of REMCOS.
+- Correlate the event with other security alerts or logs from data sources like Elastic Defend or Microsoft Defender for Endpoint to gather additional context and identify any related malicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
+- Terminate any suspicious processes identified in the alert, such as PowerShell, cmd.exe, or other flagged executables, to halt any ongoing malicious activity.
+- Review and revoke any unauthorized user accounts or privileges that may have been created or modified using tools like net.exe or schtasks.exe.
+- Conduct a thorough scan of the affected system using endpoint protection tools to identify and remove any malware or unauthorized software installed by the attacker.
+- Restore the system from a known good backup if any critical system files or configurations have been altered or compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for ScreenConnect and other remote access tools to detect similar activities in the future, ensuring that alerts are promptly reviewed and acted upon."""
+references = [
+  "https://any.run/malware-trends/remcos",
+  "https://attack.mitre.org/software/S0332/",
+  "https://www.elastic.co/security-labs/exploring-the-ref2731-intrusion-set"
+]
+risk_score = 73
+rule_id = "d8b2f85a-cf1c-40fc-acf0-bb5d588a8ea6"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and
+(
+ (event.category == "file" and event.type == "deletion" and file.path like "C:\\Users\\*\\AppData\\Local\\Temp\\TH????.tmp") or
+
+ (event.category == "file" and file.path : "?:\\Users\\*\\AppData\\Roaming\\remcos\\logs.dat") or
+
+ (event.category == "registry" and
+  registry.value : ("Remcos", "Rmc-??????", "licence") and
+  registry.path : (
+      "*\\Windows\\CurrentVersion\\Run\\Remcos",
+      "*\\Windows\\CurrentVersion\\Run\\Rmc-??????",
+      "*\\SOFTWARE\\Remcos-*\\licence",
+      "*\\Software\\Rmc-??????\\licence"
+  )
+ )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

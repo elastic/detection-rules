@@ -1,0 +1,163 @@
+[metadata]
+creation_date = "2025/07/24"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of multiple base64 decoding commands to decode data. multi-decoded
+data is suspicious, and may be used by attackers to obfuscate malicious payloads or commands.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Multi-Base64 Decoding Attempt from Suspicious Location"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Multi-Base64 Decoding Attempt from Suspicious Location
+
+Base64 encoding is a common method to encode binary data into ASCII text, often used for data transmission. Adversaries exploit this by encoding malicious payloads to evade detection. The detection rule identifies suspicious decoding activities, especially from unusual directories, by monitoring rapid sequences of decoding commands. It excludes benign processes to reduce false positives, focusing on potential threats in Linux environments.
+
+### Possible investigation steps
+
+- Review the process details, including the parent entity ID and executable path, to understand the context of the decoding activity and identify the parent process responsible for initiating the base64 commands.
+- Examine the working directory where the decoding occurred, focusing on suspicious locations such as "/tmp/*", "/var/tmp*", "/dev/shm/*", "/var/www/*", "/home/*", and "/root/*" to determine if the activity aligns with typical usage patterns or if it indicates potential malicious behavior.
+- Analyze the command-line arguments used in the decoding process, specifically looking for "-d*" or "--d*" flags, to assess whether the decoding was intended to obfuscate data or execute hidden payloads.
+- Investigate the sequence of events within the 3-second maxspan to identify any rapid or automated decoding attempts that could suggest scripted or malicious activity.
+- Check for any exclusions in the rule, such as known benign processes or directories, to ensure the alert is not a false positive and the activity is genuinely suspicious.
+- Correlate the alert with other security events or logs from the same host or network segment to gather additional context and determine if this is part of a larger attack or isolated incident.
+
+### False positive analysis
+
+- Scheduled tasks or cron jobs may trigger base64 decoding in benign processes. Exclude known executables like "/etc/cron.daily/vivaldi" and "/etc/cron.daily/opera-browser" to reduce false positives.
+- System management tools or agents, such as those located in "/opt/microsoft/omsagent/plugin" or "/opt/rapid7/ir_agent/*", might use base64 decoding for legitimate purposes. Add these directories to the exclusion list to prevent unnecessary alerts.
+- Temporary directories like "/tmp/newroot/*" may be used by legitimate applications for transient data processing. Consider excluding these paths if they are frequently involved in non-malicious activities.
+- User scripts or applications in home directories may use base64 for encoding or decoding data. Monitor and whitelist specific user processes that are known to be safe to avoid false positives.
+- Regularly review and update the exclusion list based on observed benign activities to ensure the rule remains effective without generating excessive false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system to prevent further execution of potentially malicious payloads. Disconnect the system from the network to contain the threat.
+
+- Review and terminate any suspicious processes identified by the detection rule, particularly those involving base64 decoding from unusual directories. Use process management tools to kill these processes.
+
+- Conduct a thorough examination of the directories flagged by the alert (e.g., /tmp, /var/tmp, /dev/shm) to identify and remove any malicious files or scripts. Ensure these directories are cleaned of unauthorized or suspicious content.
+
+- Restore the system from a known good backup if any malicious activity is confirmed, ensuring that the backup is free from compromise.
+
+- Escalate the incident to the security operations team for further investigation and analysis. Provide them with logs and details of the processes and directories involved for deeper threat assessment.
+
+- Implement additional monitoring and alerting for similar suspicious activities, focusing on rapid sequences of base64 decoding commands and unusual directory usage to enhance detection capabilities.
+
+- Review and update access controls and permissions for the directories involved to prevent unauthorized access and execution of potentially harmful scripts or binaries.
+"""
+risk_score = 21
+rule_id = "03d856c2-7f74-4540-a530-e20af5e39789"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+query = '''
+sequence by process.parent.entity_id with maxspan=3s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and
+   process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
+   // Only including potentially suspicious locations
+   process.args like~ ("-d*", "--d*") and process.working_directory like (
+     "/tmp/*", "/var/tmp*", "/dev/shm/*", "/var/www/*", "/home/*", "/root/*"
+   ) and not (
+     process.parent.executable in (
+       "/usr/share/ec2-instance-connect/eic_curl_authorized_keys", "/etc/cron.daily/vivaldi",
+       "/etc/cron.daily/opera-browser"
+     ) or
+     process.working_directory like (
+       "/opt/microsoft/omsagent/plugin", "/opt/rapid7/ir_agent/*", "/tmp/newroot/*"
+      )
+   )]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and
+   process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
+   process.args like~ ("-d*", "--d*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Obfuscated Files or Information"
+    id = "T1027"
+    reference = "https://attack.mitre.org/techniques/T1027/"
+
+    [[rule.threat.technique]]
+    name = "Deobfuscate/Decode Files or Information"
+    id = "T1140"
+    reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique]]
+    name = "User Execution"
+    id = "T1204"
+    reference = "https://attack.mitre.org/techniques/T1204/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Malicious File"
+      id = "T1204.002"
+      reference = "https://attack.mitre.org/techniques/T1204/002/"

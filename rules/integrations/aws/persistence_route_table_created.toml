@@ -2,11 +2,13 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/04"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = "Identifies when an AWS Route Table has been created."
+description = """
+Identifies when an EC2 Route Table has been created. Route tables can be used by attackers to disrupt network traffic, reroute communications, or maintain persistence in a compromised environment. This is a New Terms rule that detects the first instance of this behavior by a user or role.
+"""
 false_positives = [
     """
     Route Tables may be created by a system or network administrators. Verify whether the user identity, user agent,
@@ -15,26 +17,23 @@ false_positives = [
     processes that use Terraform may lead to false positives.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS Route Table Created"
+name = "AWS EC2 Route Table Created"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating AWS Route Table Created
+### Investigating AWS EC2 Route Table Created
 
 AWS Route Tables are crucial components in managing network traffic within AWS environments, directing data between subnets and internet gateways. Adversaries may exploit route tables to reroute traffic for data exfiltration or to establish persistence by creating unauthorized routes. The detection rule monitors successful creation events of route tables, flagging potential misuse by correlating specific AWS CloudTrail logs, thus aiding in identifying unauthorized network configuration changes.
 
 ### Possible investigation steps
 
-- Review the AWS CloudTrail logs for the specific event.provider:ec2.amazonaws.com and event.action values (CreateRoute or CreateRouteTable) to identify the user or role that initiated the route table creation.
-- Check the event.outcome:success field to confirm the successful creation of the route table and gather additional context such as timestamps and source IP addresses.
-- Investigate the associated AWS account and IAM user or role to determine if the action aligns with expected behavior and permissions.
+- Investigate the AWS account and IAM user or role to determine if the action aligns with expected behavior and permissions.
 - Examine the newly created route table's configuration to identify any unauthorized or suspicious routes that could indicate potential misuse or data exfiltration attempts.
 - Correlate the event with other network security monitoring data to identify any unusual traffic patterns or anomalies that coincide with the route table creation.
 - Assess the environment for any recent changes or incidents that might explain the creation of the route table, such as new deployments or infrastructure modifications.
@@ -49,7 +48,7 @@ AWS Route Tables are crucial components in managing network traffic within AWS e
 
 ### Response and remediation
 
-- Immediately isolate the affected AWS account or VPC to prevent further unauthorized network changes and potential data exfiltration.
+- If unauthorized, remove permissions for related actions from the user or role. You can use the managed [AWSDenyAll](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSDenyAll.html) policy. 
 - Review the newly created route table and any associated routes to identify unauthorized entries. Remove any routes that are not part of the expected network configuration.
 - Conduct a thorough audit of IAM roles and permissions to ensure that only authorized users have the ability to create or modify route tables. Revoke any excessive permissions identified.
 - Implement network monitoring to detect unusual traffic patterns that may indicate data exfiltration or other malicious activities.
@@ -72,19 +71,40 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS Route53",
+    "Data Source: AWS EC2",
     "Use Case: Network Security Monitoring",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateRoute or CreateRouteTable) and
-event.outcome:success
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com" 
+    and event.action:(
+        "CreateRoute" or 
+        "CreateRouteTable"
+    ) 
+    and event.outcome: "success"
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -93,4 +113,11 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
 

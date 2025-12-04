@@ -2,17 +2,16 @@
 creation_date = "2025/01/07"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/07"
+updated_date = "2025/09/09"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when an SNS topic message is published by a rare user in AWS. Adversaries may publish messages to SNS topics
 for phishing campaigns, data exfiltration, or lateral movement within the AWS environment. SNS topics are used to send
-notifications and messages to subscribed endpoints such as applications, devices or email addresses, making them a
-valuable target for adversaries to distribute malicious content or exfiltrate sensitive data. This is a [New
-Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags
-when this behavior is observed for the first time on a user in the last 14 days.
+notifications and messages to subscribed endpoints such as applications, mobile devices or email addresses, making them a
+valuable target for adversaries to distribute malicious content or exfiltrate sensitive data. This is a New Terms rule that only flags
+when this behavior is observed for the first time by a user or role.
 """
 false_positives = [
     """
@@ -20,22 +19,24 @@ false_positives = [
     is authorized before taking action.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "SNS Topic Message Publish by Rare User"
+name = "AWS SNS Topic Message Publish by Rare User"
 note = """## Triage and Analysis
 
-### Investigating SNS Topic Message Publish by Rare User
+### Investigating AWS SNS Topic Message Publish by Rare User
 
 This rule identifies when a message is published to an SNS topic by a user who has rarely or never published messages before. This activity could indicate adversarial actions, such as using SNS topics for phishing campaigns, data exfiltration, or lateral movement within an AWS environment.
+
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time by a user or role.
 
 #### Possible Investigation Steps
 
 - **Identify the Actor and Resource**:
-  - **User Identity and Role**: Examine the `aws.cloudtrail.user_identity.arn` to identify the user or role responsible for publishing the SNS message. Verify whether this actor is authorized to publish messages to SNS topics. This user is considered "rare" since they have not published messages to SNS topics in the last 14 days.
-  - **Access Key Details**: Review the `aws.cloudtrail.user_identity.access_key_id` to determine if the access key used is valid or compromised.
+  - **User Identity and Role**: Examine the `aws.cloudtrail.user_identity.arn` to identify the user or role responsible for publishing the SNS message. Verify whether this actor is authorized to publish messages to SNS topics.
+  - **Access Key Details**: Review the `aws.cloudtrail.user_identity.access_key_id` to determine the access key used.
   - **SNS Topic ARN**: Analyze `aws.cloudtrail.resources.arn` to confirm whether the SNS topic is critical, sensitive, or used for authorized purposes.
 
 - **Evaluate the Context of the SNS Message**:
@@ -90,9 +91,12 @@ For more information on SNS topic management and securing AWS resources, refer t
 references = [
     "https://docs.aws.amazon.com/sns/latest/api/API_Publish.html",
     "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
+    "https://permiso.io/blog/s/smishing-attack-on-aws-sms-new-phone-who-dis/",
+    "https://www.sentinelone.com/labs/sns-sender-active-campaigns-unleash-messaging-spam-through-the-cloud/",
 ]
 risk_score = 47
 rule_id = "2112ecce-cd34-11ef-873f-f661ea17fbcd"
+setup = "AWS SNS topic data event types need to be enabled in the CloudTrail trail configuration to capture the Publish action. Ensure that the AWS CloudTrail service is [configured](https://docs.aws.amazon.com/sns/latest/dg/logging-using-cloudtrail.html#cloudtrail-data-events) to log data events for SNS."
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -103,6 +107,7 @@ tags = [
     "Resources: Investigation Guide",
     "Tactic: Lateral Movement",
     "Tactic: Exfiltration",
+    "Tactic: Impact",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -116,24 +121,21 @@ event.dataset:"aws.cloudtrail"
 
 [rule.investigation_fields]
 field_names = [
-   "@timestamp",
-   "user.name",
-   "aws.cloudtrail.user_identity.arn",
-   "aws.cloudtrail.user_identity.type",
-   "aws.cloudtrail.user_identity.access_key_id",
-   "user_agent.original",
-   "aws.cloudtrail.flattened.request_parameters.topicArn",
-   "event.action",
-   "event.outcome",
-   "cloud.region",
-   "source.ip",
-   "source.geo.city_name",
-   "source.geo.region_name",
-   "source.geo.country_name",
-   "aws.cloudtrail.request_id",
-   "aws.cloudtrail.resources.arn",
-   "aws.cloudtrail.event_category",
-   "aws.cloudtrail.response_elements.messageId"
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",     
+    "aws.cloudtrail.resources.type",   
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
 ]
 
 [[rule.threat]]
@@ -160,12 +162,29 @@ reference = "https://attack.mitre.org/techniques/T1567/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+[[rule.threat.technique.subtechnique]]
+id = "T1496.004"
+name = "Cloud Service Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["cloud.account.id", "user.name", "aws.cloudtrail.resources.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
 
 

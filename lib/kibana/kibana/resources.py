@@ -4,7 +4,7 @@
 # 2.0.
 
 import datetime
-from typing import Any, List, Optional, Type
+from typing import List, Optional, Type
 
 import json
 
@@ -138,7 +138,7 @@ class RuleResource(BaseResource):
         cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
         dry_run: Optional[bool] = False, edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
         include_exceptions: Optional[bool] = False, **kwargs
-    ) -> (dict, List['RuleResource']):
+    ) -> dict | List['RuleResource']:
         """Perform a bulk action on rules using the _bulk_action API."""
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
@@ -155,17 +155,11 @@ class RuleResource(BaseResource):
             data['rule_ids'] = rule_ids
         response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data, **kwargs)
 
-        # export returns ndjson, which requires manual parsing since response.json() fails
+        # export returns ndjson
         if action == 'export':
-            response = [json.loads(r) for r in response.text.splitlines()]
-            result_ids = [r['rule_id'] for r in response if 'rule_id' in r]
-        else:
-            results = response['attributes']['results']
-            result_ids = [r['rule_id'] for r in results['updated']]
-            result_ids.extend([r['rule_id'] for r in results['created']])
+            response = [cls(r) for r in [json.loads(r) for r in response.text.splitlines()]]
 
-        rule_resources = cls.export_rules(result_ids)
-        return response, rule_resources
+        return response
 
     @classmethod
     def bulk_enable(

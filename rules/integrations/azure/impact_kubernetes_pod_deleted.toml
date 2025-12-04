@@ -2,7 +2,7 @@
 creation_date = "2021/06/24"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/09/30"
 
 [rule]
 author = ["Austin Songer"]
@@ -17,8 +17,8 @@ false_positives = [
     behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-25m"
-index = ["filebeat-*", "logs-azure*"]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Pods Deleted"
@@ -78,6 +78,16 @@ event.outcome:(Success or success)
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+[[rule.threat.technique]]
+id = "T1529"
+name = "System Shutdown/Reboot"
+reference = "https://attack.mitre.org/techniques/T1529/"
+
 
 [rule.threat.tactic]
 id = "TA0040"

@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2025/07/14"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a change to the OpenID Connect (OIDC) discovery URL in the Entra ID Authentication Methods Policy. This behavior
+may indicate an attempt to federate Entra ID with an attacker-controlled identity provider, enabling bypass of
+multi-factor authentication (MFA) and unauthorized access through bring-your-own IdP (BYOIDP) methods.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "OIDC Discovery URL Changed in Entra ID"
+note = """## Triage and analysis
+
+### Investigating OIDC Discovery URL Changed in Entra ID
+
+This rule detects when the OIDC `discoveryUrl` is changed within the Entra ID Authentication Methods policy. Adversaries may leverage this to federate Entra ID with a rogue Identity Provider (IdP) under their control, allowing them to authenticate users with attacker-owned credentials and bypass MFA. This misconfiguration allows an attacker to impersonate valid users by issuing tokens via a third-party OIDC IdP while still passing validation in Entra ID. This technique has been publicly demonstrated and has critical implications for trust in federated identity.
+
+### Possible investigation steps
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `ipAddress` to identify who made the change and from where.
+- Examine the `old_oidc_discovery` and `new_oidc_discovery` to confirm if the new `discoveryUrl` points to an unexpected or untrusted IdP.
+- Check that the discovery URLs have `.well-known/openid-configuration` endpoints, which are standard for OIDC providers.
+- Use `azure.auditlogs.properties.correlation_id` to pivot to related changes and activity from the same session.
+- Review any subsequent sign-in activity that may have originated from the new IdP.
+- Pivot to additional logs associated with the user or application that made the change to identify any further suspicious activity.
+
+### False positive analysis
+- Entra ID administrators may intentionally reconfigure OIDC trust relationships to support new business requirements.
+- Validate any changes with the identity or security operations team before taking action.
+
+### Response and remediation
+- If the change is unauthorized, immediately revert the discovery URL to the trusted IdP via the Entra ID portal.
+- Revoke tokens or sessions issued after the configuration change.
+- Investigate how the unauthorized change occurred (e.g., compromised account or over-privileged app).
+- Apply conditional access policies and change control procedures to protect IdP configuration changes.
+"""
+references = ["https://dirkjanm.io/persisting-with-federated-credentials-entra-apps-managed-identities/"]
+risk_score = 73
+rule_id = "498e4094-60e7-11f0-8847-f661ea17fbcd"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+| where event.action == "Authentication Methods Policy Update"
+| eval Esql.azure_auditlogs_properties_target_resources_modified_properties_new_value_replace = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
+| eval Esql.azure_auditlogs_properties_target_resources_modified_properties_old_value_replace = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
+| dissect Esql.azure_auditlogs_properties_target_resources_modified_properties_new_value_replace "%{}discoveryUrl\":\"%{Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new}\"}%{}"
+| dissect Esql.azure_auditlogs_properties_target_resources_modified_properties_old_value_replace "%{}discoveryUrl\":\"%{Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old}\"}%{}"
+| where Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new is not null and Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old is not null
+| where Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new != Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old
+| keep
+    @timestamp,
+    event.action,
+    event.outcome,
+    azure.tenant_id,
+    azure.correlation_id,
+    azure.auditlogs.properties.activity_datetime,
+    azure.auditlogs.properties.operation_type,
+    azure.auditlogs.properties.initiated_by.user.userPrincipalName,
+    azure.auditlogs.properties.initiated_by.user.displayName,
+    azure.auditlogs.properties.initiated_by.user.ipAddress,
+    source.geo.city_name,
+    source.geo.region_name,
+    source.geo.country_name,
+    Esql.azure_auditlogs_properties_auth_oidc_discovery_url_new,
+    Esql.azure_auditlogs_properties_auth_oidc_discovery_url_old
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/26"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,14 @@ Exploitation involves chaining multiple primitives to load an arbitrary DLL into
 SYSTEM.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler Point and Print DLL"
@@ -68,23 +75,21 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
 [registry where host.os.type == "windows" and
- registry.path : (
-    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory",
-    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory"
-    ) and
- registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
+   registry.value : "SpoolDirectory" and
+   registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory" and
+   registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
 [registry where host.os.type == "windows" and
- registry.path : (
-    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module",
-    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module"
-    ) and
- registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
+   registry.value : "Module" and
+   registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module" and
+   registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''
 
 

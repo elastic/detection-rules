@@ -2,26 +2,20 @@
 creation_date = "2020/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/27"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the execution of commands or scripts on EC2 instances using AWS Systems Manager (SSM), such as `RunShellScript`,
-`RunPowerShellScript` or custom documents. While legitimate users may employ these commands for management tasks, they
-can also be exploited by attackers with credentials to establish persistence, install malware, or execute reverse shells
-for further access to compromised instances. This is a [New
-Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that looks for
-the first instance of this behavior by the `aws.cloudtrail.user_identity.arn` field in the last 7 days.
+Detects the execution of commands or scripts on EC2 instances using AWS Systems Manager (SSM), such as RunShellScript, RunPowerShellScript or custom documents. While legitimate users may employ these commands for management tasks, they can also be exploited by attackers with credentials to establish persistence, install malware, or execute reverse shells for further access to compromised instances. This is a New Terms rule that looks for the first instance of this behavior by a user or role.
 """
 false_positives = [
     """
-    Verify whether the user identity, user agent, and/or hostname should be making changes in your environment.
-    Suspicious commands from unfamiliar users or hosts should be investigated. If known behavior is causing false
-    positives, it can be exempted from the rule.
+    Verify whether the user identity, user agent, and/or hostname should be making changes in your environment. Suspicious commands from unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
+interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -35,8 +29,8 @@ This rule detects the execution of commands or scripts on EC2 instances using AW
 #### Possible Investigation Steps
 
 - **Identify the Target Instance**:
-  - **Instance ID**: Review the `aws.cloudtrail.flattened.request_parameters.targets` field to identify which EC2 instances were targeted by this command. Confirm if these instances are expected to be managed through SSM.
-  - **Document Used**: Check the `aws.cloudtrail.flattened.request_parameters.documentName` field, which specifies the document or script being executed. Commands such as `RunShellScript` or `RunPowerShellScript` can indicate interactive sessions or script-based interactions.
+  - **Instance ID**: Review the `aws.cloudtrail.request_parameters` field to identify which EC2 instances were targeted by this command. Confirm if these instances are expected to be managed through SSM.
+  - **Document Used**: Check the `aws.cloudtrail.request_parameters` field, which specifies the name of the document or script being executed. Commands such as `RunShellScript` or `RunPowerShellScript` can indicate interactive sessions or script-based interactions.
 
 - **Review User Context**:
   - **User Identity**: Inspect the `aws.cloudtrail.user_identity.arn` field to determine the user or role executing the `SendCommand`. If this user is not typically involved in EC2 or SSM interactions, this could indicate unauthorized access.
@@ -48,7 +42,7 @@ This rule detects the execution of commands or scripts on EC2 instances using AW
 
 - **Check User Agent and Source IP**:
   - **User Agent Analysis**: Review the `user_agent.original` field to verify the tool or client used (e.g., `aws-cli`). This can provide insight into whether this action was automated, scripted, or executed manually.
-  - **Source IP and Geolocation**: Use `source.address` and `source.geo` fields to check if the IP address and geolocation align with expected regions for your organization. Unusual IP addresses or locations can indicate external adversaries.
+  - **Source IP and Geolocation**: Use `source.ip` and `source.geo` fields to check if the IP address and geolocation align with expected regions for your organization. Unusual IP addresses or locations can indicate external adversaries.
 
 - **Evaluate for Persistence Indicators**:
   - **Command Consistency**: Investigate if this action is part of a recurring pattern, such as repeated command executions across instances, which may suggest an attempt to maintain access.
@@ -56,7 +50,7 @@ This rule detects the execution of commands or scripts on EC2 instances using AW
 
 - **Correlate with Other CloudTrail Events**:
   - **Cross-Reference SSM Actions**: Look for other recent SSM actions like `CreateDocument`, `UpdateDocument`, or additional `SendCommand` events that could indicate preparation for further exploitation.
-  - **Monitor Data Access or Modification**: Correlate with `S3` access patterns, IAM changes, or EC2 modifications in recent events to detect broader malicious activities.
+  - **Monitor Data Access or Modification**: Correlate with S3 access patterns, IAM changes, or EC2 modifications in recent events to detect broader malicious activities.
 
 ### False Positive Analysis
 
@@ -83,6 +77,7 @@ tags = [
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
     "Data Source: AWS SSM",
+    "Data Source: AWS Systems Manager",
     "Use Case: Log Auditing",
     "Use Case: Threat Detection",
     "Tactic: Execution",
@@ -96,7 +91,6 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "ssm.amazonaws.com"
     and event.action: "SendCommand"
     and event.outcome: "success"
-    and not aws.cloudtrail.user_identity.arn: *AWSServiceRoleForAmazonSSM/StateManagerService*
     and not source.address: (
       "ssm-guiconnect.amazonaws.com" or
       "ssm.amazonaws.com" or
@@ -104,6 +98,22 @@ event.dataset: "aws.cloudtrail"
     )
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -120,7 +130,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

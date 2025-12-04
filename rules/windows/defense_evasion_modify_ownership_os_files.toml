@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2025/09/01"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/02"
+
+
+[rule]
+author = ["Elastic"]
+description = "Adversaries may modify file or directory ownership to evade access control lists (ACLs) and access protected files."
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "System File Ownership Change"
+note = """## Triage and analysis
+
+### Investigating System File Ownership Change
+
+Adversaries may modify file or directory ownership to evade access control lists (ACLs) and access protected files.
+
+#### Possible investigation steps
+
+- Assess the ownership target file or directory and identify if it's a system critical file.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- System updates, backup software and uninstallers tend to modify files ownership.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 47
+rule_id = "7eb54028-ca72-4eb7-8185-b6864572347db"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
+timeline_title = "Comprehensive Process Timeline"
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+   (process.name : "icacls.exe" and process.args : "/reset") or
+   (process.name : "takeown.exe" and process.args : "/f") or
+   (process.name : "icacls.exe" and process.args : "/grant" and process.args : "Everyone:F")
+   ) and
+   process.command_line : "*.exe *C:\\Windows\\*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+[[rule.threat.technique.subtechnique]]
+id = "T1222.001"
+name = "Windows File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+

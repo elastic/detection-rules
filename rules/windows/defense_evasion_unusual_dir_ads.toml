@@ -2,7 +2,7 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,13 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.args : "?:\\*:*" and process.args_count == 1
+  process.args : "?:\\*:*" and
+  (
+    process.args_count == 1 and
+
+    /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+    not process.command_line regex~ """\".*\.exe[^\"].*"""
+  )
 '''
 
 

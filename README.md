@@ -103,23 +103,29 @@ Usage: detection_rules [OPTIONS] COMMAND [ARGS]...
   Commands for detection-rules repository.
 
 Options:
-  -d, --debug / -n, --no-debug  Print full exception stacktrace on errors
+  -D, --debug / -N, --no-debug  Print full exception stacktrace on errors
   -h, --help                    Show this message and exit.
 
 Commands:
-  create-rule     Create a detection rule.
-  dev             Commands for development and management by internal...
-  es              Commands for integrating with Elasticsearch.
-  import-rules    Import rules from json, toml, or Kibana exported rule...
-  kibana          Commands for integrating with Kibana.
-  mass-update     Update multiple rules based on eql results.
-  normalize-data  Normalize Elasticsearch data timestamps and sort.
-  rule-search     Use KQL or EQL to find matching rules.
-  test            Run unit tests over all of the rules.
-  toml-lint       Cleanup files with some simple toml formatting.
-  validate-all    Check if all rules validates against a schema.
-  validate-rule   Check if a rule staged in rules dir validates against a...
-  view-rule       View an internal rule or specified rule file.
+  build-limited-rules     Import rules from json, toml, or Kibana exported rule file(s), filter out unsupported ones, and write to output NDJSON file.
+  build-threat-map-entry  Build a threat map entry.
+  create-rule             Create a detection rule.
+  custom-rules            Commands for supporting custom rules.
+  dev                     Commands related to the Elastic Stack rules release lifecycle.
+  es                      Commands for integrating with Elasticsearch.
+  export-rules-from-repo  Export rule(s) and exception(s) into an importable ndjson file.
+  generate-rules-index    Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana.
+  import-rules-to-repo    Import rules from json, toml, or yaml files containing Kibana exported rule(s).
+  kibana                  Commands for integrating with Kibana.
+  mass-update             Update multiple rules based on eql results.
+  normalize-data          Normalize Elasticsearch data timestamps and sort.
+  rule-search             Use KQL or EQL to find matching rules.
+  test                    Run unit tests over all of the rules.
+  toml-lint               Cleanup files with some simple toml formatting.
+  typosquat               Commands for generating typosquat detections.
+  validate-all            Check if all rules validates against a schema.
+  validate-rule           Check if a rule staged in rules dir validates against a schema.
+  view-rule               View an internal rule or specified rule file.
 ```
 
 Note:

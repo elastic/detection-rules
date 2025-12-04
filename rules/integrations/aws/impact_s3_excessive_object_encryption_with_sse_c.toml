@@ -2,23 +2,19 @@
 creation_date = "2025/01/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/07/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a high-volume of AWS S3 objects stored in a bucket using using Server-Side Encryption with Customer-Provided Keys
-(SSE-C). Adversaries with compromised AWS credentials can encrypt objects in an S3 bucket using their own encryption
-keys, rendering the objects unreadable or recoverable without the key. This can be used as a form of ransomware to
-extort the bucket owner for the decryption key. This is a [Threshold](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-threshold-rule) rule that flags when
-this behavior is observed for a specific bucket more than 15 times in a short time-window.
+Identifies a high-volume of AWS S3 objects stored in a bucket using using Server-Side Encryption with Customer-Provided Keys (SSE-C). Adversaries with compromised AWS credentials can encrypt objects in an S3 bucket using their own encryption keys, rendering the objects unreadable or recoverable without the key. This can be used as a form of ransomware to extort the bucket owner for the decryption key. This is a Threshold rule that triggers when this behavior is observed multiple times for a specific bucket in a short time-window.
 """
 false_positives = [
     """
     Legitimate use of Server-Side Encryption with Customer-Provided Keys (SSE-C) to encrypt objects in an S3 bucket.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -36,11 +32,11 @@ This rule identifies a high volume of objects being encrypted using Server-Side 
    - Review the `aws.cloudtrail.user_identity.access_key_id` to identify the access key used. This could be a compromised key.
 
 2. **Examine the Targeted Resources**:
-   - Check `aws.cloudtrail.flattened.request_parameters.bucketName` to identify the bucket involved.
-   - Analyze the object key from `aws.cloudtrail.flattened.request_parameters.key`.
+   - Check `aws.cloudtrail.request_parameters` to identify the bucket involved.
+   - Analyze the object key from `aws.cloudtrail.request_parameters`.
 
 3. **Evaluate Encryption Behavior**:
-   - Confirm the encryption details in `aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm` and `aws.cloudtrail.flattened.additional_eventdata.SSEApplied`.
+   - Confirm the encryption details in `aws.cloudtrail.request_parameters` and `aws.cloudtrail.additional_eventdata`.
    - Note if `SSEApplied` is `SSE-C`, which confirms encryption using a customer-provided key.
 
 4. **Correlate with Recent Events**:
@@ -104,9 +100,24 @@ event.dataset: "aws.cloudtrail"
     and event.action: "PutObject"
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm: "AES256"
-    and aws.cloudtrail.flattened.additional_eventdata.SSEApplied: "SSE_C"
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "tls.client.server_name",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -122,7 +133,7 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.threshold]
-field = ["aws.cloudtrail.flattened.request_parameters.bucketName"]
+field = ["tls.client.server_name"]
 value = 20
 
 

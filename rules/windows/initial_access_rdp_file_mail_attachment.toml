@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/11/05"
-integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +20,7 @@ index = [
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -79,6 +80,7 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -92,7 +94,7 @@ process where host.os.type == "windows" and event.type == "start" and
                  "?:\\Users\\*\\AppData\\Local\\Temp\\7z*.rdp",
                  "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*\\*.rdp",
                  "?:\\Users\\*\\AppData\\Local\\Temp\\BNZ.*.rdp",
-                 "C:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\*.rdp")
+                 "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\*.rdp")
 '''
 
 

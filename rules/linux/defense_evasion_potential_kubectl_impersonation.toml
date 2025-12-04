@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2025/06/19"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential impersonation attempts via the "kubectl" command in Linux environments. It identifies
+process events where "kubectl" is executed with arguments that suggest an attempt to impersonate another user or
+group, such as using "--kubeconfig", "--token", "--as", or "--as-group". This could indicate an adversary trying
+to gain unauthorized access or escalate privileges within a Kubernetes cluster. If this rule is triggered, in
+conjunction with rules related to secret access or kubeconfig file discovery, it may indicate a potential
+impersonation attempt.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Impersonation Attempt via Kubectl"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Impersonation Attempt via Kubectl
+
+Kubectl is a command-line tool for interacting with Kubernetes clusters, allowing users to manage applications and resources. Adversaries may exploit kubectl by using specific arguments to impersonate users, gaining unauthorized access or escalating privileges. The detection rule identifies suspicious kubectl executions, focusing on arguments that suggest impersonation, such as those related to user identity and authentication, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the process arguments to confirm the presence of impersonation-related flags such as "--kubeconfig", "--token", "--as", "--as-group", or "--as-uid" to understand the scope of the impersonation attempt.
+- Examine the parent process name and executable path to determine if the kubectl command was initiated from a suspicious location or script, such as "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", or "/home/*".
+- Check the user account associated with the kubectl execution to assess whether it aligns with expected usage patterns or if it indicates potential unauthorized access.
+- Investigate related alerts or logs for secret access or kubeconfig file discovery to identify if there is a broader pattern of suspicious activity that could indicate a coordinated impersonation attempt.
+- Analyze the network activity associated with the kubectl execution to identify any unusual connections or data transfers that may suggest unauthorized access or data exfiltration.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may use kubectl with impersonation arguments for legitimate purposes such as testing permissions or managing resources on behalf of other users. To handle this, create exceptions for known administrative accounts or specific IP addresses.
+- Automation scripts: Automated scripts or CI/CD pipelines might use impersonation arguments to perform tasks across different environments. Review and whitelist these scripts by identifying their unique execution patterns or specific user accounts.
+- Development and testing environments: Developers might use impersonation features in non-production environments for testing purposes. Exclude these environments by filtering based on environment-specific identifiers or network segments.
+- Security tools: Some security tools or monitoring solutions may use impersonation arguments to audit or verify access controls. Identify these tools and exclude their processes by recognizing their signatures or execution paths.
+- Frequent legitimate use cases: If certain teams or departments regularly use impersonation for valid reasons, consider creating role-based exceptions to reduce noise while maintaining security oversight.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes node or cluster to prevent further unauthorized access or privilege escalation.
+- Revoke any potentially compromised credentials, such as tokens or kubeconfig files, and issue new ones with updated security policies.
+- Review and audit the Kubernetes RBAC (Role-Based Access Control) settings to ensure that only authorized users have the necessary permissions, and adjust roles and permissions as needed to minimize privilege escalation risks.
+- Conduct a thorough investigation of the affected systems to identify any unauthorized changes or deployments made by the adversary, and roll back any malicious or suspicious configurations.
+- Monitor for any further suspicious kubectl activity, especially those involving impersonation arguments, and set up alerts for any similar future attempts.
+- Escalate the incident to the security operations team for a comprehensive review and to determine if additional security measures or incident response actions are required.
+- Implement additional logging and monitoring for kubectl commands and Kubernetes API interactions to enhance detection capabilities for similar threats in the future.
+"""
+risk_score = 21
+rule_id = "3c6685eb-9eaa-43a4-be1b-a7f9f1f5e63d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "Domain: Kubernetes",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Discovery",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "executed", "process_started") and
+process.name == "kubectl" and (
+  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+  (
+    process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
+    process.parent.name like (".*", "*.sh")
+  )
+) and process.args like~ ("--kubeconfig*", "--token*", "--as*", "--as-group*", "--as-uid*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/05/02"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -81,10 +82,28 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
+
+// Filter for compliance violations detected
 | where gen_ai.compliance.violation_detected
-| keep user.id, gen_ai.request.model.id, cloud.account.id
-| stats violations = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
-| where violations > 1
-| sort violations desc
+
+// keep relevant ECS + model fields
+| keep
+  user.id,
+  gen_ai.request.model.id,
+  cloud.account.id
+
+// count violations by user, model, and account
+| stats
+    Esql.ml_violations_count = count(*)
+  by
+    user.id,
+    gen_ai.request.model.id,
+    cloud.account.id
+
+// Filter for repeated violations
+| where Esql.ml_violations_count > 1
+
+// sort descending by violation volume
+| sort Esql.ml_violations_count desc
 '''
 

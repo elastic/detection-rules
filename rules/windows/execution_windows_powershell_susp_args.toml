@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/09/06"
-integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -12,6 +12,7 @@ installation leveraging PowerShell.
 """
 from = "now-9m"
 index = [
+    "logs-endpoint.events.process-*",
     "logs-crowdstrike.fdr*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
@@ -19,6 +20,7 @@ index = [
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "endgame-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -58,19 +60,21 @@ PowerShell is a powerful scripting language and command-line shell used for task
 - Restore any affected files or system components from known good backups to ensure system integrity and functionality.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
 - Implement additional monitoring and logging for PowerShell activities across the network to enhance detection of similar threats in the future."""
-risk_score = 73
+risk_score = 47
 rule_id = "83bf249e-4348-47ba-9741-1202a09556ad"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Windows Security Event Logs",
+    "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -79,9 +83,15 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
  process.name : "powershell.exe" and
+
+  not (
+    ?user.id == "S-1-5-18" and
+    /* Don't apply the user.id exclusion to Sysmon for compatibility */
+    not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+  ) and
+
   (
-   process.command_line :
-        (
+    process.command_line : (
           "*^*^*^*^*^*^*^*^*^*",
           "*`*`*`*`*",
           "*+*+*+*+*+*+*",
@@ -103,6 +113,7 @@ process where host.os.type == "windows" and event.type == "start" and
           "*DownloadString*",
           "* iex*",
           "* iwr*",
+          "* aQB3AHIAIABpA*",
           "*Reflection.Assembly*",
           "*Assembly.GetType*",
           "*$env:temp\\*start*",
@@ -124,21 +135,43 @@ process where host.os.type == "windows" and event.type == "start" and
           "*.content|i''Ex*",
           "*//:sptth*",
           "*//:ptth*",
+          "*h''t''t''p*",
+          "*'tp'':''/'*",
+          "*$env:T\"E\"MP*",
+          "*;cmd /c $?",
+          "*s''t''a''r*",
           "*$*=Get-Content*AppData*.SubString(*$*",
-          "*=cat *AppData*.substring(*);*$*"
-        ) or
+          "*=cat *AppData*.substring(*);*$*",
+          "*-join'';*|powershell*",
+          "*.Content;sleep *|powershell*",
+          "*h\''t\''tp:\''*",
+          "*-e aQB3AHIAIABp*",
+          "*iwr *https*).Content*",
+          "*$env:computername*http*",
+          "*;InVoKe-ExpRESsIoN $COntent.CONTENt;*",
+          "*WebClient*example.com*",
+          "*=iwr $*;iex $*",
+          "*ServerXmlHttp*IEX*",
+          "*XmlDocument*IEX*"
+    ) or
 
-      (process.args : "-c" and process.args : "&{'*") or
+    (process.args : "-c" and process.args : "&{'*") or
 
-      (process.args : "-Outfile" and process.args : "Start*") or
+    (process.args : "-Outfile" and process.args : "Start*") or
 
-      (process.args : "-bxor" and process.args : "0x*") or
+    (process.args : "-bxor" and process.args : "0x*") or
 
-      process.args : "$*$*;set-alias" or
+    process.args : "$*$*;set-alias" or
 
-      (process.parent.name : ("explorer.exe", "cmd.exe") and
-       process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
-  )
+    process.args == "-e" or
+
+    // ATHPowerShellCommandLineParameter
+    process.args : ("-EncodedCommandParamVariation", "-UseEncodedArguments", "-CommandParamVariation") or
+
+    (
+      process.parent.name : ("explorer.exe", "cmd.exe") and
+      process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
+    )
 '''
 
 

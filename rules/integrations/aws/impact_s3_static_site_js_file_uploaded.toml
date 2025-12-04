@@ -2,14 +2,14 @@
 creation_date = "2025/04/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/04/15"
+updated_date = "2025/10/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a JavaScript file is uploaded or accessed in an S3 static site directory (`static/js/`) by an IAM
-user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious scripts into a
-static website frontend.
+This rule detects when a JavaScript file is uploaded in an S3 static site directory (`static/js/`) by an IAM
+user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious
+scripts into a static website frontend.
 """
 false_positives = [
     """
@@ -17,7 +17,7 @@ false_positives = [
     Verify the user agent, source IP, and whether the modification was expected.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS S3 Static Site JavaScript File Uploaded"
@@ -71,41 +71,45 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail* metadata _id, _version, _index
-| where
 
-    // filter on CloudTrail logs for S3 PutObject actions
+| where
+    // S3 object write activity
     event.dataset == "aws.cloudtrail"
     and event.provider == "s3.amazonaws.com"
-    and event.action in ("GetObject","PutObject")
+    and event.action == "PutObject"
+    and event.outcome == "success"
 
-    // filter for IAM users, not federated identities
+    // IAM users or assumed roles only
     and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
 
-    // filter for S3 static site bucket paths from webpack or similar
-    and aws.cloudtrail.request_parameters LIKE "*static/js/*.js*"
+    // Requests for static site bundles
+    and aws.cloudtrail.request_parameters like "*static/js/*.js*"
 
-    // exclude common IaC tools and automation scripts
+    // Exclude IaC and automation tools
     and not (
-        user_agent.original LIKE "*Terraform*"
-        or user_agent.original LIKE "*Ansible*"
-        or user_agent.original LIKE "*Pulumni*"
+        user_agent.original like "*Terraform*"
+        or user_agent.original like "*Ansible*"
+        or user_agent.original like "*Pulumi*"
     )
 
-// extract bucket and object details from request parameters
-| dissect aws.cloudtrail.request_parameters "%{{?bucket.name.key}=%{bucket.name}, %{?host.key}=%{bucket.host}, %{?bucket.object.location.key}=%{bucket.object.location}}"
+// Extract fields from request parameters
+| dissect aws.cloudtrail.request_parameters
+    "%{{?bucket.name.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_name}, %{?host.key}=%{Esql_priv.aws_cloudtrail_request_parameters_host}, %{?bucket.object.location.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_object_location}}"
 
-// filter for specific bucket and object structure
-| dissect bucket.object.location "%{}static/js/%{bucket.object}"
+// Extract file name portion from full object path
+| dissect Esql.aws_cloudtrail_request_parameters_bucket_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
 
-// filter for JavaScript files
-| where ENDS_WITH(bucket.object, ".js")
+// Match on JavaScript files
+| where ends_with(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
+
+// Retain relevant ECS and dissected fields
 | keep
     aws.cloudtrail.user_identity.arn,
     aws.cloudtrail.user_identity.access_key_id,
     aws.cloudtrail.user_identity.type,
     aws.cloudtrail.request_parameters,
-    bucket.name,
-    bucket.object,
+    Esql.aws_cloudtrail_request_parameters_bucket_name,
+    Esql.aws_cloudtrail_request_parameters_object_key,
     user_agent.original,
     source.ip,
     event.action,
@@ -124,10 +128,27 @@ id = "T1565.001"
 name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 

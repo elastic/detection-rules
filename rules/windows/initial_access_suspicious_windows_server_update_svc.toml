@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2025/10/24"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/10/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious processes being spawned by the Windows Server Update Service. This activity may indicate exploitation
+activity or access to an existing web shell backdoor.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Server Update Service Spawning Suspicious Processes"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Server Update Service Spawning Suspicious Processes
+
+### Possible investigation steps
+
+- Examine the child process details, focusing on the process names and original file names such as cmd.exe, powershell.exe, pwsh.exe, and powershell_ise.exe, to identify any unauthorized or unexpected command-line activity.
+- Investigate the timeline of events leading up to the alert, including any preceding or subsequent processes, to understand the context and potential impact of the suspicious activity.
+- Check for any associated network activity or connections initiated by the suspicious processes to identify potential data exfiltration or communication with external command and control servers.
+- Review recent changes or access logs on the affected  server to identify any unauthorized access attempts or modifications that could indicate exploitation or the presence of a web shell.
+- Correlate the alert with other security events or logs from data sources like Elastic Endgame, Elastic Defend, Sysmon, Microsoft Defender for Endpoint, or SentinelOne to gather additional context and corroborate findings.
+- Assess the risk and impact of the detected activity, considering the severity and risk score, and determine appropriate response actions, such as isolating the affected system or conducting a deeper forensic analysis.
+
+### False positive analysis
+
+- This behavior is rare and should be treated with high suspicion.
+
+### Response and remediation
+
+- Immediately isolate the affected Server from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious processes identified as being spawned by w3wp.exe, such as cmd.exe or powershell.exe, to halt any ongoing malicious activity.
+- Conduct a thorough review of the server's application pools and web directories to identify and remove any unauthorized web shells or scripts.
+- Restore the server from a known good backup taken before the suspicious activity was detected to ensure system integrity.
+- Apply the latest security patches and updates to the Server to mitigate known vulnerabilities and prevent exploitation.
+- Monitor network traffic and server logs for any signs of continued or attempted exploitation, focusing on unusual outbound connections or repeated access attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised."""
+references = [
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-59287",
+    "https://hawktrace.com/blog/CVE-2025-59287"
+]
+risk_score = 73
+rule_id = "1ac027c2-8c60-4715-af73-927b9c219e20"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "rundll32.exe", "curl.exe") and
+  (
+   (process.parent.name : "w3wp.exe" and process.parent.args : "WsusPool") or
+   process.parent.name : "WsusService.exe"
+   )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

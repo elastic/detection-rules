@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/11/25"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -80,12 +81,29 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-// create time window buckets of 1 minute
-| eval time_window = date_trunc(1 minute, @timestamp)
-| where gen_ai.guardrail_id is NULL
-| KEEP @timestamp, time_window, gen_ai.guardrail_id , user.id
-| stats model_invocation_without_guardrails = count() by user.id
-| where model_invocation_without_guardrails > 5
-| sort model_invocation_without_guardrails desc
+
+// Create 1-minute time buckets
+| eval Esql.time_window_date_trunc = date_trunc(1 minute, @timestamp)
+
+// Filter for invocations without guardrails
+| where gen_ai.guardrail_id is null and user.id is not null
+
+// keep only relevant fields
+| keep
+  @timestamp,
+  Esql.time_window_date_trunc,
+  gen_ai.guardrail_id,
+  user.id
+
+// count number of unsafe invocations per user
+| stats
+    Esql.ml_invocations_no_guardrails_count = count()
+  by user.id
+
+// Filter for suspicious volume
+| where Esql.ml_invocations_no_guardrails_count > 5
+
+// sort descending
+| sort Esql.ml_invocations_no_guardrails_count desc
 '''
 

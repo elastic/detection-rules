@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/24"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,7 @@ index = [
     "logs-endpoint.events.process-*",
     "logs-endpoint.events.network-*",
     "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -75,6 +76,7 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 type = "eql"
@@ -82,7 +84,7 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan = 30s
    [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
-    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
+    source.ip != "127.0.0.1" and source.ip != "::1"]
    [process where host.os.type == "windows" and
     event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''

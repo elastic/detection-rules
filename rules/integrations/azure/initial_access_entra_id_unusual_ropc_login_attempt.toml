@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2025/07/02"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects unusual resource owner password credential (ROPC) login attempts by a user principal in Microsoft Entra ID. ROPC
+is a legacy authentication flow that allows applications to obtain tokens by directly providing user credentials. This
+method is less secure and can be exploited by adversaries to gain access to user accounts without requiring multi-factor
+authentication (MFA), especially during enumeration or password spraying. This is a New Terms rule that identifies when
+user principals are involved in ROPC login attempts, not seen before in the last 10 days, indicating potential abuse or
+unusual activity.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual ROPC Login Attempt by User Principal"
+note = """## Triage and analysis
+
+### Investigating Unusual ROPC Login Attempt by User Principal
+
+This rule detects unusual login attempts using the Resource Owner Password Credentials (ROPC) flow in Microsoft Entra ID. ROPC allows applications to obtain tokens by directly providing user credentials, bypassing multi-factor authentication (MFA). This method is less secure and can be exploited by adversaries to gain access to user accounts, especially during enumeration or password spraying.
+
+### Possible investigation steps
+- Review the `azure.signinlogs.properties.user_principal_name` field to identify the user principal involved in the ROPC login attempt. Check if this user is expected to use ROPC or if it is an unusual account for this type of authentication.
+- Analyze the `azure.signinlogs.properties.authentication_protocol` field to confirm that the authentication protocol is indeed ROPC. This protocol is typically used in legacy applications or scripts that do not support modern authentication methods.
+- Check the `user_agent.original` field to identify potentially abused open-source tools or scripts that may be using ROPC for unauthorized access such as TeamFiltration or other enumeration tools.
+- Review the `azure.signinlogs.properties.app_display_name` or `azure.signinlogs.properties.app_id` to determine which application is attempting the ROPC login. FOCI applications are commonly used for enumeration and password spraying.
+- Investigate the `azure.signinlogs.properties.client_ip` to identify the source of the login attempt. Check if the IP address is associated with known malicious activity or if it is a legitimate user location.
+- Review the `azure.signinlogs.properties.authentication_details` field for any additional context on the authentication attempt, such as whether it was successful or if there were any errors.
+- Examine the `azure.signinlogs.properties.applied_conditional_access_policies` to see if any conditional access policies were applied during the login attempt. If no policies were applied, this could indicate a potential bypass of security controls.
+- Identify the resource requested access to by checking the `azure.signinlogs.properties.resource_display_name` or `azure.signinlogs.properties.resource_id`. This can help determine if the login attempt was targeting sensitive resources or applications such as Exchange Online, SharePoint, or Teams.
+
+### False positive analysis
+- Legitimate applications or scripts that use ROPC for automation purposes may trigger this rule.
+- Some legacy applications may still rely on ROPC for authentication, especially in environments where modern authentication methods are not fully implemented.
+- Internal security tools or scripts that perform automated tasks using ROPC may generate false positives if they are not properly whitelisted or excluded from the rule.
+
+### Response and remediation
+- If the ROPC login attempt is confirmed to be malicious, immediately block the user account and reset the password to prevent further unauthorized access.
+- Consider enforcing multi-factor authentication (MFA) for the user account to enhance security and prevent future unauthorized access attempts.
+- Review and update conditional access policies to restrict the use of ROPC for sensitive accounts or applications, ensuring that MFA is required for all login attempts.
+- Investigate the source of the ROPC login attempt, including the application and IP address, to determine if there are any additional indicators of compromise or ongoing malicious activity.
+- Monitor the user account and related resources for any further suspicious activity or unauthorized access attempts, and take appropriate actions to mitigate any risks identified.
+- Educate users about the risks associated with ROPC and encourage them to use more secure authentication methods, such as OAuth 2.0 or OpenID Connect, whenever possible.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/attackers-unleash-teamfiltration-account-takeover-campaign",
+    "https://dirkjanm.io/assets/raw/Finding%20Entra%20ID%20CA%20Bypasses%20-%20the%20structured%20way.pdf",
+    "https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth-ropc",
+]
+risk_score = 47
+rule_id = "8d696bd0-5756-11f0-8e3b-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.signinlogs" and
+    azure.signinlogs.properties.authentication_protocol: "ropc" and
+    azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication" and
+    azure.signinlogs.properties.user_type: "Member" and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.user_principal_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

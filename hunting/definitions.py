@@ -6,7 +6,6 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List
 
 # Define the hunting directory path
 HUNTING_DIR = Path(__file__).parent
@@ -16,33 +15,32 @@ ATLAS_URL = "https://atlas.mitre.org/techniques/"
 ATTACK_URL = "https://attack.mitre.org/techniques/"
 
 # Static mapping for specific integrations
-STATIC_INTEGRATION_LINK_MAP = {
-    'aws_bedrock.invocation': 'aws_bedrock'
-}
+STATIC_INTEGRATION_LINK_MAP = {"aws_bedrock.invocation": "aws_bedrock"}
 
 
 @dataclass
 class Hunt:
     """Dataclass to represent a hunt."""
+
     author: str
     description: str
-    integration: List[str]
+    integration: list[str]
     uuid: str
     name: str
-    language: List[str]
+    language: list[str]
     license: str
-    query: List[str]
-    notes: Optional[List[str]] = field(default_factory=list)
-    mitre: List[str] = field(default_factory=list)
-    references: Optional[List[str]] = field(default_factory=list)
+    query: list[str]
+    notes: list[str] | None = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
+    mitre: list[str] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
+    references: list[str] | None = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Post-initialization to determine which validation to apply."""
         if not self.query:
             raise ValueError(f"Hunt: {self.name} - Query field must be provided.")
 
         # Loop through each query in the array
-        for idx, q in enumerate(self.query):
+        for q in self.query:
             query_start = q.strip().lower()
 
             # Only validate queries that start with "from" (ESQL queries)
@@ -55,11 +53,11 @@ class Hunt:
 
         if self.author == "Elastic":
             # Regex patterns for checking "stats by" and "| keep"
-            stats_by_pattern = re.compile(r'\bstats\b.*?\bby\b', re.DOTALL)
-            keep_pattern = re.compile(r'\| keep', re.DOTALL)
+            stats_by_pattern = re.compile(r"\bstats\b.*?\bby\b", re.DOTALL)
+            keep_pattern = re.compile(r"\| keep", re.DOTALL)
 
             # Check if either "stats by" or "| keep" exists in the query
             if not stats_by_pattern.search(query) and not keep_pattern.search(query):
                 raise ValueError(
-                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions."
+                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions"
                 )

@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/11/20"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -79,11 +80,29 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| MV_EXPAND gen_ai.policy.name
-| where gen_ai.policy.action == "BLOCKED" and gen_ai.compliance.violation_detected == "true" and gen_ai.policy.name == "sensitive_information_policy"
+
+// Expand multi-valued policy name field
+| mv_expand gen_ai.policy.name
+| mv_expand gen_ai.policy.action
+
+// Filter for blocked actions related to sensitive info policy
+| where
+  gen_ai.policy.action == "BLOCKED"
+  and gen_ai.compliance.violation_detected == "true"
+  and gen_ai.policy.name == "sensitive_information_policy"
+
+// keep only relevant fields
 | keep user.id
-| stats sensitive_information_block = count() by user.id
-| where sensitive_information_block > 5
-| sort sensitive_information_block desc
+
+// count how many times each user triggered a sensitive info block
+| stats
+    Esql.ml_policy_blocked_sensitive_info_count = count()
+  by user.id
+
+// Filter for users with more than 5 violations
+| where Esql.ml_policy_blocked_sensitive_info_count > 5
+
+// sort highest to lowest
+| sort Esql.ml_policy_blocked_sensitive_info_count desc
 '''
 

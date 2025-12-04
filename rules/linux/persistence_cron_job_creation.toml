@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/09/29"
 
 [transform]
 [[transform.osquery]]
@@ -47,7 +47,6 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
-
 
 [rule]
 author = ["Elastic"]
@@ -194,13 +193,15 @@ event.action in ("rename", "creation") and file.path : (
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/local/bin/dockerd", "/opt/elasticbeanstalk/bin/platform-engine",
     "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/opt/imunify360/venv/bin/python3",
-    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor"
+    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor",
+    "/usr/bin/pvedaemon", "./usr/bin/podman", "/usr/lib/systemd/systemd"
   ) or
   file.path like ("/var/spool/cron/crontabs/tmp.*", "/etc/cron.d/jumpcloud-updater") or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
   process.executable : (
-    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/libexec/platform-python*"
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/libexec/platform-python*",
+    "/var/lib/waagent/Microsoft*"
   ) or
   process.executable == null or
   process.name in (
@@ -208,7 +209,8 @@ event.action in ("rename", "creation") and file.path : (
     "jumpcloud-agent", "crio", "dnf_install", "utild"
   ) or
   (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*")  or
+  (process.name in ("vi", "vim") and file.name like "*~")
 )
 '''
 

@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2021/07/07"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
 description = """
-Identifies a Windows trusted program that is known to be vulnerable to DLL Search Order Hijacking starting after being
-renamed or from a non-standard path. This is uncommon behavior and may indicate an attempt to evade defenses via
-side-loading a malicious DLL within the memory space of one of those processes.
+Identifies suspicious execution of the Microsoft Antimalware Service Executable (MsMpEng.exe) from non-standard paths or
+renamed instances. This may indicate an attempt to evade defenses through DLL side-loading or by masquerading as the
+antimalware process.
 """
 false_positives = ["Microsoft Antimalware Service Executable installed on non default installation path."]
 from = "now-9m"
@@ -19,16 +19,17 @@ index = [
     "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential DLL Side-Loading via Microsoft Antimalware Service Executable"
+name = "Suspicious Microsoft Antimalware Service Execution"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential DLL Side-Loading via Microsoft Antimalware Service Executable
+### Investigating Suspicious Microsoft Antimalware Service Execution
 
 The Microsoft Antimalware Service Executable, a core component of Windows Defender, is crucial for real-time protection against malware. Adversaries exploit its trust by renaming it or executing it from non-standard paths to load malicious DLLs, bypassing security measures. The detection rule identifies such anomalies by monitoring process names and paths, flagging deviations from expected behavior to uncover potential threats.
 
@@ -61,14 +62,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "053a0387-f3b5-4ba5-8245-8002cca2bd08"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -80,6 +73,7 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -89,12 +83,23 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
 (
   (process.pe.original_file_name == "MsMpEng.exe" and not process.name : "MsMpEng.exe") or
-  (process.name : "MsMpEng.exe" and not
-        process.executable : ("?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
-                              "?:\\Program Files\\Windows Defender\\*.exe",
-                              "?:\\Program Files (x86)\\Windows Defender\\*.exe",
-                              "?:\\Program Files\\Microsoft Security Client\\*.exe",
-                              "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
+  (
+    process.name : "MsMpEng.exe" and
+    not process.executable : (
+            "?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+            "?:\\Program Files\\Windows Defender\\*.exe",
+            "?:\\Program Files (x86)\\Windows Defender\\*.exe",
+            "?:\\Program Files\\Microsoft Security Client\\*.exe",
+            "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe",
+
+            /* Crowdstrike specific exclusion as it uses NT Object paths */
+            "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files (x86)\\Windows Defender\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Security Client\\*.exe",
+            "\\Device\\HarddiskVolume*\\Program Files (x86)\\Microsoft Security Client\\*.exe"
+    )
+  )
 )
 '''
 
@@ -106,9 +111,9 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 [[rule.threat.technique.subtechnique]]
-id = "T1574.002"
-name = "DLL Side-Loading"
-reference = "https://attack.mitre.org/techniques/T1574/002/"
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
 
 
 

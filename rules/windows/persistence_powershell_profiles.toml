@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/10/13"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/26"
 
 [transform]
 [[transform.osquery]]
@@ -45,6 +45,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -120,6 +121,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -127,10 +129,13 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and
-  file.path : ("?:\\Users\\*\\Documents\\WindowsPowerShell\\*",
-               "?:\\Users\\*\\Documents\\PowerShell\\*",
-               "?:\\Windows\\System32\\WindowsPowerShell\\*") and
-  file.name : ("profile.ps1", "Microsoft.Powershell_profile.ps1")
+  file.name : ("profile.ps1", "Microsoft.Powershell_profile.ps1") and
+  file.path : ("?:\\Users\\*\\Documents\\WindowsPowerShell\\*.ps1", 
+                    "?:\\Users\\*\\Documents\\PowerShell\\*.ps1", 
+                    "?:\\Windows\\System32\\WindowsPowerShell\\*.ps1", 
+                    "\\Device\\HarddiskVolume*\\Users\\*\\Documents\\WindowsPowerShell\\*.ps1", 
+                    "\\Device\\HarddiskVolume*\\Users\\*\\Documents\\PowerShell\\*.ps1", 
+                    "\\Device\\HarddiskVolume*\\Windows\\System32\\WindowsPowerShell\\*.ps1")
 '''
 
 

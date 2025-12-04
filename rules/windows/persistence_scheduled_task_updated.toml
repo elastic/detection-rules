@@ -2,58 +2,57 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Indicates the update of a scheduled task using Windows event logs. Adversaries can use these to establish persistence,
-by changing the configuration of a legit scheduled task. Some changes such as disabling or enabling a scheduled task are
-common and may may generate noise.
+Identifies first-time modifications to scheduled tasks by user accounts, excluding system activity and machine accounts.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
 index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "A scheduled task was updated"
-note = """## Triage and analysis
+name = "Unusual Scheduled Task Update"
+note = """ ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating A scheduled task was updated
+### Investigating Unusual Scheduled Task Update
 
-Scheduled tasks in Windows automate routine tasks, enhancing efficiency. However, adversaries exploit this by modifying tasks to maintain persistence, often altering legitimate tasks to evade detection. The detection rule identifies suspicious updates by filtering out benign changes, such as those by system accounts or known safe tasks, focusing on anomalies that suggest malicious intent.
+Scheduled tasks in Windows environments automate routine tasks, but adversaries can exploit them for persistence by modifying tasks to execute malicious code. The detection rule identifies first-time task modifications by non-system users, flagging potential unauthorized changes. By excluding known system accounts, it focuses on suspicious user activity, aiding in early threat detection.
 
 ### Possible investigation steps
 
-- Review the event logs to identify the specific scheduled task that was updated, focusing on the winlog.event_data.TaskName field to determine if it matches any known malicious patterns.
-- Investigate the user account associated with the update by examining the user.name field to ensure it is not a compromised account or an unauthorized user.
-- Check the winlog.event_data.SubjectUserSid field to verify if the update was made by a system account or a potentially malicious user, as system accounts like S-1-5-18, S-1-5-19, and S-1-5-20 are typically benign.
-- Analyze the history of changes to the scheduled task to identify any unusual or unauthorized modifications that could indicate persistence mechanisms.
-- Correlate the scheduled task update with other security events or alerts to determine if it is part of a broader attack pattern or campaign.
+- Review the event logs for event code 4702 to identify the specific scheduled task that was modified and the user account responsible for the change.
+- Investigate the user account involved in the modification to determine if it is a legitimate user or potentially compromised. Check for any recent unusual activity associated with this account.
+- Examine the details of the modified scheduled task, including the command or script it is set to execute, to assess if it is potentially malicious or unauthorized.
+- Cross-reference the scheduled task's modification time with other security events or logs to identify any correlated suspicious activities or anomalies.
+- Check the history of the scheduled task to determine if this is the first modification or if there have been previous changes that might indicate a pattern of unauthorized access.
 
 ### False positive analysis
 
-- Scheduled tasks updated by system accounts can be false positives. Exclude updates made by system accounts by filtering out user names ending with a dollar sign.
-- Legitimate Microsoft tasks often update automatically. Exclude tasks with names containing "Microsoft" to reduce noise from these updates.
-- Commonly updated tasks like User Feed Synchronization and OneDrive Reporting are typically benign. Exclude these specific task names to avoid unnecessary alerts.
-- Tasks updated by well-known service SIDs such as S-1-5-18, S-1-5-19, and S-1-5-20 are generally safe. Exclude these SIDs to prevent false positives from routine system operations.
+- Scheduled task modifications by IT administrators performing routine maintenance can trigger alerts. To manage this, create exceptions for known administrator accounts that regularly update tasks.
+- Software updates or installations by trusted applications may modify scheduled tasks. Identify these applications and exclude their associated user accounts or processes from the rule.
+- Automated scripts or management tools that modify tasks as part of their normal operation can be mistaken for suspicious activity. Document these tools and exclude their activity from detection.
+- Temporary user accounts used for specific projects or tasks might modify scheduled tasks. If these accounts are verified and trusted, consider excluding them from the rule during their active period.
 
 ### Response and remediation
 
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Review the specific scheduled task that was updated to determine if it was altered by an unauthorized user or process. Revert any unauthorized changes to their original state.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
-- Analyze the user account that made the changes to the scheduled task. If the account is compromised, reset the password and review recent activities for further signs of compromise.
-- Implement additional monitoring on the affected system and similar systems to detect any further unauthorized scheduled task updates or related suspicious activities.
-- Escalate the incident to the security operations team for further investigation and to determine if the threat is part of a larger attack campaign.
-- Review and update access controls and permissions related to scheduled tasks to ensure only authorized personnel can make changes, reducing the risk of future unauthorized modifications."""
+- Immediately isolate the affected system from the network to prevent further unauthorized scheduled task modifications or potential lateral movement by the adversary.
+- Terminate any suspicious processes associated with the modified scheduled task to halt any ongoing malicious activity.
+- Review the modified scheduled task details, including the command or script being executed, and remove or disable any malicious components identified.
+- Reset the credentials of the user account involved in the modification to prevent further unauthorized access, and investigate for any signs of credential compromise.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware or persistence mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat has spread to other systems.
+- Implement additional monitoring and alerting for scheduled task modifications across the environment to enhance detection of similar threats in the future.
+"""
 references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
-risk_score = 47
+risk_score = 21
 rule_id = "a02cb68e-7c93-48d1-93b2-2c39023308eb"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -63,28 +62,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-iam where event.action == "scheduled-task-updated" and
-
- /* excluding tasks created by the computer account */
- not user.name : "*$" and
- not winlog.event_data.TaskName : "*Microsoft*" and
- not winlog.event_data.TaskName :
-          ("\\User_Feed_Synchronization-*",
-           "\\OneDrive Reporting Task-S-1-5-21*",
-           "\\OneDrive Reporting Task-S-1-12-1-*",
-           "\\Hewlett-Packard\\HP Web Products Detection",
-           "\\Hewlett-Packard\\HPDeviceCheck",
-           "\\Microsoft\\Windows\\UpdateOrchestrator\\UpdateAssistant",
-           "\\IpamDnsProvisioning",
-           "\\Microsoft\\Windows\\UpdateOrchestrator\\UpdateAssistantAllUsersRun",
-           "\\Microsoft\\Windows\\UpdateOrchestrator\\UpdateAssistantCalendarRun",
-           "\\Microsoft\\Windows\\UpdateOrchestrator\\UpdateAssistantWakeupRun",
-           "\\Microsoft\\Windows\\.NET Framework\\.NET Framework NGEN v*",
-           "\\Microsoft\\VisualStudio\\Updates\\BackgroundDownload") and
-  not winlog.event_data.SubjectUserSid :  ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+event.category: "iam" and host.os.type:"windows" and event.code: "4702" and
+  not winlog.event_data.SubjectUserSid: ("S-1-5-18" or "S-1-5-19" or "S-1-5-20") and
+  not user.name : *$
 '''
 
 
@@ -106,3 +89,10 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "winlog.event_data.TaskName"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

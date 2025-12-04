@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2025/06/24"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user signs in with a refresh token using the Microsoft Authentication Broker (MAB) client, followed by
+a Primary Refresh Token (PRT) sign-in from the same device within 1 hour. This pattern may indicate that an attacker has
+successfully registered a device using ROADtx and transitioned from short-term token access to long-term persistent
+access via PRTs. Excluding access to the Device Registration Service (DRS) ensures the PRT is being used beyond
+registration, often to access Microsoft 365 resources like Outlook or SharePoint.
+"""
+from = "now-60m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+interval = "30m"
+language = "eql"
+license = "Elastic License v2"
+name = "Entra ID RT to PRT Transition from Same User and Device"
+note = """## Triage and analysis
+
+### Investigating Entra ID RT to PRT Transition from Same User and Device
+
+This rule identifies a sequence where a Microsoft Entra ID user signs in using a refresh token issued to the Microsoft Authentication Broker (MAB), followed by a sign-in using a Primary Refresh Token (PRT) from the same device. This behavior is uncommon for normal user activity and strongly suggests adversarial behavior, particularly when paired with OAuth phishing and device registration tools like ROADtx. The use of PRT shortly after a refresh token sign-in typically indicates the attacker has obtained device trust and is now using the PRT to impersonate a fully compliant user+device pair.
+
+### Possible investigation steps
+- Identify the user principal and device from `azure.signinlogs.properties.user_principal_name` and `azure.signinlogs.properties.device_detail.device_id`.
+- Confirm the first sign-in event came from the Microsoft Auth Broker (`app_id`) with `incoming_token_type: refreshToken`.
+- Ensure the device has a `trust_type` of "Azure AD joined" and that the `sign_in_session_status` is "unbound".
+- Confirm the second sign-in used `incoming_token_type: primaryRefreshToken` and that the `resource_display_name` is not "Device Registration Service".
+- Investigate any Microsoft Graph, Outlook, or SharePoint access occurring shortly after.
+- Review conditional access policy outcomes and determine whether MFA or device compliance was bypassed.
+
+### False positive analysis
+- Legitimate device onboarding and sign-ins using hybrid-joined endpoints may trigger this rule.
+- Rapid device provisioning in enterprise environments using MAB could generate similar token behavior.
+- Use supporting signals, such as IP address changes, geolocation, or user agent anomalies, to reduce noise.
+
+### Response and remediation
+- Investigate other sign-in patterns and assess whether token abuse has occurred.
+- Revoke PRT sessions via Microsoft Entra ID or Conditional Access.
+- Remove or quarantine the suspicious device registration.
+- Require password reset and enforce MFA.
+- Audit and tighten device trust and conditional access configurations.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://dirkjanm.io/abusing-azure-ad-sso-with-the-primary-refresh-token/",
+]
+risk_score = 47
+rule_id = "40e60816-5122-11f0-9caa-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by azure.signinlogs.properties.user_id, azure.signinlogs.properties.device_detail.device_id with maxspan=1h
+  [authentication where
+    event.dataset == "azure.signinlogs" and
+    azure.signinlogs.category == "NonInteractiveUserSignInLogs" and
+    azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e" and
+    azure.signinlogs.properties.incoming_token_type == "refreshToken" and
+    azure.signinlogs.properties.device_detail.trust_type == "Azure AD joined" and
+    azure.signinlogs.properties.device_detail.device_id != null and
+    azure.signinlogs.properties.token_protection_status_details.sign_in_session_status == "unbound" and
+    azure.signinlogs.properties.user_type == "Member" and
+    azure.signinlogs.result_signature == "SUCCESS"
+  ]
+  [authentication where
+    event.dataset == "azure.signinlogs" and
+    azure.signinlogs.properties.incoming_token_type == "primaryRefreshToken" and
+    azure.signinlogs.properties.resource_display_name != "Device Registration Service" and
+    azure.signinlogs.result_signature == "SUCCESS"
+  ]
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.device_detail.device_id",
+    "azure.signinlogs.properties.incoming_token_type",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.token_protection_status_details.sign_in_session_status",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.device_detail.trust_type",
+    "source.geo.country_name",
+    "source.geo.city_name",
+    "source.address",
+    "event.outcome",
+    "event.category",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

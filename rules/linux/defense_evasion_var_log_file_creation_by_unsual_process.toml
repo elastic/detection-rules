@@ -2,16 +2,14 @@
 creation_date = "2025/03/11"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2025/04/07"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of files in the /var/log/ directory via process executables located in
-world-writeable locations or via hidden processes. Attackers may attempt to hide their activities by
-creating files in the /var/log/ directory, which is commonly used for logging system events. 
+This rule detects the creation of files in the /var/log/ directory via process executables located in world-writeable
+locations or via hidden processes. Attackers may attempt to hide their activities by creating files in the /var/log/
+directory, which is commonly used for logging system events.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
@@ -95,48 +93,48 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:file and host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and
 (process.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or ./* or /boot/*) or process.name:.*) and
 file.path:/var/log/* and not file.extension:*
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
-name = "Unix Shell"
 id = "T1059.004"
+name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -148,7 +146,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["file.path", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

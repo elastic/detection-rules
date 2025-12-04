@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2025/09/18"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential abuse of actor tokens in Microsoft Entra ID audit logs. Actor tokens are undocumented backend
+mechanisms used by Microsoft for service-to-service (S2S) operations, allowing services to perform actions on behalf
+of users. These tokens appear in logs with the service's display name but the impersonated user's UPN. While some
+legitimate Microsoft operations use actor tokens, unexpected usage may indicate exploitation of CVE-2025-55241, which
+allowed unauthorized access to Azure AD Graph API across tenants before being patched by Microsoft.
+"""
+false_positives = [
+    """
+    Creating specific groups via the Exchange Online PowerShell module will make Exchange use an Actor token on your
+    behalf. The rule excludes group operations and directory feature operations to reduce false positives from these
+    legitimate administrative activities.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Actor Token User Impersonation Abuse"
+note = """## Triage and analysis
+
+### Investigating Entra ID Actor Token User Impersonation Abuse
+
+This rule detects when Microsoft services use actor tokens to perform operations in audit logs. Actor tokens are undocumented backend mechanisms used by Microsoft for service-to-service (S2S) communication. They appear with a mismatch: the service's display name but the impersonated user's UPN. While some operations legitimately use actor tokens, unexpected usage may indicate exploitation of CVE-2025-55241, which allowed attackers to obtain Global Admin privileges across any Entra ID tenant. Note that this vulnerability has been patched by Microsoft as of September 2025.
+
+### Possible investigation steps
+
+- Review the `azure.auditlogs.properties.initiated_by.user.userPrincipalName` field to identify which service principals are exhibiting this behavior.
+- Check the `azure.auditlogs.properties.initiated_by.user.displayName` to confirm these are legitimate Microsoft services.
+- Analyze the actions performed by these service principals - look for privilege escalations, permission grants, or unusual administrative operations.
+- Review the timing and frequency of these events to identify potential attack patterns or automated exploitation.
+- Cross-reference with recent administrative changes or service configurations that might explain legitimate use cases.
+- Check if any new applications or service principals were registered recently that could be related to this activity.
+- Investigate any correlation with other suspicious authentication events or privilege escalation attempts in your tenant.
+
+### False positive analysis
+
+- Legitimate Microsoft service migrations or updates may temporarily exhibit this behavior.
+- Third-party integrations using Microsoft Graph or other APIs might trigger this pattern during normal operations.
+- Automated administrative tools or scripts using service principal authentication could be misconfigured.
+
+### Response and remediation
+
+- Immediately review and audit all service principal permissions and recent consent grants in your Entra ID tenant.
+- Disable or restrict any suspicious service principals exhibiting this behavior until verified.
+- Review and revoke any unnecessary application permissions, especially those with high privileges.
+- Enable and review Entra ID audit logs for any permission grants or role assignments made by these service principals.
+- Implement Conditional Access policies to restrict service principal authentication from unexpected locations or conditions.
+- Enable Entra ID Identity Protection to detect and respond to risky service principal behaviors.
+- Review and harden application consent policies to prevent unauthorized service principal registrations.
+- Consider implementing privileged identity management (PIM) for service principal role assignments.
+"""
+references = [
+    "https://dirkjanm.io/obtaining-global-admin-in-every-entra-id-tenant-with-actor-tokens/",
+    "https://msrc.microsoft.com/update-guide/en-US/advisory/CVE-2025-55241"
+]
+risk_score = 47
+rule_id = "8e7a4f2c-9b3d-4e5a-a1b6-c2d8f7e9b3a5"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+| where azure.auditlogs.properties.initiated_by.user.displayName in (
+    "Office 365 Exchange Online",
+    "Skype for Business Online",
+    "Dataverse",
+    "Office 365 SharePoint Online",
+    "Microsoft Dynamics ERP"
+  ) and
+  not azure.auditlogs.operation_name like "*group*" and
+  azure.auditlogs.operation_name != "Set directory feature on tenant"
+  and azure.auditlogs.properties.initiated_by.user.userPrincipalName rlike ".+@[A-Za-z0-9.]+\\.[A-Za-z]{2,}"
+| keep
+    _id,
+    @timestamp,
+    azure.*,
+    client.*,
+    event.*,
+    source.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

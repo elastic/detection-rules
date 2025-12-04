@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2020/11/30"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when custom applications are allowed in Microsoft Teams. If an organization requires applications other than
+those available in the Teams app store, custom applications can be developed as packages and uploaded. An adversary may
+abuse this behavior to establish persistence in an environment.
+"""
+false_positives = [
+    """
+    Custom applications may be allowed by a system or network administrator. Verify that the configuration change was
+    expected. Exceptions can be added to this rule to filter expected behavior.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 Teams Custom Application Interaction Allowed"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Teams Custom Application Interaction Allowed
+
+Microsoft Teams allows organizations to enhance functionality by integrating custom applications, which can be developed and uploaded beyond the standard app store offerings. While beneficial for tailored solutions, this capability can be exploited by adversaries to maintain unauthorized access. The detection rule monitors changes in tenant settings that permit custom app interactions, flagging successful modifications as potential persistence threats.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.action: TeamsTenantSettingChanged to identify when the change was made and by whom.
+- Verify the identity of the user or account associated with the event to determine if the change was authorized or if the account may have been compromised.
+- Check the o365.audit.Name field for "Allow sideloading and interaction of custom apps" to confirm that the alert corresponds to enabling custom app interactions.
+- Investigate the o365.audit.NewValue field to ensure it is set to True, indicating that the setting was indeed changed to allow custom apps.
+- Assess the event.outcome field to confirm the change was successful and not a failed attempt, which could indicate a different type of issue.
+- Examine any recent custom applications uploaded to Microsoft Teams to ensure they are legitimate and not potentially malicious.
+- Cross-reference with other security alerts or logs to identify any unusual activity around the time of the setting change that might suggest malicious intent.
+
+### False positive analysis
+
+- Routine administrative changes to Microsoft Teams settings can trigger this rule. If a known and authorized administrator frequently updates tenant settings to allow custom apps, consider creating an exception for their user account to reduce noise.
+- Organizations that regularly develop and deploy custom applications for internal use may see frequent alerts. In such cases, establish a process to document and approve these changes, and use this documentation to create exceptions for specific application deployment activities.
+- Scheduled updates or maintenance activities that involve enabling custom app interactions might be misidentified as threats. Coordinate with IT teams to schedule these activities and temporarily adjust monitoring rules to prevent false positives during these periods.
+- If a third-party service provider is authorized to manage Teams settings, their actions might trigger alerts. Verify their activities and, if consistent and legitimate, add their actions to an exception list to prevent unnecessary alerts.
+- Changes made during a known testing or development phase can be mistaken for unauthorized access. Clearly define and communicate these phases to the security team, and consider temporary rule adjustments to accommodate expected changes.
+
+### Response and remediation
+
+- Immediately disable the custom application interaction setting in Microsoft Teams to prevent further unauthorized access or persistence by adversaries.
+- Conduct a thorough review of all custom applications currently uploaded to Microsoft Teams to identify any unauthorized or suspicious applications. Remove any that are not recognized or approved by the organization.
+- Analyze the audit logs for any recent changes to the Teams settings and identify the user account responsible for enabling custom application interactions. Investigate the account for signs of compromise or misuse.
+- Reset the credentials and enforce multi-factor authentication for the account(s) involved in the unauthorized change to prevent further unauthorized access.
+- Notify the security team and relevant stakeholders about the incident and the actions taken. Escalate to higher management if the breach is suspected to have wider implications.
+- Implement additional monitoring and alerting for changes to Microsoft Teams settings to quickly detect and respond to similar threats in the future.
+- Review and update the organization's security policies and procedures regarding the use of custom applications in Microsoft Teams to ensure they align with best practices and mitigate the risk of similar incidents.
+
+## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/apps-upload"]
+risk_score = 47
+rule_id = "bbd1a775-8267-41fa-9232-20e5582596ac"
+severity = "medium"
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:MicrosoftTeams and
+event.category:web and event.action:TeamsTenantSettingChanged and
+o365.audit.Name:"Allow sideloading and interaction of custom apps" and
+o365.audit.NewValue:True and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

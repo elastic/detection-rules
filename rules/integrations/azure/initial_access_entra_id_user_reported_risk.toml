@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2025/05/21"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/26"
+
+[rule]
+author = ["Elastic", "Willem D'Haese"]
+description = """
+Identifies suspicious activity reported by users in Microsoft Entra ID where users have reported suspicious activity related to their accounts, which may indicate potential compromise or unauthorized access attempts. Reported suspicious activity typically occurs during the authentication process and may involve various authentication methods, such as password resets, account recovery, or multi-factor authentication challenges. Adversaries may attempt to exploit user accounts by leveraging social engineering techniques or other methods to gain unauthorized access to sensitive information or resources.
+"""
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID User Reported Suspicious Activity"
+note = """## Triage and Analysis
+
+### Investigating Microsoft Entra ID User Reported Suspicious Activity
+
+This rule detects when a user in Microsoft Entra ID reports suspicious activity associated with their account. This feature is often used to report MFA fatigue or unsolicited push notifications, and is logged during authentication flows involving methods like Microsoft Authenticator. Such events may indicate that an attacker attempted unauthorized access and triggered a push that was denied or flagged by the user.
+
+### Possible investigation steps
+
+- Review the `azure.auditlogs.identity` field to identify the reporting user.
+- Confirm that `event.action` is `"Suspicious activity reported"` and the result was `"success"`.
+- Check the `azure.auditlogs.properties.additional_details` array for `AuthenticationMethod`, which shows how the login attempt was performed (e.g., `PhoneAppNotification`).
+- Look at the `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `displayName` to confirm which user reported the suspicious activity.
+- Investigate recent sign-in activity (`signinlogs`) for the same user. Focus on:
+  - IP address geolocation and ASN.
+  - Device, operating system, and browser.
+  - MFA prompt patterns or unusual login attempts.
+- Determine whether the user actually initiated a login attempt, or if it was unexpected and aligns with MFA fatigue or phishing attempts.
+- Correlate this report with any risky sign-in detections, conditional access blocks, or password resets in the past 24–48 hours.
+
+### False positive analysis
+
+- Users unfamiliar with MFA push notifications may mistakenly report legitimate sign-in attempts.
+- Shared accounts or device switching can also trigger unintended notifications.
+- Legitimate travel or network changes might confuse users into thinking activity was malicious.
+
+### Response and remediation
+
+- Contact the user to validate the suspicious activity report and assess whether they were targeted or tricked by a malicious actor.
+- If the report is confirmed to be valid:
+  - Reset the user’s credentials immediately.
+  - Revoke active sessions and refresh tokens.
+  - Review their activity across Microsoft 365 services for signs of compromise.
+- If other users report similar behavior around the same time, assess for a broader MFA fatigue campaign or targeted phishing.
+- Consider tuning conditional access policies to require number matching or stronger MFA mechanisms.
+- Educate users on reporting suspicious MFA prompts and following up with IT/security teams promptly.
+"""
+references = [
+    "https://chris-brumm.medium.com/microsoft-entra-mfa-fraud-deep-dive-7764fd8f76ad",
+    "https://janbakker.tech/report-suspicious-activity-fraud-alert-for-azure-mfa/"
+]
+risk_score = 47
+rule_id = "caaa8b78-367c-11f0-beb8-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "azure.auditlogs"
+    and azure.auditlogs.operation_name: "Suspicious activity reported"
+    and azure.auditlogs.properties.additional_details.key: "AuthenticationMethod"
+    and azure.auditlogs.properties.target_resources.*.type: "User"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

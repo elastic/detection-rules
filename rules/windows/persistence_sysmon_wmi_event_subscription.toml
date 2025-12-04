@@ -2,9 +2,7 @@
 creation_date = "2023/02/02"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2025/04/15"
-min_stack_version = "8.15.0"
-min_stack_comments = "Elastic Defend WMI events were added in Elastic Defend 8.15.0."
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
@@ -17,35 +15,6 @@ index = ["winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-endpoint.eve
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WMI Event Subscription Created"
-references = [
-    "https://www.blackhat.com/docs/us-15/materials/us-15-Graeber-Abusing-Windows-Management-Instrumentation-WMI-To-Build-A-Persistent%20Asynchronous-And-Fileless-Backdoor-wp.pdf",
-    "https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96",
-]
-risk_score = 47
-rule_id = "e72f87d0-a70e-4f8d-8443-a6407bc34643"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Sysmon",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-any where
- (
-   (event.dataset == "windows.sysmon_operational" and event.code == "21" and
-    ?winlog.event_data.Operation : "Created" and ?winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
-
-   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and ?process.Ext.api.name == "IWbemServices::PutInstance" and
-    ?process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
- )
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -80,6 +49,35 @@ Windows Management Instrumentation (WMI) is a powerful framework for managing da
 - Review and reset any compromised credentials, especially if SYSTEM privileges were potentially accessed or escalated.
 - Monitor the network for any signs of similar activity or attempts to recreate the WMI event subscription, using enhanced logging and alerting mechanisms.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
+references = [
+    "https://www.blackhat.com/docs/us-15/materials/us-15-Graeber-Abusing-Windows-Management-Instrumentation-WMI-To-Build-A-Persistent%20Asynchronous-And-Fileless-Backdoor-wp.pdf",
+    "https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96",
+]
+risk_score = 47
+rule_id = "e72f87d0-a70e-4f8d-8443-a6407bc34643"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Sysmon",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and
+ (
+   (event.dataset == "windows.sysmon_operational" and event.code == "21" and
+    ?winlog.event_data.Operation : "Created" and ?winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
+
+   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and ?process.Ext.api.name == "IWbemServices::PutInstance" and
+    ?process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
+ )
+'''
 
 
 [[rule.threat]]

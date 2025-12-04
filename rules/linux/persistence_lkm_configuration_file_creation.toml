@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/06/03"
 
 [rule]
 author = ["Elastic"]
@@ -31,9 +31,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and process.executable != null and
-file.path like~ (
-  "/etc/modules", "/etc/modprobe.d/*", "/usr/lib/modprobe.d/*", "/etc/modules-load.d/*",
-  "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*", "/usr/lib/modules-load.d/*"
+file.path like (
+  "/etc/modules", "/etc/modprobe.d/*", "/run/modprobe.d/*", "/usr/local/lib/modprobe.d/*", "/usr/lib/modprobe.d/*",
+  "/lib/modprobe.d/*", "/etc/modules-load.d/*", "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*",
+  "/usr/lib/modules-load.d/*"
 ) and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",

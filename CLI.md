@@ -25,9 +25,11 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_user (kibana and es)
-* *_password (kibana and es)
+* es_user 
+* es_password
 * api_key
+
+Authenticating to Kibana is only available using api_key.
 
 #### Using environment variables
 
@@ -46,6 +48,10 @@ Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will byp
 
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
+
+Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
+
+Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
 
 ## Importing rules into the repo
 
@@ -87,7 +93,7 @@ and will accept any valid rule in the following formats:
 ```console
 Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
 
-  Import rules from json, toml, yaml, or Kibana exported rule file(s).
+  Import rules from json, toml, or yaml files containing Kibana exported rule(s).
 
 Options:
   -ac, --action-connector-import  Include action connectors in export
@@ -102,6 +108,9 @@ Options:
   -ske, --skip-errors             Skip rule import errors
   -da, --default-author TEXT      Default author for rules missing one
   -snv, --strip-none-values       Strip None values from the rule
+  -lc, --local-creation-date      Preserve the local creation date of the rule
+  -lu, --local-updated-date       Preserve the local updated date of the rule
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 ```
 
@@ -145,16 +154,11 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for SSO)
-  -ku, --kibana-user TEXT
-  --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --space TEXT              Kibana space
   --api-key TEXT
-  --cloud-id TEXT              ID of the cloud instance.
-  -h, --help                   Show this message and exit.
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
+  -h, --help                Show this message and exit.
 
 Commands:
   export-rules   Export custom rules from Kibana.
@@ -178,15 +182,10 @@ python -m detection_rules kibana search-alerts -h
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for SSO)
-  -ku, --kibana-user TEXT
-  --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --space TEXT              Kibana space
   --api-key TEXT
-  --cloud-id TEXT              ID of the cloud instance.
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
 
 Usage: detection_rules kibana search-alerts [OPTIONS] [QUERY]
 
@@ -202,7 +201,7 @@ Options:
 ```
 
 Running the following command will print out a table showing any alerts that have been generated recently.
-`python3 -m detection_rules kibana --provider-name cloud-basic --kibana-url <url> --kibana-user <username> --kibana-password <password> search-alerts`
+`python3 -m detection_rules kibana --provider-name cloud-basic --kibana-url <url> --api-key <api-key> search-alerts`
 
 ```console
 
@@ -243,15 +242,10 @@ python -m detection_rules kibana import-rules -h
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for SSO)
-  -ku, --kibana-user TEXT
-  --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --space TEXT              Kibana space
   --api-key TEXT
-  --cloud-id TEXT              ID of the cloud instance.
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
 
 Usage: detection_rules kibana import-rules [OPTIONS]
 
@@ -261,11 +255,11 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
+  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -o, --overwrite                 Overwrite existing rules
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
-  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -h, --help                      Show this message and exit.
 ```
 
@@ -422,14 +416,12 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
+  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
-                                  Downgrade a rule version to be compatible
-                                  with older instances of Kibana
-  -s, --skip-unsupported          If `--stack-version` is passed, skip rule
-                                  types which are unsupported (an error will
-                                  be raised otherwise)
+  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15|8.16|8.17|8.18|9.0]
+                                  Downgrade a rule version to be compatible with older instances of Kibana
+  -s, --skip-unsupported          If `--stack-version` is passed, skip rule types which are unsupported (an error will be raised otherwise)
   --include-metadata              Add metadata to the exported rules
   -ac, --include-action-connectors
                                   Include Action Connectors in export
@@ -458,15 +450,10 @@ python -m detection_rules kibana upload-rule -h
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for SSO)
-  -ku, --kibana-user TEXT
-  --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --space TEXT              Kibana space
   --api-key TEXT
-  --cloud-id TEXT              ID of the cloud instance.
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
 
 Usage: detection_rules kibana upload-rule [OPTIONS]
 
@@ -476,6 +463,7 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY  Recursively load rules from a directory
   -id, --rule-id TEXT
+  -nt, --no-tactic-filename  Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -r, --replace-id           Replace rule IDs with new IDs before export
   -h, --help                 Show this message and exit.
 ```
@@ -483,6 +471,8 @@ Options:
 ### Exporting rules
 
 This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs-dev/custom-rules-management.md) for more information.
+
+Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `-cro` flag to only export custom rules, or the `-eq` flag to filter by query.
 
 ```
 python -m detection_rules kibana export-rules -h
@@ -494,15 +484,10 @@ python -m detection_rules kibana export-rules -h
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for SSO)
-  -ku, --kibana-user TEXT
-  --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --space TEXT              Kibana space
   --api-key TEXT
-  --cloud-id TEXT              ID of the cloud instance.
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
 
 Usage: detection_rules kibana export-rules [OPTIONS]
 
@@ -523,6 +508,11 @@ Options:
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
   -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
+  -lc, --local-creation-date      Preserve the local creation date of the rule
+  -lu, --local-updated-date       Preserve the local updated date of the rule
+  -cro, --custom-rules-only       Only export custom rules
+  -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 
 ```

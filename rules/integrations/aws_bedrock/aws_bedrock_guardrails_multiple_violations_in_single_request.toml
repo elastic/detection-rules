@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/05/02"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -81,11 +82,37 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
+
+// Expand multi-value policy action field
+| mv_expand gen_ai.policy.action
+
+// Filter for policy-blocked requests
 | where gen_ai.policy.action == "BLOCKED"
-| eval policy_violations = mv_count(gen_ai.policy.name)
-| where policy_violations > 1
-| keep gen_ai.policy.action, policy_violations, user.id, gen_ai.request.model.id, cloud.account.id, user.id
-| stats total_unique_request_violations = count(*) by policy_violations, user.id, gen_ai.request.model.id, cloud.account.id
-| sort total_unique_request_violations desc
+
+// count number of policy matches per request (multi-valued)
+| eval Esql.ml_policy_violations_mv_count = mv_count(gen_ai.policy.name)
+
+// Filter for requests with more than one policy match
+| where Esql.ml_policy_violations_mv_count > 1
+
+// keep relevant fields
+| keep
+  gen_ai.policy.action,
+  Esql.ml_policy_violations_mv_count,
+  user.id,
+  gen_ai.request.model.id,
+  cloud.account.id
+
+// Aggregate requests with multiple violations
+| stats
+    Esql.ml_policy_violations_total_unique_requests_count = count(*)
+  by
+    Esql.ml_policy_violations_mv_count,
+    user.id,
+    gen_ai.request.model.id,
+    cloud.account.id
+
+// sort by number of unique requests
+| sort Esql.ml_policy_violations_total_unique_requests_count desc
 '''
 

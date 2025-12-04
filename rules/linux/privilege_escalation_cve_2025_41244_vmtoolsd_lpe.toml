@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2025/09/30"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule looks for processes that behave like an attacker trying to exploit a known vulnerability in VMware tools (CVE-2025-41244).
+The vulnerable behavior involves the VMware tools service or its discovery scripts executing other programs to probe their version
+strings. An attacker can place a malicious program in a writable location (for example /tmp) and have the tools execute it with
+elevated privileges, resulting in local privilege escalation. The rule flags launches where vmtoolsd or the service discovery
+scripts start other child processes.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential CVE-2025-41244 vmtoolsd LPE Exploitation Attempt"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential CVE-2025-41244 vmtoolsd LPE Exploitation Attempt
+
+This rule flags child processes started by vmtoolsd or its version-checking script on Linux, behavior central to CVE-2025-41244 where the service executes external utilities to read version strings. It matters because a local user can coerce these invocations to run arbitrary code with elevated privileges. A typical pattern is dropping a counterfeit lsb_release or rpm in /tmp, modifying PATH, and triggering vmtoolsd/get-versions.sh so the rogue binary executes and spawns a privileged shell or installer.
+
+### Possible investigation steps
+
+- Examine the executed child binary’s full path and location, flagging any binaries in writable directories (e.g., /tmp, /var/tmp, /dev/shm, or user home) or masquerading as version utilities (lsb_release, rpm, dpkg, dnf, pacman), and record owner, size, hash, and recent timestamps.
+- Pull the parent’s and child’s command-line and environment to confirm PATH ordering and whether writable paths precede system binaries, capturing any evidence that get-versions.sh or vmtoolsd invoked a non-standard utility.
+- Pivot to subsequent activity from the child process to see if it spawns an interactive shell, escalates EUID to root, touches /etc/sudoers or /etc/passwd, writes to privileged directories, or opens outbound connections.
+- Verify integrity of open-vm-tools components by comparing hashes and file sizes of vmtoolsd and serviceDiscovery scripts with vendor packages (rpm -V or dpkg --verify) and checking for unexpected edits, symlinks, or PATH-hijackable calls within the scripts.
+- Correlate filesystem creation events and terminal histories to identify the user who dropped or modified the suspicious binary and whether it appeared shortly before the alert, then assess other hosts for the same filename or hash to determine spread.
+
+### False positive analysis
+
+- Routine vmtoolsd service discovery via get-versions.sh during VM boot or periodic guest info refresh can legitimately spawn version/package utilities from standard system paths with a default PATH and no execution from writable directories, yet still match this rule.
+- Administrator troubleshooting or post-update validation of open-vm-tools—manually running get-versions.sh or restarting vmtoolsd—can cause a shell to launch the script and start expected system utilities in trusted locations, producing a benign alert.
+
+### Response and remediation
+
+- Isolate the affected VM, stop the vmtoolsd service, terminate its spawned children (e.g., lsb_release, rpm, dpkg, or /bin/sh launched via open-vm-tools/serviceDiscovery/scripts/get-versions.sh), and temporarily remove execute permissions from the serviceDiscovery scripts to halt exploitation.
+- Quarantine and remove any counterfeit or hijacked utilities and symlinks in writable locations (/tmp, /var/tmp, /dev/shm, or user home) that were executed by vmtoolsd/get-versions.sh, capturing full paths, hashes, owners, and timestamps for evidence.
+- Recover by reinstalling open-vm-tools from a trusted repository and verifying integrity of vmtoolsd and serviceDiscovery scripts (rpm -V or dpkg --verify), then restart vmtoolsd only after confirming PATH does not include writable directories and that the scripts call absolute binaries under /usr/bin.
+- Escalate to full incident response if a vmtoolsd child executed from a writable path ran with EUID 0, spawned an interactive shell (/bin/sh or /bin/bash), or modified /etc/sudoers or /etc/passwd, and initiate credential rotation and a host-wide compromise assessment.
+- Harden hosts by enforcing a safe PATH (e.g., /usr/sbin:/usr/bin:/sbin:/bin), removing writable directories from system and user environment files, mounting /tmp,/var/tmp,/dev/shm with noexec,nosuid,nodev, and applying AppArmor/SELinux policies to block vmtoolsd from executing binaries outside system directories.
+- Prevent recurrence by deploying the vendor fix for CVE-2025-41244 across all Linux VMs, pinning or replacing the open-vm-tools serviceDiscovery scripts with versions that use absolute paths, and adding EDR allowlists/blocks so vmtoolsd cannot launch binaries from writable paths.
+"""
+references = ["https://blog.nviso.eu/2025/09/29/you-name-it-vmware-elevates-it-cve-2025-41244/"]
+risk_score = 47
+rule_id = "c5da2519-160c-4cc9-bf69-b0223e99d0db"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Use Case: Vulnerability",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
+(
+  (
+    process.parent.name == "vmtoolsd"
+  ) or
+  (
+    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    ?process.parent.args like ("/*/open-vm-tools/serviceDiscovery/scripts/get-versions.sh")
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

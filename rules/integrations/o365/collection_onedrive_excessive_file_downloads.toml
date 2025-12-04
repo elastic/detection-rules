@@ -2,7 +2,7 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/25"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
+interval = "8m"
 language = "esql"
 license = "Elastic License v2"
 name = "M365 OneDrive Excessive File Downloads with OAuth Token"
@@ -27,7 +28,7 @@ note = """## Triage and Analysis
 
 This rule detects an excessive number of files downloaded from OneDrive using OAuth authentication. Threat actors may use OAuth phishing attacks, such as **Device Code Authentication phishing**, to obtain valid access tokens and perform unauthorized data exfiltration. This method allows adversaries to bypass traditional authentication mechanisms, making it a stealthy and effective technique.
 
-This rule leverages ES|QL aggregations which limit the field values available in the alert document. To investigate further, it is recommended to identify the original documents ingested.
+This rule leverages ESQL aggregations which limit the field values available in the alert document. To investigate further, it is recommended to identify the original documents ingested.
 
 #### Possible Investigation Steps
 
@@ -80,27 +81,40 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-o365.audit-*
-| WHERE @timestamp > now() - 14 day
-| WHERE
+from logs-o365.audit-*
+| where
     event.dataset == "o365.audit" and
-
-    // filter on files downloaded from OneDrive
     event.provider == "OneDrive" and
     event.action == "FileDownloaded" and
-
-    // filter on OAuth authentication which encompasses device code workflow
-    o365.audit.AuthenticationType == "OAuth"
-    and event.outcome == "success"
-// bucket authentication attempts by 1 minute
-| EVAL target_time_window = DATE_TRUNC(1 minutes, @timestamp)
-| KEEP target_time_window, o365.audit.UserId, file.name, source.ip
-
-// aggregate on unique file names and download attempts
-| STATS unique_file_count = count_distinct(file.name), download_attempt_count = count(*) BY target_time_window, o365.audit.UserId, source.ip
-
-// adjustable range for "excessive" unique files that were downloaded
-| WHERE unique_file_count >= 25
+    o365.audit.AuthenticationType == "OAuth" and
+    event.outcome == "success"
+    and (user.id is not null and o365.audit.ApplicationId is not null)
+| eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
+| where session.id is not null
+| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| stats
+    Esql.file_directory_values = values(file.directory),
+    Esql.file_extension_values = values(file.extension),
+    Esql.application_name_values = values(application.name),
+    Esql.file_name_count_distinct = count_distinct(file.name),
+    Esql.o365_audit_Site_values = values(o365.audit.Site),
+    Esql.o365_audit_SiteUrl_values = values(o365.audit.SiteUrl),
+    Esql.user_domain_values = values(user.domain),
+    Esql.token_id_values = values(token.id),
+    Esql.event_count = count(*)
+by
+    Esql.time_window_date_trunc,
+    user.id,
+    session.id,
+    source.ip,
+    o365.audit.ApplicationId
+| where Esql.file_name_count_distinct >= 25
+| keep
+    Esql.*,
+    user.id,
+    source.ip,
+    o365.audit.ApplicationId,
+    session.id
 '''
 
 

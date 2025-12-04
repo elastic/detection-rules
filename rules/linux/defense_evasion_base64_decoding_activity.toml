@@ -2,14 +2,14 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages ES|QL to detect unusual base64 encoding/decoding activity on Linux systems. Attackers may use base64
+This rule leverages ESQL to detect unusual base64 encoding/decoding activity on Linux systems. Attackers may use base64
 encoding/decoding to obfuscate data, such as command and control traffic or payloads, to evade detection by host- or
-network-based security controls. ES|QL rules have limited fields available in its alert documents. Make sure to review
+network-based security controls. ESQL rules have limited fields available in its alert documents. Make sure to review
 the original documents to aid in the investigation of this alert.
 """
 from = "now-61m"
@@ -95,21 +95,63 @@ type = "esql"
 
 query = '''
 from logs-endpoint.events.process-*
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.args, process.command_line, agent.id, host.name
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.command_line like "*-*d*") or
-  (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
-  (process.name like "python*" and
-    (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
-    (process.args == "-c" and process.command_line like "*base64*" and process.command_line like "*b64decode*")
-  ) or
-  (process.name like "perl*" and process.command_line like "*decode_base64*") or
-  (process.name like "ruby*" and process.args == "-e" and process.command_line like "*Base64.decode64*")
-)
-| stats cc = count(), agent_count = count_distinct(agent.id), host.name = VALUES(host.name), agent.id = VALUES(agent.id) by process.name, process.command_line
-| where agent_count == 1 and cc < 15
-| sort cc asc
+| where
+    @timestamp > now() - 1h and
+    host.os.type == "linux" and
+    event.type == "start" and
+    event.action == "exec" and (
+        (
+            process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
+            process.command_line like "*-*d*"
+        ) or
+        (
+            process.name == "openssl" and
+            process.args == "enc" and
+            process.args in ("-d", "-base64", "-a")
+        ) or
+        (
+            process.name like "python*" and (
+                (
+                    process.args == "base64" and
+                    process.args in ("-d", "-u", "-t")
+                ) or
+                (
+                    process.args == "-c" and
+                    process.command_line like "*base64*" and
+                    process.command_line like "*b64decode*"
+                )
+            )
+        ) or
+        (
+            process.name like "perl*" and
+            process.command_line like "*decode_base64*"
+        ) or
+        (
+            process.name like "ruby*" and
+            process.args == "-e" and
+            process.command_line like "*Base64.decode64*"
+        )
+    )
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.args,
+    process.command_line,
+    agent.id,
+    host.name
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+    by process.name, process.command_line
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count < 15
+| sort Esql.event_count asc
 | limit 100
 '''
 

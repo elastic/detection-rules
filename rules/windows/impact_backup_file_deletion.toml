@@ -2,7 +2,7 @@
 creation_date = "2021/10/01"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/08/27"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ false_positives = [
     "Certain utilities that delete files for disk cleanup or Administrators manually removing backup files.",
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.file-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["logs-endpoint.events.file-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Third-party Backup Files Deleted via Unexpected Process"
@@ -60,14 +60,6 @@ This rule identifies file deletions performed by a process that does not belong 
 references = ["https://www.advintel.io/post/backup-removal-solutions-from-conti-ransomware-with-love"]
 risk_score = 47
 rule_id = "11ea6bec-ebde-4d71-a8e9-784948f8e3e9"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -75,7 +67,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Impact",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
 ]

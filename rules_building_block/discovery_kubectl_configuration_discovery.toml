@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2025/06/19"
+integration = ["endpoint", "auditd_manager", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule detects the execution of kubectl commands that are commonly used for configuration discovery in Kubernetes
+environments. It looks for process events where kubectl is executed with arguments that query configuration information,
+such as configmaps. In environments where kubectl is not expected to be used, this could indicate potential reconnaissance
+activity by an adversary.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Kubectl Configuration Discovery"
+risk_score = 21
+rule_id = "98ac2919-f8b3-4d2d-b85b-e1c13ac0c68b"
+severity = "low"
+tags = [
+  "Domain: Container",
+  "Domain: Endpoint",
+  "Domain: Kubernetes",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Rule Type: BBR",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
+process.name == "kubectl" and process.args in ("get", "describe") and process.args in ("configmap", "configmaps")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

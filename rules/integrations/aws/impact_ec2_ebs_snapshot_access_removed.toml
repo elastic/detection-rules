@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2024/06/02"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the removal of access permissions from a shared AWS EC2 EBS snapshot. EBS snapshots are essential for data
+retention and disaster recovery. Adversaries may revoke or modify snapshot permissions to prevent legitimate users from
+accessing backups, thereby obstructing recovery efforts after data loss or destructive actions. This tactic can also be
+used to evade detection or maintain exclusive access to critical backups, ultimately increasing the impact of an attack
+and complicating incident response.
+"""
+event_category_override = "event.type"
+false_positives = ["Access removal may be a part of normal operations and should be verified before taking action."]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS EC2 EBS Snapshot Access Removed"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 EBS Snapshot Access Removed
+
+This rule detects when access is removed for an AWS EC2 EBS snapshot. EBS virtual disks can be copied into snapshots, which can then be used as backups for recovery and data retention efforts. Adversaries may attempt to remove access to snapshots in order to prevent legitimate users or automated processes from accessing or restoring from snapshots following data loss, ransomware, or destructive actions. This can significantly delay or even prevent recovery, increasing the impact of the attack. Restricting snapshot access may help adversaries cover their tracks by making it harder for defenders to analyze or recover deleted or altered data. Attackers may remove permissions for all users except their own compromised account, allowing them to maintain exclusive access to backups for future use or leverage. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+
+#### Possible investigation steps:
+
+- **Identify who performed the action**: Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to identify who made the change. Evaluate whether the identity is authorized to manage EBS snapshot permissions (check IAM policies for `ec2:ModifySnapshotAttribute`). 
+- **Analyze the source of the request**: Examine `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access. Review `user_agent.original` to determine if the request came from an expected administrative tool or host.
+- **Examine the scope of the change**:
+  - Review `aws.cloudtrail.request_parameters` to understand which accounts or entities had access removed.  
+    - Look for unusual patterns such as `createVolumePermission={remove=all}` or removal of specific external or organizational accounts.  
+  - Cross-check the affected `snapshotId` in the AWS console or via CLI to confirm current sharing status and determine if any copies or dependent volumes exist.  
+  - Use AWS Config or AWS CLI (`describe-snapshot-attribute`) to verify whether other snapshots were modified within the same timeframe.
+- **Correlate with other activities**:
+  - Search CloudTrail for additional activity from the same actor or `source.ip` around the event time.  
+    - Pay special attention to subsequent `DeleteSnapshot`, `DeregisterImage`, or `RevokeSnapshotAccess` events, which may signal ongoing destruction.  
+    - Check for parallel IAM activity, such as policy changes that grant or revoke permissions.  
+  - Correlate with GuardDuty or Security Hub findings related to data exfiltration, destructive actions, or unauthorized configuration changes.  
+  - Determine if any high-value or production snapshots were affected, especially those linked to business-critical EBS volumes.
+- **Evaluate timing and intent**: Compare `@timestamp` with maintenance windows or known change requests. Actions taken outside approved hours or without associated tickets may indicate compromise or sabotage. If this change coincides with other detections (for example, `EBS encryption disabled` or `root login` events), treat it as part of a coordinated impact campaign.
+
+### False positive analysis:
+
+- **Planned administrative maintenance**: Confirm whether this snapshot modification aligns with backup rotation, retention policy enforcement, or snapshot lifecycle automation.  
+- **Automation and tooling**: Infrastructure-as-code pipelines or DevOps scripts may legitimately remove snapshot sharing to enforce compliance. Review tags, user agents, and automation identifiers.  
+- **Testing or sandbox accounts**: Some non-production environments may modify snapshot access for isolation. Validate account purpose before escalating.
+
+If the action was expected, document the change approval and reconcile against internal audit or change-control systems.
+
+### Response and remediation:
+
+**1. Containment and validation**
+- Review and, if necessary, restore snapshot permissions using AWS Console or CLI (`modify-snapshot-attribute` with `add` parameters).  
+- Confirm that no additional snapshots or AMIs have had access removed.  
+- Restrict `ec2:ModifySnapshotAttribute` permissions to only trusted administrative roles.
+**2. Investigate for data destruction or persistence**
+- Determine if the same actor also deleted or copied snapshots (`DeleteSnapshot`, `CopySnapshot`).  
+- Review subsequent volume creation or image registration events that could indicate snapshot reuse.  
+- Identify whether any snapshot was shared to or copied by an external AWS account.
+**3. Strengthen detection and monitoring**
+- Enable AWS Config rules and Security Hub controls such as `ebs-snapshot-public-restorable-check`.  
+- Establish continuous monitoring for `ModifySnapshotAttribute` and `DeleteSnapshot` operations.  
+- Correlate future detections with user identity and source IP context to identify recurring behavior.
+**4. Recovery and hardening**
+- Verify that critical snapshots and backups are retained and encrypted.  
+- Implement backup immutability with AWS Backup Vault Lock or S3 Object Lock for long-term protection.  
+- Apply service control policies (SCPs) to prevent unauthorized modification of snapshot sharing attributes.  
+- Conduct a post-incident review to identify the root cause and strengthen least-privilege enforcement for EBS management roles.
+
+### Additional information
+
+- **[AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**: guidance for investigating unauthorized access to modify account settings.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/)**: Example framework for customers to create, develop, and integrate security playbooks in preparation for potential attack scenarios when using AWS services
+- **AWS Documentation**  
+  - [EBS Snapshot Permissions](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)  
+  - [ModifySnapshotAttribute API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html",
+]
+risk_score = 47
+rule_id = "713e0f5f-caf7-4dc2-88a7-3561f61f262a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+info where event.dataset == "aws.cloudtrail"  
+  and event.action == "ModifySnapshotAttribute"
+  and event.outcome == "success"
+  and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
+  and stringContains (aws.cloudtrail.request_parameters, "remove=")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

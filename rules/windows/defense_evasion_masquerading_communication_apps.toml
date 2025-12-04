@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/05/05"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies suspicious instances of communications apps, both unsigned and rename
 conceal malicious activity, bypass security features such as allowlists, or trick users into executing malware.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = ["logs-endpoint.events.process-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as Communication Apps"
@@ -25,6 +25,8 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -35,7 +37,7 @@ process where host.os.type == "windows" and
   (
     /* Slack */
     (process.name : "slack.exe" and not
-      (process.code_signature.subject_name in (
+      (process.code_signature.subject_name : (
         "Slack Technologies, Inc.",
         "Slack Technologies, LLC"
        ) and process.code_signature.trusted == true)
@@ -43,32 +45,32 @@ process where host.os.type == "windows" and
 
     /* WebEx */
     (process.name : "WebexHost.exe" and not
-      (process.code_signature.subject_name in ("Cisco WebEx LLC", "Cisco Systems, Inc.") and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : ("Cisco WebEx LLC", "Cisco Systems, Inc.") and process.code_signature.trusted == true)
     ) or
 
     /* Teams */
     (process.name : "Teams.exe" and not
-      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
     ) or
 
     /* Discord */
     (process.name : "Discord.exe" and not
-      (process.code_signature.subject_name == "Discord Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Discord Inc." and process.code_signature.trusted == true)
     ) or
 
     /* RocketChat */
     (process.name : "Rocket.Chat.exe" and not
-      (process.code_signature.subject_name == "Rocket.Chat Technologies Corp." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Rocket.Chat Technologies Corp." and process.code_signature.trusted == true)
     ) or
 
     /* Mattermost */
     (process.name : "Mattermost.exe" and not
-      (process.code_signature.subject_name == "Mattermost, Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Mattermost, Inc." and process.code_signature.trusted == true)
     ) or
 
     /* WhatsApp */
     (process.name : "WhatsApp.exe" and not
-      (process.code_signature.subject_name in (
+      (process.code_signature.subject_name : (
         "WhatsApp LLC",
         "WhatsApp, Inc",
         "24803D75-212C-471A-BC57-9EF86AB91435"
@@ -77,17 +79,17 @@ process where host.os.type == "windows" and
 
     /* Zoom */
     (process.name : "Zoom.exe" and not
-      (process.code_signature.subject_name == "Zoom Video Communications, Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Zoom Video Communications, Inc." and process.code_signature.trusted == true)
     ) or
 
     /* Outlook */
     (process.name : "outlook.exe" and not
-      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
     ) or
 
     /* Thunderbird */
     (process.name : "thunderbird.exe" and not
-      (process.code_signature.subject_name == "Mozilla Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Mozilla Corporation" and process.code_signature.trusted == true)
     )
   )
 '''

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -127,7 +127,14 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (process.name : "attrib.exe" or ?process.pe.original_file_name == "ATTRIB.EXE") and process.args : "+h" and
-  not (process.parent.name: "cmd.exe" and process.command_line: "attrib  +R +H +S +A *.cui")
+  not (process.parent.name: "cmd.exe" and process.command_line: "attrib  +R +H +S +A *.cui") and
+
+  not (
+    process.parent.name: "draw.io.exe" and
+    (
+      process.command_line : ("*drawio.bkp*", "*drawio.dtmp*")
+    )
+  )
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2024/07/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -22,13 +22,12 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS S3 Object Encryption Using External KMS Key"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS S3 Object Encryption Using External KMS Key
 
 This rule detects the use of an external AWS KMS key to encrypt objects within an S3 bucket. Adversaries with access to a misconfigured S3 bucket may use an external key to copy objects within a bucket and deny victims the ability to access their own data.
-This rule uses [ES|QL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule) to look for use of the `CopyObject` operation where the target bucket's `cloud.account.id` is different from the `key.account.id` dissected from the AWS KMS key used for encryption.
+This rule uses [ESQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule) to look for use of the `CopyObject` operation where the target bucket's `cloud.account.id` is different from the `key.account.id` dissected from the AWS KMS key used for encryption.
 
 #### Possible Investigation Steps:
 
@@ -85,21 +84,30 @@ type = "esql"
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
 
-// any successful copy event
-| where event.dataset == "aws.cloudtrail"
-    and event.provider == "s3.amazonaws.com"
-    and event.action == "CopyObject"
-    and event.outcome == "success"
+// any successful S3 copy event
+| where
+  event.dataset == "aws.cloudtrail"
+  and event.provider == "s3.amazonaws.com"
+  and event.action == "CopyObject"
+  and event.outcome == "success"
 
-// abstract key account id, key id, encrypted object bucket name and object name
-| dissect aws.cloudtrail.request_parameters "{%{?bucketName}=%{target.bucketName},%{?x-amz-server-side-encryption-aws-kms-key-id}=%{?arn}:%{?aws}:%{?kms}:%{?region}:%{key.account.id}:%{?key}/%{keyId},%{?Host}=%{?tls.client.server_name},%{?x-amz-server-side-encryption}=%{?server-side-encryption},%{?x-amz-copy-source}=%{?bucket.objectName},%{?key}=%{target.objectName}}"
+// dissect request parameters to extract KMS key info and target object info
+| dissect aws.cloudtrail.request_parameters
+    "{%{?bucketName}=%{Esql.aws_cloudtrail_request_parameters_target_bucket_name},%{?x-amz-server-side-encryption-aws-kms-key-id}=%{?arn}:%{?aws}:%{?kms}:%{?region}:%{Esql.aws_cloudtrail_request_parameters_kms_key_account_id}:%{?key}/%{Esql.aws_cloudtrail_request_parameters_kms_key_id},%{?Host}=%{?tls.client.server.name},%{?x-amz-server-side-encryption}=%{?server_side_encryption},%{?x-amz-copy-source}=%{?bucket.object.name},%{?key}=%{Esql.aws_cloudtrail_request_parameters_target_object_key}}"
 
-// filter for s3 objects whose account id is different from the encryption key's account id
-// add exceptions based on key.account.id or keyId for known external accounts or encryption keys
-| where cloud.account.id != key.account.id
+// detect cross-account key usage
+| where cloud.account.id != Esql.aws_cloudtrail_request_parameters_kms_key_account_id
 
-// keep relevant fields
-| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, target.bucketName, key.account.id, keyId, target.objectName
+// keep ECS and dissected fields
+| keep
+  @timestamp,
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  event.action,
+  Esql.aws_cloudtrail_request_parameters_target_bucket_name,
+  Esql.aws_cloudtrail_request_parameters_kms_key_account_id,
+  Esql.aws_cloudtrail_request_parameters_kms_key_id,
+  Esql.aws_cloudtrail_request_parameters_target_object_key
 '''
 
 

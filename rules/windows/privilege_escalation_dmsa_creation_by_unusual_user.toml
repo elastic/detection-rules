@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2025/05/23"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2025/11/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of a delegated Managed Service Account by an unusual subject account. Attackers can abuse the dMSA
+account migration feature to elevate privileges abusing weak persmission allowing users child objects rights or
+msDS-DelegatedManagedServiceAccount rights.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "dMSA Account Creation by an Unusual User"
+note = """## Triage and analysis
+
+### Investigating dMSA Account Creation by an Unusual User
+
+### Possible investigation steps
+- Examine the winlog.event_data.SubjectUserName field and verify if he is allowed and used to create dMSA accounts.
+- Examine all Active Directory modifications performed by the winlog.event_data.SubjectUserName.
+- Investigate the history of the identified user account to determine if there are any other suspicious activities or patterns of behavior.
+- Collaborate with the IT or security team to determine if the changes were authorized or if further action is needed to secure the environment.
+
+### False positive analysis
+
+- Migration of legacy service accounts using delegated managed service account.
+
+### Response and remediation
+
+- Immediately disable the winlog.event_data.SubjectUserName account and revert all changes performed by that account.
+- Identify and isolate the source machines from where the SubjectUserName is authenticating.
+- Reset passwords for all accounts that were potentially affected or had their permissions altered, focusing on privileged accounts to prevent adversaries from regaining access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach, including identifying any other compromised systems or accounts.
+- Review and update access control policies and security configurations to prevent similar attacks, ensuring that only authorized personnel have the ability to modify critical Active Directory objects or create OU child objects."""
+references = ["https://www.akamai.com/blog/security-research/abusing-dmsa-for-privilege-escalation-in-active-directory"]
+risk_score = 73
+rule_id = "f0dbff4c-1aa7-4458-9ed5-ada472f64970"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.code:5137 and host.os.type:"windows" and winlog.event_data.ObjectClass:"msDS-DelegatedManagedServiceAccount"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["winlog.event_data.SubjectUserName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

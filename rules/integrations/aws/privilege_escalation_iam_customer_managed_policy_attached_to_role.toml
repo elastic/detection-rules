@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,8 @@ unauthorized user. Customer-managed policies are policies created and controlled
 specific permissions to roles or users when attached. This rule identifies potential privilege escalation by flagging
 cases where a customer-managed policy is attached to a role by an unexpected actor, which could signal unauthorized
 access or misuse. Attackers may attach policies to roles to expand permissions and elevate their privileges within the
-AWS environment. This is a [New
-Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that uses the
-`aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.flattened.request_parameters.roleName` fields to check if the
-combination of the actor ARN and target role name has not been seen in the last 14 days.
+AWS environment. This is a New Terms rule that uses the "cloud.account.id", "user.name" and "target.entity.id" fields to
+check if the combination of the actor identity and target role name has not been seen before.
 """
 false_positives = [
     """
@@ -24,8 +22,8 @@ false_positives = [
     so and that the action is expected.
     """,
 ]
-from = "now-9m"
-index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Customer-Managed Policy Attached to Role by Rare User"
@@ -39,14 +37,14 @@ This rule detects when a customer-managed IAM policy is attached to a role by an
 
 - **Identify the Initiating User and Target Role**:
   - **User Identity**: Examine the `aws.cloudtrail.user_identity.arn` field to determine the user who initiated the policy attachment. Confirm if this user typically has permissions to modify IAM roles and if their activity is consistent with their usual responsibilities.
-  - **Target Role**: Review `aws.cloudtrail.flattened.request_parameters.roleName` to identify the role to which the policy was attached. Assess whether modifying this role is expected for this user or if this action is unusual in your environment.
+  - **Target Role**: Review `target.entity.id` to identify the role to which the policy was attached. Assess whether modifying this role is expected for this user or if this action is unusual in your environment.
 
 - **Analyze the Attached Policy**:
-  - **Policy ARN**: Inspect the `aws.cloudtrail.flattened.request_parameters.policyArn` field to identify the specific customer-managed policy attached to the role. Evaluate if this policy grants sensitive permissions, especially permissions that could enable privileged actions or data access.
+  - **Policy ARN**: Inspect the `aws.cloudtrail.request_parameters` field to identify the specific customer-managed policy attached to the role. Evaluate if this policy grants sensitive permissions, especially permissions that could enable privileged actions or data access.
   - **Policy Permissions**: Examine the policy content to determine the scope of permissions granted. Policies enabling actions like `s3:*`, `ec2:*`, or `iam:*` could be leveraged for broader access, persistence, or lateral movement.
 
 - **Review Source and User Agent Details**:
-  - **Source IP and Location**: Analyze the `source.address` and `source.geo` fields to confirm the IP address and geographic location where the policy attachment originated. Verify if this matches expected locations for the initiating user.
+  - **Source IP and Location**: Analyze the `source.ip` and `source.geo` fields to confirm the IP address and geographic location where the policy attachment originated. Verify if this matches expected locations for the initiating user.
   - **User Agent Analysis**: Examine `user_agent.original` to determine if AWS CLI, SDK, or other tooling was used to perform this action. Tool identifiers like `aws-cli` or `boto3` may indicate automation, while others may suggest interactive sessions.
 
 - **Evaluate Anomalous Behavior Patterns**:
@@ -54,7 +52,7 @@ This rule detects when a customer-managed IAM policy is attached to a role by an
   - **Role Modification History**: Investigate if the targeted role is frequently modified by this or other users. Repeated, unauthorized modifications to a role could signal an attempt to maintain elevated access.
 
 - **Correlate with Related CloudTrail Events**:
-  - **Other IAM or CloudTrail Activities**: Look for recent actions associated with the same user or role by reviewing `event.action` by `event.provider` to identify which AWS services were accessed. This may provide context on the user’s intent or additional actions taken.
+  - **Other IAM or CloudTrail Activities**: Look for recent actions associated with the same user or role by reviewing `event.action` and `event.provider` to identify which AWS services were accessed. This may provide context on the user’s intent or additional actions taken.
   - **Broader Suspicious Patterns**: Identify if similar anomalous events have recently occurred, potentially suggesting a coordinated or escalating attack pattern within the AWS account.
 
 ### False Positive Analysis
@@ -94,25 +92,9 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: "AttachRolePolicy"
     and event.outcome: "success"
-    and not aws.cloudtrail.flattened.request_parameters.policyArn: arn\:aws\:iam\:\:aws\:policy*
+    and not related.entity: arn\:aws\:iam\:\:aws\:policy*
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "source.address",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "user_agent.original",
-    "aws.cloudtrail.flattened.request_parameters.policyArn",
-    "aws.cloudtrail.flattened.request_parameters.roleName",
-    "event.action",
-    "event.outcome",
-    "cloud.region",
-    "event.provider",
-    "aws.cloudtrail.request_parameters"
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -132,9 +114,25 @@ id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn", "aws.cloudtrail.flattened.request_parameters.roleName"]
+value = ["cloud.account.id", "user.name", "target.entity.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

@@ -1,0 +1,48 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2025/05/18"
+integration = ["azure"]
+maturity = "production"
+promotion = true
+updated_date = "2025/05/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies Microsoft Entra ID Protection sign-in risk detections triggered by a range of risk events such as anonymized
+IP addresses, password spray attacks, impossible travel, token anomalies, and more. These detections are often early
+indicators of potential account compromise or malicious sign-in behavior. This is a promotion rule intended to surface
+all Entra ID sign-in risk events for further investigation and correlation with other identity-related activity. This is
+a building block rule that is used to collect all Microsoft Entra ID Protection sign-in or user risk detections. It is
+not intended to be used as a standalone detection.
+"""
+from = "now-9m"
+index = ["logs-azure.identity_protection-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Protection - Risk Detections"
+references = [
+    "https://learn.microsoft.com/en-us/entra/id-protection/concept-identity-protection-risks#risk-types-and-detection",
+]
+risk_score = 47
+rule_id = "da0d4bae-33ee-11f0-a59f-f661ea17fbcd"
+setup = ""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Protection",
+    "Data Source: Microsoft Entra ID Protection Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "azure.identity_protection"
+'''
+

@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2025/05/22"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/09/15"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies when a user has elevated their access to User Access Administrator for their Azure Resources. The User Access
+Administrator role allows users to manage user access to Azure resources, including the ability to assign roles and
+permissions. Adversaries may target an Entra ID Global Administrator or other privileged role to elevate their access to
+User Access Administrator, which can lead to further privilege escalation and unauthorized access to sensitive
+resources. This is a New Terms rule that only signals if the user principal name has not been seen doing this activity
+in the last 14 days.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Elevated Access to User Access Administrator"
+note = """## Triage and Analysis
+
+### Investigating Microsoft Entra ID Elevated Access to User Access Administrator
+
+This rule identifies when a user elevates their permissions to the "User Access Administrator" role in Azure RBAC. This role allows full control over access management for Azure resources and can be abused by attackers for lateral movement, persistence, or privilege escalation. Since this is a New Terms rule, the alert will only trigger if the user has not performed this elevation in the past 14 days, helping reduce alert fatigue.
+
+### Possible investigation steps
+
+- Review the `azure.auditlogs.properties.initiated_by.user.userPrincipalName` field to identify the user who elevated access.
+- Check `source.ip` and associated `source.geo.*` fields to determine the origin of the action. Confirm whether the IP, ASN, and location are expected for this user.
+- Investigate the application ID from `azure.auditlogs.properties.additional_details.value` to determine which interface or method was used to elevate access.
+- Pivot to Azure `signinlogs` or Entra `auditlogs` to:
+  - Review recent login history for the user.
+  - Look for unusual sign-in patterns or MFA prompts.
+  - Determine whether the account has performed any other privilege-related operations.
+- Correlate with directory role assignments or role-based access control (RBAC) modifications to assess whether the elevated access was used to add roles or modify permissions.
+
+### False positive analysis
+
+- Legitimate admin actions may involve access elevation during maintenance, migration, or investigations.
+- Some IT departments may elevate access temporarily without leaving structured change records.
+- Review internal tickets, change logs, or admin activity dashboards for approved operations.
+
+### Response and remediation
+
+- If elevation was not authorized:
+  - Immediately remove the User Access Administrator role from the account.
+  - Disable or lock the account and begin credential rotation.
+  - Audit activity performed by the account after elevation, especially changes to role assignments and resource access.
+- If suspicious:
+  - Notify the user and confirm whether they performed the action.
+  - Check for any automation or scripts that could be exploiting unused elevated access paths.
+  - Review conditional access and PIM (Privileged Identity Management) configurations to limit elevation without approval.
+- Strengthen posture:
+  - Require MFA and approval for all privilege escalation actions.
+  - Consider enabling JIT (Just-in-Time) access with expiration.
+  - Add alerts for repeated or unusual use of `Microsoft.Authorization/elevateAccess/action`.
+
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/role-based-access-control/elevate-access-global-admin?tabs=azure-portal%2Centra-audit-logs/",
+    "https://permiso.io/blog/azures-apex-permissions-elevate-access-the-logs-security-teams-overlook",
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/"
+]
+risk_score = 73
+rule_id = "8d9c4128-372a-11f0-9d8f-f661ea17fbcd"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: azure.auditlogs
+    and (
+      azure.auditlogs.operation_name: "User has elevated their access to User Access Administrator for their Azure Resources" or
+      azure.auditlogs.properties.additional_details.value: "Microsoft.Authorization/elevateAccess/action"
+    ) and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
