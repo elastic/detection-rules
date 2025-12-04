@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/12/04"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "auditd_manager", "sentinel_one_cloud_funnel",  "m365_defender"]
 maturity = "production"
 updated_date = "2025/12/04"
 
@@ -13,7 +13,7 @@ pyarmor) are particularly high-risk as they create standalone executables that c
 This rule focuses on compilation activity that produces output binaries, filtering out inspection-only operations.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI Process Compiling or Generating Executables"
@@ -49,9 +49,9 @@ references = [
   "https://atlas.mitre.org/techniques/AML.T0053",
   "https://www.elastic.co/security-labs/elastic-advances-llm-security"
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "b2c3d4e5-f6a7-8901-bcde-f123456789ab"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -60,7 +60,11 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
+    "Data Source: Elastic Defend",     
+    "Data Source: Sysmon",
+    "Data Source: Auditd Manager",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Domain: LLM",
     "Mitre Atlas: T0053",
@@ -68,7 +72,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2") and
+process where event.type == "start" and event.type == "start" and
 
   // GenAI parent process
   (
