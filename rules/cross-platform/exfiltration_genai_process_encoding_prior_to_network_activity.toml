@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/12/04"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel",  "m365_defender"]
 maturity = "production"
 updated_date = "2025/12/04"
 
@@ -13,7 +13,13 @@ before transmission to obfuscate contents and evade detection. Legitimate GenAI 
 network communications.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI Process Performing Encoding/Chunking Prior to Network Activity"
@@ -50,9 +56,9 @@ references = [
   "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
   "https://www.elastic.co/security-labs/elastic-advances-llm-security"
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "c3d4e5f6-a7b8-9012-cdef-123456789abc"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -62,6 +68,9 @@ tags = [
     "Tactic: Exfiltration",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Domain: LLM",
     "Mitre Atlas: T0086",
@@ -73,7 +82,7 @@ sequence by process.entity_id with maxspan=30s
 
   // Encoding/compression followed by network activity
   [process where event.type == "start"
-     and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2")
+     and event.type == "start"
 
      // Encoding/chunking tools
      and (
