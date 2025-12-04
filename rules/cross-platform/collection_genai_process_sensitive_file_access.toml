@@ -13,7 +13,7 @@ and tokens. Access to credential stores (.aws/credentials, .ssh/id_*) suggests h
 configs (.bashrc, .zshrc) indicate persistence attempts.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI Process Accessing Sensitive Files"
@@ -77,8 +77,7 @@ type = "eql"
 query = '''
 file where event.action in ("open", "creation", "modification") and event.outcome == "success" and
 
-  // GenAI process or child of GenAI process
-  (
+  // GenAI process 
     process.name in (
       "ollama.exe", "ollama", "Ollama",
       "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
@@ -95,57 +94,35 @@ file where event.action in ("open", "creation", "modification") and event.outcom
       "qwen.exe", "qwen",
       "koboldcpp.exe", "koboldcpp", "KoboldCpp",
       "llama-server", "llama-cli"
-    ) or
-    process.parent.name in (
-      "ollama.exe", "ollama", "Ollama",
-      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
-      "lmstudio.exe", "lmstudio", "LM Studio",
-      "claude.exe", "claude", "Claude",
-      "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
-      "copilot.exe", "copilot", "Copilot",
-      "codex.exe", "codex",
-      "Jan", "jan.exe", "jan", "Jan Helper",
-      "gpt4all.exe", "gpt4all", "GPT4All",
-      "gemini-cli.exe", "gemini-cli",
-      "genaiscript.exe", "genaiscript",
-      "grok.exe", "grok",
-      "qwen.exe", "qwen",
-      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
-      "llama-server", "llama-cli"
-    )
-  ) and
+    ) and
 
   // Sensitive file paths
   (
-    // Cloud credentials
-    file.path like~ ("*/.aws/credentials*", "*/.aws/config*", "*/.azure/*", "*/.config/gcloud/*") or
-    // SSH keys and config
-    file.path like~ ("*/.ssh/id_*", "*/.ssh/config*", "*/.ssh/known_hosts*", "*/.ssh/authorized_keys*") or
-    // Shell configs (persistence)
-    file.path like~ ("*/.bashrc*", "*/.bash_profile*", "*/.zshrc*", "*/.zshenv*", "*/.zprofile*", "*/.profile*", "*/.bash_logout*") or
-    // Browser credentials
-    file.path like~ ("*/Login Data*", "*/Cookies*", "*/Web Data*", "*\\Login Data*", "*\\Cookies*", "*\\Web Data*") or
-    // macOS Keychain
-    file.path like~ ("*/Keychain/*.keychain*", "*/keychains/*.keychain-db*") or
-    // Git credentials
-    file.path like~ ("*/.git-credentials*", "*/.netrc*") or
-    // GPG/PGP keys
-    file.path like~ ("*/.gnupg/*", "*/.pgp/*") or
-    // Docker credentials
-    file.path like~ ("*/.docker/config.json*") or
-    // Kubernetes config
-    file.path like~ ("*/.kube/config*") or
-    // Package manager tokens
-    file.path like~ ("*/.npmrc*", "*/.yarnrc*") or
-    // Python credentials
-    file.path like~ ("*/.pypirc*", "*/pip.conf*") or
-    // GitHub CLI config
-    file.path like~ ("*/.config/gh/*", "*/.config/hub*") or
-    // Password managers
-    file.path like~ ("*1Password*", "*Bitwarden*", "*KeePass*", "*LastPass*") or
-    // Windows credentials
-    file.path like~ ("*\\AppData\\*\\Credentials\\*", "*\\AppData\\*\\Vault\\*")
-  ) and
+    // Persistence via Shell configs
+    file.name in (".bashrc", ".bash_profile", ".zshrc", ".zshenv", ".zprofile", ".profile", ".bash_logout") or
+
+    // Credentials In Files 
+    file.name like~ 
+                 ("key?.db", 
+                  "logins.json", 
+                  "Login Data", 
+                  "Local State",
+                  "signons.sqlite",
+                  "Cookies", 
+                  "cookies.sqlite",
+                  "Cookies.binarycookies", 
+                  "login.keychain-db", 
+                  "System.keychain", 
+                  "credentials.db", 
+                  "credentials", 
+                  "access_tokens.db", 
+                  "accessTokens.json", 
+                  "azureProfile.json",
+                  "RDCMan.settings", 
+                  "known_hosts", 
+                  "KeePass.config.xml", 
+                  "Unattended.xml")
+  )
 
   // Exclusions
   not (
