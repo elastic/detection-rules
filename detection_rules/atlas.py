@@ -23,6 +23,7 @@ technique_lookup: dict[str, dict[str, Any]] = {}
 matrix: dict[str, list[str]] = {}  # Maps tactic name to list of technique IDs
 
 
+@cached
 def get_atlas_file_path() -> Path:
     """Get the path to the ATLAS YAML file."""
     if not ATLAS_FILE.exists():
