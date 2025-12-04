@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/12/04"
-integration = ["endpoint"]
+integration = ["endpoint", "windows"]
 maturity = "production"
 updated_date = "2025/12/04"
 
@@ -13,7 +13,7 @@ services use well-established domains (.com, .ai, .io), so connections to suspic
 tools, malicious plugins, or AI-generated code connecting to attacker infrastructure.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI Process Connection to Suspicious Top Level Domain"
@@ -66,6 +66,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
     "Resources: Investigation Guide",
     "Domain: LLM",
     "Mitre Atlas: T0086",
@@ -100,14 +101,11 @@ network where host.os.type in ("macos", "windows") and
   (
     // Windows DNS events
     (host.os.type == "windows" and dns.question.name != null and
-     dns.question.name like~ ("*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.monster", "*.cyou", "*.quest", "*.cc", "*.bar", "*.cfd", "*.click", "*.cam",
-                              "*.surf", "*.tk", "*.shop", "*.club", "*.icu", "*.pw", "*.ws", "*.online", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.skin", "*.motorcycles", "*.christmas", "*.lol", "*.makeup",
-                              "*.mom", "*.bond", "*.beauty", "*.biz", "*.live")) or
+     dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""") or
+
     // macOS network events
     (host.os.type == "macos" and destination.domain != null and
-     destination.domain like~ ("*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.monster", "*.cyou", "*.quest", "*.cc", "*.bar", "*.cfd", "*.click", "*.cam",
-                               "*.surf", "*.tk", "*.shop", "*.club", "*.icu", "*.pw", "*.ws", "*.online", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.skin", "*.motorcycles", "*.christmas", "*.lol", "*.makeup",
-                               "*.mom", "*.bond", "*.beauty", "*.biz", "*.live"))
+     destination.domain regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""")
   )
 '''
 
