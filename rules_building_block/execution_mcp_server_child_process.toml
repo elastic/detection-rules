@@ -14,7 +14,12 @@ to execute shell commands, read files, and interact with external services. This
 into AI-initiated process execution for correlation with other suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI or MCP Server Child Process Execution"
@@ -29,6 +34,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
     "Rule Type: BBR",
     "Domain: LLM",
     "Mitre Atlas: T0053",
@@ -36,8 +44,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start"
-  and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2")
+process where event.type == "start" 
   and (
     // GenAI clients
     process.parent.name in (
