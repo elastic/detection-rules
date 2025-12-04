@@ -1,20 +1,16 @@
 [metadata]
-creation_date = "2025/11/19"
+creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/19"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when well-known Generative AI (GenAI) tools and frameworks launch compilation or packaging tools (gcc, clang,
-msbuild, pyinstaller, etc.) to generate executables. This rule focuses specifically on GenAI desktop applications
-(Ollama, LM Studio, Claude Desktop, Cursor, GitHub Copilot) and GenAI frameworks (AutoGPT, LangChain, MCP servers,
-etc.). Attackers increasingly leverage local LLMs to generate executable code (malware prototypes, droppers, credential
-harvesters, backdoors) and then compile that code into executables for deployment. This technique allows attackers to
-rapidly prototype and generate polymorphic malware variants using AI assistance. Typical local AI tools rarely compile
-binaries automatically and rarely do so non-user driven, non-interactive environments. Malicious actors may use GenAI
-to generate obfuscated or encoded payloads, create custom tools for lateral movement, or develop malware for evasion.
+Detects when GenAI tools spawn compilers or packaging tools to generate executables. Attackers leverage local LLMs
+to autonomously generate and compile malware, droppers, or implants. Python packaging tools (pyinstaller, nuitka,
+pyarmor) are particularly high-risk as they create standalone executables that can be deployed without dependencies.
+This rule focuses on compilation activity that produces output binaries, filtering out inspection-only operations.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -25,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating GenAI Process Compiling or Generating Executables
 
-GenAI processes launching compilers or packaging tools is highly suspicious. Legitimate AI tools rarely compile binaries automatically, and when they do, it's typically user-driven and interactive. This behavior strongly indicates malicious activity where AI tools are being used to generate and compile malware.
+This rule detects GenAI tools spawning compilers or packaging tools. While developers may use GenAI to write code that they then compile, autonomous compilation by GenAI processes is unusual.
 
 ### Possible investigation steps
 
@@ -73,32 +69,60 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where event.type == "start" and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2") and
-  // GenAI-related parent process: native GenAI executables OR node/python/deno with GenAI indicators in command line
-  (
-    // Native GenAI executables
-    process.parent.name in ("ollama.exe", "ollama", "textgen.exe", "textgen", "lmstudio.exe", "lmstudio", "claude.exe", "claude", "cursor.exe", "cursor", "copilot.exe", "copilot", "gemini-cli.exe", "gemini-cli", "genaiscript.exe", "genaiscript", "grok.exe", "grok", "qwen.exe", "qwen") or
 
-    // Node/Deno processes with GenAI frameworks in command line
+  // GenAI parent process
+  (
+    process.parent.name in (
+      "ollama.exe", "ollama", "Ollama",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "lmstudio.exe", "lmstudio", "LM Studio",
+      "claude.exe", "claude", "Claude",
+      "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+      "copilot.exe", "copilot", "Copilot",
+      "codex.exe", "codex",
+      "Jan", "jan.exe", "jan", "Jan Helper",
+      "gpt4all.exe", "gpt4all", "GPT4All",
+      "gemini-cli.exe", "gemini-cli",
+      "genaiscript.exe", "genaiscript",
+      "grok.exe", "grok",
+      "qwen.exe", "qwen",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    ) or
+    
+    // Node/Deno with GenAI frameworks
     (process.parent.name in ("node.exe", "node", "deno.exe", "deno") and
-     process.parent.command_line like~ ("*mcp-server*", "*@modelcontextprotocol*", "*mcp run*", "*mcp_*", "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*", "*transformers*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*")) or
-
-    // Python processes with GenAI frameworks in command line
+     process.parent.command_line like~ ("*mcp-server*", "*@modelcontextprotocol*", "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*")) or
+    
+    // Python with GenAI frameworks
     (process.parent.name like~ "python*" and
-     process.parent.command_line like~ ("*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*", "*transformers*", "*claude*", "*copilot*", "*cursor*", "*gemini*", "*genaiscript*", "*grok*", "*qwen*"))
+     process.parent.command_line like~ ("*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*"))
   ) and
 
-  // Compilation or packaging tools
+  // Compilation tools
   (
-    process.name in ("gcc", "g++", "clang", "clang++", "cl.exe", "cl", "make", "cmake", "msbuild.exe", "dotnet", "go", "rustc", "cargo", "pyinstaller", "py2exe", "cx_Freeze", "nuitka", "pyarmor", "pkg", "fpm", "dpkg-deb", "csc.exe", "vbc.exe", "javac", "jar") or
-    process.command_line like~ ("*msbuild*", "*dotnet build*", "*go build*", "*cargo build*", "*pyinstaller*", "*py2exe*", "*nuitka*", "*pyarmor*")
-  ) and
-
-  // Exclude version checks, help commands, and git operations
-  not (
-    process.command_line like~ ("*git*") or
-    process.name == "git" or
-    process.command_line like~ ("*--version*", "*--help*") or
-    process.args in ("--version", "--help")
+    // Python packaging
+    process.name in ("pyinstaller", "py2exe", "cx_Freeze", "nuitka", "pyarmor", "pkg") or
+    
+    // C/C++ compilation with output
+    (process.name in ("gcc", "g++", "clang", "clang++", "cl.exe") and
+     process.command_line like~ "*-o *" and
+     process.command_line like~ ("*.c *", "*.c", "*.cpp *", "*.cpp", "*.cc *", "*.cc", "*.m *", "*.m") and
+     not process.command_line like~ "*git*") or
+    
+    // Go compilation
+    (process.name == "go" and process.args == "build") or
+    
+    // Rust compilation
+    (process.name == "cargo" and process.args == "build") or
+    (process.name == "rustc" and process.command_line like~ "*-o *") or
+    
+    // .NET compilation
+    process.name in ("csc.exe", "vbc.exe", "msbuild.exe") or
+    (process.name == "dotnet" and process.args == "build") or
+    
+    // Java compilation
+    process.name == "javac"
   )
 '''
 

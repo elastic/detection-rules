@@ -1,22 +1,16 @@
 [metadata]
-creation_date = "2025/11/21"
+creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/21"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a recognized Generative AI (GenAI) tool or agent framework accesses monitored sensitive files. Legitimate
-GenAI development tools typically work within project folders or user-sanctioned workspaces, but access to credential
-stores (e.g., .aws/credentials, .ssh/ keys, browser password databases), key libraries, browser profile data,
-cloud-access tokens, or private SSH/key directories strongly suggests credential harvesting or data-collection activity.
-In MCP/agent-enabled workflows (e.g., via AutoGPT, LangChain, or other GenAI frameworks), this behavior aligns with the
-"private data access" threat model for AI agents where an agent with access to private data becomes an exfiltration
-risk. Attackers may leverage GenAI tools to systematically search for and access sensitive files, then use the AI to
-process and summarize the data before exfiltration to reduce payload size and evade detection. Because these GenAI
-processes are not ordinarily expected to touch protected file stores, this behavior is high signal for potential
-malicious use and should be investigated immediately.
+Detects when GenAI tools access sensitive files such as cloud credentials, SSH keys, browser password databases, or
+shell configurations. Attackers leverage GenAI agents to systematically locate and exfiltrate credentials, API keys,
+and tokens. Access to credential stores (.aws/credentials, .ssh/id_*) suggests harvesting, while writes to shell
+configs (.bashrc, .zshrc) indicate persistence attempts.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -27,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating GenAI Process Accessing Sensitive Files
 
-Generative AI tools are increasingly used in development environments, but they typically only access files within active project folders. When a GenAI process accesses sensitive files (credentials, keys, browser data, etc.) that are monitored by Elastic Defend, it strongly indicates suspicious credential harvesting or data collection activity. Attackers use GenAI to process and summarize sensitive data before extraction to reduce payload size and evade detection.
+This rule detects GenAI tools accessing credential files, SSH keys, browser data, or shell configurations. While GenAI tools legitimately access project files, access to sensitive credential stores is unusual and warrants investigation.
 
 ### Possible investigation steps
 
@@ -57,7 +51,8 @@ references = [
   "https://atlas.mitre.org/techniques/AML.T0085.001",
   "https://atlas.mitre.org/techniques/AML.T0055",
   "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
-  "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+  "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+  "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code"
 ]
 risk_score = 73
 rule_id = "c0136397-f82a-45e5-9b9f-a3651d77e21a"
@@ -80,9 +75,116 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where event.action == "open" and event.outcome == "success" and
-    process.name in ("ollama.exe", "ollama", "textgen.exe", "textgen", "lmstudio.exe", "lmstudio", "claude.exe", "claude", "cursor.exe", "cursor", "copilot.exe", "copilot") and 
-    not (process.name in ("claude.exe", "claude") and file.path like "?:\\Users\\*\\AppData\\Roaming\\Claude\\Local State")
+file where event.action in ("open", "creation", "modification") and event.outcome == "success" and
+
+  // GenAI process or child of GenAI process
+  (
+    process.name in (
+      "ollama.exe", "ollama", "Ollama",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "lmstudio.exe", "lmstudio", "LM Studio",
+      "claude.exe", "claude", "Claude",
+      "cursor.exe", "cursor", "Cursor",
+      "copilot.exe", "copilot", "Copilot",
+      "codex.exe", "codex",
+      "Jan", "jan.exe", "jan",
+      "gpt4all.exe", "gpt4all", "GPT4All",
+      "gemini-cli.exe", "gemini-cli",
+      "genaiscript.exe", "genaiscript",
+      "grok.exe", "grok",
+      "qwen.exe", "qwen",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    ) or
+    process.parent.name in (
+      "ollama.exe", "ollama", "Ollama",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "lmstudio.exe", "lmstudio", "LM Studio",
+      "claude.exe", "claude", "Claude",
+      "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+      "copilot.exe", "copilot", "Copilot",
+      "codex.exe", "codex",
+      "Jan", "jan.exe", "jan", "Jan Helper",
+      "gpt4all.exe", "gpt4all", "GPT4All",
+      "gemini-cli.exe", "gemini-cli",
+      "genaiscript.exe", "genaiscript",
+      "grok.exe", "grok",
+      "qwen.exe", "qwen",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    )
+  ) and
+
+  // Sensitive file paths
+  (
+    // Cloud credentials
+    file.path like~ ("*/.aws/credentials*", "*/.aws/config*", "*/.azure/*", "*/.config/gcloud/*") or
+    // SSH keys and config
+    file.path like~ ("*/.ssh/id_*", "*/.ssh/config*", "*/.ssh/known_hosts*", "*/.ssh/authorized_keys*") or
+    // Shell configs (persistence)
+    file.path like~ ("*/.bashrc*", "*/.bash_profile*", "*/.zshrc*", "*/.zshenv*", "*/.zprofile*", "*/.profile*", "*/.bash_logout*") or
+    // Browser credentials
+    file.path like~ ("*/Login Data*", "*/Cookies*", "*/Web Data*", "*\\Login Data*", "*\\Cookies*", "*\\Web Data*") or
+    // macOS Keychain
+    file.path like~ ("*/Keychain/*.keychain*", "*/keychains/*.keychain-db*") or
+    // Git credentials
+    file.path like~ ("*/.git-credentials*", "*/.netrc*") or
+    // GPG/PGP keys
+    file.path like~ ("*/.gnupg/*", "*/.pgp/*") or
+    // Docker credentials
+    file.path like~ ("*/.docker/config.json*") or
+    // Kubernetes config
+    file.path like~ ("*/.kube/config*") or
+    // Package manager tokens
+    file.path like~ ("*/.npmrc*", "*/.yarnrc*") or
+    // Python credentials
+    file.path like~ ("*/.pypirc*", "*/pip.conf*") or
+    // GitHub CLI config
+    file.path like~ ("*/.config/gh/*", "*/.config/hub*") or
+    // Password managers
+    file.path like~ ("*1Password*", "*Bitwarden*", "*KeePass*", "*LastPass*") or
+    // Windows credentials
+    file.path like~ ("*\\AppData\\*\\Credentials\\*", "*\\AppData\\*\\Vault\\*")
+  ) and
+
+  // Exclusions
+  not (
+    // Claude accessing own credentials
+    (process.name == "security" and
+     process.parent.name in ("claude", "claude.exe", "Claude", "node", "node.exe") and
+     process.command_line like~ ("*Claude Code*", "*Claude Code-credentials*", "*claude-code*")) or
+    
+    // GenAI tools accessing own config
+    (file.path like~ ("*Claude*", "*Cursor*", "*claude-code*", "*/anthropic/*",
+                      "*/.ollama/*", "*Ollama*", "*codex*", "*Jan*", "*/jan/*",
+                      "*Copilot*", "*LM Studio*", "*gpt4all*") and
+     process.parent.name in ("claude", "claude.exe", "Claude", "cursor", "cursor.exe",
+                             "Cursor", "ollama", "ollama.exe", "Ollama", "codex", "codex.exe",
+                             "Jan", "jan", "Copilot", "LM Studio", "gpt4all")) or
+    
+    // IDE extensions accessing state files
+    (file.path like~ ("*/.vscode/*", "*/.cursor/*") and
+     process.executable like~ ("*/.vscode/extensions/*", "*/.cursor/extensions/*")) or
+    
+    // Shell config sourcing (read-only)
+    (event.action == "open" and
+     process.name in ("zsh", "bash", "sh", "fish") and
+     process.parent.name in ("claude", "claude.exe", "cursor", "cursor.exe", "codex", "codex.exe",
+                             "Jan", "jan", "Ollama", "ollama", "LM Studio") and
+     file.path like~ ("*/.zshrc", "*/.bashrc", "*/.bash_profile", "*/.profile")) or
+    
+    // Code search tools
+    (process.name in ("rg", "ripgrep") or process.command_line like~ "*--ripgrep*") or
+    
+    // Git config (not credentials)
+    (process.name == "git" and
+     file.path like~ ("*/.gitconfig", "*/.git/config", "*/.git/HEAD") and
+     not file.path like~ "*/.git-credentials*") or
+    
+    // System info commands
+    process.name in ("uname", "sw_vers", "which", "hostname", "id", "whoami",
+                     "ioreg", "scutil", "defaults", "env", "getconf", "locale")
+  )
 '''
 
 [[rule.threat]]

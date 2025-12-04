@@ -1,20 +1,16 @@
 [metadata]
-creation_date = "2025/11/19"
+creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/19"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a Generative AI (GenAI) process performs encoding or chunking operations (base64, gzip, tar, zip, split) followed
-shortly by outbound network activity. Attackers preparing data to embed into GenAI prompts often encode or chunk information
-first to bypass payload size limits, obfuscate sensitive data, or prepare it for exfiltration via AI agent tool invocations.
-These preprocessing steps are highly suspicious when performed by local LLM automation or GenAI agents, as they indicate
-data preparation for transmission. Attackers may use this technique to exfiltrate sensitive information by encoding it and
-embedding it within seemingly legitimate AI agent tool invocations (e.g., sending emails, creating documents, updating records).
-The temporal sequence of encoding followed by network activity is a strong indicator of data exfiltration attempts, as legitimate
-GenAI workflows typically do not require this type of preprocessing before network communications.
+Detects when GenAI processes perform encoding or chunking (base64, gzip, tar, zip) followed by outbound network
+activity. This sequence indicates data preparation for exfiltration. Attackers encode or compress sensitive data
+before transmission to obfuscate contents and evade detection. Legitimate GenAI workflows rarely encode data before
+network communications.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -74,75 +70,74 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=30s
+
+  // Encoding/compression followed by network activity
   [process where event.type == "start"
      and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2")
-     and
-     (
-       // Encoding/chunking tools
+
+     // Encoding/chunking tools
+     and (
+       // Native encoding tools
        process.name in ("base64", "gzip", "tar", "zip", "split", "7z", "7za", "7zr") or
+       
+       // PowerShell encoding
        (process.name in ("powershell.exe", "pwsh.exe") and
         process.command_line like~ ("*Compress-Archive*", "*[Convert]::ToBase64String*")) or
+       
+       // Python encoding
        (process.name like~ "python*" and
         process.command_line like~ ("*base64*", "*gzip*", "*zlib*", "*tarfile*", "*zipfile*")) or
+       
+       // Node.js encoding
        (process.name in ("node.exe", "node") and
-        process.command_line like~ ("*Buffer.from*", "*zlib*", "*gzip*", "*tar*"))
+        process.command_line like~ ("*Buffer.from*", "*zlib*", "*gzip*") and
+        not process.command_line like~ ("*mcp*start*", "*mcp-server*", "*npm exec*mcp*"))
      )
-     and
-     (
-       // Native GenAI executables
+
+     // GenAI parent process
+     and (
        process.parent.name in (
-         "ollama.exe", "ollama",
-         "textgen.exe", "textgen",
-         "lmstudio.exe", "lmstudio",
-         "claude.exe", "claude",
-         "cursor.exe", "cursor",
-         "copilot.exe", "copilot",
+         "ollama.exe", "ollama", "Ollama",
+         "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+         "lmstudio.exe", "lmstudio", "LM Studio",
+         "claude.exe", "claude", "Claude",
+         "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+         "copilot.exe", "copilot", "Copilot",
+         "codex.exe", "codex",
+         "Jan", "jan.exe", "jan", "Jan Helper",
+         "gpt4all.exe", "gpt4all", "GPT4All",
          "gemini-cli.exe", "gemini-cli",
          "genaiscript.exe", "genaiscript",
          "grok.exe", "grok",
-         "qwen.exe", "qwen"
-       )
-       or
-
-       // Node/Deno processes with GenAI frameworks in command line
+         "qwen.exe", "qwen",
+         "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+         "llama-server", "llama-cli"
+       ) or
+       
+       // Node/Deno with GenAI frameworks
        (process.parent.name in ("node.exe", "node", "deno.exe", "deno") and
         process.parent.command_line like~ (
-          "*ollama*", "*mcp-server*", "*@modelcontextprotocol*", "*mcp run*", "*mcp_*",
-          "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*",
-          "*semantic-kernel*", "*llama-index*", "*haystack*", "*transformers*",
-          "*claude*", "*copilot*", "*cursor*", "*gemini*",
-          "*genaiscript*", "*grok*", "*qwen*",
-          "*openai*", "*anthropic*", "*cohere*", "*mistral*",
-          "*perplexity*", "*replicate*", "*huggingface*"
-        )
-       )
-       or
-
-       // Python processes with GenAI frameworks in command line
+          "*ollama*", "*mcp-server*", "*@modelcontextprotocol*", "*langchain*", "*autogpt*",
+          "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*",
+          "*haystack*", "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        )) or
+       
+       // Python with GenAI frameworks
        (process.parent.name like~ "python*" and
         process.parent.command_line like~ (
-          "*ollama*", "*mcp-server*", "*@modelcontextprotocol*", "*mcp run*", "*mcp_*",
-          "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*",
-          "*semantic-kernel*", "*llama-index*", "*haystack*", "*transformers*",
-          "*claude*", "*copilot*", "*cursor*", "*gemini*",
-          "*genaiscript*", "*grok*", "*qwen*",
-          "*openai*", "*anthropic*", "*cohere*", "*mistral*",
-          "*perplexity*", "*replicate*", "*huggingface*"
-        )
-       )
+          "*ollama*", "*mcp-server*", "*langchain*", "*autogpt*", "*babyagi*",
+          "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*",
+          "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        ))
      )
   ] by process.entity_id
-  [network where event.type == "start"
-            and event.action == "connection_attempted"
-            and destination.ip != null
-            and not cidrmatch(
-              destination.ip,
-              "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16",
-              "172.16.0.0/12", "192.168.0.0/16",
-              "::1", "FE80::/10", "FF00::/8"
-            )
-  ] by process.entity_id
 
+  // Outbound network connection (non-local)
+  [network where event.type == "start"
+     and event.action == "connection_attempted"
+     and destination.ip != null
+     and not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "::1", "FE80::/10", "FF00::/8")
+  ] by process.entity_id
 '''
 
 [[rule.threat]]
