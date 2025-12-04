@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -58,10 +58,10 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and
-event.action in ("rename", "creation") and file.path : "/var/spool/cron/atjobs/*" and not (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file.path like ("/var/spool/cron/atjobs/*", "/var/spool/atjobs/*") and
+not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
