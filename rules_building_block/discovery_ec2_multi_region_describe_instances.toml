@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/08/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/20"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
@@ -112,7 +112,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-*
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 
 // filter for DescribeInstances API calls
 | where event.dataset == "aws.cloudtrail"
@@ -131,20 +131,28 @@ from logs-aws.cloudtrail-*
     aws.cloudtrail.user_identity.access_key_id,
     aws.cloudtrail.user_identity.type,
     user_agent.original,
+    source.as.organization.name,
     source.ip,
-    @timestamp    
+    @timestamp,
+    data_stream.namespace    
 
 // count the number of unique regions and total API calls within the 30-second window
 | stats
     Esql.cloud_region_count_distinct = count_distinct(cloud.region),
-    Esql.event_count = count(*)
+    Esql.event_count = count(*),
+    Esql.event_timestamp_values = VALUES(@timestamp),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
   by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for resources making DescribeInstances API calls in more than 10 regions within the 30-second window
 | where Esql.cloud_region_count_distinct >= 10 and Esql.event_count >= 10
-
-// sort the results by time window in descending order
-| sort Esql.time_window_date_trunc desc
 '''
 
 
@@ -163,15 +171,17 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.investigation_fields]
 field_names = [
+    "Esql.cloud_region_count_distinct",
+    "Esql.event_count",
+    "Esql.event_timestamp_values",
     "aws.cloudtrail.user_identity.arn",
-    "target_time_window",
-    "region_count",
-    "window_count",
-    "cloud.account.id",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "aws.cloudtrail.user_identity.type",
-    "user_agent.original",
-    "source.ip",
-    "@timestamp",
+    "Esql.aws_cloudtrail_user_identity_type_values",
+    "Esql.aws_cloudtrail_user_identity_access_key_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.cloud_account_id_values",
+    "Esql.cloud_region_values",
+    "Esql.data_stream_namespace_values"
 ]
 

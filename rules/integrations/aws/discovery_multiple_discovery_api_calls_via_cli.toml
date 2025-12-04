@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/21"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
@@ -124,7 +124,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail*
+from logs-aws.cloudtrail* metadata _id, _version, _index
 // create time window buckets of 10 seconds
 | eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
 
@@ -166,7 +166,20 @@ from logs-aws.cloudtrail*
 | where starts_with(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
 
 // keep relevant fields (preserving ECS fields and computed time window)
-| keep @timestamp, Esql.time_window_date_trunc, event.action, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type, aws.cloudtrail.user_identity.access_key_id, source.ip, cloud.account.id, event.provider, user_agent.name, source.as.organization.name, cloud.region
+| keep 
+    @timestamp, 
+    Esql.time_window_date_trunc, 
+    event.action, 
+    aws.cloudtrail.user_identity.arn, 
+    aws.cloudtrail.user_identity.type, 
+    aws.cloudtrail.user_identity.access_key_id, 
+    source.ip, 
+    cloud.account.id, 
+    event.provider, 
+    user_agent.name, 
+    source.as.organization.name, 
+    cloud.region,
+    data_stream.namespace
 
 // count the number of unique API calls per time window and actor
 | stats
@@ -180,14 +193,12 @@ from logs-aws.cloudtrail*
     Esql.event_provider_values = VALUES(event.provider),
     Esql.user_agent_name_values = VALUES(user_agent.name),
     Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
-    Esql.cloud_region_values = VALUES(cloud.region)
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
   by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
 
 // filter for more than 5 unique API calls per 10s window
 | where Esql.event_action_count_distinct > 5
-
-// sort the results by the number of unique API calls in descending order
-| sort Esql.event_action_count_distinct desc
 '''
 
 
@@ -215,7 +226,7 @@ field_names = [
   "Esql.source_as_organization_name_values", 
   "Esql.event_provider_values", 
   "Esql.event_action_values", 
-  "Esql.cloud_region_values",
-  "Esql.cloud_account_id_values"
+  "Esql.cloud_account_id_values",
+  "Esql.cloud_region_values"
   ]
 
