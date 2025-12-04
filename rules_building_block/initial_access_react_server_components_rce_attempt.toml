@@ -26,7 +26,7 @@ This rule detects potential exploitation attempts targeting CVE-2025-55182, a cr
 
 ### Possible investigation steps
 
-- Examine the full HTTP request body to identify the specific attack payload variant (constructor chain, __proto__ access, or malformed references).
+- Examine the full HTTP request body to identify the specific attack payload variant.
 - Identify the target application and verify if it runs vulnerable React or Next.js versions.
 - Review the source IP for other reconnaissance or exploitation attempts against web applications.
 - Check if any proof-of-exploitation files were created on the server (common RCE validation technique).
@@ -34,9 +34,9 @@ This rule detects potential exploitation attempts targeting CVE-2025-55182, a cr
 
 ### False positive analysis
 
-- Legitimate React Server Components traffic may contain `$ACTION_` patterns but should NOT contain `constructor`, `__proto__`, or malformed references like `$N:a:a` as property paths.
+- Legitimate React Server Components traffic may contain specific patterns but should NOT contain constructor strings, or malformed references as property paths.
 - Developer testing or security scanning tools may trigger this rule during authorized penetration testing.
-- The combination of `$ACTION_REF` with prototype-related strings is a strong indicator of exploitation attempt.
+- The combination of constructor or prototype strings with specific patterns is highly indicative of malicious activity.
 - Testing environments from tools such as [react2shell-scanner](https://github.com/assetnote/react2shell-scanner).
 
 ### Response and remediation
