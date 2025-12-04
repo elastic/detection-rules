@@ -14,8 +14,8 @@ vulnerability in React Server Components (RSC). The vulnerability allows attacke
 server by sending specially crafted RSC deserialization payloads.
 """
 from = "now-9m"
-interval = "8m"
-language = "esql"
+index = ["logs-network_traffic.http*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Potential React Server Components RCE Attempt (CVE-2025-55182)"
 note = """## Triage and analysis
@@ -67,22 +67,20 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-FROM logs-network_traffic.http-* metadata _id, _version, _index
-| WHERE http.request.method == "POST"
-    AND (
-        http.request.body.content LIKE "*$ACTION_REF*"
-        OR http.request.body.content LIKE "*$ACTION_*:*"
-    )
-    AND (
-        http.request.body.content LIKE "*constructor*"
-        OR http.request.body.content LIKE "*__proto__*"
-        OR http.request.body.content LIKE "*prototype*"
-        OR http.request.body.content RLIKE """\$\d+:[a-z]+:[a-z]+"""
-    )
-| KEEP *
+network where event.category == "network" and http.request.method == "POST" and
+  (
+    http.request.body.content like~ "*$ACTION_REF*" or
+    http.request.body.content like~ "*$ACTION_*:*"
+  ) and
+  (
+    http.request.body.content like~ "*constructor*" or
+    http.request.body.content like~ "*__proto__*" or
+    http.request.body.content like~ "*prototype*" or
+    http.request.body.content regex~ """\$\d+:[a-z]+:[a-z]+"""
+  )
 '''
 
 
