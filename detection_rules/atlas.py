@@ -23,12 +23,21 @@ technique_lookup: dict[str, dict[str, Any]] = {}
 matrix: dict[str, list[str]] = {}  # Maps tactic name to list of technique IDs
 
 
+@cached
 def get_atlas_file_path() -> Path:
     """Get the path to the ATLAS YAML file."""
     if not ATLAS_FILE.exists():
         # Try to download it if it doesn't exist
         _ = download_atlas_data()
     return ATLAS_FILE
+
+
+def download_attack_data(save: bool = True) -> dict[str, Any] | None:
+    """Download ATT&CK data from MITRE."""
+    url = "https://raw.githubusercontent.com/mitre-attack/attack-data/main/attack.yaml"
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    attack_data = yaml.safe_load(r.text)
 
 
 def download_atlas_data(save: bool = True) -> dict[str, Any] | None:
@@ -58,8 +67,22 @@ atlas = load_atlas_yaml()
 CURRENT_ATLAS_VERSION = atlas.get("version", "unknown")
 
 # Process the ATLAS matrix
+# Look for the specific ATLAS matrix by ID, fall back to first matrix if not found
+ATLAS_MATRIX_ID = "ATLAS"
+matrix_data = None
+
 if "matrices" in atlas and len(atlas["matrices"]) > 0:
-    matrix_data = atlas["matrices"][0]  # Use the first matrix (usually "ATLAS Matrix")
+    # Try to find the ATLAS matrix by ID
+    for m in atlas["matrices"]:
+        if m.get("id") == ATLAS_MATRIX_ID:
+            matrix_data = m
+            break
+    
+    # Fall back to first matrix if ATLAS matrix not found by ID
+    if matrix_data is None:
+        matrix_data = atlas["matrices"][0]
+
+if matrix_data is not None:
 
     # Build tactics map
     if "tactics" in matrix_data:
