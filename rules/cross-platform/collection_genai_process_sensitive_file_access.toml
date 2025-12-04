@@ -8,9 +8,9 @@ updated_date = "2025/12/04"
 author = ["Elastic"]
 description = """
 Detects when GenAI tools access sensitive files such as cloud credentials, SSH keys, browser password databases, or
-shell configurations. Attackers leverage GenAI agents to systematically locate and exfiltrate credentials, API keys,
-and tokens. Access to credential stores (.aws/credentials, .ssh/id_*) suggests harvesting, while writes to shell
-configs (.bashrc, .zshrc) indicate persistence attempts.
+shell configurations. Attackers leverage GenAI agents to systematically locate and exfiltrate credentials, API keys, and
+tokens. Access to credential stores (.aws/credentials, .ssh/id_*) suggests harvesting, while writes to shell configs
+(.bashrc, .zshrc) indicate persistence attempts.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
@@ -47,12 +47,12 @@ This rule detects GenAI tools accessing credential files, SSH keys, browser data
 - Update security policies to restrict or monitor GenAI tool usage in the environment, especially for access to sensitive files.
 """
 references = [
-  "https://atlas.mitre.org/techniques/AML.T0085",
-  "https://atlas.mitre.org/techniques/AML.T0085.001",
-  "https://atlas.mitre.org/techniques/AML.T0055",
-  "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
-  "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-  "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code"
+    "https://atlas.mitre.org/techniques/AML.T0085",
+    "https://atlas.mitre.org/techniques/AML.T0085.001",
+    "https://atlas.mitre.org/techniques/AML.T0055",
+    "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code",
 ]
 risk_score = 73
 rule_id = "c0136397-f82a-45e5-9b9f-a3651d77e21a"
@@ -74,6 +74,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where event.action in ("open", "creation", "modification") and event.outcome == "success" and
 
@@ -123,36 +124,36 @@ file where event.action in ("open", "creation", "modification") and event.outcom
                   "KeePass.config.xml", 
                   "Unattended.xml")
   )
-
 '''
 
-[[rule.threat]]
-framework = "MITRE ATLAS"
-
-  [rule.threat.tactic]
-  name = "Collection"
-  id = "AML.TA0009"
-  reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
-
-  [[rule.threat.technique]]
-  name = "Data from AI Services"
-  id = "AML.T0085"
-  reference = "https://atlas.mitre.org/techniques/AML.T0085/"
-
-    [[rule.threat.technique.subtechnique]]
-    name = "AI Agent Tools"
-    id = "AML.T0085.001"
-    reference = "https://atlas.mitre.org/techniques/AML.T0085.001"
 
 [[rule.threat]]
 framework = "MITRE ATLAS"
+[[rule.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+[[rule.threat.technique.subtechnique]]
+id = "AML.T0085.001"
+name = "AI Agent Tools"
+reference = "https://atlas.mitre.org/techniques/AML.T0085.001/"
 
-  [rule.threat.tactic]
-  name = "Credential Access"
-  id = "AML.TA0013"
-  reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
 
-  [[rule.threat.technique]]
-  name = "Unsecured Credentials"
-  id = "AML.T0055"
-  reference = "https://atlas.mitre.org/techniques/AML.T0055/"
+
+[rule.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+[[rule.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat.technique]]
+id = "AML.T0055"
+name = "Unsecured Credentials"
+reference = "https://atlas.mitre.org/techniques/AML.T0055/"
+
+
+[rule.threat.tactic]
+id = "AML.TA0013"
+name = "Credential Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
+

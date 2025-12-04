@@ -7,10 +7,10 @@ updated_date = "2025/12/04"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when GenAI tools connect to domains using suspicious TLDs commonly abused for malware C2 infrastructure.
-TLDs like .top, .xyz, .ml, .cf, .onion are frequently used in phishing and malware campaigns. Legitimate GenAI
-services use well-established domains (.com, .ai, .io), so connections to suspicious TLDs may indicate compromised
-tools, malicious plugins, or AI-generated code connecting to attacker infrastructure.
+Detects when GenAI tools connect to domains using suspicious TLDs commonly abused for malware C2 infrastructure. TLDs
+like .top, .xyz, .ml, .cf, .onion are frequently used in phishing and malware campaigns. Legitimate GenAI services use
+well-established domains (.com, .ai, .io), so connections to suspicious TLDs may indicate compromised tools, malicious
+plugins, or AI-generated code connecting to attacker infrastructure.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.network*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
@@ -52,9 +52,9 @@ This rule detects GenAI tools connecting to domains with TLDs commonly abused by
 - Add detection for secondary indicators (reverse shells, encoded C2 traffic, odd user-agent strings).
 """
 references = [
-  "https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains",
-  "https://atlas.mitre.org/techniques/AML.T0086",
-  "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+    "https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains",
+    "https://atlas.mitre.org/techniques/AML.T0086",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
 risk_score = 73
 rule_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -73,6 +73,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 network where host.os.type in ("macos", "windows") and
 
@@ -109,34 +110,34 @@ network where host.os.type in ("macos", "windows") and
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
 
-  [rule.threat.tactic]
-  name = "Command and Control"
-  id = "TA0011"
-  reference = "https://attack.mitre.org/tactics/TA0011/"
 
-  [[rule.threat.technique]]
-  name = "Application Layer Protocol"
-  id = "T1071"
-  reference = "https://attack.mitre.org/techniques/T1071/"
 
-    [[rule.threat.technique.subtechnique]]
-    name = "DNS"
-    id = "T1071.004"
-    reference = "https://attack.mitre.org/techniques/T1071/004/"
-
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATLAS"
+[[rule.threat.technique]]
+id = "AML.T0086"
+name = "Exfiltration via AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0086/"
 
-  [rule.threat.tactic]
-  name = "Exfiltration"
-  id = "AML.TA0010"
-  reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
-  [[rule.threat.technique]]
-  name = "Exfiltration via AI Agent Tool Invocation"
-  id = "AML.T0086"
-  reference = "https://atlas.mitre.org/techniques/AML.T0086/"
+[rule.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 

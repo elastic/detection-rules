@@ -50,10 +50,10 @@ GenAI tools with network access can be weaponized to contact attacker infrastruc
 - Update detection rules to monitor the identified domain across all hosts in the environment.
 """
 references = [
-  "https://atlas.mitre.org/techniques/AML.T0086",
-  "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
-  "https://www.elastic.co/security-labs/elastic-advances-llm-security",
-  "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code"
+    "https://atlas.mitre.org/techniques/AML.T0086",
+    "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code",
 ]
 risk_score = 47
 rule_id = "9050506c-df6d-4bdf-bc82-fcad0ef1e8c1"
@@ -74,109 +74,86 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category : ("network" or "dns") and
-process.name : (
-    "ollama" or "ollama.exe" or "Ollama" or
-    "textgen" or "textgen.exe" or "text-generation-webui.exe" or "oobabooga.exe" or
-    "lmstudio" or "lmstudio.exe" or "LM Studio" or
-    "claude" or "claude.exe" or "Claude" or
-    "cursor" or "cursor.exe" or "Cursor" or
-    "Cursor Helper" or "Cursor Helper (Plugin)" or
-    "Claude Helper" or "Claude Helper (Plugin)" or
-    "copilot" or "copilot.exe" or "Copilot" or
-    "codex" or "codex.exe" or
-    "Jan" or "jan" or "jan.exe" or "Jan Helper" or
-    "gpt4all" or "gpt4all.exe" or "GPT4All" or
-    "gemini-cli" or "gemini-cli.exe" or
-    "genaiscript" or "genaiscript.exe" or
-    "grok" or "grok.exe" or
-    "qwen" or "qwen.exe" or
-    "koboldcpp" or "koboldcpp.exe" or "KoboldCpp" or
-    "llama-server" or "llama-cli" or
-    "Windsurf" or "windsurf" or "windsurf.exe" or
-    "Windsurf Helper" or "Windsurf Helper (Plugin)" or
-    "deno" or "deno.exe" or
-    "npx" or "pnpm" or "yarn" or "bunx"
-) and
-(
-    (host.os.type : "macos" and destination.domain : * and not destination.domain : (
-        *.openai.com or "openai.com" or *.anthropic.com or "anthropic.com" or
-        *.cursor.sh or "cursor.sh" or *.cursor.com or "cursor.com" or
-        *.ollama.com or "ollama.com" or *.ollama.ai or "ollama.ai" or
-        *.github.com or "github.com" or *.githubusercontent.com or
-        *.lmstudio.ai or "lmstudio.ai" or *.gpt4all.io or "gpt4all.io" or
-        *.huggingface.co or "huggingface.co" or *.hf.co or "hf.co" or
-        *.cloudflare.com or *.cloudflare-dns.com or *.cdn.cloudflare.net or
-        *.cloudflarestorage.com or *.r2.cloudflarestorage.com or *.akamaized.net or
-        *.googleapis.com or *.google.com or *.microsoft.com or *.azure.com or
-        *.msedge.net or "aka.ms" or *.aka.ms or
-        *.npmjs.org or *.npmjs.com or *.yarnpkg.com or *.pypi.org or
-        *.elastic.co or *.elastic-cloud.com or "localhost" or
-        *.sentry.io or *.segment.io or *.amplitude.com or *.mixpanel.com or
-        *.codeium.com or *.windsurf.ai or *.x.ai or *.grok.x.ai or
-        *.gemini.google.com or *.generativelanguage.googleapis.com or
-        *.jan.ai or *.aws.amazon.com or *.amazonaws.com or
-        *.exp-tas.com or *.gitkraken.com or *.gitkraken.dev or *.datadoghq.com or
-        *.visualstudio.com or *.launchdarkly.com or *.githubcopilot.com or
-        *.vsassets.io or *.vscode-cdn.net or
-        *.intercom.io or *.honeycomb.io or *.atlassian.com or "atlassian.com"
-    ))
-    or
-    (host.os.type : "windows" and dns.question.name : * and not dns.question.name : (
-        *.openai.com or "openai.com" or *.anthropic.com or "anthropic.com" or
-        *.cursor.sh or "cursor.sh" or *.cursor.com or "cursor.com" or
-        *.ollama.com or "ollama.com" or *.ollama.ai or "ollama.ai" or
-        *.github.com or "github.com" or *.githubusercontent.com or
-        *.lmstudio.ai or "lmstudio.ai" or *.gpt4all.io or "gpt4all.io" or
-        *.huggingface.co or "huggingface.co" or *.hf.co or "hf.co" or
-        *.cloudflare.com or *.cloudflare-dns.com or *.cdn.cloudflare.net or
-        *.cloudflarestorage.com or *.r2.cloudflarestorage.com or *.akamaized.net or
-        *.googleapis.com or *.google.com or *.microsoft.com or *.azure.com or
-        *.msedge.net or "aka.ms" or *.aka.ms or
-        *.npmjs.org or *.npmjs.com or *.yarnpkg.com or *.pypi.org or
-        *.elastic.co or *.elastic-cloud.com or "localhost" or
-        *.sentry.io or *.segment.io or *.amplitude.com or *.mixpanel.com or
-        *.codeium.com or *.windsurf.ai or *.x.ai or *.grok.x.ai or
-        *.gemini.google.com or *.generativelanguage.googleapis.com or
-        *.jan.ai or *.aws.amazon.com or *.amazonaws.com or
-        *.exp-tas.com or *.gitkraken.com or *.gitkraken.dev or *.datadoghq.com or
-        *.visualstudio.com or *.launchdarkly.com or *.githubcopilot.com or
-        *.vsassets.io or *.vscode-cdn.net or
-        *.intercom.io or *.honeycomb.io or *.atlassian.com or "atlassian.com"
+event.category:(dns or network) and
+process.name:(
+    Claude or "Claude Helper" or "Claude Helper (Plugin)" or Copilot or Cursor or
+    "Cursor Helper" or "Cursor Helper (Plugin)" or GPT4All or Jan or "Jan Helper" or
+    KoboldCpp or "LM Studio" or Ollama or Windsurf or "Windsurf Helper" or
+    "Windsurf Helper (Plugin)" or bunx or claude or claude.exe or codex or codex.exe or
+    copilot or copilot.exe or cursor or cursor.exe or deno or deno.exe or gemini-cli or
+    gemini-cli.exe or genaiscript or genaiscript.exe or gpt4all or gpt4all.exe or grok or
+    grok.exe or jan or jan.exe or koboldcpp or koboldcpp.exe or llama-cli or llama-server or
+    lmstudio or lmstudio.exe or npx or ollama or ollama.exe or oobabooga.exe or pnpm or
+    qwen or qwen.exe or text-generation-webui.exe or textgen or textgen.exe or windsurf or
+    windsurf.exe or yarn
+) and (
+    host.os.type:macos and destination.domain:(* and not (
+        aka.ms or anthropic.com or atlassian.com or cursor.com or cursor.sh or github.com or
+        gpt4all.io or hf.co or huggingface.co or lmstudio.ai or localhost or ollama.ai or
+        ollama.com or openai.com or *.aka.ms or *.akamaized.net or *.amazonaws.com or
+        *.amplitude.com or *.anthropic.com or *.atlassian.com or *.aws.amazon.com or
+        *.azure.com or *.cdn.cloudflare.net or *.cloudflare-dns.com or *.cloudflare.com or
+        *.cloudflarestorage.com or *.codeium.com or *.cursor.com or *.cursor.sh or
+        *.datadoghq.com or *.elastic-cloud.com or *.elastic.co or *.exp-tas.com or
+        *.gemini.google.com or *.generativelanguage.googleapis.com or *.github.com or
+        *.githubcopilot.com or *.githubusercontent.com or *.gitkraken.com or *.gitkraken.dev or
+        *.google.com or *.googleapis.com or *.gpt4all.io or *.grok.x.ai or *.hf.co or
+        *.honeycomb.io or *.huggingface.co or *.intercom.io or *.jan.ai or *.launchdarkly.com or
+        *.lmstudio.ai or *.microsoft.com or *.mixpanel.com or *.msedge.net or *.npmjs.com or
+        *.npmjs.org or *.ollama.ai or *.ollama.com or *.openai.com or *.pypi.org or
+        *.r2.cloudflarestorage.com or *.segment.io or *.sentry.io or *.visualstudio.com or
+        *.vsassets.io or *.vscode-cdn.net or *.windsurf.ai or *.x.ai or *.yarnpkg.com
+    )) or
+    host.os.type:windows and dns.question.name:(* and not (
+        aka.ms or anthropic.com or atlassian.com or cursor.com or cursor.sh or github.com or
+        gpt4all.io or hf.co or huggingface.co or lmstudio.ai or localhost or ollama.ai or
+        ollama.com or openai.com or *.aka.ms or *.akamaized.net or *.amazonaws.com or
+        *.amplitude.com or *.anthropic.com or *.atlassian.com or *.aws.amazon.com or
+        *.azure.com or *.cdn.cloudflare.net or *.cloudflare-dns.com or *.cloudflare.com or
+        *.cloudflarestorage.com or *.codeium.com or *.cursor.com or *.cursor.sh or
+        *.datadoghq.com or *.elastic-cloud.com or *.elastic.co or *.exp-tas.com or
+        *.gemini.google.com or *.generativelanguage.googleapis.com or *.github.com or
+        *.githubcopilot.com or *.githubusercontent.com or *.gitkraken.com or *.gitkraken.dev or
+        *.google.com or *.googleapis.com or *.gpt4all.io or *.grok.x.ai or *.hf.co or
+        *.honeycomb.io or *.huggingface.co or *.intercom.io or *.jan.ai or *.launchdarkly.com or
+        *.lmstudio.ai or *.microsoft.com or *.mixpanel.com or *.msedge.net or *.npmjs.com or
+        *.npmjs.org or *.ollama.ai or *.ollama.com or *.openai.com or *.pypi.org or
+        *.r2.cloudflarestorage.com or *.segment.io or *.sentry.io or *.visualstudio.com or
+        *.vsassets.io or *.vscode-cdn.net or *.windsurf.ai or *.x.ai or *.yarnpkg.com
     ))
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
 
-  [rule.threat.tactic]
-  name = "Command and Control"
-  id = "TA0011"
-  reference = "https://attack.mitre.org/tactics/TA0011/"
 
-  [[rule.threat.technique]]
-  name = "Application Layer Protocol"
-  id = "T1071"
-  reference = "https://attack.mitre.org/techniques/T1071/"
 
-    [[rule.threat.technique.subtechnique]]
-    name = "Web Protocols"
-    id = "T1071.001"
-    reference = "https://attack.mitre.org/techniques/T1071/001/"
-
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATLAS"
+[[rule.threat.technique]]
+id = "AML.T0086"
+name = "Exfiltration via AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0086/"
 
-  [rule.threat.tactic]
-  name = "Exfiltration"
-  id = "AML.TA0010"
-  reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
-  [[rule.threat.technique]]
-  name = "Exfiltration via AI Agent Tool Invocation"
-  id = "AML.T0086"
-  reference = "https://atlas.mitre.org/techniques/AML.T0086/"
+[rule.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
 [rule.new_terms]
 field = "new_terms_fields"
@@ -184,4 +161,5 @@ value = ["process.name", "destination.domain", "dns.question.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
 

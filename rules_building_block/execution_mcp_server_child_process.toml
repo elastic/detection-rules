@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/12/04"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel",  "m365_defender"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
 updated_date = "2025/12/04"
 
@@ -8,18 +8,19 @@ updated_date = "2025/12/04"
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Detects child process execution from GenAI tools or MCP (Model Context Protocol) servers. Adversaries exploit AI
-agents to execute system commands, exfiltrate data, or establish persistence. MCP servers provide LLMs direct access
-to execute shell commands, read files, and interact with external services. This building block provides visibility
-into AI-initiated process execution for correlation with other suspicious activity.
+Detects child process execution from GenAI tools or MCP (Model Context Protocol) servers. Adversaries exploit AI agents
+to execute system commands, exfiltrate data, or establish persistence. MCP servers provide LLMs direct access to execute
+shell commands, read files, and interact with external services. This building block provides visibility into
+AI-initiated process execution for correlation with other suspicious activity.
 """
-from = "now-9m"
+from = "now-119m"
 index = [
     "logs-endpoint.events.process-*",
     "logs-windows.sysmon_operational-*",
     "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*"
+    "logs-sentinel_one_cloud_funnel.*",
 ]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "GenAI or MCP Server Child Process Execution"
@@ -34,7 +35,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
-     "Data Source: Sysmon",
+    "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
     "Rule Type: BBR",
@@ -43,6 +44,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where event.type == "start" 
   and (
@@ -110,16 +112,17 @@ process where event.type == "start"
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATLAS"
+[[rule.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "AML.TA0005"
-  reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
 
-  [[rule.threat.technique]]
-  name = "AI Agent Tool Invocation"
-  id = "AML.T0053"
-  reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+[rule.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
 
