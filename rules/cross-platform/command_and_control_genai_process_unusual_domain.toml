@@ -1,0 +1,187 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GenAI tools connecting to unusual domains. Adversaries may compromise GenAI tools through prompt injection,
+malicious MCP servers, or poisoned plugins to establish C2 channels or exfiltrate sensitive data to attacker-controlled
+infrastructure. AI agents with network access can be manipulated to beacon to external servers, download malicious
+payloads, or transmit harvested credentials and documents.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GenAI Process Connection to Unusual Domain"
+note = """## Triage and analysis
+
+### Investigating GenAI Process Connection to Unusual Domain
+
+GenAI tools with network access can be weaponized to contact attacker infrastructure for C2, data exfiltration, or payload retrieval. Compromised MCP servers, malicious plugins, or prompt injection attacks can redirect AI agents to connect to arbitrary domains. While legitimate GenAI tools connect to vendor APIs and CDNs, connections to unusual domains may indicate exploitation.
+
+### Possible investigation steps
+
+- Review the destination domain to determine if it's a legitimate GenAI service, CDN, package registry, or potentially malicious infrastructure.
+- Investigate the GenAI process command line and configuration to identify what triggered the connection (plugin, MCP server, user prompt).
+- Check if the domain was recently registered, uses a suspicious TLD, or has a low reputation score in threat intelligence feeds.
+- Review the timing and context of the connection to determine if it correlates with user activity or was automated.
+- Examine network traffic to and from the domain to identify the nature of the communication (API calls, file downloads, data exfiltration).
+- Check for other hosts in the environment connecting to the same domain to determine if this is an isolated incident.
+- Investigate whether the GenAI tool's configuration files were recently modified to add new MCP servers or plugins.
+- Correlate with file events to see if the GenAI tool downloaded or created files around the same time as the connection.
+
+### False positive analysis
+
+- GenAI tools may connect to new domains as vendors update their infrastructure, CDNs, or API endpoints.
+- Package managers (npm, pip) used by MCP servers may connect to package registries for dependency resolution.
+- Legitimate MCP servers and AI plugins connect to their respective backend services.
+- Developer workflows testing new AI integrations or MCP servers will naturally trigger alerts for novel domain connections.
+
+### Response and remediation
+
+- If the domain is confirmed malicious, block it at the network level and investigate the source of the compromise.
+- Review the GenAI tool's configuration for unauthorized MCP servers, plugins, or extensions that initiated the connection.
+- Investigate any data that may have been sent to the suspicious domain and assess the potential for data exfiltration.
+- Review and rotate any API keys, tokens, or credentials used by the GenAI tool.
+- Update detection rules to monitor the identified domain across all hosts in the environment.
+"""
+references = [
+  "https://atlas.mitre.org/techniques/AML.T0086",
+  "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+  "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+  "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code"
+]
+risk_score = 47
+rule_id = "9050506c-df6d-4bdf-bc82-fcad0ef1e8c1"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0086",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : ("network" or "dns") and
+process.name : (
+    "ollama" or "ollama.exe" or "Ollama" or
+    "textgen" or "textgen.exe" or "text-generation-webui.exe" or "oobabooga.exe" or
+    "lmstudio" or "lmstudio.exe" or "LM Studio" or
+    "claude" or "claude.exe" or "Claude" or
+    "cursor" or "cursor.exe" or "Cursor" or
+    "Cursor Helper" or "Cursor Helper (Plugin)" or
+    "Claude Helper" or "Claude Helper (Plugin)" or
+    "copilot" or "copilot.exe" or "Copilot" or
+    "codex" or "codex.exe" or
+    "Jan" or "jan" or "jan.exe" or "Jan Helper" or
+    "gpt4all" or "gpt4all.exe" or "GPT4All" or
+    "gemini-cli" or "gemini-cli.exe" or
+    "genaiscript" or "genaiscript.exe" or
+    "grok" or "grok.exe" or
+    "qwen" or "qwen.exe" or
+    "koboldcpp" or "koboldcpp.exe" or "KoboldCpp" or
+    "llama-server" or "llama-cli" or
+    "Windsurf" or "windsurf" or "windsurf.exe" or
+    "Windsurf Helper" or "Windsurf Helper (Plugin)" or
+    "deno" or "deno.exe" or
+    "npx" or "pnpm" or "yarn" or "bunx"
+) and
+(
+    (host.os.type : "macos" and destination.domain : * and not destination.domain : (
+        *.openai.com or "openai.com" or *.anthropic.com or "anthropic.com" or
+        *.cursor.sh or "cursor.sh" or *.cursor.com or "cursor.com" or
+        *.ollama.com or "ollama.com" or *.ollama.ai or "ollama.ai" or
+        *.github.com or "github.com" or *.githubusercontent.com or
+        *.lmstudio.ai or "lmstudio.ai" or *.gpt4all.io or "gpt4all.io" or
+        *.huggingface.co or "huggingface.co" or *.hf.co or "hf.co" or
+        *.cloudflare.com or *.cloudflare-dns.com or *.cdn.cloudflare.net or
+        *.cloudflarestorage.com or *.r2.cloudflarestorage.com or *.akamaized.net or
+        *.googleapis.com or *.google.com or *.microsoft.com or *.azure.com or
+        *.msedge.net or "aka.ms" or *.aka.ms or
+        *.npmjs.org or *.npmjs.com or *.yarnpkg.com or *.pypi.org or
+        *.elastic.co or *.elastic-cloud.com or "localhost" or
+        *.sentry.io or *.segment.io or *.amplitude.com or *.mixpanel.com or
+        *.codeium.com or *.windsurf.ai or *.x.ai or *.grok.x.ai or
+        *.gemini.google.com or *.generativelanguage.googleapis.com or
+        *.jan.ai or *.aws.amazon.com or *.amazonaws.com or
+        *.exp-tas.com or *.gitkraken.com or *.gitkraken.dev or *.datadoghq.com or
+        *.visualstudio.com or *.launchdarkly.com or *.githubcopilot.com or
+        *.vsassets.io or *.vscode-cdn.net or
+        *.intercom.io or *.honeycomb.io or *.atlassian.com or "atlassian.com"
+    ))
+    or
+    (host.os.type : "windows" and dns.question.name : * and not dns.question.name : (
+        *.openai.com or "openai.com" or *.anthropic.com or "anthropic.com" or
+        *.cursor.sh or "cursor.sh" or *.cursor.com or "cursor.com" or
+        *.ollama.com or "ollama.com" or *.ollama.ai or "ollama.ai" or
+        *.github.com or "github.com" or *.githubusercontent.com or
+        *.lmstudio.ai or "lmstudio.ai" or *.gpt4all.io or "gpt4all.io" or
+        *.huggingface.co or "huggingface.co" or *.hf.co or "hf.co" or
+        *.cloudflare.com or *.cloudflare-dns.com or *.cdn.cloudflare.net or
+        *.cloudflarestorage.com or *.r2.cloudflarestorage.com or *.akamaized.net or
+        *.googleapis.com or *.google.com or *.microsoft.com or *.azure.com or
+        *.msedge.net or "aka.ms" or *.aka.ms or
+        *.npmjs.org or *.npmjs.com or *.yarnpkg.com or *.pypi.org or
+        *.elastic.co or *.elastic-cloud.com or "localhost" or
+        *.sentry.io or *.segment.io or *.amplitude.com or *.mixpanel.com or
+        *.codeium.com or *.windsurf.ai or *.x.ai or *.grok.x.ai or
+        *.gemini.google.com or *.generativelanguage.googleapis.com or
+        *.jan.ai or *.aws.amazon.com or *.amazonaws.com or
+        *.exp-tas.com or *.gitkraken.com or *.gitkraken.dev or *.datadoghq.com or
+        *.visualstudio.com or *.launchdarkly.com or *.githubcopilot.com or
+        *.vsassets.io or *.vscode-cdn.net or
+        *.intercom.io or *.honeycomb.io or *.atlassian.com or "atlassian.com"
+    ))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "AML.TA0010"
+  reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration via AI Agent Tool Invocation"
+  id = "AML.T0086"
+  reference = "https://atlas.mitre.org/techniques/AML.T0086/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.name", "destination.domain", "dns.question.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
