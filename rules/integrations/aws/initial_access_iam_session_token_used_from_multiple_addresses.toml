@@ -2,7 +2,7 @@
 creation_date = "2025/04/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/09/02"
+updated_date = "2025/12/04"
 
 [rule]
 author = ["Elastic"]
@@ -99,7 +99,8 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     "health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com",
     "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com",
     "servicecatalog-appregistry.amazonaws.com", "securityhub.amazonaws.com", 
-    "account.amazonaws.com", "budgets.amazonaws.com", "freetier.amazonaws.com"
+    "account.amazonaws.com", "budgets.amazonaws.com", "freetier.amazonaws.com", "support.amazonaws.com",
+    "support-console.amazonaws.com"
   )
 
 | eval
@@ -114,7 +115,8 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_geo_city_name = source.geo.city_name,
   Esql.source_network_org_name = `source.as.organization.name`,
   Esql.source_ip_network_pair = concat(Esql.source_ip_string, "-", `source.as.organization.name`),
-  Esql.event_timestamp = @timestamp
+  Esql.event_timestamp = @timestamp,
+  Esql.data_stream_namespace = data_stream.namespace
 
 | stats
   Esql.event_action_values = values(event.action),
@@ -132,6 +134,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.user_agent_original_count_distinct = count_distinct(Esql.user_agent_original),
   Esql.source_geo_city_name_count_distinct = count_distinct(Esql.source_geo_city_name),
   Esql.source_network_org_name_count_distinct = count_distinct(Esql.source_network_org_name),
+  Esql.data_stream_namespace_values = values(Esql.data_stream_namespace),
   Esql.timestamp_first_seen = min(Esql.event_timestamp),
   Esql.timestamp_last_seen = max(Esql.event_timestamp),
   Esql.event_count = count()
@@ -175,9 +178,10 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_ip_count_distinct,
   Esql.user_agent_original_count_distinct,
   Esql.source_geo_city_name_count_distinct,
-  Esql.source_network_org_name_count_distinct
+  Esql.source_network_org_name_count_distinct,
+  Esql.data_stream_namespace_values
 
-| where Esql.activity_type != "normal_activity"
+| where Esql.activity_fidelity_score == "high"
 '''
 
 [rule.investigation_fields]
@@ -201,7 +205,8 @@ field_names = [
       "Esql.source_ip_count_distinct",
       "Esql.user_agent_original_count_distinct",
       "Esql.source_geo_city_name_count_distinct",
-      "Esql.source_network_org_name_count_distinct"
+      "Esql.source_network_org_name_count_distinct",
+      "Esql.data_stream_namespace_values"
 ]
 
 
