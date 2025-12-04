@@ -204,7 +204,9 @@ FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version
     Esql.process_pid_lolbin_values =
       VALUES(CASE(Esql.is_lolbin_process, process.pid, null)),
     Esql.process_parent_command_line_lolbin_values =
-      VALUES(CASE(Esql.is_lolbin_process, process.parent.command_line, null))
+      VALUES(CASE(Esql.is_lolbin_process, process.parent.command_line, null)),
+      
+      Esql.data_steam_namespace_values = VALUES(data_stream.namespace)
   BY Esql.aws_ssm_command_id
 
 // Detection condition: SSM SendCommand + AWS-RunShellScript + LOLBin on endpoint
