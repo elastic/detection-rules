@@ -332,6 +332,11 @@ class TestThreatMappings(BaseRuleTest):
                     tactic = entry.tactic
                     techniques = entry.technique or []
 
+                    # TODO: ATLAS framework validation temporarily disabled until Security Solution supports it
+                    # Remove this skip once ATLAS threat mappings are fully supported in the product
+                    if framework == "MITRE ATLAS":
+                        continue
+
                     # Select the appropriate framework module
                     framework_module, framework_name = self._get_framework_module(framework, rule)
 
