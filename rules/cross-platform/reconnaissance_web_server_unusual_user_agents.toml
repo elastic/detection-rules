@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2025/12/05"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ This rule detects unusual spikes in web server requests with uncommon or suspici
 indicate reconnaissance attempts by attackers trying to identify vulnerabilities in web applications or servers. These
 user-agents are often associated with automated tools used for scanning, vulnerability assessment, or brute-force attacks.
 """
-from = "now-9m"
+from = "now-11m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
@@ -101,7 +101,8 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
     agent.id,
     host.name,
     Esql.url_original_to_lower,
-    Esql.user_agent_original_to_lower
+    Esql.user_agent_original_to_lower,
+    data_stream.namespace
 | stats
     Esql.event_count = count(),
     Esql.url_original_count_distinct = count_distinct(Esql.url_original_to_lower),
@@ -109,7 +110,8 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
     Esql.agent_id_values = values(agent.id),
     Esql.url_original_values = values(Esql.url_original_to_lower),
     Esql.user_agent_original_values = values(Esql.user_agent_original_to_lower),
-    Esql.event_dataset_values = values(event.dataset)
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
     by source.ip, agent.id
 | where
     Esql.event_count > 50 and Esql.url_original_count_distinct > 10
