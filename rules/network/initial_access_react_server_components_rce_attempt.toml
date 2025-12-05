@@ -77,16 +77,15 @@ network where http.request.method == "POST" and
     (
         http.response.status_code in (500, 303) and
         http.response.body.content like "*E{\"digest\"*" and
-        http.request.body.content regex~ """\$\d+:[_a-zA-Z][_a-zA-Z0-9]*:[_a-zA-Z][_a-zA-Z0-9]*"""
+        http.request.body.content regex~ """.*\$[0-9]+:[a-zA-Z_0-9]+:[a-zA-Z_0-9]+.*"""
+
     ) or
     // Prototype pollution patterns specific to RSC Flight exploitation
-    (
-        http.request.body.content like~ "*__proto__*" and
-        http.request.body.content like~ "*constructor*"
-    ) or
-    // RSC Flight chunk reference exploitation pattern ($N:property:property)
-    (
-        http.request.body.content regex~ """\$\d+:[_a-zA-Z][_a-zA-Z0-9]*:[_a-zA-Z][_a-zA-Z0-9]*"""
+    ( http.request.body.content regex~ """.*\$[0-9]+:[a-zA-Z_0-9]+:[a-zA-Z_0-9]+.*""" and (
+        (
+            http.request.body.content like~ "*__proto__*" or
+            http.request.body.content like~ "*prototype*"
+        ) and http.request.body.content like~ "*constructor*")
     )
 )
 '''
