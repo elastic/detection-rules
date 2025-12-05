@@ -89,6 +89,7 @@ tags = [
     "Data Source: AWS CloudTrail",
     "Data Source: AWS EC2",
     "Data Source: AWS SSM",
+    "Data Source: AWS Systems Manager",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
 ]
@@ -205,8 +206,8 @@ FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version
       VALUES(CASE(Esql.is_lolbin_process, process.pid, null)),
     Esql.process_parent_command_line_lolbin_values =
       VALUES(CASE(Esql.is_lolbin_process, process.parent.command_line, null)),
-      
-      Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
   BY Esql.aws_ssm_command_id
 
 // Detection condition: SSM SendCommand + AWS-RunShellScript + LOLBin on endpoint
