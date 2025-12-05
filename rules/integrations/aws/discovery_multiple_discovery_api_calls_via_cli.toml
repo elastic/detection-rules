@@ -116,6 +116,15 @@ tags = [
     "Data Source: AWS EC2",
     "Data Source: AWS IAM",
     "Data Source: AWS S3",
+    "Data Source: AWS Cloudtrail",
+    "Data Source: AWS RDS",
+    "Data Source: AWS Lambda",
+    "Data Source: AWS STS",
+    "Data Source: AWS KMS",
+    "Data Source: AWS SES",
+    "Data Source: AWS Cloudfront",
+    "Data Source: AWS DynamoDB",
+    "Data Source: AWS Elastic Load Balancing",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
@@ -124,7 +133,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail* metadata _id, _version, _index
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 // create time window buckets of 10 seconds
 | eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
 
@@ -150,7 +159,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     // filter for aws-cli specifically
     and user_agent.name == "aws-cli"
     // exclude DescribeCapacityReservations events related to AWS Config
-    and not event.action in ("DescribeCapacityReservations")
+    and event.action != "DescribeCapacityReservations"
 
 // filter for Describe, Get, List, and Generate API calls
 | where true in (
@@ -220,7 +229,7 @@ field_names = [
   "Esql.event_action_count_distinct", 
   "Esql.time_window_date_trunc", 
   "aws.cloudtrail.user_identity.arn", 
-  "Esql.aws_cloudtrail_user_identity_arn_type_values",
+  "Esql.aws_cloudtrail_user_identity_type_values",
   "Esql.aws_cloudtrail_user_identity_access_key_id_values", 
   "Esql.source_ip_values", 
   "Esql.source_as_organization_name_values", 
