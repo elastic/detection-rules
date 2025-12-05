@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential exploitation attempts targeting CVE-2025-55182, a critical remote code execution
+vulnerability in React Server Components (RSC). The vulnerability allows attackers to execute arbitrary code on the
+server by sending specially crafted RSC deserialization payloads.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.http*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential React Server Components RCE Attempt (CVE-2025-55182)"
+note = """## Triage and analysis
+
+### Investigating Potential React Server Components RCE Attempt (CVE-2025-55182)
+
+This rule detects potential exploitation attempts targeting CVE-2025-55182, a critical remote code execution vulnerability in React Server Components (RSC).
+
+### Possible investigation steps
+
+- Examine the full HTTP request body to identify the specific attack payload variant.
+- Identify the target application and verify if it runs vulnerable React or Next.js versions.
+- Review the source IP for other reconnaissance or exploitation attempts against web applications.
+- Check if any proof-of-exploitation files were created on the server (common RCE validation technique).
+- Correlate with process execution logs to identify if child processes were spawned by the web server.
+
+### False positive analysis
+
+- Legitimate React Server Components traffic may contain specific patterns but should NOT contain constructor strings, or malformed references as property paths.
+- Developer testing or security scanning tools may trigger this rule during authorized penetration testing.
+- The combination of constructor or prototype strings with specific patterns is highly indicative of malicious activity.
+- Testing environments from tools such as [react2shell-scanner](https://github.com/assetnote/react2shell-scanner).
+
+### Response and remediation
+
+- Immediately update affected applications to patched versions
+- Block the source IP at the WAF/reverse proxy if exploitation is confirmed.
+- If HTTP 500 or 303 responses were observed, assume the vulnerable code path was triggered and investigate for potential compromise.
+- Review application logs for any evidence of successful code execution.
+- Consider implementing input validation for RSC payloads at the application layer.
+"""
+references = [
+    "https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182",
+    "https://github.com/assetnote/react2shell-scanner",
+    "https://slcyber.io/research-center/high-fidelity-detection-mechanism-for-rsc-next-js-rce-cve-2025-55182-cve-2025-66478/",
+    "https://github.com/msanft/CVE-2025-55182"
+]
+risk_score = 47
+rule_id = "a8f7e9d4-3b2c-4d5e-8f1a-6c9b0e2d4a7f"
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where http.request.method == "POST" and
+(
+    // Specific CVE-2025-55182 RCE indicators
+    (
+        http.response.status_code in (500, 303) and
+        http.response.body.content like~ "*E{\"digest\"*" and
+        http.request.body.content like~ "*.execSync(*"
+    ) or
+    // Prototype pollution patterns in Flight protocol
+    (
+        http.request.body.content like~ "*__proto__*" or
+        http.request.body.content like~ "*constructor:constructor*" or
+        http.request.body.content regex~ """\$\d+:[_a-zA-Z][_a-zA-Z0-9]*:[_a-zA-Z][_a-zA-Z0-9]*"""
+    ) or
+    // Node.js code execution attempts
+    (
+        http.request.body.content like~ "*require('child_process')*" or
+        http.request.body.content like~ "*require(\"child_process\")*" or
+        http.request.body.content like~ "*process.mainModule*" or
+        http.request.body.content like~ "*.exec(*" or
+        http.request.body.content like~ "*.spawn(*"
+    )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
