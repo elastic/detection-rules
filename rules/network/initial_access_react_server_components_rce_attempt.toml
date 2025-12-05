@@ -76,7 +76,8 @@ network where http.request.method == "POST" and
     // Successful CVE-2025-55182 RCE - command output in digest
     (
         http.response.status_code in (500, 303) and
-        http.response.body.content like~ "*E{\"digest\"*"
+        http.response.body.content like "*E{\"digest\"*" and
+        http.request.body.content regex~ """\$\d+:[_a-zA-Z][_a-zA-Z0-9]*:[_a-zA-Z][_a-zA-Z0-9]*"""
     ) or
     // Prototype pollution patterns specific to RSC Flight exploitation
     (
