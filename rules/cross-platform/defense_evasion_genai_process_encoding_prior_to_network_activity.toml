@@ -1,0 +1,172 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when GenAI processes perform encoding or chunking (base64, gzip, tar, zip) followed by outbound network
+activity. This sequence indicates data preparation for exfiltration. Attackers encode or compress sensitive data before
+transmission to obfuscate contents and evade detection. Legitimate GenAI workflows rarely encode data before network
+communications.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI Process Performing Encoding/Chunking Prior to Network Activity"
+note = """## Triage and analysis
+
+### Investigating GenAI Process Performing Encoding/Chunking Prior to Network Activity
+
+GenAI processes performing encoding or chunking operations followed by network activity is highly suspicious. This behavior indicates data preparation for exfiltration via GenAI prompts or agents, which is a strong indicator of malicious activity.
+
+### Possible investigation steps
+
+- Review the GenAI process that performed the encoding to identify which tool is running and verify if it's an expected/authorized tool.
+- Examine the encoding/chunking command line arguments to understand what data is being processed.
+- Review the network connection details to identify the destination and determine if it's expected.
+- Investigate the user account associated with the GenAI process to determine if this activity is expected for that user.
+- Review the data that was encoded to determine if it contains sensitive information.
+- Determine whether the encoding was initiated by a GenAI agent or automation loop rather than a user action.
+- Check whether the encoded data size or entropy suggests credential files, browser data, SSH keys, or cloud tokens.
+- Validate that the GenAI tool is installed from a trusted source and has not been modified.
+
+### False positive analysis
+
+- Legitimate data processing workflows that use GenAI tools may trigger this rule if they encode data before transmission.
+- Some local developer workflows may encode files before uploading training data or embeddings; confirm whether the host is a model-development workstation.
+
+### Response and remediation
+
+- Terminate the GenAI process and any spawned encoding/network processes to stop the malicious activity.
+- Review and revoke any API keys, tokens, or credentials that may have been exposed or used by the GenAI tool.
+- Investigate the encoded data and network destination to determine the scope of potential data exfiltration.
+"""
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0086",
+    "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+]
+risk_score = 47
+rule_id = "c3d4e5f6-a7b8-9012-cdef-123456789abc"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0086",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=30s
+
+  // Encoding/compression followed by network activity
+  [process where event.type == "start"
+     and event.type == "start"
+
+     // Encoding/chunking tools
+     and (
+       // Native encoding tools
+       process.name in ("base64", "gzip", "tar", "zip", "split", "7z", "7za", "7zr") or
+       
+       // PowerShell encoding
+       (process.name in ("powershell.exe", "pwsh.exe") and
+        process.command_line like~ ("*Compress-Archive*", "*[Convert]::ToBase64String*")) or
+       
+       // Python encoding
+       (process.name like~ "python*" and
+        process.command_line like~ ("*base64*", "*gzip*", "*zlib*", "*tarfile*", "*zipfile*")) or
+       
+       // Node.js encoding
+       (process.name in ("node.exe", "node") and
+        process.command_line like~ ("*Buffer.from*", "*zlib*", "*gzip*") and
+        not process.command_line like~ ("*mcp*start*", "*mcp-server*", "*npm exec*mcp*"))
+     )
+
+     // GenAI parent process
+     and (
+       process.parent.name in (
+         "ollama.exe", "ollama", "Ollama",
+         "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+         "lmstudio.exe", "lmstudio", "LM Studio",
+         "claude.exe", "claude", "Claude",
+         "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+         "copilot.exe", "copilot", "Copilot",
+         "codex.exe", "codex",
+         "Jan", "jan.exe", "jan", "Jan Helper",
+         "gpt4all.exe", "gpt4all", "GPT4All",
+         "gemini-cli.exe", "gemini-cli",
+         "genaiscript.exe", "genaiscript",
+         "grok.exe", "grok",
+         "qwen.exe", "qwen",
+         "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+         "llama-server", "llama-cli"
+       ) or
+       
+       // Node/Deno with GenAI frameworks
+       (process.parent.name in ("node.exe", "node", "deno.exe", "deno") and
+        process.parent.command_line like~ (
+          "*ollama*", "*mcp-server*", "*@modelcontextprotocol*", "*langchain*", "*autogpt*",
+          "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*",
+          "*haystack*", "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        )) or
+       
+       // Python with GenAI frameworks
+       (process.parent.name like~ "python*" and
+        process.parent.command_line like~ (
+          "*ollama*", "*mcp-server*", "*langchain*", "*autogpt*", "*babyagi*",
+          "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*",
+          "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        ))
+     )
+  ] by process.entity_id
+
+  // Outbound network connection (non-local)
+  [network where event.type == "start"
+     and event.action == "connection_attempted"
+     and destination.ip != null
+     and not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+                       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+                       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+                       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+                       "FF00::/8")
+     
+  ] by process.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
