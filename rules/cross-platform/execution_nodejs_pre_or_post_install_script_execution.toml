@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/09/18"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/03"
 
 [rule]
 author = ["Elastic"]
@@ -13,11 +13,15 @@ this technique to execute arbitrary commands on the system and establish persist
 was observed in the wild as part of the Shai-Hulud worm.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Node.js Pre or Post-Install Script Execution"
-references = ["https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise"]
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://www.elastic.co/blog/shai-hulud-worm-2-0-updated-response",
+]
 risk_score = 47
 rule_id = "0871a5d8-6b5f-4a12-a568-fd7bc05bd8db"
 setup = """## Setup
@@ -49,6 +53,7 @@ severity = "medium"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
+  "OS: macOS",
   "Use Case: Threat Detection",
   "Tactic: Persistence",
   "Tactic: Execution",
@@ -56,13 +61,42 @@ tags = [
   "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
 ]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=10s
-  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "node" and process.args == "install"] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.parent.name == "node"] by process.parent.entity_id
+  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "node" and process.args == "install"] by process.entity_id
+  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.parent.name == "node"] by process.parent.entity_id
 '''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.005"
+name = "Malicious Library"
+reference = "https://attack.mitre.org/techniques/T1204/005/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -81,24 +115,6 @@ reference = "https://attack.mitre.org/techniques/T1574/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
