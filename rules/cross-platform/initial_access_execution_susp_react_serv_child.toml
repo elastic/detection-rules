@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/04"
+updated_date = "2025/12/05"
 
 [rule]
 author = ["Elastic"]
@@ -77,14 +77,43 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action in ("exec", "executed", "process_started", "start", "ProcessRollup2") and
-process.name in ("sh", "bash", "zsh", "curl", "wget", "id", "whoami", "uname", "cmd.exe", "cat", "powershell.exe") and
-(
- ?process.working_directory : ("*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*/app/*", "*next/dist/server*", "*react-scripts*") or
- 
- (process.parent.name in ("node", "bun", "node.exe", "bun.exe") and
-  process.parent.command_line : ("*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*next start*", "*next dev*", "*react-scripts start*", "*next/dist/server*"))
- )
+process where event.type == "start" and event.action != "fork" and (
+    process.name in (
+      "sh", "bash", "zsh", "curl", "wget", "id", "whoami", "uname", "cmd.exe", "cat", "powershell.exe", "java", "rundll32.exe", "wget.exe", "certutil.exe",
+      "nc", "ncat", "netcat", "nc.openbsd", "nc.traditional", "socat", "busybox", "mkfifo", "nohup", "setsid", "xterm"
+    ) or
+    (process.name : "python*" and process.args : "-c" and process.args : (
+     "*import*pty*spawn*", "*import*subprocess*call*"
+    )) or
+    (process.name : "perl*" and process.args : "-e" and process.args : "*socket*" and process.args : (
+     "*exec*", "*system*"
+    )) or
+    (process.name : "ruby*" and process.args : ("-e", "-rsocket") and process.args : (
+     "*TCPSocket.new*", "*TCPSocket.open*"
+     )) or
+    (process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
+     "*io.popen*", "*os.execute*"
+    )) or
+    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
+    (process.name == "node" and process.args == "-e" and process.args : "*spawn*sh*" and process.args : "*connect*") or
+    (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or
+    (process.name in ("rvim", "vim", "vimdiff", "rview", "view") and process.args == "-c" and process.args : "*socket*")
+)
+and (
+  ?process.working_directory : (
+    "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*--experimental-https*", "*app/server*",
+    "*.pnpm/next*", "*/app/*", "*next/dist/server*", "*react-scripts*") or
+  (
+    process.parent.name in ("node", "bun", "node.exe", "bun.exe") and
+    process.parent.command_line : (
+      "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*next-server*", "*server.js*", "*bin/next*",
+      "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*next start*", "*next dev*", "*react-scripts start*", "*next/dist/server*"
+    )
+  )
+) and not (
+  ?process.parent.executable in ("./runc", "/opt/google/chrome/chrome") or
+  process.command_line like "/bin/sh -c git config*"
+)
 '''
 
 [[rule.threat]]
