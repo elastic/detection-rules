@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+min_stack_version = "9.2.0"
+min_stack_comments = "The esql url_decode() operator was introduced in version 9.2.0"
+updated_date = "2025/12/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential Remote File Inclusion (RFI) activity on web servers by identifying HTTP GET requests that
+attempt to access sensitive remote files through directory traversal techniques or known file paths. Attackers may
+exploit RFI vulnerabilities to read sensitive files, gain system information, or further compromise the server.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Potential Remote File Inclusion Activity"
+risk_score = 21
+rule_id = "45d099b4-a12e-4913-951c-0129f73efb41"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Command and Control",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    http.request.method == "GET" and
+    http.response.status_code == 200 and
+    url.original like "*=*"
+
+| eval Esql.url_original_url_decoded_to_lower = to_lower(URL_DECODE(url.original))
+
+| where
+    Esql.url_original_url_decoded_to_lower like "*=http://*" or
+    Esql.url_original_url_decoded_to_lower like "*=https://*" or
+    Esql.url_original_url_decoded_to_lower like "*=ftp://*" or
+    Esql.url_original_url_decoded_to_lower like "*=smb://*" or
+    Esql.url_original_url_decoded_to_lower like "*=file://*" or
+    Esql.url_original_url_decoded_to_lower rlike """.*=.*[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}.*"""
+
+| keep
+    @timestamp,
+    Esql.url_original_url_decoded_to_lower,
+    source.ip,
+    agent.id,
+    host.name,
+    http.request.method,
+    http.response.status_code,
+    event.dataset,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_url_decoded_to_lower_count_distinct = count_distinct(Esql.url_original_url_decoded_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_original_url_decoded_to_lower_values = values(Esql.url_original_url_decoded_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
