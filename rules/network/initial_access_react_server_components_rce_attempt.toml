@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects exploitation attempts targeting CVE-2025-55182, a critical remote code execution vulnerability in
+React Server Components (RSC) Flight protocol. The vulnerability allows attackers to execute arbitrary code on the
+server by sending specially crafted deserialization payloads that exploit prototype chain traversal to access the
+Function constructor. This rule focuses on high-fidelity indicators of active exploitation including successful command
+execution responses and prototype pollution attack patterns.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.http*"]
+language = "eql"
+license = "Elastic License v2"
+name = "React2Shell (CVE-2025-55182) Exploitation Attempt"
+note = """## Triage and analysis
+
+### Investigating React2Shell (CVE-2025-55182) Exploitation Attempt
+
+This rule detects exploitation attempts targeting CVE-2025-55182, a critical remote code execution vulnerability in React's Flight protocol used by Next.js and other RSC implementations. The vulnerability stems from insecure prototype chain traversal in the Flight deserializer, allowing attackers to access `__proto__`, `constructor`, and ultimately the `Function` constructor to execute arbitrary code.
+
+### Possible investigation steps
+
+- Examine the full HTTP request body to identify the specific attack payload and command being executed.
+- Check the response body for `E{"digest":"..."}` patterns which contain command output from successful exploitation.
+- Identify the target application and verify if it runs vulnerable React (< 19.1.0) or Next.js (< 15.3.2) versions.
+- Review the source IP for other reconnaissance or exploitation attempts against web applications.
+- Check for the `Next-Action` header which is required for the exploit to work.
+- Correlate with process execution logs to identify if child processes (e.g., shell commands) were spawned by the Node.js process.
+
+### False positive analysis
+
+- Legitimate React Server Components traffic will NOT contain `__proto__`, `constructor:constructor`, or code execution patterns.
+- Security scanning tools like react2shell-scanner may trigger this rule during authorized penetration testing.
+- The combination of prototype pollution patterns with RSC-specific syntax is highly indicative of malicious activity.
+
+### Response and remediation
+
+- Immediately update affected applications: React >= 19.1.0, Next.js >= 15.3.2.
+- Block the source IP at the WAF/reverse proxy if exploitation is confirmed.
+- If HTTP 500 or 303 responses with `digest` output were observed, assume successful code execution and investigate for compromise.
+- Review server logs for evidence of command execution (file creation, network connections, process spawning).
+- Implement WAF rules to block requests containing `__proto__` or `constructor:constructor` in POST bodies.
+"""
+references = [
+    "https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182",
+    "https://github.com/assetnote/react2shell-scanner",
+    "https://slcyber.io/research-center/high-fidelity-detection-mechanism-for-rsc-next-js-rce-cve-2025-55182-cve-2025-66478/",
+    "https://github.com/msanft/CVE-2025-55182",
+]
+risk_score = 73
+rule_id = "a8f7e9d4-3b2c-4d5e-8f1a-6c9b0e2d4a7f"
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where http.request.method == "POST" and
+(
+    // Successful CVE-2025-55182 RCE - command output in digest
+    (
+        http.response.status_code in (500, 303) and
+        http.response.body.content like~ "*E{\"digest\"*" and
+        http.request.body.content regex~ """.*\$[0-9]+:[a-zA-Z_0-9]+:[a-zA-Z_0-9]+.*"""
+    ) or
+    // Prototype pollution attempts in RSC Flight data (never legitimate)
+    (
+        http.request.body.content regex~ """.*\$[0-9]+:[a-zA-Z_0-9]+:[a-zA-Z_0-9]+.*""" and
+        (
+            http.request.body.content like~ "*__proto__*" or
+            http.request.body.content like~ "*prototype*"
+        )
+    )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
