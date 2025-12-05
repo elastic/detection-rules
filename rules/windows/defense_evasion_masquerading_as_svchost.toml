@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/11/12"
-integration = ["windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/11/12"
+updated_date = "2025/12/05"
 min_stack_version = "9.1.0"
 min_stack_comments = "The esql match operator was introduced in version 9.1.0"
 
@@ -60,13 +60,16 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide", 
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-* metadata _id, _version, _index
+FROM logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*, logs-windows.*, winlogbeat-* metadata _id, _version, _index
 | where event.category == "process" and event.type == "start" and
   match(process.name, "svchost.exe", { "fuzziness": 1, "max_expansions": 10 }) and
   not process.executable in ("C:\\Windows\\SysWOW64\\svchost.exe", "C:\\Windows\\System32\\svchost.exe") and
