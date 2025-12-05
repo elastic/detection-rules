@@ -26,7 +26,7 @@ RULES_CONFIG = parse_rules_config()
 def load_rules() -> RuleCollection:
     if CUSTOM_RULES_DIR:
         rc = RuleCollection()
-        path = Path(CUSTOM_RULES_DIR)
+        path = Path(CUSTOM_RULES_DIR).expanduser()
         assert path.exists(), f"Custom rules directory {path} does not exist"
         rc.load_directories(directories=RULES_CONFIG.rule_dirs)
         rc.freeze()
@@ -62,7 +62,7 @@ class BaseRuleTest(unittest.TestCase):
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
 
-        cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
+        cls.custom_dir = Path(CUSTOM_RULES_DIR).expanduser().resolve() if CUSTOM_RULES_DIR else None
         cls.rules_config = RULES_CONFIG
 
     @staticmethod

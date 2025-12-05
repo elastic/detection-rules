@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2025/11/27"
+integration = ["endpoint", "network_traffic"]
+maturity = "production"
+updated_date = "2025/11/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential initial access activity where an adversary uploads a web shell or malicious script
+to a web server via a file upload mechanism (e.g., through a web form using multipart/form-data), followed by
+a GET or POST request to access the uploaded file. By checking the body content of HTTP requests for file upload
+indicators such as "Content-Disposition: form-data" and "filename=", the rule identifies suspicious upload
+activities. This sequence of actions is commonly used by attackers to gain and maintain access to compromised web
+servers.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "logs-network_traffic.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Initial Access via File Upload Followed by GET Request"
+risk_score = 47
+rule_id = "1d306bf0-7bcf-4acd-83fd-042f5711acc9"
+setup = """## Setup
+
+This rule requires data coming in from both Elastic Defend (for file events) and Network Packet Capture integrations (for HTTP traffic analysis).
+
+### Network Packet Capture Integration Setup
+
+**IMPORTANT**: This rule requires HTTP request body capture to be enabled in order to detect the multipart/form-data content containing WebKitFormBoundary indicators. The network traffic integration must be configured to capture HTTP request bodies for POST requests with `multipart/form-data` content type.
+
+To enable HTTP request body capture, follow these steps:
+1. Navigate to the Fleet policy leveraging the Network Packet Capture integration in Kibana.
+2. Locate and select the "Network Packet Capture" integration, and edit the integration.
+3. Locate "Change Default", and scroll down to the "HTTP" section.
+4. Enable the "HTTP" toggle to capture HTTP traffic, add the correct ports for your web application, and click "advanced options".
+5. Edit the integration settings to enable HTTP request body capture for POST requests with `multipart/form-data` content type.
+6. Save the integration configuration and wait for the policy to deploy to the agents.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Web",
+    "Domain: Network",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Network Traffic",
+]
+type = "eql"
+query = '''
+sequence by agent.id with maxspan=5m
+  [network where
+   data_stream.dataset == "network_traffic.http" and
+   http.request.method in ("POST", "PUT") and
+   /* We can restrict to 200 in the future, but I prefer to broaden the scope and decrease it later if necessary */
+   http.response.status_code in (200, 201, 204, 301, 302, 303, 409) and
+   /* These should detect most common file upload activities, adhering to browser standards */
+   http.request.body.content like "*Content-Disposition: form-data*" and
+   http.request.body.content like "*filename=*"
+   /* May add a lower/upper boundary limit to reduce FPs in the future, e.g.
+   and http.request.body.bytes >= 500
+   */
+  ]
+  [file where
+   event.dataset == "endpoint.events.file" and
+   event.action in ("creation", "rename") and
+   file.extension in ("php", "phtml", "pht", "php5", "asp", "aspx", "jsp", "jspx", "war", "cgi")
+   /* We can add file.path values here in the future, if telemetry is noisy */
+  ]
+  [network where
+   data_stream.dataset == "network_traffic.http" and
+   http.request.method in ("GET", "POST") and
+   /* we may restrict to 200, but keeping it broader right now */
+   http.response.status_code >= 200 and http.response.status_code < 600 and
+   url.extension in ("php", "phtml", "pht", "php5", "asp", "aspx", "jsp", "jspx", "war", "cgi")
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
