@@ -1,0 +1,250 @@
+[metadata]
+creation_date = "2025/11/23"
+integration = ["aws", "endpoint"]
+maturity = "production"
+updated_date = "2025/11/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of Living Off the Land Binaries (LOLBins) or GTFOBins on EC2 instances via AWS Systems Manager
+(SSM) `SendCommand` API. This detection correlates AWS CloudTrail `SendCommand` events with endpoint process execution
+by matching SSM command IDs. While AWS redacts command parameters in CloudTrail logs, this correlation technique reveals
+the actual commands executed on EC2 instances. Adversaries may abuse SSM to execute malicious commands remotely without
+requiring SSH or RDP access, using legitimate system utilities for data exfiltration, establishing reverse shells, or
+lateral movement.
+"""
+false_positives = [
+    """
+    Legitimate administrative tasks using SSM to run system utilities may trigger this rule. Review the command context,
+    user identity, and timing to determine if the activity is authorized.
+    """,
+    """
+    Automated configuration management or monitoring scripts that use LOLBins via SSM for legitimate purposes. Consider
+    excluding known automation accounts or specific command patterns.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EC2 LOLBin Execution via SSM SendCommand"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 LOLBin Execution via SSM SendCommand
+
+AWS Systems Manager (SSM) enables remote command execution on EC2 instances without SSH/RDP access. While legitimate for administration, adversaries exploit this by running LOLBins—system utilities abused for malicious purposes like data theft or backdoors. This detection correlates CloudTrail API logs with endpoint telemetry using SSM command IDs, bypassing AWS's parameter redaction to reveal actual executed commands and identify suspicious activity.
+
+This is an ESQL aggregation-based rule, thus all original event fields and detail may not be present in the alert. It is recommended to pivot into the raw events from both data sources for full context during investigation.
+
+### Possible investigation steps
+
+- Review the SSM command ID in the alert to track the full lifecycle of the command from initiation to execution across both CloudTrail and endpoint data
+- Examine the CloudTrail user identity, including the ARN and access key ID, to determine who initiated the SSM command and verify if the activity is authorized
+- Analyze the command lines of the executed LOLBins to understand what commands were run and assess their intent, looking for indicators of data exfiltration, reverse shells, or reconnaissance
+- Check the source IP address and user agent from the CloudTrail event to identify if the request came from an expected location or tool
+- Investigate the affected EC2 instances for other suspicious activities or signs of compromise during the same timeframe, including network connections and file modifications
+- Review the SSM shell process details to see the full context of what the SSM agent executed and identify the parent-child process relationships
+- Correlate the timing between the CloudTrail event and endpoint execution to ensure they occurred within the detection window and represent the same activity
+- Check if the same user identity or source IP has executed similar SSM commands on other EC2 instances in your environment
+
+### False positive analysis
+
+- Routine administrative scripts that use utilities like curl, wget, or python for legitimate configuration management should be documented and excluded by user identity or source IP
+- Automated monitoring tools that execute commands via SSM for health checks or data collection can be filtered by identifying their consistent patterns and access key IDs
+- DevOps CI/CD pipelines that deploy or test applications using SSM may trigger alerts; create exceptions based on known automation roles or specific command patterns
+- Security scanning tools that legitimately use SSM for vulnerability assessments should be allowlisted by their known IAM roles or source IPs
+- Scheduled maintenance tasks using LOLBins for backup, log rotation, or data synchronization can be excluded by command pattern matching or execution timing
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instance from the network to prevent further unauthorized command execution or lateral movement
+- Review AWS CloudTrail logs to identify the IAM user, role, or access key associated with the suspicious SSM command and revoke or rotate compromised credentials
+- Terminate any unauthorized processes identified on the endpoint that match the LOLBin execution patterns detected in the alert
+- Conduct a forensic analysis of the affected EC2 instance to identify any persistence mechanisms, backdoors, or data exfiltration indicators
+- Implement stricter IAM policies to limit SSM `SendCommand` permissions to only trusted users and roles, following the principle of least privilege
+- Enable multi-factor authentication (MFA) for IAM users with SSM execution privileges to reduce the risk of credential compromise
+- Review and update VPC security groups and network ACLs to restrict outbound traffic from EC2 instances to only necessary destinations, preventing data exfiltration
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional AWS resources or accounts have been compromised
+"""
+references = [
+    "https://www.mitiga.io/blog/abusing-the-amazon-web-services-ssm-agent-as-a-remote-access-trojan",
+    "https://www.kali.org/tools/pacu/",
+    "https://www.100daysofredteam.com/p/ghost-in-the-cloud-abusing-aws-ssm",
+    "https://hackingthe.cloud/aws/post_exploitation/run_shell_commands_on_ec2/",
+    "https://gtfobins.github.io/",
+]
+risk_score = 47
+rule_id = "a8b3e2f0-8c7d-11ef-b4c6-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS EC2",
+    "Data Source: AWS SSM",
+    "Data Source: AWS Systems Manager",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version, _index
+| WHERE
+  // CloudTrail SSM SendCommand with AWS-RunShellScript
+  (
+    event.dataset == "aws.cloudtrail"
+    AND event.action == "SendCommand"
+    AND aws.cloudtrail.request_parameters LIKE "*documentName=AWS-RunShellScript*"
+  )
+  // Linux endpoint process events, prefiltered to SSM shell runner OR LOLBins/GTFOBins
+  OR
+  (
+    event.dataset == "endpoint.events.process"
+    AND host.os.type == "linux"
+    AND (
+      // SSM shell (_script.sh) runner
+      process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
+      // LOLBins / GTFOBins
+      OR process.name IN (
+        "base64",
+        "curl",
+        "wget",
+        "openssl",
+        "nc", "ncat", "netcat",
+        "socat",
+        "python", "python3",
+        "perl",
+        "php",
+        "ruby",
+        "ssh",
+        "scp",
+        "sftp",
+        "rsync"
+      )
+    )
+  )
+
+// Endpoint leg: extract SSM command ID from parent command line
+| DISSECT process.parent.command_line
+    "%{}/document/orchestration/%{Esql.process_parent_command_line_ssm_command_id}/%{}"
+
+// CloudTrail leg: extract SSM command ID from response_elements
+| DISSECT aws.cloudtrail.response_elements
+    "%{}commandId=%{Esql.aws_cloudtrail_response_elements_ssm_command_id},%{}"
+
+// Coalesce SSM command ID from both data sources
+| EVAL Esql.aws_ssm_command_id = COALESCE(
+    Esql.aws_cloudtrail_response_elements_ssm_command_id,
+    Esql.process_parent_command_line_ssm_command_id
+)
+| WHERE Esql.aws_ssm_command_id IS NOT NULL
+
+// Role flags
+| EVAL Esql.is_cloud_event    = event.dataset == "aws.cloudtrail"
+| EVAL Esql.is_endpoint_event = event.dataset == "endpoint.events.process"
+
+// Identify the SSM shell processes (the _script.sh runners)
+| EVAL Esql.is_ssm_shell_process =
+    Esql.is_endpoint_event
+    AND process.command_line LIKE "%/document/orchestration/%/awsrunShellScript/%/_script.sh"
+
+// LOLBins / GTFOBins on Linux
+| EVAL Esql.is_lolbin_process =
+    Esql.is_endpoint_event AND NOT Esql.is_ssm_shell_process
+
+// Aggregate per SSM command ID
+| STATS
+    // Core correlation counts & timing
+    Esql.aws_cloudtrail_event_count                 = SUM(CASE(Esql.is_cloud_event, 1, 0)),
+    Esql.endpoint_events_process_lolbin_count       = SUM(CASE(Esql.is_lolbin_process, 1, 0)),
+    Esql.endpoint_events_process_ssm_shell_count    = SUM(CASE(Esql.is_ssm_shell_process, 1, 0)),
+    Esql.aws_cloudtrail_first_event_ts              = MIN(CASE(Esql.is_cloud_event, @timestamp, null)),
+    Esql.endpoint_events_process_first_lolbin_ts    = MIN(CASE(Esql.is_lolbin_process, @timestamp, null)),
+
+    // AWS / CloudTrail identity & request context
+    Esql_priv.aws_cloudtrail_user_identity_arn_values          =
+      VALUES(CASE(Esql.is_cloud_event, aws.cloudtrail.user_identity.arn, null)),
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_values =
+      VALUES(CASE(Esql.is_cloud_event, aws.cloudtrail.user_identity.access_key_id, null)),
+    Esql_priv.user_name_values                                 =
+      VALUES(CASE(Esql.is_cloud_event, user.name, null)),
+
+    // AWS environment / request metadata
+    Esql.cloud_region_values     = VALUES(CASE(Esql.is_cloud_event, cloud.region, null)),
+    Esql.source_ip_values        = VALUES(CASE(Esql.is_cloud_event, source.ip, null)),
+    Esql.user_agent_original_values =
+      VALUES(CASE(Esql.is_cloud_event, user_agent.original, null)),
+
+    // Endpoint host & user context
+    Esql.host_name_values        = VALUES(CASE(Esql.is_endpoint_event, host.name, null)),
+    Esql_priv.endpoint_user_name_values =
+      VALUES(CASE(Esql.is_endpoint_event, user.name, null)),
+
+    // SSM shell processes on endpoint
+    Esql.process_command_line_ssm_shell_values =
+      VALUES(CASE(Esql.is_ssm_shell_process, process.command_line, null)),
+    Esql.process_pid_ssm_shell_values =
+      VALUES(CASE(Esql.is_ssm_shell_process, process.pid, null)),
+
+    // LOLBin processes on endpoint
+    Esql.process_name_lolbin_values =
+      VALUES(CASE(Esql.is_lolbin_process, process.name, null)),
+    Esql.process_executable_lolbin_values =
+      VALUES(CASE(Esql.is_lolbin_process, process.executable, null)),
+    Esql.process_command_line_lolbin_values =
+      VALUES(CASE(Esql.is_lolbin_process, process.command_line, null)),
+    Esql.process_pid_lolbin_values =
+      VALUES(CASE(Esql.is_lolbin_process, process.pid, null)),
+    Esql.process_parent_command_line_lolbin_values =
+      VALUES(CASE(Esql.is_lolbin_process, process.parent.command_line, null)),
+
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+  BY Esql.aws_ssm_command_id
+
+// Detection condition: SSM SendCommand + AWS-RunShellScript + LOLBin on endpoint
+| WHERE Esql.aws_cloudtrail_event_count > 0
+  AND Esql.endpoint_events_process_lolbin_count > 0
+  AND DATE_DIFF(
+        "minutes",
+        Esql.endpoint_events_process_first_lolbin_ts,
+        Esql.aws_cloudtrail_first_event_ts
+      ) <= 5
+| SORT Esql.aws_cloudtrail_first_event_ts ASC
+| KEEP Esql.*, Esql_priv.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

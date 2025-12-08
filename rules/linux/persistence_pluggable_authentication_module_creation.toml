@@ -2,7 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/08"
 
 [rule]
 author = ["Elastic"]
@@ -42,12 +42,12 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and
 process.executable != null and (
-  (file.path like~ (
+  (file.path like (
     "/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
     "/lib/x86_64-linux-gnu/security/*", "/usr/lib/x86_64-linux-gnu/security/*"
   ) and file.extension == "so") or
-  (file.path like~ "/etc/pam.d/*" and file.extension == null) or
-  (file.path like~ "/etc/security/pam_*" or file.path == "/etc/pam.conf")
+  (file.path like "/etc/pam.d/*" and file.extension == null) or
+  (file.path like "/etc/security/pam_*" or file.path == "/etc/pam.conf")
 ) and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -58,7 +58,10 @@ process.executable != null and (
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/sbin/pam-auth-update",
-    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar", "/sbin/pam-auth-update"
+    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar", "/sbin/pam-auth-update", "./user/bin/podman",
+    "/usr/bin/dnf5", "/opt/puppetlabs/puppet/bin/ruby", "/usr/bin/crio", "/sbin/authconfig", "/usr/sbin/yum-cron",
+    "/sbin/yum-cron", "/usr/local/psa/bin/dnf_install", "/opt/jc/bin/jumpcloud-agent"
+
   ) or
   file.path like (
     "/tmp/snap.rootfs_*/pam_*.so", "/tmp/newroot/lib/*/pam_*.so", "/tmp/newroot/usr/lib64/security/pam_*.so"
@@ -66,10 +69,12 @@ process.executable != null and (
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
   process.executable like (
-    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/usr/bin/python*",
+    "/opt/alt/python*/bin/python*", "/usr/libexec/platform-python*", "./snap/snapd/*/usr/lib/snapd/snap-update-ns"
   ) or
   (process.name == "sed" and file.name like~ "sed*") or
-  (process.name == "perl" and file.name like~ "e2scrub_all.tmp*")
+  (process.name == "perl" and file.name like~ "e2scrub_all.tmp*") or
+  (process.name == "perl" and event.action == "rename" and file.Ext.original.name like "*.pam-new")
 )
 '''
 note = """## Triage and analysis
