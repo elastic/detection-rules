@@ -18,7 +18,7 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "Web Server Local File Inclusion Activity"
-note = """## Triage and analysis
+note = """ ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -42,7 +42,7 @@ This rule surfaces successful GET requests containing directory traversal or dir
 
 ### Response and remediation
 
-- Immediately block the source IP at the reverse proxy/WAF and deploy deny rules for GET requests using ../../ or ..\..\ traversal or wrappers (php://, expect://, data://) that fetch /etc/passwd, /proc/self/environ, wp-config.php, web.config, or applicationhost.config.
+- Immediately block the source IP at the reverse proxy/WAF and deploy deny rules for GET requests using ../../ or ..\\..\\ traversal or wrappers (php://, expect://, data://) that fetch /etc/passwd, /proc/self/environ, wp-config.php, web.config, or applicationhost.config.
 - Configure the web server to return 403 for paths resolving to /proc, /etc, /var/log, /inetpub, applicationhost.config, and web.config and to reject wrapper schemes like php:// and expect://, then reload Nginx/Apache/IIS to apply.
 - Fix the vulnerable include logic by canonicalizing input with realpath, rejecting any .. segments or absolute paths, enforcing a whitelist of allowed files, and in PHP disabling allow_url_include/allow_url_fopen and setting open_basedir to a safe directory.
 - Rotate exposed secrets by changing database and API credentials from wp-config.php, connection strings and machine keys from web.config/applicationhost.config, and any tokens in /proc/self/environ, then invalidate active sessions and cache.
