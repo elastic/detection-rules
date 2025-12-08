@@ -2,11 +2,16 @@
 creation_date = "2020/06/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/11/07"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies an update to an AWS log trail setting that specifies the delivery of log files."
+description = """
+Detects updates to an existing CloudTrail trail via UpdateTrail API which may reduce visibility, change destinations, or
+weaken integrity (e.g., removing global events, moving the S3 destination, or disabling validation). Adversaries can
+modify trails to evade detection while maintaining a semblance of logging. Validate any configuration change against
+approved baselines.
+"""
 false_positives = [
     """
     Trail updates may be made by a system or network administrator. Verify whether the user identity, user agent, and/or
@@ -14,59 +19,48 @@ false_positives = [
     investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CloudTrail Log Updated"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS CloudTrail Log Updated
 
-Amazon CloudTrail is a service that enables governance, compliance, operational auditing, and risk auditing of your Amazon Web Services account. With CloudTrail, you can log, continuously monitor, and retain account activity related to actions across your Amazon Web Services infrastructure. CloudTrail provides event history of your Amazon Web Services account activity, including actions taken through the Amazon Management Console, Amazon SDKs, command line tools, and other Amazon Web Services services. This event history simplifies security analysis, resource change tracking, and troubleshooting.
-
-This rule identifies a modification on CloudTrail settings using the API `UpdateTrail` action. Attackers can do this to cover their tracks and impact security monitoring that relies on this source.
+AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs API calls and related events, providing visibility into user activity. Trail modifications can be used by attackers to redirect logs to non-approved buckets, drop regions, or disable valuable selectors. This rule identifies a modification on CloudTrail settings using the `UpdateTrail` API. 
 
 #### Possible investigation steps
-
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Examine the response elements of the event to determine the scope of the changes.
-- Investigate other alerts associated with the user account during the past 48 hours.
-- Contact the account and resource owners and confirm whether they are aware of this activity.
-- Check if this operation was approved and performed according to the organization's change management policy.
-- Considering the source IP address and geolocation of the user who issued the command:
-    - Do they look normal for the user?
-    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
-    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+- **Actor and context**
+  - Check `aws.cloudtrail.user_identity.arn`, `user_agent.original`, `source.ip`; verify approved change.
+- **Assess the modification**
+  - In `aws.cloudtrail.request_parameters`, note changes to:
+    - `S3BucketName`, `CloudWatchLogsLogGroupArn`, `KmsKeyId`
+    - `IsMultiRegionTrail`, `IncludeGlobalServiceEvents`
+    - Event or insight selectors (management vs data events)
+- **Correlate**
+  - Look for preceding `StopLogging` or following `DeleteTrail`.
+  - Review concurrent IAM policy edits or role changes by the same actor.
 
 ### False positive analysis
-
-- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and IP address conditions.
+- **Planned changes**: Baseline drift during region onboarding or encryption rotation.
+- **Automation**: IaC pipelines updating trails as templates evolve.
 
 ### Response and remediation
+- **If unauthorized**
+  - Revert to baseline; validate destination ownership and KMS policy.
+  - Investigate time ranges where visibility may have been reduced.
+- **Hardening**
+  - Constrain `cloudtrail:UpdateTrail`, require approvals, and monitor with AWS Config rules.
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
-- Consider enabling multi-factor authentication for users.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
-- Take the actions needed to return affected systems, data, or services to their normal operational levels.
-- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
 references = [
     "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_UpdateTrail.html",
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudtrail/update-trail.html",
@@ -87,7 +81,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:UpdateTrail and event.outcome:success
+event.dataset: "aws.cloudtrail" 
+    and event.provider: "cloudtrail.amazonaws.com" 
+    and event.action: "UpdateTrail" 
+    and event.outcome: "success"
 '''
 
 
@@ -120,4 +117,21 @@ reference = "https://attack.mitre.org/techniques/T1530/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

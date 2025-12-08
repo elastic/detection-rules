@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2025/10/13"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple Azure Restore Point Collections being deleted by a single user within a short time period. Restore
+Point Collections contain recovery points for virtual machines, enabling point-in-time recovery capabilities. Mass
+deletion of these collections is a common tactic used by adversaries during ransomware attacks to prevent victim
+recovery or to maximize impact during destructive operations. Multiple deletions in rapid succession may indicate
+malicious intent.
+"""
+false_positives = [
+    """
+    Planned decommissioning activities or large-scale infrastructure changes may result in legitimate bulk deletion of
+    Restore Point Collections. Verify with the user and change management processes whether these deletions are
+    authorized. Large-scale migration or cleanup projects should be coordinated and documented to avoid false positives.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Compute Restore Point Collections Deleted"
+note = """## Triage and analysis
+
+### Investigating Azure Compute Restore Point Collections Deleted
+
+Azure Compute Restore Point Collections are essential for disaster recovery, containing snapshots that enable point-in-time recovery
+of virtual machines. The ability to quickly restore VMs from these recovery points is critical for business continuity and
+incident response.
+
+Adversaries conducting ransomware attacks or destructive operations often target backup and recovery infrastructure to
+prevent victims from recovering their systems without paying a ransom. Mass deletion of Restore Point Collections is a
+key indicator of such activity and represents a significant threat to an organization's resilience.
+
+This rule detects when a single user deletes multiple Restore Point Collections within a short time window, which is
+unusual in normal operations and highly suspicious when observed.
+
+### Possible investigation steps
+
+- Identify the user account responsible for the deletions by examining the `azure.activitylogs.identity.claims_initiated_by_user.name` or `user.name` field in the alerts.
+- Review all deletion events from this user in the specified time window to determine the scope and scale of the activity.
+- Check the `azure.resource.id` and `azure.resource.name` fields to identify which Restore Point Collections were deleted and assess their criticality to business operations.
+- Verify whether the user account has legitimate administrative access and whether these deletions were authorized through change management or documented maintenance activities.
+- Investigate the timeline of events leading up to the deletions, looking for other suspicious activities such as:
+    - Privilege escalation attempts
+    - Deletion of other backup resources (Recovery Services vaults, backup policies)
+    - Unusual authentication patterns or geographic anomalies
+    - Creation of persistence mechanisms or backdoor accounts
+- Review Azure Activity Logs for any failed deletion attempts or access denied events that might indicate reconnaissance activities preceding the successful deletions.
+- Check for related data destruction activities, such as deletion of virtual machines, disks, or storage accounts.
+- Correlate with sign-in logs to identify any unusual login patterns or potential account compromise indicators.
+
+### False positive analysis
+
+- Large-scale decommissioning projects may involve legitimate deletion of multiple Restore Point Collections. Verify with change management records and create temporary exceptions during documented maintenance windows.
+- Infrastructure migrations from Azure to another platform or between Azure regions may involve cleanup of old restore points. Confirm these activities are planned and documented before excluding them from monitoring.
+- Automated cleanup scripts designed to manage storage costs by removing old restore points might trigger this alert. Identify the service accounts used for these operations and adjust the threshold or create exceptions as appropriate.
+- Testing and development environments that are frequently rebuilt may see regular bulk deletion of resources. Consider excluding non-production environments or adjusting the threshold for these subscriptions.
+- Review the threshold value (currently set to 3) and adjust based on your environment's baseline if legitimate administrative activities are frequently triggering false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further malicious activity. Reset credentials and revoke active sessions.
+- Verify the legitimacy of the deletions with the account owner or their manager. If unauthorized, treat this as a confirmed security incident and activate incident response procedures.
+- Check if any of the deleted Restore Point Collections can be recovered through Azure backup services, soft-delete features, or other recovery mechanisms. Time is critical as retention policies may limit recovery windows.
+- Conduct a comprehensive review of all recent activities by the affected user account across the Azure environment to identify other potentially malicious actions or compromised resources.
+- Assess the current disaster recovery posture and identify which VMs are now missing recovery points. Prioritize creation of new restore points for critical systems if they are unaffected.
+- Review and strengthen access controls for Restore Point Collection management, implementing stricter RBAC policies and requiring multi-factor authentication for privileged operations.
+- If ransomware activity is suspected or confirmed:
+    - Activate the organization's ransomware response plan
+    - Isolate affected systems to prevent spread
+    - Search for ransomware indicators across the environment (encrypted files, ransom notes, suspicious processes)
+    - Check for deletion of other recovery resources (Recovery Services vaults, backups, snapshots)
+    - Do not pay ransom demands; engage with law enforcement and cybersecurity incident response teams
+- Implement additional monitoring and alerting for related activities such as:
+    - Deletion of Recovery Services resources
+    - Modifications to backup policies
+    - Unusual access to disaster recovery infrastructure
+- Document the incident thoroughly and conduct a post-incident review to identify gaps in security controls and opportunities for improvement.
+- Consider implementing Azure Resource Locks on critical recovery resources to prevent accidental or malicious deletion.
+"""
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2023/07/25/storm-0501-ransomware-attacks-expanding-to-hybrid-cloud-environments/",
+]
+risk_score = 73
+rule_id = "d8f4e3b0-8a1b-11ef-9b4a-f661ea17fbce"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Storage",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.dataset: azure.activitylogs and
+    event.action: "MICROSOFT.COMPUTE/RESTOREPOINTCOLLECTIONS/DELETE" and
+    event.outcome: (Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.threshold]
+field = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+value = 1
+[[rule.threshold.cardinality]]
+field = "azure.activitylogs.resource.id"
+value = 3
+
+

@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2025/10/08"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an Azure Storage Account is deleted. Adversaries may delete storage accounts to disrupt operations,
+destroy evidence, or cause denial of service. This activity could indicate an attacker attempting to cover their tracks
+after data exfiltration or as part of a destructive attack. Monitoring storage account deletions is critical for
+detecting potential impact on business operations and data availability.
+"""
+false_positives = [
+    """
+    Storage administrators may legitimately delete storage accounts during decommissioning, resource cleanup, or
+    infrastructure optimization. Verify that the deletion was expected and follows organizational change management
+    processes. Consider exceptions for approved maintenance windows.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Storage Account Deletion by Unusual User"
+note = """## Triage and analysis
+
+### Investigating Azure Storage Account Deletion by Unusual User
+
+Azure Storage Accounts provide scalable cloud storage for applications and services. Deletion of storage accounts is a high-impact operation that permanently removes all contained data including blobs, files, queues, and tables. Adversaries may delete storage accounts to destroy evidence of their activities, disrupt business operations, or cause denial of service as part of ransomware or destructive attacks. This detection monitors for successful storage account deletion operations to identify potential malicious activity.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to identify the user or service principal that initiated the storage account deletion by examining the principal ID, UPN and user agent fields.
+- Check the specific storage account name in `azure.resource.name` to understand which storage resources were deleted and assess the business impact.
+- Investigate the timing of the event to correlate with any other suspicious activities, such as unusual login patterns, privilege escalation attempts, or other resource deletions.
+- Examine the user's recent activity history to identify any other storage accounts or Azure resources that were deleted or modified by the same principal.
+- Verify if the storage account deletion aligns with approved change requests or maintenance windows in your organization.
+- Check if the deleted storage account contained critical data and whether backups are available for recovery.
+- Review any related alerts or activities such as data exfiltration, configuration changes, or access policy modifications that occurred before the deletion.
+- Investigate if the account was recently compromised by checking for suspicious authentication events or privilege escalations.
+
+### False positive analysis
+
+- Legitimate decommissioning of unused storage accounts may trigger this alert. Document approved storage account cleanup activities and coordinate with infrastructure teams to understand planned deletions.
+- DevOps automation tools might delete temporary storage accounts as part of infrastructure lifecycle management. Identify service principals used by CI/CD pipelines and consider creating exceptions for these automated processes.
+- Testing and development environments may have frequent storage account creation and deletion cycles. Consider filtering out non-production storage accounts if appropriate for your environment.
+- Cost optimization initiatives may involve deleting unused or redundant storage accounts. Coordinate with finance and infrastructure teams to understand planned resource optimization activities.
+
+### Response and remediation
+
+- Immediately investigate whether the deletion was authorized by verifying with the account owner or relevant stakeholders.
+- If the deletion was unauthorized, attempt to recover the storage account if soft-delete is enabled, or restore data from backups.
+- Disable the compromised user account or service principal if unauthorized activity is confirmed and investigate how the credentials were obtained.
+- Review and restrict Azure RBAC permissions to ensure only authorized users have storage account deletion capabilities (requires Contributor or Owner role).
+- Implement Azure Resource Locks to prevent accidental or malicious deletion of critical storage accounts.
+- Configure Azure Activity Log alerts to notify security teams immediately when storage accounts are deleted.
+- Conduct a full security assessment to identify any other compromised resources or accounts and look for indicators of broader compromise.
+- Document the incident and update security policies and procedures to prevent similar incidents in the future.
+"""
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/"
+]
+risk_score = 47
+rule_id = "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Storage",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: azure.activitylogs and
+    azure.activitylogs.operation_name: "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE" and
+    azure.activitylogs.identity.claims_initiated_by_user.name: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

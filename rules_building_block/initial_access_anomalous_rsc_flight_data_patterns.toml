@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2025/12/05"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule detects anomalous patterns in React Server Components (RSC) Flight protocol data streams that may indicate
+code injection or exploitation attempts. The Flight protocol is used by React and Next.js for server-client
+communication, and should never contain Node.js code execution primitives like child_process, fs module calls, or eval
+patterns. This building block rule casts a wider net to identify suspicious payloads that warrant further investigation.
+"""
+from = "now-119m"
+index = ["logs-network_traffic.http*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Anomalous React Server Components Flight Data Patterns"
+references = [
+    "https://react.dev/reference/rsc/server-components",
+    "https://github.com/facebook/react/blob/main/packages/react-server/src/ReactFlightServer.js",
+    "https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182",
+    "https://slcyber.io/research-center/high-fidelity-detection-mechanism-for-rsc-next-js-rce-cve-2025-55182-cve-2025-66478/",
+    "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
+    "https://tonyalicea.dev/blog/understanding-react-server-components/",
+]
+risk_score = 21
+rule_id = "b9c8d7e6-5a4f-3c2b-1d0e-9f8a7b6c5d4e"
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Network Packet Capture",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where http.request.method == "POST" and http.response.status_code != 200 and
+(
+    // Node.js child_process module
+    (
+        http.request.body.content like~ "*require('child_process')*" or
+        http.request.body.content like~ "*require(\"child_process\")*" or
+        http.request.body.content like~ "*child_process*" and http.request.body.content like~ "*.exec*"
+    ) or
+    // Node.js synchronous execution methods
+    (
+        http.request.body.content like~ "*.execSync(*" or
+        http.request.body.content like~ "*.spawnSync(*" or
+        http.request.body.content like~ "*.execFileSync(*"
+    ) or
+    // Node.js file system operations - suspicious in RSC context
+    (
+        http.request.body.content like~ "*require('fs')*" or
+        http.request.body.content like~ "*require(\"fs\")*" or
+        http.request.body.content like~ "*.readFileSync(*" or
+        http.request.body.content like~ "*.writeFileSync(*" or
+        http.request.body.content like~ "*.unlinkSync(*"
+    ) or
+    // Process and module access patterns used in exploitation
+    (
+        http.request.body.content like~ "*process.mainModule*" or
+        http.request.body.content like~ "*process.binding*" or
+        http.request.body.content like~ "*process.dlopen*"
+    ) or
+    // JavaScript code execution primitives
+    (
+        http.request.body.content like~ "*eval(*" and http.request.body.content like~ "*require*" or
+        http.request.body.content like~ "*Function(*" and http.request.body.content like~ "*return*"
+    ) or
+    // Generic prototype pollution indicators
+    (
+        http.request.body.content like~ "*prototype*" and http.request.body.content like~ "*constructor*"
+    )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual spikes in error response codes (500, 502, 503, 504) from web servers, which may indicate
+reconnaissance activities such as vulnerability scanning or fuzzing attempts by adversaries. These activities often
+generate a high volume of error responses as they probe for weaknesses in web applications. Error response codes
+may potentially indicate server-side issues that could be exploited.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Potential Spike in Error Response Codes"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Potential Spike in Error Response Codes
+
+This rule detects bursts of 5xx errors (500–504) from GET traffic, highlighting abnormal server behavior that accompanies active scanning or fuzzing and exposes fragile code paths or misconfigured proxies. Attackers sweep common and generated endpoints while mutating query params and headers—path traversal, template syntax, large payloads—to repeatedly force backend exceptions and gateway timeouts, enumerate which routes fail, and pinpoint inputs that leak stack traces or crash components for follow-on exploitation.
+
+### Possible investigation steps
+
+- Plot error rates per minute by server and client around the alert window to confirm the spike, determine scope, and separate a single noisy client from a platform-wide issue.
+- Aggregate the failing URL paths and query strings from the flagged client and look for enumeration sequences, traversal encoding, template injection markers, or oversized inputs indicative of fuzzing.
+- Examine User-Agent, Referer, header mix, and TLS JA3 for generic scanner signatures or reuse across multiple clients, and enrich the originating IP with reputation and hosting-provider attribution.
+- Correlate the timeframe with reverse proxy/WAF/IDS and application error logs or stack traces to identify which routes threw exceptions or timeouts and whether they align with the client’s input patterns.
+- Validate backend and dependency health (upstreams, databases, caches, deployments) to rule out infrastructure regressions, then compare whether only the suspicious client experiences disproportionate failures.
+
+### False positive analysis
+
+- A scheduled deployment or upstream dependency issue can cause normal GET traffic to fail with 502/503/504, and many users egressing through a shared NAT or reverse proxy may be aggregated as one source IP that triggers the spike.
+- An internal health-check, load test, or site crawler running from a single host can rapidly traverse endpoints and induce 500 errors on fragile routes, mimicking scanner-like behavior without malicious intent.
+
+### Response and remediation
+
+- Immediately rate-limit or block the originating client(s) at the edge (reverse proxy/WAF) using the observed source IPs, User-Agent/TLS fingerprints, and the failing URL patterns generating 5xx bursts.
+- Drain the origin upstream(s) showing repeated 500/502/503/504 on the probed routes, roll back the latest deployment or config change for those services, and disable any unstable endpoint or plugin that is crashing under input fuzzing.
+- Restart affected application workers and proxies, purge bad cache entries, re-enable traffic gradually with canary percentage, and confirm normal response rates via synthetic checks against the previously failing URLs.
+- Escalate to Security Operations and Incident Response if 5xx spikes persist after blocking or if error pages expose stack traces, credentials, or admin route disclosures, or if traffic originates from multiple global hosting ASNs.
+- Deploy targeted WAF rules for path traversal and injection markers seen in the URLs, enforce per-IP and per-route rate limits, tighten upstream timeouts/circuit breakers, and replace verbose error pages with generic responses that omit stack details.
+- Add bot management and IP reputation blocking at the CDN/edge, lock down unauthenticated access to admin/debug routes, and instrument alerts that trigger on sustained 5xx bursts per client and per route with automatic edge throttling.
+"""
+risk_score = 21
+rule_id = "6fa3abe3-9cd8-41de-951b-51ed8f710523"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+| where
+    http.request.method == "GET" and
+    http.response.status_code in (
+      500, // Internal Server Error
+      502, // Bad Gateway
+      503, // Service Unavailable
+      504 // Gateway Timeout
+    )
+
+| eval Esql.url_original_to_lower = to_lower(url.original)
+
+| keep
+    @timestamp,
+    event.dataset,
+    http.request.method,
+    http.response.status_code,
+    source.ip,
+    agent.id,
+    host.name,
+    Esql.url_original_to_lower,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.http_response_status_code_count = count(http.response.status_code),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_path_values = values(Esql.url_original_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip, agent.id
+| where
+    Esql.http_response_status_code_count > 10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"

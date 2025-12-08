@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2025/10/06"
+integration = ["gcp"]
+maturity = "production"
+min_stack_comments = "New job added"
+min_stack_version = "9.3.0"
+updated_date = "2025/11/21"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job detected an GCP Audit event that, while not inherently suspicious or abnormal, is being made by a
+user context that does not normally use the event action. This can be the result of compromised credentials or keys as
+someone uses a valid account to persist, move laterally, or exfiltrate data.
+"""
+false_positives = [
+    """
+    New or unusual user event activity can be due to manual troubleshooting or reconfiguration; changes in cloud
+    automation scripts or workflows; adoption of new services; or changes in the way services are used.
+    """,
+]
+from = "now-2h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "gcp_audit_rare_method_for_a_client_user_email"
+name = "Unusual GCP Event for a User"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from GCP.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### GCP Audit logs Integration Setup
+The Google Cloud Platform (GCP) Audit logs integration allows you to collect logs and metrics from Google Cloud Platform (GCP) with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System "Google Cloud Platform (GCP) Audit logs" integration to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Google Cloud Platform (GCP) Audit logs” and select the integration to see more details about it.
+- Click “Add Google Cloud Platform (GCP) Audit logs".
+- Configure the integration.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/gcp).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "2e08f34c-691c-497e-87de-5d794a1b2a53"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.007"
+name = "Cloud Services"
+reference = "https://attack.mitre.org/techniques/T1021/007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"

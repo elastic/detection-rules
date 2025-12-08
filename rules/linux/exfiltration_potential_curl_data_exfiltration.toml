@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ actors have been seen utilizing curl to upload this archive file with the collec
 way while not inherently malicious should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Data Exfiltration Through Curl"
@@ -95,18 +95,19 @@ For more information on capturing environment variables refer to the [helper gui
 """
 severity = "medium"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Exfiltration",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Exfiltration",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "curl" and
-process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like "--data*") and 
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "curl" and
+?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like "--data*") and 
 process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
 process.command_line like~ "*http*"
 '''

@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2025/11/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the execution of a shell through Busybox. Attackers may use this technique to execute shells while attempting to
+evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Proxy Shell Execution via Busybox"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Proxy Shell Execution via Busybox
+
+This rule identifies Linux shells started via Busybox, indicating proxy execution to sidestep controls that focus on direct shell binaries. Adversaries leverage Busybox’s ubiquity and static build to blend in, obscure parentage, and run commands in constrained or minimal environments. A common pattern is copying a standalone busybox into /tmp on a container or embedded host, making it executable, then invoking busybox sh to run one-liners, pull payloads, and stage persistence.
+
+### Possible investigation steps
+
+- Correlate the event to a user session or container exec by pivoting to TTY/session ID, SSH auth logs, and Kubernetes/Docker exec audits to verify whether it was an authorized action.
+- Determine Busybox provenance by checking its path and file metadata (non-standard location, recent write, unusual owner/capabilities or symlink), confirming package ownership, and hashing against trusted repositories and threat intelligence.
+- Expand the process tree 10–15 minutes around the event to find staging steps (curl/wget/tftp, chmod, mv) and post-shell behavior (reverse shells, crypto miners, persistence writes).
+- Collect live context for the shell (current working directory, environment, open sockets, controlling TTY, effective user) to quickly decide if it is interactive misuse or command staging.
+- Hunt across hosts for similar Busybox-to-shell chains and review persistence artifacts and new files in writable dirs (crontab, systemd units, rc files, authorized_keys, /tmp, /dev/shm) to catch follow-on activity.
+
+### False positive analysis
+
+- An administrator performing recovery on a minimal host may copy a static busybox and start an interactive sh with no arguments for troubleshooting, producing a busybox-to-shell chain that is expected.
+- Legitimate privilege-switch or login workflows using Busybox applets (e.g., su or login) can spawn a bare sh without -c for an authenticated session, so confirm a controlling TTY, expected user, and standard paths before treating it as malicious.
+
+### Response and remediation
+
+- Immediately isolate the impacted host or container at the network level, terminate any shells whose parent is busybox, and block outbound traffic initiated by those shells (e.g., nc, curl/wget, ssh to unknown IPs).
+- Identify and remove rogue busybox copies or symlinks in writable locations such as /tmp, /var/tmp, and /dev/shm by revoking execute permissions or deleting them, and capture file hashes, paths, and mtimes for evidence.
+- Remove persistence and droppers created by the busybox-spawned shell by cleaning newly added cron entries under /etc/cron.*, systemd units in /etc/systemd/system, rc.local edits, and suspicious authorized_keys or ~/.bashrc/.profile changes, then reboot if kernel modules or LD_PRELOAD were modified.
+- Reset passwords, rotate SSH keys and tokens used in the session, rebuild affected containers from clean images or reimage hosts if system binaries were changed, and restore services only after verifying no busybox-to-shell chains launch at startup.
+- Escalate to incident response if the busybox-launched shell ran as root, established a reverse connection (e.g., bash -i >& /dev/tcp/<IP>/<port>), created SUID files, or dropped payloads in /tmp, /var/tmp, or /dev/shm, or if a new busybox binary was downloaded or touched minutes before execution.
+- Harden by enforcing noexec,nosuid,nodev mounts on /tmp and /var/tmp, constraining busybox with AppArmor/SELinux to block spawning interactive shells or execution from world-writable paths, locking down container runtime exec and capabilities (e.g., disable kubectl/docker exec for non-admins, remove CAP_SYS_ADMIN), and implementing file integrity monitoring on busybox and standard shells.
+"""
+references = ["https://gtfobins.github.io/gtfobins/busybox/"]
+risk_score = 21
+rule_id = "5134be90-42c1-4ac7-859c-4d82caaddbec"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and  event.type == "start" and event.action == "exec" and process.parent.name == "busybox" and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.command_line in ("bash", "bash-", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+not (
+  process.args == "-c" or
+  process.parent.args : (
+    "crond", "/usr/sbin/crond", "/local-registrator.sh", "/var/atlassian/application-data/bamboo-agent*"
+  ) or
+  process.parent.command_line in (
+    "sh /readonly-config/fix-split-brain.sh",
+    "/bin/sh -c /health-check.sh || bash -c 'kill -s 15 $(pidof siridb-server) && (sleep 10; kill -s 9 $(pidof siridb-server))'"
+  ) or
+  process.command_line == "bash /etc/kafka/docker/run" or
+  process.parent.command_line like (
+    "/bin/sh -c apk add*", "/bin/sh -c crm-cron-enabled*", "udhcpc -n -p /run/udhcpc.*", "flock -x*"
+  ) or
+  process.working_directory == "/usr/share/grafana"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1218"
+    name = "System Binary Proxy Execution"
+    reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"

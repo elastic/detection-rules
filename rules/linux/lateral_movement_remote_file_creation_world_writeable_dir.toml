@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/11/12"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ be an indicator of an attacker attempting to move laterally within a network.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*", "auditbeat-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Remote File Creation in World Writeable Directory"
 note = """ ## Triage and analysis
@@ -101,11 +101,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-file where host.os.type == "linux" and event.action == "creation" and
-process.name in ("scp", "sshd", "ssh", "ftp", "sftp", "vsftpd", "sftp-server", "rsync") and
-file.path like~ ("/tmp*", "/var/tmp*", "/dev/shm/*", "/home/.*") and user.id != "0"
+event.category:file and host.os.type:linux and event.action:creation and
+process.name:(ftp or rsync or scp or sftp or sftp-server or ssh or sshd or vsftpd) and
+file.path:((/dev/shm/* or /tmp* or /var/tmp*) and not (/tmp/ansible-tmp-* or /var/tmp/ansible-tmp-*)) and
+not user.id:0
 '''
 
 [[rule.threat]]
@@ -130,3 +131,11 @@ reference = "https://attack.mitre.org/techniques/T1570/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
