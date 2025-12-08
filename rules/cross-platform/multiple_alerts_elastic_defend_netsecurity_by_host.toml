@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2025/11/18"
+integration = ["endpoint", "panw", "fortinet_fortigate", "suricata"]
+maturity = "production"
+updated_date = "2025/11/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule correlate any Elastic Defend alert with a set of suspicious events from Network security devices like Palo Alto
+Networks (PANW) and Fortinet Fortigate by host.ip and source.ip. This may indicate that this host is compromised and
+triggering multi-datasource alerts.
+"""
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Elastic Defend and Network Security Alerts Correlation"
+risk_score = 73
+rule_id = "0bca7e73-e1b5-4fb2-801b-9b5f5be20dfe"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Fortinet",
+    "Data Source: PAN-OS"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-* metadata _id
+| WHERE
+        // Elastic Defend Alerts
+        (event.module == "endpoint" and event.dataset == "endpoint.alerts") or
+
+        // PANW suspicious events
+        (event.dataset == "panw.panos" and
+         event.action in ("virus_detected", "wildfire_virus_detected", "c2_communication", "spyware_detected", "large_upload", "denied", "exploit_detected")) or
+
+        // Fortigate suspicious events
+        (event.dataset == "fortinet_fortigate.log" and
+         (event.action in ("outbreak-prevention", "deny", "infected", "blocked") or message like "backdoor*" or message like "Proxy*" or message like "anomaly*" or message like "P2P*" or message like "misc*" or message like "DNS.Over.HTTPS" or message like "Remote.Access")) or
+
+        // Suricata
+        (event.dataset == "suricata.eve" and message in ("Command and Control Traffic", "Potentially Bad Traffic", "A Network Trojan was detected", "Detection of a Network Scan", "Domain Observed Used for C2 Detected", "Malware Command and Control Activity Detected"))
+
+// extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
+|eval fw_alert_source_ip = CASE(event.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
+      elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", host.ip, null)
+| eval Esql.source_ip = COALESCE(fw_alert_source_ip, elastic_defend_alert_host_ip)
+| where Esql.source_ip is not null
+
+// group by host_source_ip shared between FG/PANW and Elastic Defend
+| stats Esql.alerts_count = COUNT(*),
+        Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
+        Esql.event_module_values = VALUES(event.module),
+        Esql.message_values = VALUES(message),
+        Esql.event_action_values = VALUES(event.action),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.host_id_values = VALUES(host.id),
+        Esql.user_name_values = VALUES(user.name),
+        Esql.destination_ip_values = VALUES(destination.ip)
+        by Esql.source_ip
+| where Esql.event_module_distinct_count >= 2
+| eval concat_module_values = MV_CONCAT(Esql.event_module_values, ",")
+// Make sure an endpoint alert is present along one of the network ones
+| where concat_module_values like "*endpoint*"
+| keep Esql.alerts_count, Esql.source_ip, Esql.destination_ip_values, Esql.host_id_values, Esql.user_name_values, Esql.event_module_values, Esql.message_values, Esql.process_executable_values
+'''
+note = """## Triage and analysis
+
+### Investigating Elastic Defend and Network Security Alerts Correlation
+
+This rule correlate any Elastic Defend alert with suspicious events from Network Security datasources like Palo Alto Networks (PANW), Fortinet Fortigate and Suricata by host.ip and source.ip.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and users involved.
+- Investiguate the network alerts by destination.ip and message.
+- Examine the timeline of the alerts to understand the sequence of events and determine if there is a pattern or progression in the tactics used.
+- Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
+- Check for any indicators of compromise (IOCs) associated with the alerts, such as suspicious IP addresses, domains, or file hashes, and search for these across the network.
+- Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
+
+### False positive analysis
+
+- IP address ranges overlap where the host.ip value from the Elastic Defend alert is unrelated to the source.ip value from the Network Security alert.
+- Alerts from routine administrative tasks may trigger multiple alerts. Review and exclude known benign activities such as scheduled software updates or system maintenance.
+- Security tools running on the host might generate alerts across different tactics. Identify and exclude alerts from trusted security applications to reduce noise.
+- Automated scripts or batch processes can mimic adversarial behavior. Analyze and whitelist these processes if they are verified as non-threatening.
+- Frequent alerts from development or testing environments can be misleading. Consider excluding these environments from the rule or applying a different risk score.
+- User behavior anomalies, such as accessing multiple systems or applications, might trigger alerts. Implement user behavior baselines to differentiate between normal and suspicious activities.
+
+### Response and remediation
+
+- Isolate the affected host from the network immediately to prevent further lateral movement by the adversary.
+- Conduct a thorough forensic analysis of the host to identify the specific vulnerabilities exploited and gather evidence of the attack phases involved.
+- Remove any identified malicious software or unauthorized access tools from the host, ensuring all persistence mechanisms are eradicated.
+- Apply security patches and updates to the host to address any exploited vulnerabilities and prevent similar attacks.
+- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
+- Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
+- Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""
+
+
+

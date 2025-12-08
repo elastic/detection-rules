@@ -76,7 +76,9 @@ _version = r"\d+\.\d+(\.\d+[\w-]*)*"
 CONDITION_VERSION_PATTERN = re.compile(rf"^\^{_version}$")
 VERSION_PATTERN = f"^{_version}$"
 MINOR_SEMVER = re.compile(r"^\d+\.\d+$")
-FROM_SOURCES_REGEX = re.compile(r"^\s*FROM\s+(?P<sources>.+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE)
+FROM_SOURCES_REGEX = re.compile(
+    r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
+)
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
@@ -105,9 +107,11 @@ NON_PUBLIC_FIELDS = {
     "setup": (Version.parse("8.3.0"), None),
 }
 INTERVAL_PATTERN = r"^\d+[mshd]$"
-TACTIC_URL = r"^https://attack.mitre.org/tactics/TA[0-9]+/$"
-TECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/$"
-SUBTECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$"
+TACTIC_URL = r"^(https://attack.mitre.org/tactics/TA[0-9]+/|https://atlas.mitre.org/tactics/AML\.TA[0-9]+/)$"
+TECHNIQUE_URL = r"^(https://attack.mitre.org/techniques/T[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+/)$"
+SUBTECHNIQUE_URL = (
+    r"^(https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+\.[0-9]+/)$"
+)
 MACHINE_LEARNING = "machine_learning"
 QUERY = "query"
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
@@ -245,7 +249,7 @@ NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=0, max=100))]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
 SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
 SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]

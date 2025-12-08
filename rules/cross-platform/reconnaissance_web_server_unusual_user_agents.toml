@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects unusual spikes in web server requests with uncommon or suspicious user-agent strings. Such activity may
+indicate reconnaissance attempts by attackers trying to identify vulnerabilities in web applications or servers. These
+user-agents are often associated with automated tools used for scanning, vulnerability assessment, or brute-force attacks.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Suspicious User Agent Requests"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Suspicious User Agent Requests
+
+This rule flags surges of web requests that advertise scanner or brute-force tool user agents, signaling active reconnaissance against your web servers and applications. A common pattern is dirsearch or gobuster sweeping for hidden paths, firing hundreds of rapid GETs across diverse URLs from one host and probing admin panels, backup folders, and robots.txt.
+
+### Possible investigation steps
+
+- Verify whether the activity aligns with approved scanners or uptime checks by cross-referencing inventories, allowlists, change windows, and egress ranges; otherwise enrich the originating IP with ASN, geolocation, and threat reputation to gauge risk.
+- Sample representative requests to identify targeted paths and payloads (e.g., admin panels, .git/.env, backups, traversal, SQLi/XSS markers) and note any successful responses or downloads that indicate information exposure.
+- Analyze request rate, methods, and status-code distribution to separate noisy recon from successful discovery or brute-force patterns, highlighting any POST/PUT with nontrivial bodies.
+- Correlate the same client across hosts and security layers (application/auth logs, WAF/CDN, IDS) to determine whether it is scanning multiple services, triggering signatures, or attempting credential stuffing.
+- Assess user-agent authenticity and evasiveness by comparing HTTP header order/values and TLS fingerprints (JA3/JA4) to expected clients, and verify true client identity via forwarded-for headers if behind a proxy or CDN.
+
+### False positive analysis
+
+- Legitimate, scheduled vulnerability assessments by internal teams (e.g., Nessus, Nikto, or OpenVAS) can generate large volumes of requests with those user-agent strings across many paths.
+- Developer or QA testing using discovery/fuzzing or intercept-proxy tools (Dirsearch, Gobuster, Ffuf, Burp, or OWASP ZAP) may unintentionally target production hosts, producing a short-lived spike with diverse URLs.
+
+### Response and remediation
+
+- Immediately contain by blocking or rate-limiting the originating IPs at the WAF/CDN and edge firewall, and add temporary rules to drop or challenge requests that advertise tool user agents such as "nikto", "sqlmap", "dirsearch", "wpscan", "gobuster", or "burp".
+- If traffic is proxied (CDN/reverse proxy), identify the true client via forwarded headers and extend blocks at both layers, enabling bot management or JS challenges on swept paths like /admin, /.git, /.env, /backup, and common discovery endpoints.
+- Eradicate exposure by removing or restricting access to sensitive files and directories uncovered by the scans, rotating any credentials or API keys found, invalidating active sessions, and disabling public access to administrative panels until hardened.
+- Recover by verifying no unauthorized changes or data exfiltration occurred, tuning per-IP and per-path rate limits to prevent path-sweeps while preserving legitimate traffic, and reintroducing normal rules only after fixes are deployed and stability is confirmed.
+- Escalate to incident response if sensitive files are successfully downloaded (HTTP 200/206 on /.git, /.env, or backups), any login or account creation succeeds, multiple hosts or environments are targeted, or activity persists after blocking via UA spoofing or rapid IP rotation.
+- Harden long term by enforcing WAF signatures for known scanner UAs and path patterns, denying directory listing and direct access to /.git, /.env, /backup and similar artifacts, requiring MFA/VPN for /admin and management APIs, and deploying auto-ban controls like fail2ban or mod_security.
+"""
+risk_score = 21
+rule_id = "a1b7ffa4-bf80-4bf1-86ad-c3f4dc718b35"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+
+| eval Esql.user_agent_original_to_lower = to_lower(user_agent.original), Esql.url_original_to_lower = to_lower(url.original)
+
+| where
+    Esql.user_agent_original_to_lower like "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/74.0.3729.169 safari/537.36" or // Nikto
+    Esql.user_agent_original_to_lower like "nikto*" or // Nikto
+    Esql.user_agent_original_to_lower like "mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)" or // Nessus Vulnerability Scanner
+    Esql.user_agent_original_to_lower like "*nessus*" or // Nessus Vulnerability Scanner
+    Esql.user_agent_original_to_lower like "sqlmap/*" or // SQLMap
+    Esql.user_agent_original_to_lower like "wpscan*" or // WPScan
+    Esql.user_agent_original_to_lower like "feroxbuster/*" or // Feroxbuster
+    Esql.user_agent_original_to_lower like "masscan*" or // Masscan & masscan-ng
+    Esql.user_agent_original_to_lower like "fuzz*" or // Ffuf
+    Esql.user_agent_original_to_lower like "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/user_agent.original like~ 87.0.4280.88 safari/537.36" or // Dirsearch
+    Esql.user_agent_original_to_lower like "mozilla/4.0 (compatible; msie 6.0; windows nt 5.1)" or // Dirb
+    Esql.user_agent_original_to_lower like "dirbuster*" or // Dirbuster
+    Esql.user_agent_original_to_lower like "gobuster/*" or // Gobuster
+    Esql.user_agent_original_to_lower like "*dirsearch*" or // dirsearch
+    Esql.user_agent_original_to_lower like "*nmap*" or // Nmap Scripting Engine
+    Esql.user_agent_original_to_lower like "*hydra*" or // Hydra Brute Forcer
+    Esql.user_agent_original_to_lower like "*w3af*" or // w3af Web Application Attack and Audit Framework
+    Esql.user_agent_original_to_lower like "*arachni*" or // Arachni Web Application Security Scanner
+    Esql.user_agent_original_to_lower like "*skipfish*" or // Skipfish Web Application Security Scanner
+    Esql.user_agent_original_to_lower like "*openvas*" or // OpenVAS Vulnerability Scanner
+    Esql.user_agent_original_to_lower like "*acunetix*" or // Acunetix Vulnerability Scanner
+    Esql.user_agent_original_to_lower like "*zap*" or // OWASP ZAP
+    Esql.user_agent_original_to_lower like "*burp*" // Burp Suite
+
+| keep
+    @timestamp,
+    event.dataset,
+    user_agent.original,
+    source.ip,
+    agent.id,
+    host.name,
+    Esql.url_original_to_lower,
+    Esql.user_agent_original_to_lower,
+    data_stream.namespace
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_count_distinct = count_distinct(Esql.url_original_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.url_original_values = values(Esql.url_original_to_lower),
+    Esql.user_agent_original_values = values(Esql.user_agent_original_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip, agent.id
+| where
+    Esql.event_count > 50 and Esql.url_original_count_distinct > 10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.001"
+name = "Scanning IP Blocks"
+reference = "https://attack.mitre.org/techniques/T1595/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
