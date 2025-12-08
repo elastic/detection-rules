@@ -140,7 +140,7 @@ def generate_rules_index(
 @click.option("--action-connector-import", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--exceptions-import", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--required-only", is_flag=True, help="Only prompt for required fields")
-@click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True), help="Load files from a directory")
+@click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True, path_type=Path), help="Load files from a directory")
 @click.option(
     "--save-directory",
     "-s",
