@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2025/12/08"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,7 @@ query = '''
 sequence by host.id, process.entity_id with maxspan = 1m
    [network where host.os.type == "windows" and process.name : "svchost.exe" and
    network.direction : ("incoming", "ingress") and source.port >= 49152 and destination.port >= 49152 and
-   source.ip != "127.0.0.1" and source.ip != "::1"
+   source.ip != "127.0.0.1" and source.ip != "::1" and source.ip != null
    ]
    [registry where host.os.type == "windows" and event.type == "change" and registry.value : "Actions" and
     registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
