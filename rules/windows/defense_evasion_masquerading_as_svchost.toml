@@ -2,7 +2,7 @@
 creation_date = "2025/11/12"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/12/05"
+updated_date = "2025/12/09"
 min_stack_version = "9.1.0"
 min_stack_comments = "The esql match operator was introduced in version 9.1.0"
 
@@ -72,10 +72,10 @@ query = '''
 FROM logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*, logs-windows.*, winlogbeat-* metadata _id, _version, _index
 | where event.category == "process" and event.type == "start" and
   match(process.name, "svchost.exe", { "fuzziness": 1, "max_expansions": 10 }) and
-  not process.executable in ("C:\\Windows\\SysWOW64\\svchost.exe", "C:\\Windows\\System32\\svchost.exe") and
-  not process.executable like """\\Device\\HarddiskVolume*\\Windows\\System32\\svchost.exe""" and
-  not process.executable like """\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\svchost.exe"""
-| keep event.dataset, host.name, host.id, user.id, user.name, process.executable, process.parent.executable, process.command_line
+  not to_lower(process.executable) in ("c:\\windows\\syswow64\\svchost.exe", "c:\\windows\\system32\\svchost.exe") and
+  not to_lower(process.executable) like """\\device\\harddiskvolume*\\windows\\system32\\svchost.exe""" and
+  not to_lower(process.executable) like """\\device\\harddiskvolume*\\windows\\syswow64\\svchost.exe""" 
+| keep event.dataset, host.name, host.id, user.id, user.name, process.executable, process.parent.executable, process.command_line, _id, _version, _index
 '''
 
 
