@@ -72,11 +72,9 @@ query = '''
 FROM logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*, logs-windows.*, winlogbeat-* metadata _id, _version, _index
 | where event.category == "process" and event.type == "start" and
   match(process.name, "svchost.exe", { "fuzziness": 1, "max_expansions": 10 }) and
-  not process.executable in ("C:\\Windows\\SysWOW64\\svchost.exe", "C:\\Windows\\System32\\svchost.exe")
-| eval process.executable = to_lower(process.executable)
-| where
-  not process.executable like """\\device\\harddiskvolume*\\windows\\system32\\svchost.exe""" and
-  not process.executable like """\\device\\harddiskvolume*\\windows\\syswow64\\svchost.exe"""
+  not to_lower(process.executable) in ("c:\\windows\\syswow64\\svchost.exe", "c:\\windows\\system32\\svchost.exe") and
+  not to_lower(process.executable) like """\\device\\harddiskvolume*\\windows\\system32\\svchost.exe""" and
+  not to_lower(process.executable) like """\\device\\harddiskvolume*\\windows\\syswow64\\svchost.exe""" 
 | keep event.dataset, host.name, host.id, user.id, user.name, process.executable, process.parent.executable, process.command_line, _id, _version, _index
 '''
 
