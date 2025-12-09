@@ -373,9 +373,13 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         return list({str(f) for f in self.ast if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
-    def auto_add_field(self, validation_checks_error: eql.EqlParseError, index_or_dataview: str) -> None:
+    def auto_add_field(
+        self, validation_checks_error: eql.EqlParseError, index_or_dataview: str, field: str | None = None
+    ) -> None:
         """Auto add a missing field to the schema."""
-        field_name = extract_error_field(self.query, validation_checks_error)
+        field_name = field
+        if not field:
+            field_name = extract_error_field(self.query, validation_checks_error)
         if not field_name:
             raise ValueError("No field name found")
         field_type = ecs.get_all_flattened_schema().get(field_name)
@@ -584,6 +588,8 @@ class EQLValidator(QueryValidator):
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
+        # base field declaration
+        field = None
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             return
 
@@ -606,7 +612,7 @@ class EQLValidator(QueryValidator):
             )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
             for t in ordered_targets:
-                exc = self.validate_query_text_with_schema(
+                exc, field = self.validate_query_text_with_schema(
                     t.query_text,
                     t.schema,
                     err_trailer=t.err_trailer,
@@ -629,7 +635,7 @@ class EQLValidator(QueryValidator):
                 and RULES_CONFIG.auto_gen_schema_file
                 and data.index_or_dataview
             ):
-                self.auto_add_field(first_error, data.index_or_dataview[0])  # type: ignore[reportArgumentType]
+                self.auto_add_field(first_error, data.index_or_dataview[0], field=field)  # type: ignore[reportArgumentType]
                 continue
 
             # Raise the enriched parse error (includes target trailer + metadata)
@@ -645,7 +651,7 @@ class EQLValidator(QueryValidator):
         min_stack_version: str,
         beat_types: list[str] | None = None,
         integration_types: list[str] | None = None,
-    ) -> EQL_ERROR_TYPES | ValueError | None:
+    ) -> tuple[EQL_ERROR_TYPES | ValueError | None, str | None]:
         """Validate the provided EQL query text against the schema (variant of validate_query_with_schema)."""
         try:
             config = set_eql_config(min_stack_version)
@@ -657,13 +663,16 @@ class EQLValidator(QueryValidator):
             # If the error is an unknown field and the field was referenced as optional (prefixed with '?'),
             # treat this target as non-fatal to honor EQL optional semantics.
 
+            # To support EQL sequence and sub query validation we need to return this field to overwrite
+            # what would have been parsed via auto_add_field as the error message and query may be out of sync
+            # depending on how the method is called.
             field = extract_error_field(query_text, exc)
             if (
                 field
                 and ("Unknown field" in message or "Field not recognized" in message)
                 and f"?{field}" in self.query
             ):
-                return None
+                return None, field
             if "Unknown field" in message and beat_types:
                 trailer_parts.insert(0, "Try adding event.module or event.dataset to specify beats module")
             elif "Field not recognized" in message and isinstance(schema, ecs.KqlSchema2Eql):
@@ -691,10 +700,11 @@ class EQLValidator(QueryValidator):
                 exc.source,  # type: ignore[reportUnknownArgumentType]
                 len(exc.caret.lstrip()),
                 trailer=trailer,
-            )
+            ), field
         except Exception as exc:  # noqa: BLE001
             print(err_trailer)
-            return exc  # type: ignore[reportReturnType]
+            return exc, None  # type: ignore[reportReturnType]
+        return None, None
 
     def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> tuple[list[str], bool]:
         """Validate EQL rule type configurations (timestamp_field, event_category_override, tiebreaker_field).

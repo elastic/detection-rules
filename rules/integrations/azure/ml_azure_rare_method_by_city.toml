@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2025/10/06"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "New job added"
+min_stack_version = "9.3.0"
+updated_date = "2025/12/08"
+
+[rule]
+anomaly_threshold = 50
+author = ["Elastic"]
+description = """
+A machine learning job detected Azure Activity Logs activity that, while not inherently suspicious or abnormal, is sourcing from
+a geolocation (city) that is unusual for the event action. This can be the result of compromised credentials or keys being
+used by a threat actor in a different geography than the authorized user(s).
+"""
+false_positives = [
+    """
+    New or unusual event and user geolocation activity can be due to manual troubleshooting or reconfiguration;
+    changes in cloud automation scripts or workflows; adoption of new services; expansion into new regions; increased
+    adoption of work from home policies; or users who travel frequently.
+    """,
+]
+from = "now-2h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "azure_activitylogs_rare_event_action_for_a_city"
+name = "Unusual City for an Azure Activity Logs Event"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual City for an Azure Activity Logs Event
+
+This rule highlights Azure Activity Logs activity executed from a city atypical for the action, indicating use of valid accounts from a different geography. A common pattern is a threat actor using stolen user or service principal credentials to add privileged role assignments and rapidly spin up compute to stage data exfiltration or mining from overseas. Location–action mismatch surfaces stealthy account abuse before persistence and broader impact.
+
+### Possible investigation steps
+
+- Identify the principal behind the operation and validate legitimate presence in the region by contacting the user/owner and reviewing travel or business justification.
+- Enrich the source IP with ASN, hosting/cloud provider, VPN/Tor indicators, reverse DNS, and threat intel to determine whether it originates from anonymizing or compute infrastructure.
+- Correlate Entra ID sign-in logs for the principal around the timestamp to check impossible travel, MFA usage or bypass, device compliance state, and atypical user-agent strings.
+- Review adjacent Azure Resource Manager activity by the same principal for privileged changes such as role assignments, policy updates, access key or secret actions, and rapid compute/network provisioning.
+- Determine whether the actor is a user or service principal, and if a service principal, inspect recent secret/certificate changes, unexpected consent or role grants, and potential credential exposure in CI/CD or repositories.
+
+### False positive analysis
+
+- A legitimate admin traveling or connecting via a VPN or newly configured egress/NAT gateway can geolocate to an unexpected city while performing routine Azure Activity Logs actions.
+- Service principal or managed identity automation executing from a different Azure region due to multi-region deployment or failover can egress from a city unusual for the action yet still be authorized.
+
+### Response and remediation
+
+- Immediately revoke active sessions and refresh tokens for the implicated user or service principal, disable the account or application, and block the observed source IP/CIDR at Azure Firewall and NSGs to contain activity.
+- Reset the user's password and force MFA re-registration, or for a service principal rotate all client secrets/certificates and remove any recent admin consent grants to eradicate credential reuse.
+- Revert changes executed from the unusual city by removing newly added role assignments, deleting unexpected VMs/VNets or policy updates, and rotating Storage account keys and Key Vault secrets if they were accessed.
+- After containment, verify business justification (travel or new egress) and restore any required resources from ARM/Bicep templates or backups, then re-enable access behind Conditional Access with known egress IPs only.
+- Escalate to Incident Response if the actor performs privileged role grants, Key Vault secret retrieval, Storage key listing, or rapid compute provisioning within the same session, or if sign-in shows impossible travel or missing MFA.
+- Harden by enforcing PIM for Owner/Contributor/User Access Administrator roles, configuring Conditional Access with country allowlists and named egress IP ranges, restricting service principals to certificate-only auth and Private Link on Key Vault/Storage, and enabling continuous geolocation anomaly alerts in Microsoft Sentinel.
+"""
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from Azure Activity Logs.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Azure Activity Logs Integration Setup
+The Azure Activity Logs integration allows you to collect logs and metrics from Azure with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "Azure Activity Logs" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Azure Activity Logs” and select the integration to see more details about it.
+- Click “Add Azure Activity Logs”.
+- Configure the integration.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/reference/integrations/azure/activitylogs).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "ce08cdb8-e6cb-46bb-a7cc-16d17547323f"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"

@@ -228,7 +228,7 @@ class Tactic(BaseThreatEntry):
 class ThreatMapping(MarshmallowDataclassMixin):
     """Mapping to a threat framework."""
 
-    framework: Literal["MITRE ATT&CK"]
+    framework: Literal["MITRE ATT&CK", "MITRE ATLAS"]
     tactic: Tactic
     technique: list[Technique] | None = None
 
@@ -1528,7 +1528,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 *definitions.NON_DATASET_PACKAGES,
                 *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
             ]
-            if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+            if (
+                integration in ineligible_integrations
+                or isinstance(data, MachineLearningRuleData)
+                or (isinstance(data, ESQLRuleData) and integration not in datasets)
+            ):
                 packaged_integrations.append({"package": integration, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))

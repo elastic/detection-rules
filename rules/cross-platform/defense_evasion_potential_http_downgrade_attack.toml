@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2025/11/27"
+integration = ["nginx", "apache", "apache_tomcat"]
+maturity = "production"
+updated_date = "2025/12/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Through the new_terms rule type, this rule detects potential HTTP downgrade attacks by identifying
+HTTP traffic that uses a different HTTP version than the one typically used in the environment. An
+HTTP downgrade attack occurs when an attacker forces a connection via an older HTTP version, 
+resulting in potentially less secure communication. For example, an attacker might downgrade a
+connection from HTTP/2 to HTTP/1.1 or HTTP/1.0 to exploit known vulnerabilities or weaknesses in
+the older protocol versions.
+"""
+from = "now-9m"
+index = [
+        "logs-nginx.access-*",
+        "logs-apache.access-*",
+        "logs-apache_tomcat.access-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential HTTP Downgrade Attack"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential HTTP Downgrade Attack
+
+This detection surfaces HTTP traffic negotiating a protocol version that deviates from your baseline, a sign of downgrade attempts that strip protections and enable evasion or exploit paths in older behaviors. An attacker deliberately breaks HTTP/2 negotiation so the server falls back to HTTP/1.1, then probes with crafted headers and chunked bodies to attempt request smuggling or cache bypass against web services.
+
+### Possible investigation steps
+
+- Correlate with TLS termination or load balancer logs to verify ALPN or Upgrade negotiation (server advertising h2) and whether the same client/IP previously used h2 with the same SNI/Host, distinguishing forced downgrade from capability mismatch.
+- Review the downgraded requests for exploitation indicators such as simultaneous Content-Length and Transfer-Encoding headers, duplicated or mixed-case headers, unusual methods (TRACE or PRI), or inconsistent chunked encoding suggesting smuggling attempts.
+- Examine surrounding response patterns for increased 400/421/426/431/505, backend 5xx, connection resets, or latency spikes that coincide with these requests and indicate error-driven fallback or probing.
+- Check for recent config changes or incidents on CDNs/WAFs/load balancers and web servers (e.g., http2 enablement, ALPN lists, h2/h2c settings) that could have disabled HTTP/2 and caused benign fallbacks.
+- Cluster events by source IP/User-Agent/ASN and targeted host to identify campaign activity across services and pivot the sources through threat intelligence or reputation feeds.
+
+### False positive analysis
+
+- Recent Nginx/Apache/Tomcat configuration changes that disable HTTP/2/h2c or alter TLS/ALPN on specific virtual hosts can legitimately force clients to fall back to HTTP/1.1, surfacing as a downgrade event in access logs.
+- Newly onboarded internal services or scripts that only support HTTP/1.0/1.1 and begin hitting an endpoint for the first time can introduce a first-seen older http.version relative to an HTTP/2 baseline without malicious intent.
+
+### Response and remediation
+
+- Immediately block or challenge source IPs/ASNs repeatedly forcing HTTP/1.1 to hosts that previously negotiated HTTP/2 via ALPN, and enable WAF rules to drop “Upgrade: h2c” attempts, requests with both Content-Length and Transfer-Encoding, or duplicated/mixed-case headers.
+- Remove downgrade paths by requiring TLS+ALPN “h2” on 443 (e.g., Nginx listen 443 ssl http2; Apache Protocols h2 http/1.1), disabling cleartext h2c and HTTP/1.0 on public endpoints, and ensuring intermediaries do not strip ALPN or rewrite headers.
+- Redeploy corrected configs and validate end-to-end HTTP/2 with curl --http2 and browser devtools, then confirm normal 2xx/3xx rates and elimination of 421/426/431/505 responses and backend 5xx spikes around previously downgraded traffic.
+- Escalate to Incident Response if downgraded requests show smuggling patterns (simultaneous Content-Length and Transfer-Encoding, mixed-case duplicates, TRACE/PRI methods), hit sensitive paths (/admin, /login, /actuator), or trigger cache anomalies like cross-user content.
+- Harden parsing and caching by normalizing headers at the edge, enforcing a single Content-Length, disabling TRACE, setting strict client_header_buffer_size and large_client_header_buffers, and configuring proxies/backends to reject conflicting CL/TE or ambiguous chunked bodies.
+"""
+risk_score = 21
+rule_id = "9797d2c8-8ec9-48e6-a022-350cdfbf2d5e"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+http.version:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.010"
+name = "Downgrade Attack"
+reference = "https://attack.mitre.org/techniques/T1562/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["http.version", "agent.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

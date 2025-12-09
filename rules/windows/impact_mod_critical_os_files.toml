@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/09/01"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,6 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
-    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -75,9 +74,20 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type in ("change", "deletion") and
- file.name : ("winload.exe", "winlod.efi", "ntoskrnl.exe", "bootmgr") and
- file.path : ("?:\\Windows\\*", "\\Device\\HarddiskVolume*\\Windows\\*") and
- not process.executable : ("?:\\Windows\\System32\\poqexec.exe", "\\Device\\HarddiskVolume*\\Windows\\System32\\poqexec.exe")
+  file.name : ("winload.exe", "winlod.efi", "ntoskrnl.exe", "bootmgr") and
+  file.path : ("?:\\Windows\\*", "\\Device\\HarddiskVolume*\\Windows\\*") and
+  not process.executable : (
+    "?:\\Windows\\System32\\poqexec.exe",
+    "?:\\Windows\\WinSxS\\amd64_microsoft-windows-servicingstack_*\\tiworker.exe"
+  ) and
+  not file.path : (
+    "?:\\Windows\\WinSxS\\Temp\\InFlight\\*",
+    "?:\\Windows\\SoftwareDistribution\\Download*",
+    "?:\\Windows\\WinSxS\\amd64_microsoft-windows*",
+    "?:\\Windows\\SystemTemp\\*",
+    "?:\\Windows\\Temp\\????????.???\\*",
+    "?:\\Windows\\Temp\\*\\amd64_microsoft-windows-*"
+  )
 '''
 
 

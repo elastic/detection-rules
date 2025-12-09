@@ -1,0 +1,150 @@
+[metadata]
+creation_date = "2025/12/01"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/12/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of pods or containers that execute suspicious commands often associated with persistence or
+privilege escalation techniques. Attackers may use container orchestration tools like kubectl or container runtimes like
+docker to create pods or containers that run shell commands with arguments that indicate attempts to establish persistence
+(e.g., modifying startup scripts, creating backdoors).
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Pod or Container Creation with Suspicious Command-Line"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Pod or Container Creation with Suspicious Command-Line
+
+This rule flags pods or containers started via orchestration or runtime tools that immediately execute a shell with commands linked to persistence, privilege changes, or covert I/O (cron, rc.local, sudoers, .ssh, base64, netcat/socat, /tmp). This matters because attackers often spin short‑lived workloads to modify startup paths or drop backdoors. Example: kubectl run --restart=Never -- sh -c 'echo ssh-rsa AAAA... >> /root/.ssh/authorized_keys && nc -lvp 4444 -e /bin/sh'.
+
+### Possible investigation steps
+
+- Pivot to Kubernetes audit logs to identify the actor (user or service account), namespace, source IP/workstation, and RBAC context that launched the workload, and validate whether this aligns with approved admin activity.
+- Pull the pod/container spec and image metadata to quickly assess risk indicators like unapproved registry/image, privileged mode, hostNetwork/hostPID, and hostPath or sensitive volume mounts that could mutate the node.
+- Parse the executed command to determine whether it attempts persistence or backdoor setup (editing cron/rc.local, sudoers or authorized_keys, base64 file drops, starting netcat/socat listeners), and verify those changes on the container or node.
+- Correlate runtime and network telemetry for the workload to detect outbound connections or listening ports indicative of reverse shells, and identify destination endpoints and nodes involved.
+- Trace the launcher context by reviewing kubectl client host artifacts (shell history, kubeconfig, IAM/MFA tokens) or CI/CD logs, and check for recent anomalous commits or pipeline runs that could have triggered it.
+
+### False positive analysis
+
+- Administrators performing network troubleshooting or node diagnostics may start ephemeral pods via kubectl run --restart=Never or ad hoc containers with docker/nerdctl that launch sh and use nc/socat/telnet, read /proc, or write to /tmp.
+- Engineers may pass configs or test scripts into a shell using base64/xxd and touch cron, rc.local, /etc/ssh, ~/.ssh, or /etc/profile during validation or break-fix work, producing commands that resemble persistence behavior.
+
+### Response and remediation
+
+- Delete the offending pod/container, revoke the kubeconfig or runtime credentials used to launch it, and quarantine the image and namespace, cordoning the node if privileged, hostNetwork/hostPID, or hostPath were present.
+- Kill any spawned shells or listeners (e.g., sh -c 'nc -lvp ...', socat, telnet) on affected nodes, remove unauthorized firewall/iptables rules, and apply temporary deny-all egress NetworkPolicies to cut C2.
+- Eradicate persistence by restoring clean versions of /etc/cron*, /etc/rc.local, /etc/profile, /etc/sudoers, /etc/ssh/* and deleting unauthorized keys or scripts under /root/.ssh, ~/.ssh, /tmp, /dev/shm, /var/tmp, and hostPath-mounted directories.
+- Rebuild compromised nodes or redeploy workloads with known-good images, rotate cluster secrets and SSH keys, and validate baseline integrity with file hashes and admission scans before returning to service.
+- Escalate to incident response if the actor is unverified or commands touched /etc/shadow or /etc/sudoers, used privileged containers or hostPath to access the host, or opened external connections or listening ports on the node.
+- Harden by enforcing admission controls to deny pods that start /bin/sh or /bin/bash as PID 1, block privileged/hostNetwork/hostPID/hostPath, apply per-namespace egress policies, and restrict RBAC so only approved admins can run kubectl run --restart=Never or docker/nerdctl run.
+"""
+risk_score = 47
+rule_id = "c595363f-52a6-49e1-9257-0e08ae043dbd"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and (
+  (process.name == "kubectl" and process.args == "run" and process.args == "--restart=Never" and process.args == "--") or
+  (process.name in ("docker", "nerdctl", "ctl") and process.args == "run")
+) and 
+process.args in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.command_line like~ (
+  "*atd*", "*cron*", "*/etc/rc.local*", "*/dev/tcp/*", "*/etc/init.d*", "*/etc/update-motd.d*", "*/etc/ld.so*", "*/etc/sudoers*", "*base64 *",
+  "*/etc/profile*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*" , "*~/.ssh/*", "*autostart*", "*xxd *", "*/etc/shadow*", "*./.*",
+  "*import*pty*spawn*", "*import*subprocess*call*", "*TCPSocket.new*", "*TCPSocket.open*", "*io.popen*", "*os.execute*", "*fsockopen*",
+  "*disown*", "* ncat *", "* nc *", "* netcat *",  "* nc.traditional *", "*socat*", "*telnet*", "*/tmp/*", "*/dev/shm/*", "*/var/tmp/*",
+  "*/boot/*", "*/sys/*", "*/lost+found/*", "*/media/*", "*/proc/*", "*/var/backups/*", "*/var/log/*", "*/var/mail/*", "*/var/spool/*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

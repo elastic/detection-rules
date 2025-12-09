@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2025/10/06"
+integration = ["gcp"]
+maturity = "production"
+min_stack_comments = "New job added"
+min_stack_version = "9.3.0"
+updated_date = "2025/11/21"
+
+[rule]
+anomaly_threshold = 50
+author = ["Elastic"]
+description = """
+A machine learning job detected an unusual failure in a GCP Audit message. These can be byproducts of attempted or
+successful persistence, privilege escalation, defense evasion, discovery, lateral movement, or collection.
+"""
+false_positives = [
+    """
+    Rare and unusual failures may indicate an impending service failure state. Rare and unusual user failure activity can
+    also be due to manual troubleshooting or reconfiguration attempts by insufficiently privileged users, bugs in cloud
+    automation scripts or workflows, or changes to IAM privileges.
+    """,
+]
+from = "now-2h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "gcp_audit_rare_error_code"
+name = "Rare GCP Audit Failure Event Code"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from GCP.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### GCP Audit logs Integration Setup
+The Google Cloud Platform (GCP) Audit logs integration allows you to collect logs and metrics from Google Cloud Platform (GCP) with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System "Google Cloud Platform (GCP) Audit logs" integration to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Google Cloud Platform (GCP) Audit logs” and select the integration to see more details about it.
+- Click “Add Google Cloud Platform (GCP) Audit logs".
+- Configure the integration.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/gcp).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "5378a829-30c2-435a-a0f2-e3d794bd6f80"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

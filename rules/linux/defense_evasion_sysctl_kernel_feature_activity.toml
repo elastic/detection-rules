@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,8 @@ NMI watchdog by setting kernel.nmi_watchdog to 0. These changes may be used to i
 """
 from = "now-9m"
 index = [
-    "logs-endpoint.events.process*",
+  "logs-endpoint.events.process*",
+  "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -59,18 +60,19 @@ risk_score = 21
 rule_id = "3aff6ab1-18bd-427e-9d4c-c5732110c261"
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Discovery",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
 process.command_line : (
   "*/etc/sysctl.conf*", "*/etc/sysctl.d/*", "*/proc/sys/kernel/nmi_watchdog*",
   "*/proc/sys/vm/nr_hugepages*", "*/proc/sys/kernel/yama/ptrace_scope*",
@@ -80,7 +82,7 @@ process.command_line : (
   "*kernel.nmi_watchdog*", "*vm.nr_hugepages*", "*vm.drop_caches*",
   "*kernel.sysrq*"
 ) and
-process.parent.executable != null and 
+?process.parent.executable != null and 
 (
   (process.name == "tee" and process.args like "-*a*") or // also detects --append
   (process.name == "cat" and not process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")) or
