@@ -990,11 +990,24 @@ class ESQLRuleData(QueryRuleData):
 
         # Enforce KEEP command for ESQL rules
         # Match | followed by optional whitespace/newlines and then 'keep'
-        keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
-        if not keep_pattern.search(query_lower):
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match = keep_pattern.search(query_lower)
+        if not keep_match:
             raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
+
+        # Ensure that keep clause includes metadata fields on non-aggregate queries
+        aggregate_pattern = re.compile(r"\bstats\b.*\bby\b", re.IGNORECASE | re.DOTALL)
+        if not aggregate_pattern.search(query_lower):
+            keep_fields = keep_match.group(1)
+            required_metadata = {"_id", "_version", "_index"}
+            if not required_metadata.issubset(set(map(str.strip, keep_fields.split(",")))):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a keep clause without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add '_id, _version, _index' to the keep command."
+                )
 
 
 @dataclass(frozen=True, kw_only=True)
