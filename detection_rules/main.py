@@ -247,6 +247,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
 
+        # Parse created_at and updated_at to creation_date and updated_date if they exist in contents
         if "created_at" in contents:
             try:
                 contents["creation_date"] = datetime.strptime(
