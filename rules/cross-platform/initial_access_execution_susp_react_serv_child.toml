@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/08"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -101,12 +101,11 @@ process where event.type == "start" and event.action in ("exec", "executed", "st
 )
 and (
   ?process.working_directory : (
-    "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*--experimental-https*", "*app/server*",
-    "*.pnpm/next*", "*/app/*", "*next/dist/server*", "*react-scripts*") or
+    "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*.pnpm/next*", "*next/dist/server*", "*react-scripts*") or
   (
     process.parent.name in ("node", "bun", "node.exe", "bun.exe") and
     process.parent.command_line : (
-      "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*next-server*", "*server.js*", "*bin/next*",
+      "*react-dom*", "*/.next*", "*node_modules/next*", "*react-server*", "*next-server*", "* server.js*",  "*start-server.js*", "*bin/next*",
       "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*next start*", "*next dev*", "*react-scripts start*", "*next/dist/server*"
     )
   )
