@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2022/01/06"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the Microsoft 365 Global Administrator or Company Administrator role is assigned to a user or service
+principal. The Global Administrator role has extensive privileges across Entra ID and Microsoft 365 services, making it
+a high-value target for adversaries seeking persistent access. Successful assignments of this role may indicate
+potential privilege escalation or unauthorized access attempts, especially if performed by accounts that do not
+typically manage high-privilege roles.
+"""
+from = "now-9m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Identity Global Administrator Role Assigned"
+note = """## Triage and Analysis
+
+### Investigating M365 Identity Global Administrator Role Assigned
+
+The Microsoft 365 Global Administrator role grants comprehensive administrative access across Entra ID and services such as Microsoft 365 Defender, Exchange, SharePoint, and Skype for Business. Adversaries who compromise an account may assign this role to themselves or other users to ensure persistent and privileged access. This rule identifies successful assignments of this role by inspecting audit logs from Azure Active Directory (Entra ID) where the role display name matches "Administrator."
+
+### Possible investigation steps
+
+- Review the `user.id` and `user.name` fields to determine who performed the role assignment. Assess whether this user normally has permissions to modify high-privilege roles.
+- Confirm the `event.action` is `"Add member to role."` and that the `Role_DisplayName.NewValue` is `"Global Administrator"` or a similarly privileged role.
+- Review the `user.target.id` and `user.target.name` fields to identify the user or service principal that received the role.
+- Inspect `o365.audit.ExtendedProperties.additionalDetails` for context on how the action was performed (e.g., via Admin Portal, Graph API).
+- Pivot to sign-in logs for the assigning account to check for recent anomalies such as logins from new geolocations, unrecognized devices, or suspicious IP ranges.
+- Investigate if the account assignment occurred outside of known change windows, during non-business hours, or by a user with no change history.
+- Correlate with other role assignments or directory changes to check for broader role abuse or privilege escalation campaigns.
+
+### False positive analysis
+
+- Role assignments by IT administrators as part of routine maintenance or incident response may appear suspicious in environments without change tracking or ticket correlation.
+- PIM (Privileged Identity Management) activations may temporarily elevate accounts to Global Administrator and then revoke the role afterward.
+- Onboarding processes or internal audits may require temporary elevation to Global Administrator for legitimate users.
+- Automation tools and scripts may trigger this alert if misconfigured to assign Global Administrator privileges during provisioning or sync jobs.
+
+### Response and remediation
+
+- If the assignment is unapproved or suspicious, immediately revoke the Global Administrator role from the assigned user or service principal.
+- Reset credentials and initiate containment steps for the assigning account, especially if compromise is suspected.
+- Enable or verify enforcement of MFA for both assigning and assigned accounts.
+- Review Azure AD activity logs for additional signs of privilege misuse or suspicious directory changes.
+- Notify the appropriate identity and security operations teams to investigate further and begin incident response procedures.
+- Limit the number of Global Administrator accounts and enforce role-based access control (RBAC) using least privilege principles.
+- Consider implementing conditional access policies to limit role assignment actions to specific networks, devices, or user groups.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/roles/permissions-reference#global-administrator",
+    "https://learn.microsoft.com/en-us/purview/audit-log-activities",
+    "https://www.blackhat.com/us-24/briefings/schedule/#unoauthorized-a-technique-to-privilege-escalation-to-global-administrator-39231"
+]
+risk_score = 47
+rule_id = "88671231-6626-4e1b-abb7-6e361a171fbb"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit
+    and event.code:"AzureActiveDirectory"
+    and event.action:"Add member to role."
+    and event.outcome: "success"
+    and o365.audit.ModifiedProperties.Role_DisplayName.NewValue: (
+        "Global Administrator" or "Company Administrator"
+    )
+    and o365.audit.AzureActiveDirectoryEventType: 1
+    and o365.audit.RecordType: 8
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

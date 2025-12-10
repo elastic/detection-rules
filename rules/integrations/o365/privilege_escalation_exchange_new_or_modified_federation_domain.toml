@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2021/05/17"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies a new or modified federation domain, which can be used to create a trust between O365 and an external
+identity provider.
+"""
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Exchange Federated Domain Created or Modified"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating M365 Exchange Federated Domain Created or Modified
+
+Federation domains enable trust between Office 365 and external identity providers, facilitating seamless authentication. Adversaries may exploit this by altering federation settings to redirect authentication flows, potentially gaining unauthorized access. The detection rule monitors specific actions like domain modifications, signaling potential privilege escalation attempts, and alerts analysts to investigate these changes.
+
+### Possible investigation steps
+
+- Review the event logs for the specific actions listed in the query, such as "Set-AcceptedDomain" or "Add-FederatedDomain", to identify the exact changes made to the federation domain settings.
+- Identify the user account associated with the event by examining the event logs, and verify if the account has the necessary permissions to perform such actions.
+- Check the event.outcome field to confirm the success of the action and cross-reference with any recent administrative changes or requests to validate legitimacy.
+- Investigate the event.provider and event.category fields to ensure the actions were performed through legitimate channels and not via unauthorized or suspicious methods.
+- Analyze the timing and frequency of the federation domain changes to detect any unusual patterns or repeated attempts that could indicate malicious activity.
+- Correlate the detected changes with any recent alerts or incidents involving privilege escalation or unauthorized access attempts to assess potential links or broader security implications.
+
+### False positive analysis
+
+- Routine administrative changes to federation domains by IT staff can trigger alerts. To manage this, create exceptions for known and scheduled maintenance activities by trusted administrators.
+- Automated scripts or tools used for domain management may cause false positives. Identify these scripts and exclude their actions from triggering alerts by whitelisting their associated accounts or IP addresses.
+- Integration of new services or applications that require federation domain modifications can be mistaken for suspicious activity. Document these integrations and adjust the rule to recognize these legitimate changes.
+- Changes made during organizational restructuring, such as mergers or acquisitions, might appear as unauthorized modifications. Coordinate with relevant departments to anticipate these changes and temporarily adjust monitoring thresholds or exclusions.
+- Regular audits or compliance checks that involve domain settings adjustments can lead to false positives. Schedule these audits and inform the security team to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately disable any newly added or modified federation domains to prevent unauthorized access. This can be done using the appropriate administrative tools in Office 365.
+- Review and revoke any suspicious or unauthorized access tokens or sessions that may have been issued through the compromised federation domain.
+- Conduct a thorough audit of recent administrative actions and access logs to identify any unauthorized changes or access patterns related to the federation domain modifications.
+- Escalate the incident to the security operations team for further investigation and to determine if additional containment measures are necessary.
+- Implement additional monitoring on federation domain settings to detect any further unauthorized changes promptly.
+- Communicate with affected stakeholders and provide guidance on any immediate actions they need to take, such as password resets or additional authentication steps.
+- Review and update federation domain policies and configurations to ensure they align with best practices and reduce the risk of similar incidents in the future.
+
+## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/remove-accepteddomain?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/remove-federateddomain?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/new-accepteddomain?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/add-federateddomain?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/set-accepteddomain?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/powershell/module/msonline/set-msoldomainfederationsettings?view=azureadps-1.0",
+]
+risk_score = 21
+rule_id = "684554fc-0777-47ce-8c9b-3d01f198d7f8"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Set-AcceptedDomain" or
+"Set-MsolDomainFederationSettings" or "Add-FederatedDomain" or "New-AcceptedDomain" or "Remove-AcceptedDomain" or "Remove-FederatedDomain") and
+event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
