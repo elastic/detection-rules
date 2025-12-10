@@ -247,6 +247,22 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
 
+        if "created_at" in contents:
+            try:
+                contents["creation_date"] = datetime.strptime(
+                    contents["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                ).strftime("%Y/%m/%d")
+            except ValueError:
+                pass
+
+        if "updated_at" in contents:
+            try:
+                contents["updated_date"] = datetime.strptime(
+                    contents["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                ).strftime("%Y/%m/%d")
+            except ValueError:
+                pass
+
         contents.update(
             update_metadata_from_file(
                 rule_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
