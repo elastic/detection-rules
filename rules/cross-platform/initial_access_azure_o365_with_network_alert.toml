@@ -7,7 +7,7 @@ updated_date = "2025/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-This rule correlate Azure or Office 356 mail successful sign-in events with network security alerts by source.ip.
+This rule correlate Entra-ID or Microsoft 365 mail successful sign-in events with network security alerts by source address.
 Adversaries may trigger some network security alerts such as reputation or other anomalies before accessing cloud
 resources.
 """
@@ -19,7 +19,7 @@ false_positives = [
 from = "now-60m"
 language = "esql"
 license = "Elastic License v2"
-name = "Microsoft 365 or Entra ID Sign-in from a Suspicious Source"
+name = "M365 or Entra ID Identity Sign-in from a Suspicious Source"
 note = """## Triage and analysis
 
 ### Investigating Microsoft 365 or Entra ID Sign-in from a Suspicious Source
@@ -99,7 +99,7 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
 | eval
   Esql.source_ip_mail_access_case = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip), null),
   Esql.source_ip_azure_signin_case = case(event.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_network_alert_case = case(kibana.alert.rule.name == "external alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
+  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not event.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
 
 // aggregate by source ip
 | stats
