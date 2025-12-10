@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2020/08/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user is added as an owner for an Azure application. An adversary may add a user account as an owner
+for an Azure application in order to grant additional permissions and modify the application's configuration using
+another account.
+"""
+from = "now-9m"
+index = ["logs-azure.auditlogs-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID User Added as Registered Application Owner"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Entra ID User Added as Registered Application Owner
+
+Azure applications often require specific permissions for functionality, managed by assigning user roles. An adversary might exploit this by adding themselves or a compromised account as an owner, gaining elevated privileges to alter configurations or access sensitive data. The detection rule monitors audit logs for successful operations where a user is added as an application owner, flagging potential unauthorized privilege escalations.
+
+### Possible investigation steps
+
+- Review the Azure audit logs to confirm the operation by filtering for event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to application" with a successful outcome.
+- Identify the user account that was added as an owner and the account that performed the operation to determine if they are legitimate or potentially compromised.
+- Check the history of activities associated with both the added owner and the account that performed the operation to identify any suspicious behavior or patterns.
+- Verify the application's current configuration and permissions to assess any changes made after the new owner was added.
+- Contact the legitimate owner or administrator of the Azure application to confirm whether the addition of the new owner was authorized.
+- Investigate any recent changes in the organization's user access policies or roles that might explain the addition of a new owner.
+
+### False positive analysis
+
+- Routine administrative actions: Regular maintenance or updates by IT staff may involve adding users as application owners. To manage this, create a list of authorized personnel and exclude their actions from triggering alerts.
+- Automated processes: Some applications may have automated scripts or services that add users as owners for operational purposes. Identify these processes and configure exceptions for their activities.
+- Organizational changes: During mergers or restructuring, there may be legitimate reasons for adding multiple users as application owners. Temporarily adjust the rule to accommodate these changes and review the audit logs manually.
+- Testing and development: In development environments, users may be added as owners for testing purposes. Exclude these environments from the rule or set up a separate monitoring policy with adjusted thresholds.
+
+### Response and remediation
+
+- Immediately revoke the added user's owner permissions from the Azure application to prevent further unauthorized access or configuration changes.
+- Conduct a thorough review of recent activity logs for the affected application to identify any unauthorized changes or data access that may have occurred since the user was added as an owner.
+- Reset credentials and enforce multi-factor authentication for the compromised or suspicious account to prevent further misuse.
+- Notify the security team and relevant stakeholders about the incident for awareness and potential escalation if further investigation reveals broader compromise.
+- Implement additional monitoring on the affected application and related accounts to detect any further unauthorized access attempts or privilege escalations.
+- Review and update access control policies to ensure that only authorized personnel can modify application ownership, and consider implementing stricter approval processes for such changes.
+- Document the incident, including actions taken and lessons learned, to improve response strategies and prevent recurrence.
+
+## Setup
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+risk_score = 21
+rule_id = "774f5e28-7b75-4a58-b94e-41bf060fdd86"
+severity = "low"
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to application" and event.outcome:(Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
