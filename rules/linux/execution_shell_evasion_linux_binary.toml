@@ -2,7 +2,7 @@
 creation_date = "2022/05/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -139,20 +139,18 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where host.os.type == "linux" and event.type == "start" and process.executable != null and
 (
   /* launching shell from capsh */
-  (process.name == "capsh" and process.args == "--") or
+  (process.name == "capsh" and process.args == "--" and not process.parent.executable == "/usr/bin/log4j-cve-2021-44228-hotpatch") or
 
   /* launching shells from unusual parents or parent+arg combos */
   (process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
     (process.parent.name : "*awk" and process.parent.args : "BEGIN {system(*)}") or
-    (process.parent.name == "git" and process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or
-     process.args : ("*PAGER*", "!*sh", "exec *sh") and not process.name == "ssh" ) or
+    (process.parent.name == "git" and process.parent.args : ("!*sh", "exec *sh") and not process.name == "ssh" ) or
     (process.parent.name : ("byebug", "ftp", "strace", "zip", "tar") and
     (
       process.parent.args : "BEGIN {system(*)}" or
-      (process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or process.args : ("*PAGER*", "!*sh", "exec *sh")) or
       (
         (process.parent.args : "exec=*sh" or (process.parent.args : "-I" and process.parent.args : "*sh")) or
         (process.args : "exec=*sh" or (process.args : "-I" and process.args : "*sh"))
@@ -182,7 +180,8 @@ process where host.os.type == "linux" and event.type == "start" and
   )) or
   (process.name == "busybox" and event.action == "exec" and process.args_count == 2 and process.args : "*sh" and not
    process.executable : "/var/lib/docker/overlay2/*/merged/bin/busybox" and not (process.parent.args == "init" and
-   process.parent.args == "runc") and not process.parent.args in ("ls-remote", "push", "fetch") and not process.parent.name == "mkinitramfs") or
+   process.parent.args == "runc") and not process.parent.args in ("ls-remote", "push", "fetch") and not process.parent.name == "mkinitramfs" and
+   not proces.parent.executable == "/bin/busybox") or
   (process.name == "env" and process.args_count == 2 and process.args : "*sh") or
   (process.parent.name in ("vi", "vim") and process.parent.args == "-c" and process.parent.args : ":!*sh") or
   (process.parent.name in ("c89", "c99", "gcc") and process.parent.args : "*sh,-s" and process.parent.args == "-wrapper") or
