@@ -2,7 +2,7 @@
 creation_date = "2020/07/07"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -78,14 +78,27 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where
+any where process.executable != null and
 
   /* file events for creation; file change events are not captured by some of the included sources for linux and so may
      miss this, which is the purpose of the process + command line args logic below */
   (
-   event.category == "file" and event.type in ("change", "creation") and
+   event.category == "file" and event.type in ("change", "creation") and event.action != "rename" and
      file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts") and 
-     not process.name in ("dockerd", "rootlesskit", "podman", "crio")
+     not process.name in ("dockerd", "rootlesskit", "podman", "crio") and
+     not process.executable : ("C:\\Program Files\\Fortinet\\FortiClient\\FCDBLog.exe",
+                               "C:\\Program Files\\Seqrite\\Seqrite\\SCANNER.EXE",
+                               "C:\\Windows\\Temp\\*.ins\\inst.exe",
+                               "C:\\Windows\\System32\\svchost.exe",
+                               "C:\\Program Files\\NordVPN\\nordvpn-service.exe",
+                               "C:\\Program Files\\Tailscale\\tailscaled.exe",
+                               "C:\\Program Files\\Docker\\Docker\\com.docker.service",
+                               "C:\\Program Files\\Quick Heal\\Quick Heal AntiVirus Pro\\scanner.exe",
+                               "C:\\Program Files (x86)\\Quick Heal AntiVirus Pro\\SCANNER.EXE",
+                               "C:\\Program Files\\Quick Heal\\Quick Heal Internet Security\\scanner.exe",
+                               "C:\\Program Files (x86)\\Cisco\\Cisco AnyConnect Secure Mobility Client\\vpnagent.exe",
+                               "/opt/IBM/InformationServer/Server/DSEngine/bin/uvsh",
+                               "/usr/local/demisto/server")
   )
   or
 
@@ -93,8 +106,9 @@ any where
   (
    event.category == "process" and event.type in ("start") and
      process.name in ("nano", "vim", "vi", "emacs", "echo", "sed") and
-     process.args : ("/etc/hosts") and 
-     not process.parent.name in ("dhclient-script", "google_set_hostname")
+     (process.args : ("/etc/hosts") or (process.working_directory == "/etc" and process.args == "hosts")) and 
+     not process.parent.name in ("dhclient-script", "google_set_hostname") and
+     not process.command_line == "sed -i /Added by Google/d /etc/hosts"
   )
 '''
 
