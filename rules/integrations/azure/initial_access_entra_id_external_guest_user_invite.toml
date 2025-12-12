@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2020/08/31"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an invitation to an external user in Azure Active Directory (AD). Azure AD is extended to include
+collaboration, allowing you to invite people from outside your organization to be guest users in your cloud account.
+Unless there is a business need to provision guest access, it is best practice avoid creating guest users. Guest users
+could potentially be overlooked indefinitely leading to a potential vulnerability.
+"""
+false_positives = [
+    """
+    Guest user invitations may be sent out by a system or network administrator. Verify whether the username, hostname,
+    and/or resource name should be making changes in your environment. Guest user invitations from unfamiliar users or
+    hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID External Guest User Invited"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Entra ID External Guest User Invited
+
+Azure Active Directory (AD) facilitates collaboration by allowing external users to be invited as guest users, enhancing flexibility in cloud environments. However, adversaries may exploit this feature to gain unauthorized access, posing security risks. The detection rule monitors audit logs for successful external user invitations, flagging potential misuse by identifying unusual or unnecessary guest account creations.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the details of the invitation event, focusing on the operation name "Invite external user" and ensuring the event outcome is marked as Success.
+- Identify the inviter by examining the properties of the audit log entry, such as the initiator's user ID or email, to determine if the invitation was expected or authorized.
+- Check the display name and other attributes of the invited guest user to assess if they align with known business needs or if they appear suspicious or unnecessary.
+- Investigate the inviter's recent activity in Azure AD to identify any unusual patterns or deviations from their typical behavior that might indicate compromised credentials.
+- Consult with relevant business units or stakeholders to verify if there was a legitimate business requirement for the guest user invitation and if it aligns with current projects or collaborations.
+- Review the access permissions granted to the guest user to ensure they are limited to the minimum necessary for their role and do not expose sensitive resources.
+
+### False positive analysis
+
+- Invitations for legitimate business partners or vendors may trigger alerts. Regularly review and whitelist known partners to prevent unnecessary alerts.
+- Internal users with dual roles or responsibilities that require external access might be flagged. Maintain a list of such users and update it periodically to exclude them from alerts.
+- Automated systems or applications that require guest access for integration purposes can cause false positives. Identify these systems and configure exceptions in the monitoring rules.
+- Temporary projects or collaborations often involve inviting external users. Document these projects and set expiration dates for guest access to minimize false positives.
+- Frequent invitations from specific departments, such as HR or Marketing, for events or collaborations can be common. Establish a process to verify and approve these invitations to reduce false alerts.
+
+### Response and remediation
+
+- Immediately disable the guest user account identified in the alert to prevent any unauthorized access or activities.
+- Review the audit logs to determine the source and context of the invitation, identifying the user or system that initiated the guest invitation.
+- Notify the security team and relevant stakeholders about the unauthorized guest invitation for further investigation and potential escalation.
+- Conduct a security assessment of the affected Azure AD environment to identify any other unauthorized guest accounts or suspicious activities.
+- Implement conditional access policies to restrict guest user invitations to authorized personnel only, reducing the risk of future unauthorized invitations.
+- Enhance monitoring and alerting for guest user invitations by integrating with a Security Information and Event Management (SIEM) system to ensure timely detection and response.
+- Review and update the organization's Azure AD guest user policies to ensure they align with security best practices and business needs, minimizing unnecessary guest access.
+
+## Setup
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.microsoft.com/en-us/azure/governance/policy/samples/cis-azure-1-1-0"]
+risk_score = 21
+rule_id = "141e9b3a-ff37-4756-989d-05d7cbf35b0e"
+severity = "low"
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Identity and Access Audit", "Tactic: Initial Access", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Invite external user" and azure.auditlogs.properties.target_resources.*.display_name:guest and event.outcome:(Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
