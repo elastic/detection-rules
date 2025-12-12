@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2022/01/13"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the occurrence of mailbox audit bypass associations. The mailbox audit is responsible for logging specified
+mailbox events (like accessing a folder or a message or permanently deleting a message). However, actions taken by some
+authorized accounts, such as accounts used by third-party tools or accounts used for lawful monitoring, can create a
+large number of mailbox audit log entries and may not be of interest to your organization. Because of this,
+administrators can create bypass associations, allowing certain accounts to perform their tasks without being logged.
+Attackers can abuse this allowlist mechanism to conceal actions taken, as the mailbox audit will log no activity done by
+the account.
+"""
+false_positives = ["Legitimate allowlisting of noisy accounts"]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Exchange Mailbox Audit Logging Bypass Added"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating M365 Exchange Mailbox Audit Logging Bypass Added
+
+In Microsoft 365 environments, mailbox audit logging is crucial for tracking user activities like accessing or deleting emails. However, administrators can exempt certain accounts from logging to reduce noise, which attackers might exploit to hide their actions. The detection rule identifies successful attempts to create such exemptions, signaling potential misuse of this bypass mechanism.
+
+### Possible investigation steps
+
+- Review the event logs for entries with event.dataset set to o365.audit and event.provider set to Exchange to confirm the presence of the Set-MailboxAuditBypassAssociation action.
+- Identify the account associated with the event.action Set-MailboxAuditBypassAssociation and verify if it is a known and authorized account for creating audit bypass associations.
+- Check the event.outcome field to ensure the action was successful and determine if there are any other related unsuccessful attempts that might indicate trial and error by an attacker.
+- Investigate the history of the account involved in the bypass association to identify any unusual or suspicious activities, such as recent changes in permissions or unexpected login locations.
+- Cross-reference the account with any known third-party tools or lawful monitoring accounts to determine if the bypass is legitimate or potentially malicious.
+- Assess the risk and impact of the bypass by evaluating the types of activities that would no longer be logged for the account in question, considering the organization's security policies and compliance requirements.
+
+### False positive analysis
+
+- Authorized third-party tools may generate a high volume of mailbox audit log entries, leading to bypass associations being set. Review and document these tools to ensure they are legitimate and necessary for business operations.
+- Accounts used for lawful monitoring might be exempted from logging to reduce noise. Verify that these accounts are properly documented and that their activities align with organizational policies.
+- Regularly review the list of accounts with bypass associations to ensure that only necessary and approved accounts are included. Remove any accounts that no longer require exemptions.
+- Implement a process for periodically auditing bypass associations to detect any unauthorized changes or additions, ensuring that only intended accounts are exempted from logging.
+- Consider setting up alerts for any new bypass associations to quickly identify and investigate potential misuse or unauthorized changes.
+
+### Response and remediation
+
+- Immediately isolate the account associated with the successful Set-MailboxAuditBypassAssociation event to prevent further unauthorized actions.
+- Review and revoke any unauthorized mailbox audit bypass associations to ensure all relevant activities are logged.
+- Conduct a thorough audit of recent activities performed by the affected account to identify any suspicious or malicious actions that may have been concealed.
+- Reset credentials for the compromised account and any other accounts that may have been affected to prevent further unauthorized access.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring for similar bypass attempts to enhance detection capabilities and prevent recurrence.
+- Consider escalating the incident to a higher security tier or external cybersecurity experts if the scope of the breach is extensive or if internal resources are insufficient to handle the threat.
+
+## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://twitter.com/misconfig/status/1476144066807140355"]
+risk_score = 47
+rule_id = "675239ea-c1bc-4467-a6d3-b9e2cc7f676d"
+severity = "medium"
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Tactic: Initial Access", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.action:Set-MailboxAuditBypassAssociation and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
