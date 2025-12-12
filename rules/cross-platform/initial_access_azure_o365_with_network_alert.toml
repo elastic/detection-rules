@@ -2,12 +2,12 @@
 creation_date = "2025/04/29"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2025/07/30"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule correlate Azure or Office 356 mail successful sign-in events with network security alerts by source.ip.
+This rule correlate Entra-ID or Microsoft 365 mail successful sign-in events with network security alerts by source address.
 Adversaries may trigger some network security alerts such as reputation or other anomalies before accessing cloud
 resources.
 """
@@ -19,10 +19,10 @@ false_positives = [
 from = "now-60m"
 language = "esql"
 license = "Elastic License v2"
-name = "Microsoft 365 or Entra ID Sign-in from a Suspicious Source"
+name = "M365 or Entra ID Identity Sign-in from a Suspicious Source"
 note = """## Triage and analysis
 
-### Investigating Microsoft 365 or Entra ID Sign-in from a Suspicious Source
+### Investigating M365 or Entra ID Identity Sign-in from a Suspicious Source
 
 #### Possible investigation steps
 
@@ -82,7 +82,7 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
 | where @timestamp > now() - 8 hours
 // filter for azure or m365 sign-in and external alerts with source.ip not null
 | where to_ip(source.ip) is not null
-  and (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.name == "External Alerts")
+  and (event.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa")
   and not cidr_match(
     to_ip(source.ip),
     "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
@@ -93,13 +93,13 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
   )
 
 // capture relevant raw fields
-| keep source.ip, event.action, event.outcome, event.dataset, kibana.alert.rule.name, event.category
+| keep source.ip, event.action, event.outcome, event.dataset, kibana.alert.rule.rule_id, event.category
 
 // classify each source ip based on alert type
 | eval
   Esql.source_ip_mail_access_case = case(event.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip), null),
   Esql.source_ip_azure_signin_case = case(event.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_network_alert_case = case(kibana.alert.rule.name == "external alerts" and not event.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
+  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not event.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
 
 // aggregate by source ip
 | stats
@@ -109,7 +109,7 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
     Esql.source_ip_network_alert_case_count_distinct = count_distinct(Esql.source_ip_network_alert_case),
     Esql.event_dataset_count_distinct = count_distinct(event.dataset),
     Esql.event_dataset_values = values(event.dataset),
-    Esql.kibana_alert_rule_name_values = values(kibana.alert.rule.name),
+    Esql.kibana_alert_rule_id_values = values(kibana.alert.rule.rule_id),
     Esql.event_category_values = values(event.category)
   by Esql.source_ip = to_ip(source.ip)
 
