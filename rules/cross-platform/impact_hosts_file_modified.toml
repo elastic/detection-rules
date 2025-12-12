@@ -106,7 +106,7 @@ any where process.executable != null and
   (
    event.category == "process" and event.type in ("start") and
      process.name in ("nano", "vim", "vi", "emacs", "echo", "sed") and
-     process.args : ("/etc/hosts") and 
+     (process.args : ("/etc/hosts") or (process.working_directory == "/etc" and process.args == "hosts")) and 
      not process.parent.name in ("dhclient-script", "google_set_hostname") and
      not process.command_line == "sed -i /Added by Google/d /etc/hosts"
   )
