@@ -2,7 +2,7 @@
 creation_date = "2024/01/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,10 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec"]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sudo" and not (
+    process.args == "su" or
+    process.command_line like ("sudo su*", "sudo ./opt/Limpar_ram.sh", "*BECOME-SUCCESS*")
+  )]
   [network where host.os.type == "linux" and event.type == "start" and
   event.action in ("connection_attempted", "ipv4_connection_attempt_event") and process.name == "sudo" and not (
     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
