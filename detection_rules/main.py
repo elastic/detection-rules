@@ -164,6 +164,7 @@ def generate_rules_index(
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
+@click.option("--dates-import", "-di", is_flag=True, help="Parse created_at and updated_at from the rule content")
 @click.option(
     "--load-rule-loading",
     "-lr",
@@ -184,10 +185,15 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     strip_none_values: bool,
     local_creation_date: bool,
     local_updated_date: bool,
+    dates_import: bool,
     load_rule_loading: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors: list[str] = []
+
+    if dates_import and (local_creation_date or local_updated_date):
+        click.echo("Error: --dates-import cannot be used with --local-creation-date or --local-updated-date.")
+        return
 
     rule_files: list[Path] = []
     if directory:
@@ -248,13 +254,14 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             contents["author"] = [contents["author"]]
 
         # Parse created_at and updated_at to creation_date and updated_date if they exist in contents
-        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        contents["creation_date"] = datetime.strptime(
-            contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
-        ).strftime("%Y/%m/%d")
-        contents["updated_date"] = datetime.strptime(contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
-            "%Y/%m/%d"
-        )
+        if dates_import:
+            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            contents["creation_date"] = datetime.strptime(
+                contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
+            contents["updated_date"] = datetime.strptime(
+                contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).strftime("%Y/%m/%d")
 
         contents.update(
             update_metadata_from_file(
