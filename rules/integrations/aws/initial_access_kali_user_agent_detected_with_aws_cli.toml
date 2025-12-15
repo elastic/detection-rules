@@ -2,48 +2,97 @@
 creation_date = "2025/04/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/04/16"
+updated_date = "2025/12/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the usage of the AWS CLI with a user agent string containing `distrib#kali`, which suggests the request
-was made from a Kali Linux distribution. This may indicate offensive security tooling or unauthorized use of the AWS CLI
-from a potentially adversarial environment.
+Identifies usage of the AWS CLI from a client reporting a user agent string indicating the request was made from a Kali
+Linux distribution. Kali Linux is commonly used for offensive security testing and adversary tradecraft. While not
+inherently malicious, AWS CLI activity originating from Kali is uncommon in most production environments and may
+indicate compromised credentials, unauthorized access, or post-exploitation activity using valid cloud accounts.
 """
 false_positives = [
     """
-    While rare, legitimate users or red teamers may use Kali Linux for security assessments. Confirm the identity of the
-    user, their purpose, and whether the activity was authorized.
+    Authorized security assessments, red team exercises, or defensive research activities may involve the use of Kali
+    Linux. Validate whether the IAM principal, source network, and activity scope align with approved testing or
+    security operations. Any Kali-originated activity outside documented security workflows should be investigated.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "AWS CLI with Kali Linux Fingerprint Identified"
 note = """## Triage and Analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS CLI with Kali Linux Fingerprint Identified
 
-The `user_agent.original` field in AWS CloudTrail logs reveals the operating system and toolchain used to make API calls. The substring `distrib#kali` strongly implies the use of Kali Linux, a common OS used by offensive security professionals and adversaries.
+AWS CloudTrail captures the user agent string for API requests, which can provide insight into the operating system and tooling used. The presence of `distrib#kali` strongly suggests the AWS CLI was executed from a Kali Linux environment. Kali is widely used for penetration testing, red teaming, and adversarial operations, making its appearance in AWS API telemetry noteworthy, especially when associated with sensitive actions or unexpected identities.
 
-#### Possible Investigation Steps
+This detection focuses on successful AWS CLI activity and should be evaluated in the context of who performed the action, what was accessed or modified, and where the request originated.
 
-- Identify the User: Check `user.name`, `user.arn`, and `aws.cloudtrail.user_identity.*` to determine which IAM identity was used.
-- Review Access Pattern: Correlate API calls from this user agent with sensitive actions such as `PutObject`, `CreateUser`, `AttachUserPolicy`, etc.
-- Investigate Source IP: Examine whether the request originated from an expected network or a suspicious VPN or cloud provider address.
-- Check for Initial Access: Look for session tokens being issued (e.g., `GetSessionToken`) or reused (`AssumeRole`) prior to this event.
+### Possible investigation steps
 
-### False Positive Analysis
+- **Identify the User** 
+  - Check `user.name`, `user.arn`, and `aws.cloudtrail.user_identity.*` to determine which IAM identity was used.
+- **Review Access Pattern** 
+  - Correlate API calls from this user agent with sensitive actions such as `PutObject`, `CreateUser`, `AttachUserPolicy`, etc.
+- **Investigate Source IP** 
+  - Examine whether the request originated from an expected network or a suspicious VPN or cloud provider address.
+- **Check for Initial Access** 
+  - Look for session tokens being issued (e.g., `GetSessionToken`) or reused (`AssumeRole`) prior to this event.
 
-- Rare but possible in security assessments or internal red teaming. Validate the action context (user, IP, time of day, etc).
 
-### Response and Remediation
+**Identify the actor**
+- Review `user.name` and `aws.cloudtrail.user_identity.arn` to determine which IAM
+  principal was used.
+- Check whether this principal normally interacts with AWS via CLI tooling and whether Kali Linux usage is expected.
 
-- Revoke Credentials: If unauthorized, revoke keys or sessions immediately.
-- Harden IAM Policies: Restrict sensitive IAM privileges, especially if used by CI/CD or automation roles.
-- Alert on Repeat Usage: Add recurring monitoring for suspicious user agents including `kali`, `curl`, or known toolkits.
+**Review access patterns and actions**
+- Examine the API calls associated with this user agent for high-risk activity such as IAM changes, data access, snapshot
+  sharing, logging modification, or persistence-related actions.
+- Look for sequences indicating initial access or expansion, such as `GetSessionToken`, `AssumeRole`, or privilege
+  escalation attempts.
+- Determine whether the activity scope aligns with the role’s intended permissions and business function.
+
+**Inspect source network and tooling context**
+- Review `source.ip`, `source.geo` fields, and ASN to determine whether the request originated from an expected corporate
+  network, VPN, or known security testing infrastructure.
+- Analyze `user_agent.original` to confirm CLI usage and identify automation versus interactive usage.
+- Sudden shifts from console-based access to CLI usage from Kali may indicate credential compromise.
+
+**Correlate with surrounding activity**
+- Search for additional CloudTrail events tied to the same access key or session before and after this detection.
+- Look for evidence of follow-on actions such as resource creation, configuration changes, or attempts to disable logging and monitoring services.
+- Assess whether the activity represents a single isolated request or part of a broader behavioral chain.
+
+### False positive analysis
+
+- Internal red team or security testing activity may legitimately generate Kali-based AWS CLI traffic. Confirm scope,
+  timing, and authorization with security leadership.
+- Compare against historical behavior for the same IAM principal to determine whether Kali usage is a deviation from
+  baseline access patterns.
+
+### Response and remediation
+
+- If the activity is unauthorized, immediately revoke or rotate the affected access keys or invalidate the active
+  session.
+- Review IAM permissions associated with the identity and reduce scope where possible to enforce least privilege.
+- Investigate for additional indicators of compromise, including unusual role assumptions, new credential creation, or
+  data access from the same identity.
+- Notify security operations and incident response teams if the activity aligns with known adversary behaviors or appears
+  part of a larger intrusion.
+- Consider adding guardrails or conditional access controls (such as source IP restrictions or MFA enforcement) for
+  sensitive IAM principals.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
 """
 references = [
     "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
@@ -62,10 +111,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.dataset: "aws.cloudtrail" and user_agent.original: (aws-cli*distrib#kali* or Boto3*distrib#kali*)
+any where event.dataset == "aws.cloudtrail"
+  and user_agent.name: ("aws-cli", "Boto3")
+  and stringContains (user_agent.original, "distrib#kali")
+  and event.outcome == "success"
 '''
 
 
