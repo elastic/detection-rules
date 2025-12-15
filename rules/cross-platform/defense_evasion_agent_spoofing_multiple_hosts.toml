@@ -2,7 +2,7 @@
 creation_date = "2021/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/13"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ type = "esql"
 
 query = '''
 from logs-endpoint.*  metadata _id
-| where event.agent_id_status is not null 
+| where event.agent_id_status is not null and agent.id is not null
 | stats Esql.count_distinct_host_ids = count_distinct(host.id), Esql.host_id_values = values(host.id), Esql.user_id_values_user_id = values(user.id) by agent.id
 | where Esql.count_distinct_host_ids >= 2
 | keep Esql.count_distinct_host_ids, Esql.host_id_values, Esql.user_id_values_user_id, agent.id
