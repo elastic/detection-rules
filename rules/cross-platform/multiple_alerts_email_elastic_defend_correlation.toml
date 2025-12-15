@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2025/11/19"
+integration = ["endpoint", "checkpoint_email"]
 maturity = "production"
-updated_date = "2025/11/19"
+updated_date = "2025/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +23,7 @@ tags = [
     "Rule Type: Higher-Order Rule",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: Check Point Harmony Email & Collaboration",
     "Domain: Email",
     "Domain: Endpoint"
 ]
@@ -29,7 +31,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-* metadata _id
+from logs-endpoint.alerts-*, logs-checkpoint_email.event-default-* metadata _id
 // Email or Elastic Defend alerts where user name is populated
 | where
   (event.category == "email" and event.kind == "alert" and destination.user.name is not null) or
