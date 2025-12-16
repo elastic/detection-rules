@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2025/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of closed pull requests by a single user within a short time frame. Adversaries may
+close multiple pull requests to disrupt development workflows or hide malicious changes.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "High Number of Closed Pull Requests by User"
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://trigger.dev/blog/shai-hulud-postmortem",
+    "https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem",
+]
+risk_score = 47
+rule_id = "098bd5cc-fd55-438f-b354-7d6cd9856a08"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-github.audit* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and
+  github.category == "pull_request" and
+  event.type == "change" and
+  event.action == "pull_request.close"
+| stats
+  Esql.document_count = COUNT(*),
+  Esql.github_org_values = values(github.org),
+  Esql.github_repo_values = values(github.repo),
+  Esql.github_user_agent_values = values(github.user_agent),
+  Esql.github_pull_request_url_values = values(github.pull_request_url),
+  Esql.user_name_values = values(user.name),
+  Esql.agent_id_values = values(agent.id),
+  Esql.event_dataset_values = values(event.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  by user.name
+
+| keep Esql.*
+
+| where
+  Esql.document_count >= 10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

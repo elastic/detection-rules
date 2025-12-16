@@ -1,0 +1,79 @@
+[metadata]
+creation_date = "2025/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of repository cloning actions by a single user within a short time frame. Adversaries may
+clone multiple repositories to exfiltrate sensitive data.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Exfiltration via High Number of Repository Clones by User"
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://trigger.dev/blog/shai-hulud-postmortem",
+    "https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem",
+]
+risk_score = 47
+rule_id = "19f3674c-f4a1-43bb-a89c-e4c6212275e0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-github.audit* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and event.type == "change" and event.action == "git.clone"
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_org_values = values(github.org),
+  Esql.github_repo_values = values(github.repo),
+  Esql.github_repository_public_values = values(github.repository_public),
+  Esql.github_token_id_values = values(github.token_id),
+  Esql.github_user_agent_values = values(github.user_agent),
+  Esql.user_name_values = values(user.name),
+  Esql.agent_id_values = values(agent.id),
+  Esql.event_dataset_values = values(event.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  by user.name
+
+| keep Esql.*
+
+| where
+  Esql.event_count >= 25
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
