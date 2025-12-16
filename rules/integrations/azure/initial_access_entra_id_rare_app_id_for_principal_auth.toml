@@ -2,15 +2,14 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2025/12/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies rare Azure Entra ID apps IDs requesting authentication on-behalf-of a principal user. An adversary with stolen
-credentials may specify an Azure-managed app ID to authenticate on-behalf-of a user. This is a rare event and may
-indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The
-app ID specified may not be commonly used by the user based on their historical sign-in activity.
+Detects rare non-interactive sign-ins where an Entra ID client application authenticates on behalf of a principal user using an application (client) ID that is not commonly associated with that user’s historical sign-in behavior. Adversaries with stolen credentials or OAuth tokens may abuse Entra ID–managed or first-party client IDs to perform on-behalf-of (OBO) authentication, blending into legitimate cloud traffic while avoiding traditional interactive sign-in flows. This technique is commonly observed in OAuth phishing, token theft, and access broker operations, and may precede lateral movement, persistence, or data access via Microsoft Graph or other cloud resources.
+
+The rule uses a New Terms approach to identify first-seen combinations of the UPN and Client ID within a defined history window, helping surface unexpected client usage that may indicate compromised identities, malicious automation, or unauthorized application impersonation.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.signinlogs-*"]
@@ -23,8 +22,6 @@ note = """## Triage and analysis
 
 This rule identifies rare Azure Entra apps IDs requesting authentication on-behalf-of a principal user. An adversary with stolen credentials may specify an Azure-managed app ID to authenticate on-behalf-of a user. This is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The app ID specified may not be commonly used by the user based on their historical sign-in activity.
 
-**This is a New Terms rule that focuses on first occurrence of the client `azure.signinlogs.properties.app_id` requesting authentication on-behalf-of the principal user `azure.signinlogs.properties.user_principal_name` in the last 14-days.**
-
 ### Possible investigation steps
 
 - Identify the source IP address from which the failed login attempts originated by reviewing `source.ip`. Determine if the IP is associated with known malicious activity using threat intelligence sources or if it belongs to a corporate VPN, proxy, or automation process.
@@ -36,13 +33,9 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 - Check for any conditional access policies that may have been triggered by the failed login attempts by reviewing `azure.signinlogs.properties.authentication_requirement`. This can help identify if the failed attempts were due to policy enforcement or misconfiguration.
 
 ## False positive analysis
-
-### Common benign scenarios
 - Automated scripts or applications using non-interactive authentication may trigger this detection, particularly if they rely on legacy authentication protocols recorded in `azure.signinlogs.properties.authentication_protocol`.
 - Corporate proxies or VPNs may cause multiple users to authenticate from the same IP, appearing as repeated failed attempts under `source.ip`.
 - User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
-
-### How to reduce false positives
 - Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
 - Exlcude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
 - Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
@@ -50,15 +43,12 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 
 ## Response and remediation
 
-### Immediate actions
 - Block the source IP address in `source.ip` if determined to be malicious.
 - Reset passwords for all affected user accounts listed in `azure.signinlogs.properties.user_principal_name` and enforce stronger password policies.
 - Ensure basic authentication is disabled for all applications using legacy authentication protocols listed in `azure.signinlogs.properties.authentication_protocol`.
 - Enable multi-factor authentication (MFA) for impacted accounts to mitigate credential-based attacks.
 - Review conditional access policies to ensure they are correctly configured to block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
 - Review Conditional Access policies to enforce risk-based authentication and block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
-
-### Long-term mitigation
 - Implement a zero-trust security model by enforcing least privilege access and continuous authentication.
 - Regularly review and update conditional access policies to ensure they are effective against evolving threats.
 - Restrict the use of legacy authentication protocols by disabling authentication methods listed in `azure.signinlogs.properties.client_app_used`.
@@ -71,6 +61,7 @@ rule_id = "c766bc56-fdca-11ef-b194-f661ea17fbcd"
 severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Domain: Identity",
     "Data Source: Azure",
     "Data Source: Entra ID",
     "Data Source: Entra ID Sign-in",
@@ -104,9 +95,44 @@ event.dataset: "azure.signinlogs" and event.category: "authentication"
         "27922004-5251-4030-b22d-91ecd9a37ea4" or
         "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" or
         "cab96880-db5b-4e15-90a7-f3f1d62ffe39" or
-        "3a4d129e-7f50-4e0d-a7fd-033add0a29f4"
+        "3a4d129e-7f50-4e0d-a7fd-033add0a29f4" or
+        "29d9ed98-a469-4536-ade2-f981bc1d605e" or
+        "c0ab8ce9-e9a0-42e7-b064-33d422df41f1" or
+        "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7" or
+        "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+        "08e18876-6177-487e-b8b5-cf950c1e598c" or
+        "0ec893e0-5785-4de6-99da-4ed124e5296c" or
+        "d3590ed6-52b3-4102-aeff-aad2292ab01c" or
+        "0dc2408a-bbc0-4238-871e-13b372f0200f" or
+        "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7" or
+        "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+        "af124e86-4e96-495a-b70a-90f90ab96707" or
+        "e9c51622-460d-4d3d-952d-966a5b1da34c" or
+        "ecd6b820-32c2-49b6-98a6-444530e5a77a" or
+        "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34" or
+        "0ec893e0-5785-4de6-99da-4ed124e5296c" or
+        "e2ef5054-0287-4db6-afa3-013d96881fd3"
     )
 '''
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.user_id",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.client_app_used",
+    "azure.signinlogs.properties.incoming_token_type",
+    "azure.signinlogs.properties.authentication_protocol",
+    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.token_issuer_type",
+    "azure.signinlogs.properties.resource_display_name",
+    "source.ip",
+    "source.as.number",
+    "source.geo.country_name",
+    "azure.signinlogs.properties.correlation_id",
+    "azure.signinlogs.properties.session_id",
+]
 
 
 [[rule.threat]]
