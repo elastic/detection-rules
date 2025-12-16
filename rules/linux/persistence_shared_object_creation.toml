@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/11"
+updated_date = "2025/12/16"
 
 [transform]
 [[transform.osquery]]
@@ -54,7 +54,7 @@ malware to persist on the system, evade detection, and potentially compromise th
 affected system and its data.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.file*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Shared Object Created or Changed by Previously Unknown Process"
@@ -161,7 +161,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type:"linux" and event.action:("creation" or "file_create_event" or "file_rename_event" or "rename" or "file_write_event") and
+event.category:file and host.os.type:"linux" and event.action:("creation" or "file_create_event" or "file_rename_event" or "rename") and
 (file.extension:"so" or file.name:*.so.*) and
 file.path:(
   /dev/shm/* or /usr/lib/* or /usr/lib64/* or /usr/local/lib/* or /usr/local/lib64/* or /lib/x86_64-linux-gnu/* or
@@ -202,4 +202,4 @@ value = ["file.path", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-7d"
