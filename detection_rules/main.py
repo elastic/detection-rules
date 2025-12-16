@@ -258,10 +258,10 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             contents["creation_date"] = datetime.strptime(
                 contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).strftime("%Y/%m/%d")
+            ).replace(tzinfo=UTC).strftime("%Y/%m/%d")
             contents["updated_date"] = datetime.strptime(
                 contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).strftime("%Y/%m/%d")
+            ).replace(tzinfo=UTC).strftime("%Y/%m/%d")
 
         contents.update(
             update_metadata_from_file(
