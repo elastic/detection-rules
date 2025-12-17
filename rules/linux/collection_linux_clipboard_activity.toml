@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/07/27"
-integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/16"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,6 @@ Adversaries may collect data stored in the clipboard from users copying informat
 """
 from = "now-9m"
 index = [
-          "logs-crowdstrike.fdr*",
           "logs-endpoint.events.process*",
           "logs-sentinel_one_cloud_funnel.*",
           "endgame-*",
@@ -41,7 +40,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:process and host.os.type:"linux" and event.type:"start" and
-event.action:("exec" or "exec_event" or "executed" or "process_started") and
+event.action:("exec" or "exec_event" or "executed" or "process_started" or "ProcessRollup2") and
 process.name:("xclip" or "xsel" or "wl-clipboard" or "clipman" or "copyq") and
 not process.parent.name:("bwrap" or "micro")
 '''
@@ -96,8 +95,8 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.parent.executable"]
+value = ["agent.id", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
