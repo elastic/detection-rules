@@ -2,17 +2,17 @@
 creation_date = "2024/12/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/26"
+updated_date = "2025/10/13"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an AWS IAM login profile is added to a root user account and is self-assigned. Adversaries, with temporary
-access to the root account, may add a login profile to the root user account to maintain access even if the original
-access key is rotated or disabled.
+Identifies creation of a console login profile for the AWS account root user. While CreateLoginProfile normally applies to IAM users, when performed from a temporary root session (e.g., via AssumeRoot) and the userName parameter is omitted, the profile is created for the root principal (self-assigned). Adversaries with temporary root access may add or reset the root login profile to establish persistent console access even if original access keys are rotated or disabled. Correlate with recent AssumeRoot/STS activity and validate intent with the account owner.
+
 """
-from = "now-9m"
-language = "esql"
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM Login Profile Added for Root"
 note = """## Triage and analysis
@@ -20,96 +20,88 @@ note = """## Triage and analysis
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating AWS IAM Login Profile Added for Root
-
-AWS IAM allows management of user access and permissions within AWS environments. A login profile enables console access using a password. Adversaries may exploit temporary root access to create a login profile, ensuring persistent access even if keys are rotated. The detection rule identifies such actions by monitoring specific API calls and conditions, flagging unauthorized profile additions to root accounts.
+This rule detects when a console login profile is created for the AWS root account.  
+A login profile enables password-based console access, and because the root user has unrestricted privileges, creating one is an extremely high-impact event. Adversaries who temporarily gain root-level credentials (for example, through an STS session or credential compromise) may use `CreateLoginProfile` without specifying a `userName` to add a password to the root account. This grants persistent access even if the attacker’s API keys are later rotated or disabled.
 
 ### Possible investigation steps
 
-- Review the @timestamp field to determine when the CreateLoginProfile action occurred and correlate it with any other suspicious activities around the same time.
-- Examine the aws.cloudtrail.user_identity.arn and aws.cloudtrail.user_identity.access_key_id fields to identify the specific root account and access key involved in the action.
-- Investigate the source.address field to trace the IP address from which the CreateLoginProfile request originated, checking for any unusual or unauthorized locations.
-- Analyze the aws.cloudtrail.request_parameters and aws.cloudtrail.response_elements fields to understand the specifics of the login profile creation and verify if any unexpected parameters were used.
-- Check the cloud.account.id to confirm which AWS account was affected and assess if there are any other security incidents or alerts associated with this account.
-- Review the event.action field to ensure that no other unauthorized actions were performed by the root account around the same time.
+**Assess the timing and context of the event**
+- Review the `@timestamp` to determine when the `CreateLoginProfile` call occurred.  
+  - Correlate this time window with other root or IAM activity such as `AssumeRoot`, `GetSessionToken`, `ConsoleLogin`, or `CreateAccessKey`.  
+  - Check for follow-on activity, especially `ConsoleLogin` events or `UpdateLoginProfile`, which may indicate that the root password was used immediately after creation.
+
+**Investigate event origin and session details**
+- Review `source.ip` and `user_agent.original`:
+  - Determine if the request originated from an expected network range, VPN endpoint, or geolocation.
+  - Identify whether the access was interactive (for example, browser or AWS console) or automated (`aws-cli`, SDK, or API client).
+- Examine `aws.cloudtrail.user_identity.access_key_id` and associated STS session context to see if temporary credentials were used.
+- Compare this event’s IP and access key to any other recent CloudTrail activity to identify potential lateral movement or multi-account access attempts.
+
+**Analyze the login profile creation**
+- Review `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements`:
+  - Check whether `passwordResetRequired` was set to `true` or omitted, absence may imply that the attacker created a password they intend to reuse.
+- Cross-reference this action with previous failed login attempts, password recovery requests, or `AssumeRoot` behavior.
+
+**Correlate related identity and access behavior**
+- Search for additional IAM management activity:
+  - `AttachUserPolicy`, `AttachRolePolicy`, or `PutUserPolicy` granting elevated permissions.
+  - New `AccessKey` creation or `UpdateAccessKey` events tied to the same session.
+- Review GuardDuty findings or any other detections referencing this account or IP around the same time period.
+- If available, correlate with CloudTrail to detect if other resource creation or configuration changes followed the login profile addition.
+
+**Validate with account owner or authorized personnel**
+- Contact the designated account or root credential owner to confirm whether this action was intentional (for example, during an account recovery).
+- Review any internal change-management or service ticketing systems for an approved request matching this activity.
 
 ### False positive analysis
 
-- Administrative actions by trusted personnel may trigger the rule if they are performing legitimate maintenance or security tasks. To manage this, create exceptions for known administrative accounts by filtering their access key IDs.
-- Automated scripts or tools used for account management might inadvertently match the rule's conditions. Identify these scripts and exclude their specific access key IDs or user agents from the detection criteria.
-- Testing environments where root access is used for simulation or development purposes can cause false positives. Implement a tagging system for test environments and exclude logs with these tags from triggering the rule.
-- Third-party integrations that require root access for initial setup or configuration might be flagged. Document these integrations and adjust the rule to recognize and exclude their specific access patterns.
+Although rare, legitimate scenarios include:
+- **Authorized account recovery** : An administrator or AWS Support might temporarily add a root login profile to regain access. Validate against documented recovery workflows.  
+- **Controlled testing or sandbox environments** : Certain sandbox accounts may reuse root credentials for automation or demonstration purposes. Tag and exclude these accounts from this rule where appropriate.  
+- **Automated provisioning** : Review any account bootstrap or recovery automation scripts that may invoke `CreateLoginProfile` on root credentials.
+
+For any potential false positive, verify that:
+- The `source.ip` and `user_agent.original` values align with expected administrative locations and tools.  
+- The change was recorded during a maintenance window or known security operation.
 
 ### Response and remediation
 
-- Immediately revoke any active sessions and access keys associated with the root account to prevent further unauthorized access.
-- Reset the root account password and ensure that multi-factor authentication (MFA) is enabled for the root user to enhance security.
-- Review AWS CloudTrail logs to identify any other suspicious activities or changes made by the root account during the time of the incident.
-- Conduct a thorough audit of IAM policies and permissions to ensure that no other unauthorized changes have been made and that least privilege principles are enforced.
-- Notify the security operations team and relevant stakeholders about the incident for further investigation and to ensure awareness across the organization.
-- Implement additional monitoring and alerting for root account activities to detect any future unauthorized access attempts promptly.
-- Consider engaging AWS Support or a third-party security expert if the incident's scope is beyond internal capabilities or if further forensic analysis is required.
+> Any unapproved creation of a login profile for the root account is a critical security incident requiring immediate containment and credential rotation.
 
-## Investigating AWS IAM Login Profile Added for Root
+**1. Containment**
+- Delete the newly created root login profile if it was not authorized.  
+- Rotate the root account password using AWS’s official password-reset workflow.  
+- Revoke any active sessions, temporary credentials, or tokens associated with this event.  
+- Verify that multi-factor authentication (MFA) is enabled and functioning on the root account.  
+- Check that no root access keys exist — if present, remove them immediately.
 
-This rule detects when a login profile is added to the AWS root account. Adding a login profile to the root account, especially if self-assigned, is highly suspicious as it might indicate an adversary trying to establish persistence in the environment.
+**2. Investigation and scoping**
+- Examine CloudTrail logs from 30 minutes before and after this event to identify correlated actions.  
+- Capture and securely store these logs in an isolated S3 bucket with Object Lock enabled to preserve forensic integrity.  
+- Investigate for additional IAM or STS operations by the same `access_key_id` or IP address that may indicate privilege escalation or persistence attempts.  
+- Review whether any new IAM roles, users, or policies were created in proximity to this event.
 
-### Possible Investigation Steps
+**3. Recovery and hardening**
+- Reset the root password and distribute the new credentials securely to authorized custodians only.  
+- Ensure MFA is enforced for all administrative and root-level access.  
+- Audit all IAM policies for least-privilege adherence, focusing on `iam:CreateLoginProfile`, `iam:UpdateLoginProfile`, and `iam:CreateAccessKey` permissions.  
+- Enable Cloudtrail, GuardDuty, AWS Config, and Security Hub across all regions for continuous monitoring of root and IAM activity.  
+- Review your organization’s playbooks and detection coverage for root-level persistence techniques, and update procedures as needed.
 
-- **Identify the Source and Context of the Action**:
-    - Examine the `source.address` field to identify the IP address from which the request originated.
-        - Check the geographic location (`source.address`) to determine if the access is from an expected or unexpected region.
-    - Look at the `user_agent.original` field to identify the tool or browser used for this action.
-        - For example, a user agent like `Mozilla/5.0` might indicate interactive access, whereas `aws-cli` or SDKs suggest scripted activity.
+**4. Post-incident actions**
+- Notify AWS account owners and your security operations center of the incident.  
+- Conduct a post-mortem to determine the initial vector of compromise (e.g., stolen credentials, misconfigured role chaining, or insufficient MFA).  
+- Update alerting thresholds and detection logic to minimize mean time to detect (MTTD) and respond (MTTR).
 
-- **Confirm Root User and Request Details**:
-    - Validate the root user's identity through `aws.cloudtrail.user_identity.arn` and ensure this activity aligns with legitimate administrative actions.
-    - Review `aws.cloudtrail.user_identity.access_key_id` to identify if the action was performed using temporary or permanent credentials. This access key could be used to pivot into other actions.
+### Additional information
 
-- **Analyze the Login Profile Creation**:
-    - Review the `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements` fields for details of the created login profile.
-        - For example, confirm the `userName` of the profile and whether `passwordResetRequired` is set to `true`.
-    - Compare the `@timestamp` of this event with other recent actions by the root account to identify potential privilege escalation or abuse.
-
-- **Correlate with Other Events**:
-    - Investigate for related IAM activities, such as:
-        - `CreateAccessKey` or `AttachUserPolicy` events targeting the root account.
-        - Unusual data access, privilege escalation, or management console logins.
-    - Check for any anomalies involving the same `source.address` or `aws.cloudtrail.user_identity.access_key_id` in the environment.
-
-- **Evaluate Policy and Permissions**:
-    - Verify the current security policies for the root account:
-        - Ensure password policies enforce complexity and rotation requirements.
-        - Check if MFA is enforced on the root account.
-    - Assess the broader IAM configuration for deviations from least privilege principles.
-
-### False Positive Analysis
-
-- **Routine Administrative Tasks**: Adding a login profile might be a legitimate action during certain administrative processes. Verify with the relevant AWS administrators if this event aligns with routine account maintenance or emergency recovery scenarios.
-
-- **Automation**: If the action is part of an approved automation process (e.g., account recovery workflows), consider excluding these activities from alerting using specific user agents, IP addresses, or session attributes.
-
-### Response and Remediation
-
-- **Immediate Access Review**:
-    - Disable the newly created login profile (`aws iam delete-login-profile`) if it is determined to be unauthorized.
-    - Rotate or disable the credentials associated with the root account to prevent further abuse.
-
-- **Enhance Monitoring and Alerts**:
-    - Enable real-time monitoring and alerting for IAM actions involving the root account.
-    - Increase the logging verbosity for root account activities.
-
-- **Review and Update Security Policies**:
-    - Enforce MFA for all administrative actions, including root account usage.
-    - Restrict programmatic access to the root account by disabling access keys unless absolutely necessary.
-
-- **Conduct Post-Incident Analysis**:
-    - Investigate how the credentials for the root account were compromised or misused.
-    - Strengthen the security posture by implementing account-specific guardrails and continuous monitoring.
-
-### Additional Resources
-
-- AWS documentation on [Login Profile Management](https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateLoginProfile.html).
+- **AWS Incident Response Playbooks**  
+  - [IRP-CredCompromise](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/IRP-CredCompromise.md) – Containment and recovery for suspected credential abuse.  
+- **AWS Customer Playbook Framework**  
+  - [Compromised_IAM_Credentials.md](https://github.com/aws-samples/aws-customer-playbook-framework/blob/a8c7b313636b406a375952ac00b2d68e89a991f2/docs/Compromised_IAM_Credentials.md) – Steps to contain, investigate, and recover from credential compromise.  
+- **AWS Documentation**  
+  - [CreateLoginProfile API Reference](https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateLoginProfile.html)  
+  - [Root User Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html)
 """
 risk_score = 73
 rule_id = "c04be7e0-b0fc-11ef-a826-f661ea17fbce"
@@ -124,39 +116,31 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-from logs-aws.cloudtrail* metadata _id, _version, _index
-| where
-    // filter for CloudTrail logs from IAM
-    event.dataset == "aws.cloudtrail"
-    and event.provider == "iam.amazonaws.com"
-
-    // filter for successful CreateLoginProfile API call
-    and event.action == "CreateLoginProfile"
-    and event.outcome == "success"
-
-    // filter for Root member account
-    and aws.cloudtrail.user_identity.type == "Root"
-
-    // filter for an access key existing which sources from AssumeRoot
-    and aws.cloudtrail.user_identity.access_key_id is not null
-
-    // filter on the request parameters not including UserName which assumes self-assignment
-    and not to_lower(aws.cloudtrail.request_parameters) like "*username*"
-| keep
-    @timestamp,
-    aws.cloudtrail.request_parameters,
-    aws.cloudtrail.response_elements,
-    aws.cloudtrail.user_identity.type,
-    aws.cloudtrail.user_identity.arn,
-    aws.cloudtrail.user_identity.access_key_id,
-    cloud.account.id,
-    event.action,
-    source.address
+any where event.dataset == "aws.cloudtrail"
+   and event.provider == "iam.amazonaws.com"
+   and event.action == "CreateLoginProfile"
+   and aws.cloudtrail.user_identity.type == "Root"
+   and event.outcome == "success"
+   and not stringContains(aws.cloudtrail.request_parameters, "userName=")
 '''
-
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

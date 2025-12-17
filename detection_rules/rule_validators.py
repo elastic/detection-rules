@@ -15,6 +15,8 @@ from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
+from elastic_transport import ObjectApiResponse
+from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import (  # type: ignore[reportMissingTypeStubs]
     KvTree,
@@ -23,16 +25,29 @@ from eql.parser import (  # type: ignore[reportMissingTypeStubs]
     TypeHint,
 )
 from eql.parser import _parse as base_parse  # type: ignore[reportMissingTypeStubs]
-from marshmallow import ValidationError
+from kibana import Kibana  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
-from . import ecs, endgame
+from . import ecs, endgame, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .integrations import get_integration_schema_data, load_integrations_manifests, parse_datasets
+from .esql import get_esql_query_event_dataset_integrations
+from .esql_errors import EsqlTypeMismatchError
+from .index_mappings import (
+    create_remote_indices,
+    execute_query_against_indices,
+    get_rule_integrations,
+    prepare_mappings,
+)
+from .integrations import (
+    get_integration_schema_data,
+    load_integrations_manifests,
+    parse_datasets,
+)
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
-from .schemas import get_stack_schemas
+from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
+from .schemas.definitions import FROM_SOURCES_REGEX
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -358,9 +373,13 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         return list({str(f) for f in self.ast if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
-    def auto_add_field(self, validation_checks_error: eql.EqlParseError, index_or_dataview: str) -> None:
+    def auto_add_field(
+        self, validation_checks_error: eql.EqlParseError, index_or_dataview: str, field: str | None = None
+    ) -> None:
         """Auto add a missing field to the schema."""
-        field_name = extract_error_field(self.query, validation_checks_error)
+        field_name = field
+        if not field:
+            field_name = extract_error_field(self.query, validation_checks_error)
         if not field_name:
             raise ValueError("No field name found")
         field_type = ecs.get_all_flattened_schema().get(field_name)
@@ -394,6 +413,7 @@ class EQLValidator(QueryValidator):
 
         # Helper for union-by-stack integration targets
         def add_accumulated_integration_targets(query_text: str, packaged: list[dict[str, Any]], context: str) -> None:
+            """Add integration-based validation targets by accumulating schemas per stack version."""
             combined_by_stack: dict[str, dict[str, Any]] = {}
             ecs_by_stack: dict[str, str] = {}
             packages_by_stack: dict[str, set[str]] = {}
@@ -527,11 +547,7 @@ class EQLValidator(QueryValidator):
                             add_stack_targets(synthetic_sequence, include_endgame=False)
                 else:
                     # Datasetless subquery: try metadata integrations first, else add per-subquery stack targets
-                    meta_integrations = meta.integration
-                    if isinstance(meta_integrations, str):
-                        meta_integrations = [meta_integrations]
-                    elif meta_integrations is None:
-                        meta_integrations = []
+                    meta_integrations = get_rule_integrations(meta)
 
                     if meta_integrations:
                         meta_pkg_ints = [
@@ -572,6 +588,8 @@ class EQLValidator(QueryValidator):
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
+        # base field declaration
+        field = None
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             return
 
@@ -594,7 +612,7 @@ class EQLValidator(QueryValidator):
             )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
             for t in ordered_targets:
-                exc = self.validate_query_text_with_schema(
+                exc, field = self.validate_query_text_with_schema(
                     t.query_text,
                     t.schema,
                     err_trailer=t.err_trailer,
@@ -617,7 +635,7 @@ class EQLValidator(QueryValidator):
                 and RULES_CONFIG.auto_gen_schema_file
                 and data.index_or_dataview
             ):
-                self.auto_add_field(first_error, data.index_or_dataview[0])  # type: ignore[reportArgumentType]
+                self.auto_add_field(first_error, data.index_or_dataview[0], field=field)  # type: ignore[reportArgumentType]
                 continue
 
             # Raise the enriched parse error (includes target trailer + metadata)
@@ -633,7 +651,7 @@ class EQLValidator(QueryValidator):
         min_stack_version: str,
         beat_types: list[str] | None = None,
         integration_types: list[str] | None = None,
-    ) -> EQL_ERROR_TYPES | ValueError | None:
+    ) -> tuple[EQL_ERROR_TYPES | ValueError | None, str | None]:
         """Validate the provided EQL query text against the schema (variant of validate_query_with_schema)."""
         try:
             config = set_eql_config(min_stack_version)
@@ -645,13 +663,16 @@ class EQLValidator(QueryValidator):
             # If the error is an unknown field and the field was referenced as optional (prefixed with '?'),
             # treat this target as non-fatal to honor EQL optional semantics.
 
+            # To support EQL sequence and sub query validation we need to return this field to overwrite
+            # what would have been parsed via auto_add_field as the error message and query may be out of sync
+            # depending on how the method is called.
             field = extract_error_field(query_text, exc)
             if (
                 field
                 and ("Unknown field" in message or "Field not recognized" in message)
                 and f"?{field}" in self.query
             ):
-                return None
+                return None, field
             if "Unknown field" in message and beat_types:
                 trailer_parts.insert(0, "Try adding event.module or event.dataset to specify beats module")
             elif "Field not recognized" in message and isinstance(schema, ecs.KqlSchema2Eql):
@@ -679,10 +700,11 @@ class EQLValidator(QueryValidator):
                 exc.source,  # type: ignore[reportUnknownArgumentType]
                 len(exc.caret.lstrip()),
                 trailer=trailer,
-            )
+            ), field
         except Exception as exc:  # noqa: BLE001
             print(err_trailer)
-            return exc  # type: ignore[reportReturnType]
+            return exc, None  # type: ignore[reportReturnType]
+        return None, None
 
     def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> tuple[list[str], bool]:
         """Validate EQL rule type configurations (timestamp_field, event_category_override, tiebreaker_field).
@@ -713,28 +735,208 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
 
-    @cached_property
-    def ast(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    kibana_client: Kibana
+    elastic_client: Elasticsearch
+    metadata: RuleMeta
+    rule_id: str
+    verbosity: int
+    esql_unique_fields: list[dict[str, str]]
+
+    def log(self, val: str) -> None:
+        """Log if verbosity is 1 or greater (1 corresponds to `-v` in pytest)"""
+        unit_test_verbose_level = 1
+        if self.verbosity >= unit_test_verbose_level:
+            print(f"{self.rule_id}:", val)
+
+    @property
+    def ast(self) -> Any:
+        """Return the AST of the ESQL query. Dependant on an ESQL parser, which is not implemented"""
+        # Needs to return none to prevent not implemented error
         return None
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
-        """Return a list of unique fields in the query."""
-        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
+        """Return a list of unique fields in the query. Requires remote validation to have occurred."""
+        esql_unique_fields = getattr(self, "esql_unique_fields", None)
+        if esql_unique_fields:
+            return [field["name"] for field in self.esql_unique_fields]
         return []
 
-    def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
-        """Validate an ESQL query while checking TOMLRule."""
-        # temporarily override to NOP until ES|QL query parsing is supported
+    def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
+        """Extract indices from an ES|QL query."""
+        match = FROM_SOURCES_REGEX.search(query)
+        if not match:
+            return "", []
 
-    def validate_integration(
+        sources_str = match.group("sources")
+        # Truncate cross cluster search indices to local indices
+        sources_list: list[str] = [
+            source.split(":", 1)[-1].strip() if ":" in source else source.strip() for source in sources_str.split(",")
+        ]
+        return sources_str, sources_list
+
+    def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
+        """Get the type of the unique field. Requires remote validation to have occurred."""
+        esql_unique_fields = getattr(self, "esql_unique_fields", [])
+        for field in esql_unique_fields:
+            if field["name"] == field_name:
+                return field["type"]
+        return None
+
+    def validate_columns_index_mapping(
+        self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = "", query: str = ""
+    ) -> bool:
+        """Validate that the columns in the ESQL query match the provided mappings."""
+        mismatched_columns: list[str] = []
+
+        for column in query_columns:
+            column_name = column["name"]
+            # Skip Dynamic fields
+            if column_name.startswith(("Esql.", "Esql_priv.")):
+                continue
+            # Skip internal fields
+            if column_name in ("_id", "_version", "_index"):
+                continue
+            # Skip implicit fields
+            if column_name not in query:
+                continue
+            column_type = column["type"]
+
+            # Check if the column exists in combined_mappings or a valid field generated from a function or operator
+            keys = column_name.split(".")
+            schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
+            schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
+
+            # If it is in the schema, but Kibana returns unsupported
+            if schema_type and column_type == "unsupported":
+                continue
+
+            # Validate the type
+            if not schema_type or column_type != schema_type:
+                # Attempt reverse mapping as for our purposes they are equivalent.
+                # We are generally concerned about the operators for the types not the values themselves.
+                reverse_col_type = kql.parser.elasticsearch_type_family(column_type) if column_type else None
+                if reverse_col_type is not None and schema_type is not None and reverse_col_type == schema_type:
+                    continue
+                mismatched_columns.append(
+                    f"Dynamic field `{column_name}` is not correctly mapped. "
+                    f"If not dynamic: expected from schema: `{schema_type}`, got from Kibana: `{column_type}`."
+                )
+
+        if mismatched_columns:
+            raise EsqlTypeMismatchError(
+                f"Column validation errors in Stack Version {version}:\n" + "\n".join(mismatched_columns)
+            )
+
+        return True
+
+    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+        """Validate an ESQL query while checking TOMLRule."""
+        if misc.getdefault("remote_esql_validation")() or force_remote_validation:
+            resolved_kibana_options = {
+                str(option.name): option.default() if callable(option.default) else option.default
+                for option in misc.kibana_options
+                if option.name is not None
+            }
+
+            resolved_elastic_options = {
+                option.name: option.default() if callable(option.default) else option.default
+                for option in misc.elasticsearch_options
+                if option.name is not None
+            }
+
+            with (
+                misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
+                misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
+            ):
+                _ = self.remote_validate_rule(
+                    kibana_client,
+                    elastic_client,
+                    data.query,
+                    rule_meta,
+                    data.rule_id,
+                )
+
+    def remote_validate_rule_contents(
+        self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
+    ) -> ObjectApiResponse[Any]:
+        """Remote validate a rule's ES|QL query using an Elastic Stack."""
+        return self.remote_validate_rule(
+            kibana_client=kibana_client,
+            elastic_client=elastic_client,
+            query=contents.data.query,  # type: ignore[reportUnknownVariableType]
+            metadata=contents.metadata,
+            rule_id=contents.data.rule_id,
+            verbosity=verbosity,
+        )
+
+    def remote_validate_rule(  # noqa: PLR0913
         self,
-        _: QueryRuleData,
-        __: RuleMeta,
-        ___: list[dict[str, Any]],
-    ) -> ValidationError | None | ValueError:
-        # Disabling self.validate(data, meta)
-        pass
+        kibana_client: Kibana,
+        elastic_client: Elasticsearch,
+        query: str,
+        metadata: RuleMeta,
+        rule_id: str = "",
+        verbosity: int = 0,
+    ) -> ObjectApiResponse[Any]:
+        """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
+
+        self.rule_id = rule_id
+        self.verbosity = verbosity
+
+        # Validate that all fields (columns) are either dynamic fields or correctly mapped
+        # against the combined mapping of all the indices
+        kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
+        if "version" not in kibana_details:
+            raise ValueError("Failed to retrieve Kibana details.")
+        stack_version = get_latest_stack_version()
+
+        self.log(f"Validating against {stack_version} stack")
+        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
+        self.log(f"Extracted indices from query: {', '.join(indices)}")
+
+        event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
+        self.log(
+            "Extracted Event Dataset integrations from query: "
+            f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
+        )
+
+        # Get mappings for all matching existing index templates
+        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
+            elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
+        )
+        self.log(f"Collected mappings: {len(existing_mappings)}")
+        self.log(f"Combined mappings prepared: {len(combined_mappings)}")
+
+        # Create remote indices
+        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
+
+        # Replace all sources with the test indices
+        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
+
+        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
+        self.esql_unique_fields = query_columns
+
+        # Build a mapping lookup for all stack versions to validate against.
+        # We only need to check against the schemas locally for the type
+        # mismatch error, as the EsqlSchemaError and EsqlSyntaxError errors from the stack
+        # will not be impacted by the difference in schema type mapping.
+        mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
+        versions = get_stack_versions()
+        for version in versions:
+            if version in mappings_lookup:
+                continue
+            _, _, combined_mappings = prepare_mappings(
+                elastic_client, indices, event_dataset_integrations, metadata, version, self.log
+            )
+            mappings_lookup[version] = combined_mappings
+
+        for version, mapping in mappings_lookup.items():
+            self.log(f"Validating {rule_id} against {version} stack")
+            if not self.validate_columns_index_mapping(query_columns, mapping, version=version, query=query):
+                self.log("Dynamic column(s) have improper formatting.")
+
+        return response
 
 
 def extract_error_field(source: str, exc: eql.EqlParseError | kql.KqlParseError) -> str | None:

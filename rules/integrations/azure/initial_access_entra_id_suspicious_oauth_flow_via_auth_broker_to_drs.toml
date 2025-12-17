@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -25,10 +25,10 @@ from = "now-61m"
 interval = "60m"
 language = "esql"
 license = "Elastic License v2"
-name = "Suspicious Microsoft OAuth Flow via Auth Broker to DRS"
+name = "Entra ID OAuth Flow by Microsoft Authentication Broker to Device Registration Service (DRS)"
 note = """## Triage and analysis
 
-### Investigating Suspicious Microsoft OAuth Flow via Auth Broker to DRS
+### Investigating Entra ID OAuth Flow by Microsoft Authentication Broker to Device Registration Service (DRS)
 
 This rule identifies potential OAuth phishing behavior in Microsoft Entra ID where two OAuth authorization flows are observed in quick succession, sharing the same user principal and session ID but originating from different IP addresses. The client application is the Microsoft Authentication Broker, and the target resource is the Device Registration Service (DRS). This pattern is indicative of adversaries attempting to phish targets for OAuth sessions by tricking users into authenticating through a crafted URL, which then allows the attacker to obtain an authorization code and exchange it for access and refresh tokens.
 
@@ -89,7 +89,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-azure.signinlogs* metadata _id, _version, _index
+from logs-azure.signinlogs-* metadata _id, _version, _index
 | where
     event.dataset == "azure.signinlogs" and
     event.outcome == "success" and
@@ -194,6 +194,15 @@ from logs-azure.signinlogs* metadata _id, _version, _index
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
@@ -208,4 +217,16 @@ reference = "https://attack.mitre.org/techniques/T1566/002/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
 
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

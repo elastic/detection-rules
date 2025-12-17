@@ -35,7 +35,7 @@ def get_gh_release(repo: Repository, release_name: str | None = None, tag_name: 
 
     releases = repo.get_releases()
     for release in releases:
-        if (release_name and release_name == release.title) or (tag_name and tag_name == release.tag_name):
+        if (release_name and release_name == release.name) or (tag_name and tag_name == release.tag_name):
             return release
     return None
 
@@ -109,7 +109,7 @@ def update_gist(  # noqa: PLR0913
 
     if pre_purge:
         # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
         files = list(data["files"])
@@ -211,7 +211,7 @@ class ManifestManager:
             raise ValueError(f"No release found for {tag_name or release_name}")
 
         if not self.release_name:
-            self.release_name = self.release.title
+            self.release_name = self.release.name
 
         self.manifest_name = f"manifest-{self.release_name}.json"
         self.assets = self._get_enriched_assets_from_release()

@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/10/06"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "New job added"
+min_stack_version = "9.3.0"
+updated_date = "2025/12/08"
+
+[rule]
+anomaly_threshold = 50
+author = ["Elastic"]
+description = """
+A machine learning job detected a significant spike in the rate of a particular failure in the Azure Activity Logs messages. Spikes
+in failed messages may accompany attempts at privilege escalation, lateral movement, or discovery.
+"""
+false_positives = [
+    """
+    Spikes in failures can also be due to bugs in cloud automation scripts or workflows; changes to cloud
+    automation scripts or workflows; adoption of new services; changes in the way services are used; or changes to IAM
+    privileges.
+    """,
+]
+from = "now-60m"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "azure_activitylogs_high_distinct_count_event_action_on_failure"
+name = "Spike in Azure Activity Logs Failed Messages"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Azure Activity Logs Failed Messages
+
+This rule flags an unusual surge in failed control‑plane operations recorded in the platform’s activity logs, highlighting abrupt increases in a specific failure type. It matters because concentrated failures frequently accompany probing for privileges, discovery, or staged lateral movement. Adversaries often script through the management API to list subscriptions, role assignments, or policy definitions and then attempt role updates or assignment creations at scale, generating clusters of authorization and scope‑validation failures as they enumerate tenants and test permission boundaries.
+
+### Possible investigation steps
+
+- Categorize the spike by failure reason (authorization, policy, scope validation, throttling, or availability) and pivot to the initiating identities, apps, and source IPs to see whether a single principal or distributed automation is driving it.
+- Correlate these failures with Entra ID sign‑in logs and Conditional Access evaluations for the same principals to determine whether authentication, token, or policy blocks explain the surge.
+- Review recent RBAC changes (role assignments/definitions), PIM activations, and deny/policy assignments around the spike to spot attempted privilege escalation or scope misconfiguration.
+- Map the affected resource providers and scopes (tenant, subscription, resource group) to identify reconnaissance patterns such as wide listing followed by repeated unauthorized write attempts.
+- Confirm benign causes such as expired service principal credentials, broken pipelines, or provider outages with owners, and if intent is suspect promptly disable the principal, revoke tokens, and rotate secrets.
+
+### False positive analysis
+
+- Expired or rotated service principal credentials in scheduled automation led to repeated Azure management operations with invalid tokens, spiking AuthorizationFailed entries until the secret was updated.
+- A planned rollout of Azure Policy with a deny effect or the application of resource locks temporarily blocked routine deployments across multiple scopes, generating a concentrated burst of failed write operations during the change window.
+
+### Response and remediation
+
+- Temporarily disable the Entra ID service principal or user driving the spike, revoke all refresh/access tokens, and apply a Conditional Access block for management API access from its source IP ranges to halt further control‑plane attempts.
+- Pause implicated automation by stopping the Azure DevOps pipeline or Automation Account runbook, invalidate any associated PATs or shared secrets, and rotate the application/client secret or federated credentials tied to the identity.
+- Back out unauthorized changes by removing newly created role assignments, deny assignments, or policy assignments introduced during the window, and restore intended RBAC at the affected subscriptions, management groups, and resource groups via IaC state.
+- Recover by fixing the misconfiguration or credentials, validating successful test operations (e.g., list and create where permitted) in a non‑production subscription, and then re‑enable automation with least‑privilege scopes while monitoring for a return to normal failure rates.
+- Escalate to the incident response lead if failures include repeated attempts to change role assignments or policy at tenant or management‑group scope, originate from unfamiliar geographies or unapproved IP ranges, spread across multiple subscriptions, or persist more than 15 minutes after containment.
+- Harden by enforcing PIM for privileged roles, enabling Conditional Access for workload identities and administrators (MFA and named locations), implementing secret scanning and rotation for repos and pipelines, exporting Activity Logs to Log Analytics with retention, and alerting on abnormal management‑plane failures per identity.
+"""
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from Azure Activity Logs.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Azure Activity Logs Integration Setup
+The Azure Activity Logs integration allows you to collect logs and metrics from Azure with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "Azure Activity Logs" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Azure Activity Logs” and select the integration to see more details about it.
+- Click “Add Azure Activity Logs”.
+- Configure the integration.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/reference/integrations/azure/activitylogs).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "1eb74889-18c5-4f78-8010-d8aceb7a9ef4"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

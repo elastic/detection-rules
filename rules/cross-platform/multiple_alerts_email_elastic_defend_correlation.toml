@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["endpoint", "checkpoint_email"]
+maturity = "production"
+updated_date = "2025/12/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule correlates any Elastic Defend alert with an email security related alert by target user name. This may indicate
+the successful execution of a phishing attack.
+"""
+from = "now-1h"
+interval = "45m"
+language = "esql"
+license = "Elastic License v2"
+name = "Elastic Defend and Email Alerts Correlation"
+risk_score = 73
+rule_id = "c562a800-cf97-464e-9d6f-84db91e86e10"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Check Point Harmony Email & Collaboration",
+    "Domain: Email",
+    "Domain: Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.alerts-*, logs-checkpoint_email.event-* metadata _id
+// Email or Elastic Defend alerts where user name is populated
+| where
+  (event.category == "email" and event.kind == "alert" and destination.user.name is not null) or
+  (event.module == "endpoint" and event.dataset == "endpoint.alerts" and user.name is not null)
+
+// extract target user name from email and endpoint alerts
+| eval email_alert_target_user_name = CASE(event.category == "email", destination.user.name, null),
+       elastic_defend_alert_user_name = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", user.name, null)
+| eval Esql.target_user_name = COALESCE(email_alert_target_user_name, elastic_defend_alert_user_name)
+| where Esql.target_user_name is not null
+
+// group by Esql.target_user_name
+| stats Esql.alerts_count = COUNT(*),
+        Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
+        Esql.event_module_values = VALUES(event.module),
+        Esql.message_values = VALUES(message),
+        Esql.event_action_values = VALUES(event.action),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.host_id_values = VALUES(host.id),
+        Esql.source_user_name = VALUES(source.user.name),
+        Esql.rule_name_values = VALUES(rule.name)
+        by Esql.target_user_name
+// alert when same user is observed in an endpoint and email alert
+| where Esql.event_module_distinct_count >= 2
+| keep Esql.alerts_count, Esql.event_module_values, Esql.host_id_values, Esql.source_user_name, Esql.target_user_name, Esql.message_values, Esql.rule_name_values, Esql.event_action_values
+'''
+note = """## Triage and analysis
+### Investigating Elastic Defend and Email Alerts Correlation
+
+This rule correlates any Elastic Defend alert with an email security related alert by target user name.
+
+### Possible investigation steps
+- Review the alert details to identify the specific host and users involved.
+- Investigate the individual alerts for the target user name and see if they are related.
+- Review all emails received from Esql.source_user_name and if there are other impacted users.
+- Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
+- Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
+
+### False positive analysis
+- Legitimate email marked as suspicious.
+- Legitimate file or behavior marked as suspicious by Elastic Defend.
+- Unrelated alerts where the target user name is too generic.
+
+### Response and remediation
+- Isolate the affected host from the network immediately to prevent further lateral movement by the adversary.
+- Conduct a thorough forensic analysis of the host.
+- Remove any identified malicious software or unauthorized access tools from the host, ensuring all persistence mechanisms are eradicated.
+- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
+- Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
+- Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""

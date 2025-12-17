@@ -2,15 +2,15 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/10/13"
 
 [rule]
 author = ["Elastic"]
 description = """
 An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by attaching
 additional permissions to user groups the compromised user account belongs to. This rule looks for use of the IAM
-`AttachGroupPolicy` API operation to attach the highly permissive `AdministratorAccess` AWS managed policy to an
-existing IAM user group.
+AttachGroupPolicy API operation to attach the highly permissive AdministratorAccess AWS managed policy to an existing
+IAM user group.
 """
 false_positives = [
     """
@@ -20,61 +20,77 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-language = "esql"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM AdministratorAccess Policy Attached to Group"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS IAM AdministratorAccess Policy Attached to Group
 
-The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources.
-With access to the `iam:AttachGroupPolicy` permission, a set of compromised credentials could be used to attach
-this policy to the current user's groups for privilege escalation or as a means of persistence. This rule uses [ESQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-esql-rule)
-to look for use of the `AttachGroupPolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
-
+The AWS-managed `AdministratorAccess` policy grants full administrative privileges across all AWS services.  
+When attached to a group, all group members inherit this access, often unintentionally broadening the blast radius of a compromise.  
+Adversaries can exploit `iam:AttachGroupPolicy` permissions to escalate privileges or establish persistence by attaching this policy to an existing user group.
 
 #### Possible investigation steps
 
-- Identify the account and its role in the environment.
-- Review IAM permission policies for the user identity.
-- Identify the applications or users that should use this account.
-- Investigate other alerts associated with the account during the past 48 hours.
-- Investigate abnormal values in the `user_agent.original` field by comparing them with the intended and authorized usage and historical data. Suspicious user agent values include non-SDK, AWS CLI, custom user agents, etc.
-- Contact the account owner and confirm whether they are aware of this activity.
-- Considering the source IP address and geolocation of the user who issued the command:
-    - Do they look normal for the calling user?
-    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
-    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
-    - Determine what other API calls were made by the user.
-    - Assess whether this behavior is prevalent in the environment by looking for similar occurrences involving other users.
+- **Identify the affected group and calling principal.**  
+  Review `aws.cloudtrail.user_identity.arn` (caller) and `aws.cloudtrail.request_parameters.groupName` (target group).  
+  Validate whether this aligns with legitimate change management or automation workflows.  
+
+- **Review group membership.**  
+  Enumerate current members using `aws iam get-group`.  
+  Determine whether unauthorized users could have gained administrative access as a result.  
+
+- **Inspect CloudTrail details.**  
+  Check `source.ip`, `user_agent.original`, and `source.geo` fields for anomalies.  
+  Compare with historical operations by the same principal.  
+
+- **Correlate related IAM activity.**  
+  Search for adjacent events such as `AddUserToGroup`, `CreateUser`, or `AttachUserPolicy`.  
+  These may indicate chained privilege escalation.  
+
+- **Assess propagation of privileges.**  
+  If the group has many members or is linked to cross-account roles, the impact may extend beyond a single user.  
+  Document all affected identities for containment.  
 
 ### False positive analysis
 
-- False positives may occur due to the intended usage of the IAM `AdministratorAccess` managed policy. Verify the `aws.cloudtrail.user_identity.arn` should have the `iam:AttachUserPolicy` permission and that the `target.userName` should be given full administrative access.
+- **Intentional access updates.**  
+  Policy attachment may occur during legitimate administrative provisioning. Confirm via ticketing systems.  
+- **Automation or compliance tasks.**  
+  Some environments use centralized scripts to attach AdministratorAccess temporarily. Validate through automation logs.  
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
-    - Rotate user credentials
-    - Remove the `AdministratorAccess` policy from the affected group(s)
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified.
-    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment.
-    - Work with your IT teams to minimize the impact on business operations during these actions.
-- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
-- Consider enabling multi-factor authentication for users.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
-- Take the actions needed to return affected systems, data, or services to their normal operational levels.
-- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+**1. Immediate containment**
+- Detach the policy from the affected group (`aws iam detach-group-policy`).  
+- Review and limit group membership. Temporarily remove non-essential users or disable access for impacted accounts.  
+- Rotate credentials for users who inherited admin privileges from the attachment.  
+- Enable MFA on all impacted accounts.  
+
+**2. Evidence preservation**
+- Export the triggering `AttachGroupPolicy` event and related CloudTrail entries ±30 minutes from the alert.  
+- Preserve AWS Config and GuardDuty records to support forensic analysis.  
+
+**3. Scoping and investigation**
+- Review additional IAM operations from the same caller (`CreateAccessKey`, `AttachRolePolicy`, `UpdateAssumeRolePolicy`).  
+- Identify whether new groups or roles were created shortly before or after the event.  
+- Check for subsequent API activity by newly privileged users (for example, S3, EC2, or IAM modifications).  
+
+**4. Recovery and hardening**
+- Reinforce least privilege, avoid assigning `AdministratorAccess` to groups.  
+- Use role-based access control with scoped permissions.   
+- Enable CloudTrail, GuardDuty, and Security Hub across all regions.  
+- Implement SCPs at the organization level to restrict direct `AdministratorAccess` attachments.  
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/): response steps related to IAM policy modification and unauthorized privilege escalation..  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/): for containment, analysis, and recovery guidance.
+- **AWS Documentation:** [AdministratorAccess Policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html#jf_administrator).
 """
 references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachGroupPolicy.html",
@@ -95,31 +111,14 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-
-| where
-  event.provider == "iam.amazonaws.com"
-  and event.action == "AttachGroupPolicy"
-  and event.outcome == "success"
-
-// Extract policy and group details from request parameters
-| dissect aws.cloudtrail.request_parameters
-    "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{Esql.aws_cloudtrail_request_parameters_policy_name},%{?groupName}=%{Esql.aws_cloudtrail_request_parameters_group_name}}"
-
-// Filter for attachment of AdministratorAccess policy
-| where Esql.aws_cloudtrail_request_parameters_policy_name == "AdministratorAccess"
-
-// keep ECS and derived fields
-| keep
-  @timestamp,
-  event.provider,
-  event.action,
-  event.outcome,
-  Esql.aws_cloudtrail_request_parameters_policy_name,
-  Esql.aws_cloudtrail_request_parameters_group_name
+iam where event.dataset == "aws.cloudtrail"
+   and event.provider == "iam.amazonaws.com"
+   and event.action == "AttachGroupPolicy"
+   and event.outcome == "success"
+   and stringContains(aws.cloudtrail.request_parameters, "policyArn=arn:aws:iam::aws:policy/AdministratorAccess")
 '''
 
 
@@ -157,4 +156,21 @@ reference = "https://attack.mitre.org/techniques/T1098/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "group.name",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 

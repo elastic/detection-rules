@@ -1,0 +1,172 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+min_stack_version = "9.2.0"
+min_stack_comments = "The esql url_decode() operator was introduced in version 9.2.0"
+updated_date = "2025/12/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential Local File Inclusion (LFI) activity on web servers by identifying HTTP GET requests that
+attempt to access sensitive local files through directory traversal techniques or known file paths. Attackers may
+exploit LFI vulnerabilities to read sensitive files, gain system information, or further compromise the server.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Local File Inclusion Activity"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Local File Inclusion Activity
+
+This rule surfaces successful GET requests containing directory traversal or direct access to sensitive paths, signaling Local File Inclusion exploitation that can expose credentials, configuration, and process context and enable further compromise. A common attacker pattern is abusing a vulnerable parameter to fetch ../../../../etc/passwd, then pivoting to /proc/self/environ to harvest secrets and identify execution context for subsequent steps.
+
+### Possible investigation steps
+
+- Retrieve contiguous access logs around the alert to rebuild each request/response pair (URI, parameters, user agent, referer, cookies, X-Forwarded-For) and identify which parameter reflected traversal or wrapper usage and whether the response likely contained file contents.
+- Compare response sizes and content-types for the suspicious requests to normal pages and look for signatures such as "root:x:" lines, INI/XML keys, or base64 blobs that indicate disclosure of /etc/passwd, web.config/applicationhost.config, or other sensitive files.
+- Review web server and application error logs at the same timestamps for include/open stream warnings, open_basedir or allow_url_fopen messages, and stack traces to confirm the code path handling the input and any mitigations in place.
+- Pivot on the same source and timeframe to find adjacent probes (php://filter, data://, expect://, zip://, phar://, /proc/self/environ, traversal into webroots/configs) and any follow-on POSTs to upload endpoints or new script paths, signaling progression toward RCE or webshell placement.
+- Determine whether the traffic was authenticated and whether it traversed a WAF or reverse proxy by correlating cookies or session IDs and client IPs with proxy/WAF logs, noting any blocks, rule matches, or bypasses to bound scope and urgency.
+
+### False positive analysis
+
+- A site search or documentation endpoint echoing user-supplied text can include strings like ../../../../etc/passwd, windows/win.ini, or php://filter in the query string and return a normal 200 OK results page rather than performing a file include.
+- An authenticated admin feature (such as a log viewer or file browser) may legitimately accept path= or file= parameters referencing local paths like /var/log/nginx or /inetpub/logs/logfiles and return 200 when serving allowed files, producing URLs that match the rule without exploitation.
+
+### Response and remediation
+
+- Immediately block the source IP at the reverse proxy/WAF and deploy deny rules for GET requests using ../../ or ..\\..\\ traversal or wrappers (php://, expect://, data://) that fetch /etc/passwd, /proc/self/environ, wp-config.php, web.config, or applicationhost.config.
+- Configure the web server to return 403 for paths resolving to /proc, /etc, /var/log, /inetpub, applicationhost.config, and web.config and to reject wrapper schemes like php:// and expect://, then reload Nginx/Apache/IIS to apply.
+- Fix the vulnerable include logic by canonicalizing input with realpath, rejecting any .. segments or absolute paths, enforcing a whitelist of allowed files, and in PHP disabling allow_url_include/allow_url_fopen and setting open_basedir to a safe directory.
+- Rotate exposed secrets by changing database and API credentials from wp-config.php, connection strings and machine keys from web.config/applicationhost.config, and any tokens in /proc/self/environ, then invalidate active sessions and cache.
+- Escalate to incident leadership and quarantine the host if response bodies contain credential patterns (e.g., "root:x:" from /etc/passwd or XML keys from web.config), if /etc/shadow or windows/system32/config/SAM was requested, or if follow-on POSTs or new .php/.aspx files appear in the webroot.
+- Recover by verifying integrity of /var/www and /inetpub/wwwroot, scanning for webshells and unexpected includes, redeploying a known-good build or container image if tampering is found, and adding WAF normalization to double-decode URLs and 403 traversal attempts.
+"""
+risk_score = 21
+rule_id = "90e4ceab-79a5-4f8e-879b-513cac7fcad9"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    http.request.method == "GET" and
+    http.response.status_code == 200 and
+    url.original like "*=*"
+
+| eval Esql.url_original_url_decoded_to_lower = to_lower(URL_DECODE(url.original))
+
+| where
+  /* 1) Relative traversal */
+    Esql.url_original_url_decoded_to_lower like "*../../../../*" or           // Unix-style traversal
+    Esql.url_original_url_decoded_to_lower like "*..\\\\..\\\\..\\\\..*" or           // Windows-style traversal
+    // Potential security check bypassing (enforcing multiple dots and shortening the pattern)
+    Esql.url_original_url_decoded_to_lower like "*..././*" or
+    Esql.url_original_url_decoded_to_lower like "*...\\*" or
+    Esql.url_original_url_decoded_to_lower like "*....\\*" or
+
+  /* 2) Linux system identity / basic info */
+    Esql.url_original_url_decoded_to_lower like "*etc/passwd*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/shadow*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/hosts*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/os-release*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/issue*" or
+
+  /* 3) Linux /proc enumeration */
+    Esql.url_original_url_decoded_to_lower like "*proc/self/environ*" or
+    Esql.url_original_url_decoded_to_lower like "*proc/self/cmdline*" or
+    Esql.url_original_url_decoded_to_lower like "*proc/self/fd*" or
+    Esql.url_original_url_decoded_to_lower like "*proc/self/exe*" or
+
+  /* 4) Linux webroots, configs & logs */
+    Esql.url_original_url_decoded_to_lower like "*var/www*" or               // generic webroot
+    Esql.url_original_url_decoded_to_lower like "*wp-config.php*" or         // classic WP config
+    Esql.url_original_url_decoded_to_lower like "*etc/apache2*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/httpd*" or
+    Esql.url_original_url_decoded_to_lower like "*etc/nginx*" or
+    Esql.url_original_url_decoded_to_lower like "*var/log/apache2*" or
+    Esql.url_original_url_decoded_to_lower like "*var/log/httpd*" or
+    Esql.url_original_url_decoded_to_lower like "*var/log/nginx*" or
+
+  /* 5) Windows core files / identity */
+    Esql.url_original_url_decoded_to_lower like "*windows/panther/*unattend*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/debug/netsetup.log*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/win.ini*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/drivers/etc/hosts*" or
+    Esql.url_original_url_decoded_to_lower like "*boot.ini*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/config/*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/repair/sam*" or
+    Esql.url_original_url_decoded_to_lower like "*windows/system32/license.rtf*" or
+
+  /* 6) Windows IIS / .NET configs, webroots & logs */
+     Esql.url_original_url_decoded_to_lower like "*/inetpub/wwwroot*" or
+     Esql.url_original_url_decoded_to_lower like "*/inetpub/logs/logfiles*" or
+     Esql.url_original_url_decoded_to_lower like "*applicationhost.config*" or
+     Esql.url_original_url_decoded_to_lower like "*/microsoft.net/framework64/*/config/web.config*" or
+     Esql.url_original_url_decoded_to_lower like "*windows/system32/inetsrv/*" or
+
+  /* 7) PHP & protocol wrappers */
+     Esql.url_original_url_decoded_to_lower like "*php://*" or
+     Esql.url_original_url_decoded_to_lower like "*zip://*" or
+     Esql.url_original_url_decoded_to_lower like "*phar://*" or
+     Esql.url_original_url_decoded_to_lower like "*expect://*" or
+     Esql.url_original_url_decoded_to_lower like "*file://*" or
+     Esql.url_original_url_decoded_to_lower like "*data://text/plain;base64*"
+
+| keep
+    @timestamp,
+    Esql.url_original_url_decoded_to_lower,
+    source.ip,
+    agent.id,
+    host.name,
+    http.request.method,
+    http.response.status_code,
+    event.dataset,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_url_decoded_to_lower_count_distinct = count_distinct(Esql.url_original_url_decoded_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_original_url_decoded_to_lower_values = values(Esql.url_original_url_decoded_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

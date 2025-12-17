@@ -56,6 +56,7 @@ def elastic_rule_name_regexp(pattern: Pattern[str]) -> Callable[[Any], Any]:
     return validator_wrapper
 
 
+HTTP_STATUS_BAD_REQUEST = 400
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -66,12 +67,18 @@ OS_OPTIONS = ["windows", "linux", "macos"]
 NAME_PATTERN = re.compile(r"^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$")
 PR_PATTERN = re.compile(r"^$|\d+$")
 SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
-UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-
+# NOTE this additional bad UUID pattern is a stop gap until the rule has been deprecated
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"  # UUID pattern
+    r"|^7eb54028-ca72-4eb7-8185-b6864572347db$"  # Additional pattern of known bad UUID
+)
 _version = r"\d+\.\d+(\.\d+[\w-]*)*"
 CONDITION_VERSION_PATTERN = re.compile(rf"^\^{_version}$")
 VERSION_PATTERN = f"^{_version}$"
 MINOR_SEMVER = re.compile(r"^\d+\.\d+$")
+FROM_SOURCES_REGEX = re.compile(
+    r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
+)
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
@@ -100,15 +107,17 @@ NON_PUBLIC_FIELDS = {
     "setup": (Version.parse("8.3.0"), None),
 }
 INTERVAL_PATTERN = r"^\d+[mshd]$"
-TACTIC_URL = r"^https://attack.mitre.org/tactics/TA[0-9]+/$"
-TECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/$"
-SUBTECHNIQUE_URL = r"^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$"
+TACTIC_URL = r"^(https://attack.mitre.org/tactics/TA[0-9]+/|https://atlas.mitre.org/tactics/AML\.TA[0-9]+/)$"
+TECHNIQUE_URL = r"^(https://attack.mitre.org/techniques/T[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+/)$"
+SUBTECHNIQUE_URL = (
+    r"^(https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/|https://atlas.mitre.org/techniques/AML\.T[0-9]+\.[0-9]+/)$"
+)
 MACHINE_LEARNING = "machine_learning"
 QUERY = "query"
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
-KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5"]
+KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5", "7eb54028-ca72-4eb7-8185-b6864572347db"]
 KNOWN_BAD_DEPRECATED_DATES = Literal["2021-03-03"]
 # Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
 KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
@@ -240,7 +249,7 @@ NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
-RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=1, max=100))]
+RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=0, max=100))]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
 SemVer = Annotated[str, fields.String(validate=validate.Regexp(VERSION_PATTERN))]
 SemVerMinorOnly = Annotated[str, fields.String(validate=validate.Regexp(MINOR_SEMVER))]

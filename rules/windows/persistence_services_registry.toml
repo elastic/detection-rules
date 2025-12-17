@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/18"
+updated_date = "2025/10/07"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,7 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-  registry.value : ("ServiceDLL", "ImagePath") and
+  registry.data.strings != null and registry.value : ("ServiceDLL", "ImagePath") and
   registry.path : (
       "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ServiceDLL",
       "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath",

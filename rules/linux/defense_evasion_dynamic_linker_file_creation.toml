@@ -2,14 +2,15 @@
 creation_date = "2024/08/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/09/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation or modification of files related to the dynamic linker on Linux systems. The dynamic linker is a
-shared library that is used by the Linux kernel to load and execute programs. Attackers may attempt to hijack the
-execution flow of a program by modifying the dynamic linker configuration files.
+Detects the creation or modification of files related to the configuration of the dynamic linker on Linux systems.
+The dynamic linker is a shared library that is used by the Linux kernel to load and execute programs. Attackers may
+attempt to hijack the execution flow of a program by modifying the dynamic linker configuration files. This technique
+is often observed by userland rootkits that leverage shared objects to maintain persistence on a compromised host.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
@@ -66,22 +67,27 @@ not (
     "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
-    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/platform-python",
-    "/usr/lib/snapd/snap-update-ns", "/usr/bin/vmware-config-tools.pl"
+    "/usr/lib/snapd/snap-update-ns", "/usr/bin/vmware-config-tools.pl", "./usr/bin/podman", "/bin/nvidia-cdi-hook",
+    "/usr/lib/dracut/dracut-install", "./usr/bin/nvidia-cdi-hook", "/.envbuilder/bin/envbuilder", "/usr/bin/buildah",
+    "/usr/sbin/dnf", "/usr/bin/pamac", "/sbin/pacman", "/usr/bin/crio", "/usr/sbin/yum-cron"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
   process.executable : (
-    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/opt/dynatrace/oneagent/*"
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/opt/dynatrace/oneagent/*",
+    "/usr/libexec/platform-python*"
   ) or
   process.executable == null or
   process.name in (
     "java", "executor", "ssm-agent-worker", "packagekitd", "crio", "dockerd-entrypoint.sh",
-    "docker-init", "BootTimeChecker"
+    "docker-init", "BootTimeChecker", "dockerd (deleted)", "dockerd"
   ) or
   (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") or
+  (process.name == "init" and file.name == "ld.wsl.conf") or
+  (process.name == "sshd" and file.extension == "dpkg-new")
 )
 '''
 note = """## Triage and analysis

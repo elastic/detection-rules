@@ -18,6 +18,7 @@ from semver import Version
 
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
+from detection_rules.esql_errors import EsqlSemanticError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import RULES_CONFIG, downgrade
@@ -315,7 +316,7 @@ class TestESQLValidation(unittest.TestCase):
         """Test ESQL rule data validation"""
 
         # A random ESQL rule to deliver a test query
-        rule_path = Path("rules/windows/defense_evasion_posh_obfuscation_index_reversal.toml")
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
         rule_body = rule_path.read_text()
         rule_dict = pytoml.loads(rule_body)
 
@@ -323,7 +324,7 @@ class TestESQLValidation(unittest.TestCase):
         query = """
             FROM logs-windows.powershell_operational* METADATA _id, _version, _index
             | WHERE event.code == "4104"
-            | KEEP event.count
+            | KEEP event.code
         """
         rule_dict["rule"]["query"] = query
         _ = RuleCollection().load_dict(rule_dict, path=rule_path)
@@ -333,23 +334,23 @@ class TestESQLValidation(unittest.TestCase):
         query = """
             FROM logs-windows.powershell_operational* METADATA _id, _index, _version
             | WHERE event.code == "4104"
-            | KEEP event.count
+            | KEEP event.code
         """
         rule_dict["rule"]["query"] = query
         _ = RuleCollection().load_dict(rule_dict, path=rule_path)
 
         # Different metadata fields
-        with pytest.raises(ValidationError):
+        with pytest.raises(EsqlSemanticError):
             query = """
                 FROM logs-windows.powershell_operational* METADATA _foo, _index
                 | WHERE event.code == "4104"
-                | KEEP event.count
+                | KEEP event.code
             """
             rule_dict["rule"]["query"] = query
             _ = RuleCollection().load_dict(rule_dict, path=rule_path)
 
         # Missing `keep`
-        with pytest.raises(ValidationError):
+        with pytest.raises(EsqlSemanticError):
             query = """
                 FROM logs-windows.powershell_operational* METADATA _id, _index, _version
                 | WHERE event.code == "4104"

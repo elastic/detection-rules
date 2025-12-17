@@ -2,12 +2,12 @@
 creation_date = "2025/04/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/12/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a JavaScript file is uploaded or accessed in an S3 static site directory (`static/js/`) by an IAM
+This rule detects when a JavaScript file is uploaded in an S3 static site directory (`static/js/`) by an IAM
 user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious
 scripts into a static website frontend.
 """
@@ -17,7 +17,7 @@ false_positives = [
     Verify the user agent, source IP, and whether the modification was expected.
     """,
 ]
-from = "now-9m"
+from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS S3 Static Site JavaScript File Uploaded"
@@ -73,10 +73,11 @@ query = '''
 from logs-aws.cloudtrail* metadata _id, _version, _index
 
 | where
-    // S3 object read/write activity
+    // S3 object write activity
     event.dataset == "aws.cloudtrail"
     and event.provider == "s3.amazonaws.com"
-    and event.action in ("GetObject", "PutObject")
+    and event.action == "PutObject"
+    and event.outcome == "success"
 
     // IAM users or assumed roles only
     and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
@@ -88,7 +89,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     and not (
         user_agent.original like "*Terraform*"
         or user_agent.original like "*Ansible*"
-        or user_agent.original like "*Pulumni*"
+        or user_agent.original like "*Pulumi*"
     )
 
 // Extract fields from request parameters
@@ -96,7 +97,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     "%{{?bucket.name.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_name}, %{?host.key}=%{Esql_priv.aws_cloudtrail_request_parameters_host}, %{?bucket.object.location.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_object_location}}"
 
 // Extract file name portion from full object path
-| dissect Esql.aws_cloudtrail_request_parameters_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
+| dissect Esql.aws_cloudtrail_request_parameters_bucket_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
 
 // Match on JavaScript files
 | where ends_with(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
@@ -112,7 +113,10 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     user_agent.original,
     source.ip,
     event.action,
-    @timestamp
+    @timestamp,
+    _id,
+    _version,
+    _index
 '''
 
 
@@ -127,10 +131,27 @@ id = "T1565.001"
 name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 

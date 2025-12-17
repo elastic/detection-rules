@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2021/07/14"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-*", "metrics-*", "traces-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Agent Spoofing - Multiple Hosts Using Same Agent"
 risk_score = 73
@@ -26,10 +26,14 @@ rule_id = "493834ca-f861-414c-8602-150d5505b777"
 severity = "high"
 tags = ["Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-event.agent_id_status:* and not tags:forwarded
+from logs-endpoint.*  metadata _id
+| where event.agent_id_status is not null and agent.id is not null
+| stats Esql.count_distinct_host_ids = count_distinct(host.id), Esql.host_id_values = values(host.id), Esql.user_id_values_user_id = values(user.id) by agent.id
+| where Esql.count_distinct_host_ids >= 2
+| keep Esql.count_distinct_host_ids, Esql.host_id_values, Esql.user_id_values_user_id, agent.id
 '''
 note = """## Triage and analysis
 
@@ -79,12 +83,5 @@ reference = "https://attack.mitre.org/techniques/T1036/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[rule.threshold]
-field = ["agent.id"]
-value = 2
-[[rule.threshold.cardinality]]
-field = "host.id"
-value = 2
 
 

@@ -27,6 +27,9 @@ python -m detection_rules kibana import-rules -o -e -ac
 echo "Performing a rule export..."
 python -m detection_rules kibana export-rules -d $CUSTOM_RULES_DIR -ac -e -sv --custom-rules-only 
 
+echo "Testing ESQL Rules..."
+python -m pytest tests/test_rules_remote.py::TestRemoteRules
+
 echo "Removing generated files..."
 rm -rf $CUSTOM_RULES_DIR
 set -e CUSTOM_RULES_DIR

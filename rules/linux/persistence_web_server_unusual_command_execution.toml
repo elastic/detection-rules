@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/12/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the "new_terms" rule type to detect unusual command executions originating from web server processes on Linux systems.
+Attackers may exploit web servers to maintain persistence on a compromised system, often resulting in atypical command executions. As
+command execution from web server parent processes is common, the "new_terms" rule type approach helps to identify deviations from normal
+behavior.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Web Server Command Execution"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Web Server Command Execution
+
+This rule detects shells invoked by web server processes on Linux to run one-off commands, surfacing command lines the server has never executed before. Attackers exploit vulnerable apps or dropped webshells to launch bash -c from web roots, e.g., download a payload with wget/curl into /opt or /tmp, chmod +x and execute it, or open a reverse shell (nc -e sh) to implant services or cron-like tasks and persist under the web server account.
+
+### Possible investigation steps
+
+- Reconstruct the process tree around the event to identify the shell payload and parent service, determine if it chains downloads, reverse shells, or archive extraction, and hash/snapshot any referenced files.
+- Pivot to web server access and error logs at the timestamp to identify the request path, client IP, user agent, and HTTP verb that triggered execution, noting anomalies like POST uploads, long query strings, or 500s.
+- List and diff newly created or recently modified files under common web roots and application directories around the event time, looking for webshells, chmod+x artifacts, .php/.jsp backdoors, or systemd/cron writes by the same user.
+- Correlate with network telemetry to see if the web tier opened outbound connections or listeners (nc, bash -i, curl/wget), and capture any active sockets and destinations for rapid containment.
+- Validate whether the command matches expected maintenance tasks for the application (e.g., wkhtmltopdf or image processing), and if not, isolate the process and host while scoping for the same pattern across other servers and preserving volatile evidence.
+
+### False positive analysis
+
+- A legitimate web-admin workflow (plugin/module install, content import, or cache warmup) spawns sh -c from an apache/nginx parent in /var/www to run tar/chmod/chown steps, producing a command line the host has not previously executed under www-data.
+- A recently deployed application feature performs server-side document or image processing and rotates logs by calling sh -c from a framework parent (flask/rails/php) with a working directory in /opt or /usr/share/nginx, making the specific shell invocation a new term for this server.
+
+### Response and remediation
+
+- Quarantine the affected web server by removing it from the load balancer, stopping apache/nginx/httpd, and killing the spawned shell (e.g., bash -c) while capturing /proc/<pid>/cmdline and /proc/<pid>/environ, lsof, and active sockets for evidence.
+- Block outbound egress from the web server account and immediately deny destinations contacted by curl/wget or reverse shells (nc, bash -i to /dev/tcp), and rotate exposed API keys or credentials referenced in the command line.
+- Eradicate persistence by deleting newly dropped or modified files under /var/www, /usr/share/nginx, /srv/http, /opt, or /home/*/public_html (webshells, .php backdoors), removing downloaded binaries from /tmp or /opt, and cleaning cron/systemd units created by www-data/nginx.
+- Recover by restoring web content and application code from known-good backups or images, verifying file ownership and permissions, and restarting the service with monitored command allowlists and file integrity checks.
+- Escalate to full incident response and forensic imaging if any reverse shell artifacts (nc -e sh, bash -i >& /dev/tcp/*), privileged writes (/etc/systemd/system/*.service, /var/spool/cron/*), or sudo execution by the web server user are observed.
+- Harden by disabling risky exec paths (PHP exec/system/shell_exec and unsafe plugins), enforcing noexec,nodev,nosuid mounts on web roots, applying SELinux/AppArmor confinement to web processes, narrowing outbound egress, and deploying WAF/mod_security rules for upload and RCE vectors.
+"""
+risk_score = 47
+rule_id = "65f28c4d-cfc8-4847-9cca-f2fb1e319151"
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "Domain: Web",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
+  process.parent.name:(
+    "apache" or "nginx" or "apache2" or "httpd" or "lighttpd" or "caddy" or "mongrel_rails" or "haproxy" or
+    "gunicorn" or "uwsgi" or "openresty" or "cherokee" or "h2o" or "resin" or "puma" or "unicorn" or "traefik" or "uvicorn" or
+    "tornado" or "hypercorn" or "daphne" or "twistd" or "yaws" or "webfsd" or "httpd.worker" or "flask" or "rails" or "mongrel" or
+    php-fpm* or "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "java" or "node"
+  ) or
+  user.name:("apache" or "www-data" or "httpd" or "nginx" or "lighttpd" or "tomcat" or "tomcat8" or "tomcat9") or
+  user.id:("33" or "498" or "48" or "54321")
+) and process.working_directory:(
+  /var/www/* or
+  /usr/share/nginx/* or
+  /srv/www/* or
+  /srv/http/* or
+  */webapps/* or
+  /home/*/public_html/* or
+  /home/*/www/* or
+  /opt/* or
+  /u0*/*
+) and
+process.command_line:* and process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish) and process.args:"-c" and
+not (
+  (process.parent.name:java and not process.parent.executable:/u0*/*) or
+  (process.parent.name:node and process.parent.executable:(/home/*/.vscode-server/* or /users/*/.vscode-server/* or /bin/node or /usr/bin/node or /usr/local/bin/node or /opt/plesk/node/*/bin/node)) or
+  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/dbhome_* or /u0*/app/oracle/product/*/db_* or /var/www/*edoc*) or
+  process.parent.executable:/tmp/* or
+  process.args:/usr/local/bin/wkhtmltopdf* or
+  process.parent.name:php
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

@@ -37,6 +37,13 @@ jobs:
       env:
         # only run the test test_rule_change_has_updated_date on pull request events to main
         GITHUB_EVENT_NAME: "${{ github.event_name}}"
+        # only run remote validation if repo is set to do so otherwise defer to .github/workflows/esql-validation.yml
+        DR_REMOTE_ESQL_VALIDATION: "${{ vars.remote_esql_validation }}"
+        DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+        DR_KIBANA_URL: ${{ secrets.dr_cloud_id }}
+        DR_ELASTICSEARCH_URL: ${{ secrets.dr_cloud_id }}
+        DR_API_KEY: ${{ secrets.dr_api_key }}
+        DR_IGNORE_SSL_ERRORS: ${{ secrets.dr_cloud_id }}
       run: |
         python -m detection_rules test
 

@@ -2,7 +2,7 @@
 creation_date = "2025/05/27"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/10/07"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,8 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-  registry.value : "RunAsPPL" and registry.path : "*\\SYSTEM\\*ControlSet*\\Control\\Lsa\\RunAsPPL" and
+  registry.data.strings != null and registry.value : "RunAsPPL" and
+  registry.path : "*\\SYSTEM\\*ControlSet*\\Control\\Lsa\\RunAsPPL" and
   not registry.data.strings : ("1", "0x00000001", "2", "0x00000002")
 '''
 

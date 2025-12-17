@@ -1,0 +1,110 @@
+name: ES|QL Validation
+on:
+    pull_request:
+      branches: [ "*" ]
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Detection Rules
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+            fetch-depth: 0
+            path: detection-rules
+
+      - name: Check if new or modified rule files are ESQL rules
+        id: check-esql
+        run: |
+          cd detection-rules
+
+          # Check if the event is a push
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "Triggered by a push event. Setting run_esql=true."
+            echo "run_esql=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          MODIFIED_FILES=$(git diff --name-only --diff-filter=AM HEAD~1 | grep '^rules/.*\.toml$' || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "No modified or new .toml files found. Skipping workflow."
+            echo "run_esql=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          if ! grep -q 'type = "esql"' $MODIFIED_FILES; then
+            echo "No 'type = \"esql\"' found in the modified .toml files. Skipping workflow."
+            echo "run_esql=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "run_esql=true" >> $GITHUB_ENV
+
+      - name: Check out repository
+        env:
+          DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+          DR_API_KEY: ${{ secrets.dr_api_key }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY && env.run_esql == 'true' }}
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          path: elastic-container
+          repository: peasead/elastic-container
+
+      - name: Build and run containers
+        env:
+          DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+          DR_API_KEY: ${{ secrets.dr_api_key }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY && env.run_esql == 'true' }}
+        run: |
+          cd elastic-container
+          GENERATED_PASSWORD=$(openssl rand -base64 16)
+          sed -i "s|changeme|$GENERATED_PASSWORD|" .env
+          echo "::add-mask::$GENERATED_PASSWORD"
+          echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
+          set -x
+          bash elastic-container.sh start
+          
+      - name: Get API Key and setup auth
+        env:
+          DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
+          DR_API_KEY: ${{ secrets.dr_api_key }}
+          DR_ELASTICSEARCH_URL: "https://localhost:9200"
+          ES_USER: "elastic"
+          ES_PASSWORD: ${{ env.GENERATED_PASSWORD }}
+        if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY && env.run_esql == 'true' }}
+        run: |
+          cd detection-rules
+          response=$(curl -k -X POST -u "$ES_USER:$ES_PASSWORD" -H "Content-Type: application/json" -d '{
+              "name": "tmp-api-key",
+              "expiration": "1d"
+          }' "$DR_ELASTICSEARCH_URL/_security/api_key")
+
+          DR_API_KEY=$(echo "$response" | jq -r '.encoded')
+          echo "::add-mask::$DR_API_KEY"
+          echo "DR_API_KEY=$DR_API_KEY" >> $GITHUB_ENV
+
+      - name: Set up Python 3.13
+        if: ${{ env.run_esql == 'true' }}
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        if: ${{ env.run_esql == 'true' }}
+        run: |
+          cd detection-rules
+          python -m pip install --upgrade pip
+          pip cache purge
+          pip install .[dev]
+
+      - name: Remote Test ESQL Rules
+        if: ${{ env.run_esql == 'true' }}
+        env:
+          DR_CLOUD_ID: ${{ secrets.dr_cloud_id || '' }}
+          DR_KIBANA_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:5601' || '' }}
+          DR_ELASTICSEARCH_URL: ${{ secrets.dr_cloud_id == '' && 'https://localhost:9200' || '' }}
+          DR_API_KEY: ${{ secrets.dr_api_key || env.DR_API_KEY }}
+          DR_IGNORE_SSL_ERRORS: ${{ secrets.dr_cloud_id == '' && 'true' || '' }}
+        run: |
+          cd detection-rules
+          python -m detection_rules dev test esql-remote-validation
