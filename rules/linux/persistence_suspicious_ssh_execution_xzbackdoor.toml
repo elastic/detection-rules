@@ -2,7 +2,7 @@
 creation_date = "2024/04/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -37,12 +37,17 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
-  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.entity_id
+  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0 and
+   process.command_line == "/usr/sbin/sshd -D -R" and process.parent.command_line == "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"] by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.parent.name == "sshd" and process.parent.args == "-D" and process.parent.args == "-R" and
+   process.parent.name == "sshd" and process.parent.command_line == "/usr/sbin/sshd -D -R" and
    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+   not process.executable in ("/usr/sbin/sshd", "/sbin/unix_chkpwd") and
    not (
-     process.args like ("rsync*", "systemctl*", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/sbin/aad_certhandler*") or
+     process.args like ("rsync*", "systemctl*", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/sbin/aad_certhandler*",
+                        "bash -c bash -s", "/usr/lib/ssh/sftp-server", "stat /etc/is_upgrade_install > /dev/null 2>&1",
+                        "stat /opt/qradar/ha/.*", "/usr/bin/env -i PATH=*", "/opt/gitlab/embedded/service/gitlab-shell/bin/gitlab-shell key*",
+                        "test -e /*", "md5sum*", "*/root/.ansible/tmp/ansible-tmp*", "check_mk_agent")) or
      process.command_line like ("sh -c /usr/bin/env -i PATH=*", "sh -c -- /usr/bin/env -i PATH=*") 
    )] by process.parent.entity_id
 '''
