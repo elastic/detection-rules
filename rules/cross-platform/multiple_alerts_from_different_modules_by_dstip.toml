@@ -29,7 +29,7 @@ from .alerts-security.*  metadata _id
 | where kibana.alert.rule.name is not null and destination.ip is not null and kibana.alert.risk_score > 21 and
         not kibana.alert.rule.name in ("Threat Intel IP Address Indicator Match", "Threat Intel Indicator Match", "Agent Spoofing - Mismatched Agent ID")
 
-// group alerts by source.ip and extract values of interest for alert triage
+// group alerts by destination.ip and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
         Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.event_category_distinct_count = COUNT_DISTINCT(event.category),
