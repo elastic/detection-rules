@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -82,9 +82,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : ("cmd.exe", "powershell.exe", "xcopy.exe", "pwsh.exe", "powershell_ise.exe") and 
-  process.command_line : "*\\\\*\\*$*" and process.command_line : ("*copy*", "*move*", "* cp *", "* mv *")
+process where host.os.type == "windows" and event.type == "start" and user.id != "S-1-5-18" and
+  process.name : ("cmd.exe", "powershell.exe") and
+  process.command_line : "*\\\\*\\*$*" and process.command_line : ("* copy*", "* move*", "* cp *", "* mv *")
 '''
 
 

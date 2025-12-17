@@ -2,7 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2025/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -116,8 +116,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and length(process.name) > 0 and
- length(process.name) == 5 and length(process.pe.original_file_name) > 5
+process where host.os.type == "windows" and event.type == "start" and 
+ process.name regex~ """[a-z0-9]\.exe""" and process.pe.original_file_name != null
 '''
 
 
