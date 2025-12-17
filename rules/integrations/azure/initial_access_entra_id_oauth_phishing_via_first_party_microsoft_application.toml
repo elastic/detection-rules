@@ -1,0 +1,204 @@
+[metadata]
+creation_date = "2025/04/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/12/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potentially suspicious OAuth authorization activity in Microsoft Entra ID where first-party Microsoft
+applications from the FOCI (Family of Client IDs) group are used to request access to Microsoft Graph or legacy Azure AD
+resources. This rule uses split detection logic: (1) Developer tools like Azure CLI, Visual Studio Code, and Azure
+PowerShell accessing either Microsoft Graph or legacy AAD are flagged, as these are commonly abused in phishing
+campaigns like ConsentFix. (2) Any FOCI family application accessing legacy Windows Azure Active Directory
+(00000002-0000-0000-c000-000000000000) is flagged, as this deprecated resource is rarely accessed legitimately and
+attackers use it for stealth. First-party apps are trusted by default in all tenants, allowed to request permissions
+without admin approval, and cannot be deleted or blocked - making them ideal for OAuth phishing attacks.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID OAuth Phishing via First-Party Microsoft Application"
+note = """## Triage and analysis
+
+### Investigating Entra ID OAuth Phishing via First-Party Microsoft Application
+
+This rule identifies successful Entra ID sign-ins where first-party Microsoft applications from the FOCI (Family of Client IDs) group are used in potentially suspicious OAuth flows. The rule uses split detection logic:
+
+**Detection Logic 1 - Developer Tools → Graph or Legacy AAD:**
+- **Visual Studio Code** (`aebc6443-996d-45c2-90f0-388ff96faa56`)
+- **Azure CLI** (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`)
+- **Azure PowerShell** (`1950a258-227b-4e31-a9cf-717495945fc2`)
+
+These developer tools accessing Microsoft Graph or legacy AAD are flagged because they use localhost redirect URIs, making them ideal for OAuth code theft attacks like ConsentFix.
+
+**Detection Logic 2 - Any FOCI App → Legacy AAD Only:**
+Any of the 38 FOCI family applications accessing legacy Windows Azure Active Directory (`00000002-0000-0000-c000-000000000000`) is suspicious because this deprecated API is rarely used legitimately. Attackers intentionally target legacy AAD to evade detection rules focused on Microsoft Graph.
+
+**FOCI Family Applications** (partial list - see Secureworks research for full list):
+- Microsoft Office, Teams, Outlook Mobile, OneDrive, SharePoint
+- Microsoft Edge, Power BI, Intune Company Portal, Microsoft Authenticator
+- And 30+ other Microsoft first-party applications
+
+**ConsentFix Attack Pattern**: Victims land on compromised high-reputation websites via search engines, are shown a fake Cloudflare Turnstile, and tricked into completing a legitimate Microsoft OAuth flow. The redirect URL contains a localhost URI with an authorization code that victims are socially engineered to paste back into the attacker's page. The attacker then uses Azure CLI to exchange the code for tokens and access legacy AAD/Intune resources.
+
+### Possible investigation steps
+
+- Review `azure.signinlogs.properties.user_principal_name` to identify the affected user and determine if they are a high-value target (privileged roles, executives, IT admins).
+- Analyze `source.ip` and `source.geo.*` for geographic anomalies. ConsentFix attackers exchange codes from different IPs than the victim's location.
+- Check `azure.signinlogs.properties.app_id` and `azure.signinlogs.properties.app_display_name` to confirm which first-party application was used. Azure CLI access by non-developers is suspicious.
+- Examine `azure.signinlogs.properties.resource_id` to identify the target resource:
+  - `00000002-0000-0000-c000-000000000000` = Windows Azure Active Directory (legacy) - unusual for most users
+  - `00000003-0000-0000-c000-000000000000` = Microsoft Graph - common but verify context
+- Review `azure.signinlogs.properties.is_interactive` - non-interactive sign-ins shortly after interactive ones from different IPs indicate token replay.
+- Check `azure.signinlogs.properties.session_id` to correlate with other sign-in events and identify the full OAuth flow sequence.
+- Look at `user_agent.original` for suspicious patterns (automation tools, headless browsers, unusual browser/OS combinations).
+- Search for subsequent Graph API or AAD API activity from the same session or user from unusual locations.
+- Check `azure.signinlogs.properties.device_detail` to determine if the sign-in came from a managed/compliant device.
+
+### False positive analysis
+
+- Developers or IT administrators legitimately using Azure CLI, PowerShell, or VS Code to access Microsoft Graph or Azure AD.
+- Legitimate Visual Studio Code extensions that sync or query Graph API data (calendars, tasks, cloud-hosted notebooks).
+- Enterprise automation or CI/CD pipelines using these tools with user-delegated permissions.
+- Users working from multiple locations (VPN, travel) may show different IPs.
+- Corporate proxies or VPNs may show unexpected IP addresses.
+- Consider excluding known developer machines, managed devices, or specific user groups that regularly use these tools.
+- Add exceptions for specific source IPs tied to corporate infrastructure or known developer environments.
+
+### Response and remediation
+
+- Contact the user immediately to confirm if they initiated the OAuth flow and used the detected application.
+- If unauthorized, revoke all refresh tokens for the user via Microsoft Entra ID portal or PowerShell.
+- Review the user's recent Microsoft Graph activity (email access, file downloads, Teams messages) for signs of data exfiltration.
+- Block the source IP if confirmed malicious.
+- Check for any devices registered during this session and remove unauthorized device registrations.
+- Implement Conditional Access policies to restrict OAuth flows for these applications to compliant devices only.
+- Educate users about OAuth phishing and the risks of pasting authorization codes into websites.
+- Consider blocking localhost redirect URIs for OAuth flows where possible.
+- Monitor for follow-on activity such as privilege escalation, lateral movement, or data access.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://pushsecurity.com/blog/consentfix",
+    "https://github.com/secureworks/family-of-client-ids-research",
+]
+risk_score = 47
+rule_id = "14fa0285-fe78-4843-ac8e-f4b481f49da9"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "azure.signinlogs" and
+event.action: "Sign-in activity" and
+event.outcome: "success" and
+(
+  (
+    azure.signinlogs.properties.app_id: (
+      "aebc6443-996d-45c2-90f0-388ff96faa56" or
+      "04b07795-8ddb-461a-bbee-02f9e1bf7b46" or
+      "1950a258-227b-4e31-a9cf-717495945fc2"
+    ) and (
+      azure.signinlogs.properties.resource_id: ("00000003-0000-0000-c000-000000000000" or "00000002-0000-0000-c000-000000000000") or
+      azure.signinlogs.properties.resource_display_name: ("Microsoft Graph" or "Windows Azure Active Directory")
+    )
+  ) or
+  (
+    azure.signinlogs.properties.app_id: (
+      "00b41c95-dab0-4487-9791-b9d2c32c80f2" or
+      "1fec8e78-bce4-4aaf-ab1b-5451cc387264" or
+      "26a7ee05-5602-4d76-a7ba-eae8b7b67941" or
+      "27922004-5251-4030-b22d-91ecd9a37ea4" or
+      "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+      "ab9b8c07-8f02-4f72-87fa-80105867a763" or
+      "d3590ed6-52b3-4102-aeff-aad2292ab01c" or
+      "872cd9fa-d31f-45e0-9eab-6e460a02d1f1" or
+      "af124e86-4e96-495a-b70a-90f90ab96707" or
+      "2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8" or
+      "844cca35-0656-46ce-b636-13f48b0eecbd" or
+      "87749df4-7ccf-48f8-aa87-704bad0e0e16" or
+      "cf36b471-5b44-428c-9ce7-313bf84528de" or
+      "0ec893e0-5785-4de6-99da-4ed124e5296c" or
+      "22098786-6e16-43cc-a27d-191a01a1e3b5" or
+      "4e291c71-d680-4d0e-9640-0a3358e31177" or
+      "57336123-6e14-4acc-8dcf-287b6088aa28" or
+      "57fcbcfa-7cee-4eb1-8b25-12d2030b4ee0" or
+      "66375f6b-983f-4c2c-9701-d680650f588f" or
+      "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" or
+      "a40d7d7d-59aa-447e-a655-679a4107e548" or
+      "a569458c-7f2b-45cb-bab9-b7dee514d112" or
+      "b26aadf8-566f-4478-926f-589f601d9c74" or
+      "c0d2a505-13b8-4ae0-aa9e-cddd5eab0b12" or
+      "d326c1ce-6cc6-4de2-bebc-4591e5e13ef0" or
+      "e9c51622-460d-4d3d-952d-966a5b1da34c" or
+      "eb539595-3fe1-474e-9c1d-feb3625d1be5" or
+      "ecd6b820-32c2-49b6-98a6-444530e5a77a" or
+      "f05ff7c9-f75a-4acd-a3b5-f4b6a870245d" or
+      "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34" or
+      "be1918be-3fe3-4be9-b32b-b542fc27f02e" or
+      "cab96880-db5b-4e15-90a7-f3f1d62ffe39" or
+      "d7b530a4-7680-4c23-a8bf-c52c121d2e87" or
+      "dd47d17a-3194-4d86-bfd5-c6ae6f5651e3" or
+      "e9b154d0-7658-433b-bb25-6b8e0a8a7c59"
+    ) and (
+      azure.signinlogs.properties.resource_id: "00000002-0000-0000-c000-000000000000" or
+      azure.signinlogs.properties.resource_display_name: "Windows Azure Active Directory"
+    )
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+

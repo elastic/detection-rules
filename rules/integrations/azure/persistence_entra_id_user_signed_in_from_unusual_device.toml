@@ -2,7 +2,7 @@
 creation_date = "2025/06/16"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,11 @@ This rule detects when a Microsoft Entra ID user signs in from a device that is 
 - Identify the registered Entra ID device by reviewing `azure.signinlogs.properties.device_detail.display_name` and confirm it is expected for the user or organization. If it is not expected, consider removing the device registration.
 - Consider adding exceptions for verified devices that are known to be used by the user to reduce false-positives.
 """
+references = [
+    "https://pushsecurity.com/blog/consentfix",
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
 risk_score = 21
 rule_id = "72c91fc0-4ac0-11f0-811f-f661ea17fbcd"
 setup = """#### Required Microsoft Entra ID Sign-In Logs
@@ -75,20 +80,6 @@ event.dataset: "azure.signinlogs" and
     azure.signinlogs.properties.user_principal_name: *
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "azure.signinlogs.properties.user_principal_name",
-    "azure.signinlogs.properties.device_detail.device_id",
-    "azure.signinlogs.properties.incoming_token_type",
-    "azure.signinlogs.category",
-    "source.geo.country_name",
-    "source.geo.city_name",
-    "source.address",
-    "azure.signinlogs.properties.app_id",
-    "azure.signinlogs.properties.resource_id",
-    "azure.signinlogs.properties.risk_level",
-    "azure.signinlogs.properties.risk_detail",
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -124,6 +115,21 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.device_detail.device_id",
+    "azure.signinlogs.properties.incoming_token_type",
+    "azure.signinlogs.category",
+    "source.geo.country_name",
+    "source.geo.city_name",
+    "source.address",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.resource_id",
+    "azure.signinlogs.properties.risk_level",
+    "azure.signinlogs.properties.risk_detail",
+]
 
 [rule.new_terms]
 field = "new_terms_fields"
