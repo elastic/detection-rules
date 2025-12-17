@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,26 @@ type = "eql"
 
 query = '''
 process where ((problemchild.prediction == 1 and problemchild.prediction_probability <= 0.98) or
-blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
+blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*") and
+process.parent.executable != null and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+not process.parent.name : ("cmd.exe", "powershell.exe") and
+not (process.name == "net1.exe" and process.parent.name == "net.exe") and
+not (process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
+     process.name : ("UCPDMgr.exe", "sdbinst.exe", "gpupdate.exe", "rundll32.exe", "taskhostw.exe", "taskeng.exe")) and
+not (process.name: ("powershell.exe", "cmd.exe", "cscript.exe") and
+     process.parent.executable : ("C:\\Program Files\\*.exe",
+                                  "C:\\Program Files (x86)\\*.exe",
+                                  "C:\\Users\\*\\Documents\\scripts\\nssm-2.24\\win64\\nssm.exe",
+                                  "C:\\Windows\\System32\\cmd.exe",
+                                  "C:\\Windows\\SysWOW64\\cmd.exe",
+                                  "C:\\Windows\\CCM\\CcmExec.exe",
+                                  "C:\\Windows\\System32\\svchost.exe",
+                                  "C:\\Windows\\System32\\gpscript.exe",
+                                  "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+                                  "C:\\appian\\java\\bin\\java.exe")) and
+not (process.executable : "C:\\Windows\\System32\\cscript.exe" and process.parent.name : ("node.exe", "MicroStrategy Services.exe")) and
+not (process.name : "MpCmdRun.exe" and process.parent.name : ("MsMpEng.exe", "MpCmdRun.exe", "svchost.exe")) and
+not process.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe")
 '''
 note = """## Triage and analysis
 
