@@ -36,12 +36,11 @@ type = "query"
 
 query = '''
 event.category:file and host.os.type:(linux or macos) and event.type:change and not event.action:("rename" or "extended_attributes_delete") and
-  file.name:("rc.local" or ".bash_profile" or ".profile" or ".profile1" or ".bash_profile1" or ".bashrc" or ".zshenv") and
+  file.name:(".bash_profile" or ".profile" or ".bashrc" or ".zshenv") and file.path:(/home/* or /Users/*) and 
   process.name:(* and not (sudo or vim or zsh or env or nano or bash or Terminal or xpcproxy or login or cat or cp or
   launchctl or java or dnf or tailwatchd or ldconfig or yum or semodule or cpanellogd or dockerd or authselect or chmod or
   dnf-automatic or git or dpkg or platform-python)) and
-  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/* or /opt/saltstack/salt/bin/*) and
-  file.path:("/private/etc/rc.local" or "/etc/rc.local" or /home/* or /Users/*)
+  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/* or /opt/saltstack/salt/bin/*)
 '''
 note = """## Triage and analysis
 
