@@ -23,41 +23,28 @@ note = """## Triage and analysis
 
 ### Investigating M365 Identity OAuth Flow by First-Party Microsoft App from Multiple IPs
 
-This rule detects when the same user authenticates to Microsoft Graph using first-party Microsoft applications from multiple IP addresses within a short time window. This pattern is indicative of OAuth code/token theft attacks like ConsentFix, where:
+This rule detects when the same user authenticates to Microsoft Graph or legacy Azure AD using FOCI applications from multiple IP addresses within a short time window. This pattern indicates OAuth code/token theft where the victim completes OAuth flow on their device and the attacker exchanges the stolen code from different infrastructure.
 
-1. Victim completes OAuth flow on their device (first IP)
-2. Attacker exchanges stolen authorization code for tokens from their infrastructure (second IP)
-3. Both events share the same user principal but originate from different locations
+### Possible investigation steps
 
-**Detection Logic 1 - Developer Tools → Graph or Legacy AAD (Multi-IP)**:
-- Visual Studio Code (`aebc6443-996d-45c2-90f0-388ff96faa56`)
-- Microsoft Authentication Broker (`29d9ed98-a469-4536-ade2-f981bc1d605e`)
-- Azure CLI (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`)
-- Azure PowerShell (`1950a258-227b-4e31-a9cf-717495945fc2`)
+- Identify the affected user and analyze the list of unique IP addresses used within the 30-minute window.
+- Determine whether IPs originate from different geographic regions, cloud providers, or anonymizing infrastructure.
+- Pivot into raw events to reconstruct the full sequence of resource access events.
+- Check Azure audit logs for device join or registration events around the same timeframe.
+- Review identity protection alerts for correlated risk detections such as anonymized IP access or token replay.
 
-**Detection Logic 2 - Any FOCI App → Legacy AAD Only (Multi-IP)**:
-Any of the 38 FOCI family applications (Microsoft Office, Teams, Outlook, OneDrive, etc.) accessing legacy Windows Azure Active Directory from multiple IPs is suspicious because this deprecated API is rarely used legitimately.
+### False positive analysis
 
-### Possible Investigation Steps:
+- Developers or IT administrators working across environments may produce similar behavior.
+- Users on VPN or traveling between networks may show multiple IPs.
 
-- `o365.audit.UserId`: The identity value the application is acting on behalf of principal user.
-- `unique_ips`: Analyze the list of unique IP addresses used within the 30-minute window. Determine whether these originate from different geographic regions, cloud providers, or anonymizing infrastructure (e.g., Tor or VPNs).
-- `target_time_window`: Use the truncated time window to pivot into raw events to reconstruct the full sequence of resource access events, including exact timestamps and service targets.
-- `azure.auditlogs` to check for device join or registration events around the same timeframe.
-- `azure.identityprotection` to identify correlated risk detections, such as anonymized IP access or token replay.
-- Any additional sign-ins from the `ips` involved, even outside the broker, to determine if tokens have been reused elsewhere.
+### Response and remediation
 
-### False Positive Analysis
-
-- Developers or IT administrators working across environments may also produce similar behavior.
-
-### Response and Remediation
-
-- If confirmed unauthorized, revoke all refresh tokens for the affected user and remove any devices registered during this session.
-- Notify the user and determine whether the device join or authentication activity was expected.
-- Audit Conditional Access and broker permissions (`29d9ed98-a469-4536-ade2-f981bc1d605e`) to ensure policies enforce strict access controls.
-- Consider blocking token-based reauthentication to Microsoft Graph and DRS from suspicious locations or user agents.
-- Continue monitoring for follow-on activity like lateral movement or privilege escalation.
+- If confirmed unauthorized, revoke all refresh tokens for the affected user.
+- Remove any devices registered during this session.
+- Notify the user and determine whether the authentication activity was expected.
+- Implement Conditional Access policies to restrict OAuth flows from suspicious locations.
+- Monitor for follow-on activity like lateral movement or privilege escalation.
 """
 references = [
     "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",

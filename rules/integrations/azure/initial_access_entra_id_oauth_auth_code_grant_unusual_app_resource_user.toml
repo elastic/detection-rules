@@ -24,58 +24,30 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID OAuth Authorization Code Grant for Unusual User, App, and Resource
 
-This rule identifies the first occurrence of an OAuth 2.0 authorization code grant flow for a specific combination of client application ID, target resource ID, and user principal in Microsoft Entra ID. This is a New Terms rule that only fires when a user has not been observed using this specific app+resource combination in the last 14 days.
-
-**Why This Matters for ConsentFix Detection:**
-
-ConsentFix and similar OAuth phishing attacks exploit first-party Microsoft applications (Azure CLI, VS Code, Azure PowerShell) because:
-- They are trusted by default in all tenants
-- They can request permissions without admin approval
-- They cannot be deleted or blocked
-
-When an attacker steals an OAuth authorization code and exchanges it for tokens, the resulting sign-in event shows:
-- The victim's UPN
-- The first-party app ID (e.g., Azure CLI)
-- A target resource (often legacy AAD for stealth)
-
-If a user has never used Azure CLI to access Windows Azure Active Directory before, this is highly suspicious.
-
-**Detection Logic 1 - Developer Tools → Graph or Legacy AAD (First-Time)**:
-- **Azure CLI**: `04b07795-8ddb-461a-bbee-02f9e1bf7b46`
-- **Visual Studio Code**: `aebc6443-996d-45c2-90f0-388ff96faa56`
-- **Azure PowerShell**: `1950a258-227b-4e31-a9cf-717495945fc2`
-
-**Detection Logic 2 - Any FOCI App → Legacy AAD Only (First-Time)**:
-Any of the 38 FOCI family applications (Microsoft Office, Teams, Outlook, OneDrive, etc.) accessing legacy Windows Azure Active Directory for the first time by a user is suspicious because this deprecated API is rarely used legitimately.
-
-### Sensitive Target Resources:
-- **Windows Azure Active Directory (Legacy)**: `00000002-0000-0000-c000-000000000000` - Deprecated, rarely legitimate
-- **Microsoft Graph**: `00000003-0000-0000-c000-000000000000` - Common but verify context
+This New Terms rule detects the first occurrence of an OAuth 2.0 authorization code grant flow for a specific combination of client application, target resource, and user principal. When a user has never used a particular app+resource combination in the last 14 days and it involves FOCI applications or legacy Azure AD, this may indicate OAuth phishing.
 
 ### Possible investigation steps
 
-- Review `azure.signinlogs.properties.user_principal_name` to identify the affected user.
-- Confirm the `azure.signinlogs.properties.app_id` matches a first-party Microsoft application. If it's Azure CLI or Azure PowerShell and the user doesn't typically use these tools, this is suspicious.
-- Check `azure.signinlogs.properties.resource_id` to identify what resource was accessed. Legacy AAD (`00000002-0000-0000-c000-000000000000`) access by developer tools is unusual.
-- Analyze `source.ip` and `source.geo.*` for geographic anomalies. ConsentFix attackers exchange codes from different IPs than the victim.
-- Review `azure.signinlogs.properties.is_interactive` - if this is a non-interactive sign-in shortly after an interactive one from a different IP, it may indicate token replay.
-- Check `azure.signinlogs.properties.session_id` and correlate with other sign-in events to identify the full OAuth flow sequence.
-- Look for subsequent Graph API or AAD API activity from the same session or user from unusual locations.
+- Identify the affected user and confirm if they typically use developer tools like Azure CLI or PowerShell.
+- Determine if the application and resource combination is expected for this user's role.
+- Analyze source IP and geolocation for anomalies. Attackers typically exchange codes from different IPs.
+- Check for non-interactive sign-ins shortly after interactive ones from different IPs, indicating token replay.
+- Correlate with other sign-in events using session ID to identify the full OAuth flow sequence.
+- Look for subsequent Graph API or AAD API activity from unusual locations.
 
 ### False positive analysis
 
-- Developers or IT administrators legitimately using Azure CLI, PowerShell, or VS Code for the first time to access specific resources.
+- Developers or IT administrators legitimately using these tools for the first time.
 - Users onboarding to new development environments or tools.
 - Automation scripts that run with user-delegated permissions for the first time.
 
 ### Response and remediation
 
-- Contact the user to confirm if they initiated the OAuth flow and used the detected application.
+- Contact the user to confirm if they initiated the OAuth flow.
 - If unauthorized, immediately revoke all refresh tokens for the user via Entra ID.
-- Review recent activity from the same session ID for signs of data access or enumeration.
+- Review recent activity from the same session for signs of data access or enumeration.
 - Block the source IP if confirmed malicious.
 - Implement Conditional Access policies to restrict OAuth flows for these applications.
-- Educate users about OAuth phishing and the risks of pasting authorization codes.
 """
 references = [
     "https://pushsecurity.com/blog/consentfix",

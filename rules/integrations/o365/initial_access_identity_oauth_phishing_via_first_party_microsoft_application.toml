@@ -25,63 +25,30 @@ note = """## Triage and analysis
 
 ### Investigating M365 Identity OAuth Phishing via First-Party Microsoft Application
 
-This rule identifies successful Microsoft 365 sign-ins where first-party Microsoft applications from the FOCI (Family of Client IDs) group are used in potentially suspicious OAuth flows. The rule uses split detection logic:
-
-**Detection Logic 1 - Developer Tools → Graph or Legacy AAD:**
-- **Visual Studio Code** (`aebc6443-996d-45c2-90f0-388ff96faa56`)
-- **Azure CLI** (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`)
-- **Azure PowerShell** (`1950a258-227b-4e31-a9cf-717495945fc2`)
-
-These developer tools accessing Microsoft Graph or legacy AAD are flagged because they use localhost redirect URIs, making them ideal for OAuth code theft attacks like ConsentFix.
-
-**Detection Logic 2 - Any FOCI App → Legacy AAD Only:**
-Any of the 38 FOCI family applications accessing legacy Windows Azure Active Directory (`00000002-0000-0000-c000-000000000000`) is suspicious because this deprecated API is rarely used legitimately. Attackers intentionally target legacy AAD to evade detection rules focused on Microsoft Graph.
-
-**FOCI Family Applications** (partial list - see Secureworks research for full list):
-- Microsoft Office, Teams, Outlook Mobile, OneDrive, SharePoint
-- Microsoft Edge, Power BI, Intune Company Portal, Microsoft Authenticator
-- And 30+ other Microsoft first-party applications
-
-The behavior is typically seen in targeted attacks where users are lured into clicking a Microsoft login URL that redirects to a legitimate Microsoft URI (such as `insiders.vscode.dev` or `localhost`) and displays an OAuth code. If the user returns this code (e.g., via Signal, WhatsApp, or pasting into a phishing page), the attacker can use it to gain access to the user's data via Microsoft Graph APIs — all without prompting for explicit consent or MFA, especially when default or pre-consented apps are abused.
-
-**ConsentFix Attack Pattern**: Victims land on compromised high-reputation websites via search engines, are shown a fake Cloudflare Turnstile, and tricked into completing a legitimate Microsoft OAuth flow. The redirect URL contains a localhost URI with an authorization code that victims are socially engineered to paste back into the attacker's page.
+This rule detects OAuth authorization activity where FOCI (Family of Client IDs) applications access Microsoft Graph or legacy Azure AD resources. Adversaries exploit these trusted first-party apps in phishing campaigns like ConsentFix to steal authorization codes and exchange them for tokens from attacker infrastructure.
 
 ### Possible investigation steps
 
-- Review `user.name` or `o365.audit.UserId` to identify the impacted account.
-- Validate whether the user expected to authorize the application (Azure CLI, VS Code, or Azure PowerShell) at the time of the event.
-- Check if `o365.audit.ActorIpAddress` is an unexpected or geolocated IP — especially outside of corporate ranges or from proxy networks.
-- Look at `user_agent.original` and `o365.audit.DeviceProperties` to determine the device and browser involved — known attacker flows often show Chrome + MacOS or headless browser variants.
-- Confirm the `Target.ID` to identify the resource being accessed:
-  - Microsoft Graph: `00000003-0000-0000-c000-000000000000`
-  - Windows Azure Active Directory (legacy): `00000002-0000-0000-c000-000000000000`
-- Check for follow-up access events or mailbox enumeration using the Graph API from unfamiliar service principals or devices.
-- Review the `ExtendedProperties.RequestType` = `OAuth2:Authorize` and `ResultStatusDetail` = `Redirect` — this indicates that the user was redirected after authorization, which typically exposes the OAuth `code`.
-- For Azure CLI-based attacks, look for subsequent non-interactive sign-ins from different IPs using the same session, particularly accessing legacy AAD or Intune resources.
+- Identify the impacted account and validate whether the user expected to authorize the application.
+- Check if the source IP is unexpected or outside corporate ranges, especially from proxy networks.
+- Examine user agent and device properties for suspicious patterns (automation tools, headless browsers).
+- Identify the target resource. Legacy AAD access is unusual for most users and indicates potential evasion.
+- Check for follow-up access events or mailbox enumeration using the Graph API from unfamiliar locations.
+- Look for subsequent non-interactive sign-ins from different IPs using the same session.
 
 ### False positive analysis
 
-- Developers or IT users intentionally using Visual Studio Code, Azure CLI, or Azure PowerShell to connect to Microsoft 365 may trigger this rule.
-- Legitimate Visual Studio Code extensions that sync or query Graph API data (e.g., calendars, tasks, cloud-hosted notebooks).
-- Enterprise use cases where these tools are used for integrated identity workflows or automation.
-- Exclude known user agents and hosts that regularly use these applications against Graph.
-- Whitelist specific source IPs or devices tied to developer machines.
-- Correlate with user context and behavior — if the user has no reason to be developing or testing code, the event may be more suspicious.
-- Add exception rules for managed devices or corporate laptops using this flow regularly.
-- Azure CLI usage for legitimate infrastructure management tasks.
+- Developers or IT users intentionally using Azure CLI, VS Code, or PowerShell.
+- Enterprise automation or CI/CD pipelines using these tools with user-delegated permissions.
+- Consider excluding known developer machines or specific user groups that regularly use these tools.
 
 ### Response and remediation
 
-- Reach out to the user to confirm if they expected this login or may have shared an OAuth code.
-- Suspend or reset credentials if the login appears suspicious or if the code was likely returned to a third party.
-- Review recent Microsoft Graph activity (email, file access, Teams) for this user and service principal.
+- Contact the user to confirm if they expected this login or may have shared an OAuth code.
+- If unauthorized, revoke all refresh tokens and reset credentials.
+- Review recent Microsoft Graph activity for signs of data exfiltration.
 - Block or restrict future use of OAuth tokens from unknown apps or IPs via Conditional Access.
-- Add alerts for first-party application IDs combined with low-reputation IPs or unexpected device fingerprints.
-- Require MFA and Conditional Access for all OAuth flows — even for Microsoft first-party apps.
-- Disable or restrict app consent for users, and require admin approval for Graph API scopes.
-- Educate users about OAuth-based phishing techniques — especially those that ask users to share "codes" after clicking a Microsoft login link.
-- Regularly audit `ApplicationId`, `RequestType`, and `ResultStatusDetail` values in `o365.audit` to spot anomalous usage patterns.
-- Consider blocking localhost redirect URIs for OAuth flows where possible.
+- Educate users about OAuth phishing techniques and the risks of sharing authorization codes.
 """
 references = [
     "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
