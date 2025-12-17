@@ -2,7 +2,7 @@
 creation_date = "2020/04/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
-risk_score = 21
+risk_score = 73
 rule_id = "9f9a2a82-93a8-4b1a-8778-1780895626d4"
 setup = """## Setup
 
@@ -60,7 +60,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -71,13 +71,21 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
-host.os.type:linux and event.category:process and event.type:start and
-process.name:(chattr or chgrp or chmod or chown) and process.working_directory:(/dev/shm or /tmp or /var/tmp) and
-not process.parent.name:(
-  apt-key or update-motd-updates-available or apt-get or java or pilot or PassengerAgent or nginx
-)
+host.os.type:"linux" and event.category:process and event.type:"start" and event.action:"exec" and
+process.name:("chattr" or "chgrp" or "chmod") and process.working_directory:("/dev/shm" or "/tmp" or "/var/tmp") and
+not (
+  process.args:(
+    "+r" or "640" or /tmp/apt-key-gpghome* or "/usr/bin/coreutils" or "/opt/eset/eei/uninstall.sh" or/tmp/era.repository.*.bin
+  ) or
+  process.parent.args:"/var/illumio_pce/illumio/scripts/consul" or
+  process.parent.name:(
+    apt-key or update-motd-updates-available or apt-get or java or pilot or PassengerAgent or nginx
+  ) or
+  process.parent.executable:(
+    "/usr/local/bin/afb-ssh-setup-keys.sh" or "/usr/local/bin/afb-ssh-setup-keys.sh" or "/opt/puppetlabs/puppet/bin/ruby" or
+    "/usr/sbin/update-exim4.conf" or "/bin/dracut"
+  )
 '''
 note = """## Triage and analysis
 
@@ -114,14 +122,13 @@ In Linux environments, writable directories like /tmp or /var/tmp are often used
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for file permission changes in writable directories to detect similar threats in the future."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
@@ -131,8 +138,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.parent.executable", "process.command_line"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
-
-
+value = "now-5d"

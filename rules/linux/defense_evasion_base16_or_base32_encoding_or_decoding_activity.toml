@@ -2,11 +2,15 @@
 creation_date = "2020/04/17"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
-description = "Adversaries may encode/decode data in an attempt to evade detection by host- or network-based security controls."
+description = """
+Base16 and Base32 are encoding schemes that convert binary data into text, making it easier to transmit and store. This rule
+monitors for Base16 or Base32 encoding and decoding activity on Linux systems. Attackers may use these encoding schemes to
+obfuscate malicious payloads, evade detection, and facilitate data exfiltration. 
+"""
 false_positives = [
     """
     Automated tools such as Jenkins may encode or decode files as part of their normal behavior. These events can be
@@ -60,7 +64,7 @@ Base16 and Base32 are encoding schemes used to convert binary data into text, fa
 - Restore any affected files or systems from known good backups to ensure system integrity and data accuracy.
 - Update and patch the affected system to close any vulnerabilities that may have been exploited by the adversary.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
-risk_score = 21
+risk_score = 47
 rule_id = "debff20a-46bc-4a4d-bae5-5cdd14222795"
 setup = """## Setup
 
@@ -99,7 +103,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -114,17 +118,16 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
- process.name in ("base16", "base32", "base32plain", "base32hex") and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in ("base16", "base32", "base32plain", "base32hex") and
 not process.args in ("--help", "--version")
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
@@ -135,9 +138,7 @@ id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
