@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/01/24"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -40,14 +40,30 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and process.parent.executable != null and
   (
   ((process.name: "net.exe" or process.pe.original_file_name == "net.exe" or (process.name : "net1.exe" and 
-    not process.parent.name : "net.exe")) and process.args : ("start", "use") and process.args_count == 2) or
-  ((process.name: "sc.exe" or process.pe.original_file_name == "sc.exe") and process.args: ("query", "q*")) or
-  ((process.name: "tasklist.exe" or process.pe.original_file_name == "tasklist.exe") and process.args: "/svc") or
+    not process.parent.name : "net.exe")) and process.args : ("start", "use") and process.args_count == 2 and
+    not process.parent.args : ("*.bat", "*netlogon*", "\\\\*")) or
+  ((process.name: "sc.exe" or process.pe.original_file_name == "sc.exe") and process.args: ("query", "q*") and not process.parent.args : "*.bat") or
+  ((process.name: "tasklist.exe" or process.pe.original_file_name == "tasklist.exe") and process.args: "/svc" and not process.command_line : "*\\Windows\\TEMP\\nessus_task_list*") or
   (process.name : "psservice.exe" or process.pe.original_file_name == "psservice.exe")
-  ) and not user.id : "S-1-5-18"
+  ) and
+  not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  not process.parent.executable in
+                       ("C:\\Program Files\\AzureConnectedMachineAgent\\himds.exe",
+                        "C:\\Program Files\\AzureConnectedMachineAgent\\azcmagent.exe",
+                        "C:\\Program Files\\Varian\\DICOMServices\\VMS.DICOMServices.ServiceFW.GenericControlledServiceHost.exe",
+                        "C:\\Senior\\HCM\\jdk-11.0.2\\bin\\java.exe",
+                        "D:\\biomerieux\\programs\\ServiceMonitor\\bin\\MylaServiceMonitor.exe",
+                        "C:\\ViewPowerPro\\openJDK\\bin\\javaw.exe",
+                        "C:\\ServiceNow MID Server mid-server-autosports-prod\\agent\\jre\\bin\\java.exe") and
+  not process.command_line in ("sc  queryex SCardSvr",
+                               "sc  query \"Axway_Integrator\" ",
+                               "sc  query \"Delta enteliVAULT PostgreSQL\" ",
+                               "sc  query \"WERMA-WIN-Connector\" ",
+                               "sc  query _EWSSynchronizationServer_JDE ",
+                               "sc query SchneiderUPSMySQL")
 '''
 
 

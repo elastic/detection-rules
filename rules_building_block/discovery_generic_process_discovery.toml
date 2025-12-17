@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -40,13 +40,20 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
+  not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and process.parent.executable != null and 
   (
-    process.name :("PsList.exe", "qprocess.exe") or 
-   (process.name : "powershell.exe" and process.args : ("*get-process*", "*Win32_Process*")) or 
-   (process.name : "wmic.exe" and process.args : ("process", "*Win32_Process*")) or
-   (process.name : "tasklist.exe" and not process.args : ("pid eq*")) or
-   (process.name : "query.exe" and process.args : "process")
-  ) and not user.id : "S-1-5-18"
+   process.name :("PsList.exe", "qprocess.exe") or
+
+   (process.name : "powershell.exe" and process.args : ("*get-process*", "*Win32_Process*") and not process.parent.name in ("openaev-agent.exe", "cmd.exe", "Miro.exe", "Granola.exe", "Wispr Flow.exe")) or
+
+   (process.name : "wmic.exe" and process.args : ("process", "*Win32_Process*") and not process.parent.name in ("Code.exe", "node.exe", "javaw.exe", "java.exe", "asus_framework.exe", "Evernote.exe", "RingCentral.exe", "Avaya Cloud.exe", "Arduino IDE.exe")) or
+
+   (process.name : "tasklist.exe" and process.args_count == 1 and process.parent.args != "tasklist | findstr consent.exe") or
+
+   (process.name : "query.exe" and process.args : ("process", "imagename*", "csv", "/fi"))
+  ) and
+  not process.working_directory like ("?:\\Program Files*", "D:\\*", "E:\\*") and
+  not process.parent.executable like ("?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe")
 '''
 
 
