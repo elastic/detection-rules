@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a spike in group management events for a user, indicating potential privileged
+access activity. The machine learning has flagged an abnormal rise in group management actions (such as adding or
+removing users from privileged groups), which could point to an attempt to escalate privileges or unauthorized
+modifications to group memberships.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_high_count_group_management_events"
+name = "Spike in Group Management Events"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Group Management Events
+
+The detection of spikes in group management events leverages machine learning to monitor and identify unusual patterns in user activities related to group memberships. Adversaries may exploit this by adding or removing users from privileged groups to escalate privileges or alter access controls. The detection rule identifies these anomalies, flagging potential unauthorized modifications indicative of privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the specific user account associated with the spike in group management events to determine if the activity aligns with their typical behavior or role.
+- Check the timeline of the group management events to identify any patterns or sequences that might suggest unauthorized access or privilege escalation attempts.
+- Investigate the source IP addresses and devices used during the group management events to verify if they are consistent with the user's usual access points or if they indicate potential compromise.
+- Examine recent changes to privileged groups, focusing on additions or removals of users, to assess if these modifications were authorized and necessary.
+- Cross-reference the flagged events with any recent support tickets or change requests to confirm if the actions were legitimate and documented.
+- Look for any other related alerts or anomalies in the same timeframe that might indicate a broader security incident or coordinated attack.
+
+### False positive analysis
+
+- Routine administrative tasks can trigger spikes in group management events, such as scheduled user onboarding or offboarding. To manage this, create exceptions for known periods of increased activity.
+- Automated scripts or tools that manage group memberships might cause false positives. Identify these scripts and exclude their activities from the rule's monitoring.
+- Changes in organizational structure, like department mergers, can lead to legitimate spikes. Document these changes and adjust the rule's sensitivity temporarily.
+- Regular audits or compliance checks that involve group membership reviews may appear as anomalies. Schedule these activities and inform the monitoring team to prevent false alerts.
+- High turnover rates in certain departments can result in frequent group changes. Monitor these departments separately and adjust thresholds accordingly.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized group management activities.
+- Review and audit recent changes to group memberships, focusing on privileged groups, to identify any unauthorized additions or removals.
+- Revert any unauthorized changes to group memberships to restore the intended access controls.
+- Conduct a thorough investigation to determine the source of the anomaly, including checking for compromised credentials or insider threats.
+- Reset the password for the affected user account and enforce multi-factor authentication to enhance security.
+- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring on the affected account and related privileged groups to detect any further suspicious activities."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "751b0329-7295-4682-b9c7-4473b99add69"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

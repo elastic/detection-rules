@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "sysmon_linux"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has detected an unusual process run for privileged commands by a user, indicating potential
+privileged access activity.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_linux_rare_process_executed_by_user"
+name = "Unusual Process Detected for Privileged Commands by a User"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Detected for Privileged Commands by a User
+
+Machine learning models are employed to identify anomalies in process execution, particularly those involving privileged commands. Adversaries may exploit legitimate user accounts to execute unauthorized privileged actions, aiming for privilege escalation. This detection rule leverages ML to flag atypical processes, indicating potential misuse of elevated access, thus aiding in early threat identification.
+
+### Possible investigation steps
+
+- Review the specific user account associated with the alert to determine if the account has a history of executing privileged commands or if this is an anomaly.
+- Examine the process details, including the command line arguments and the parent process, to identify if the process is legitimate or potentially malicious.
+- Check the timestamp of the process execution to correlate with any other suspicious activities or alerts that occurred around the same time.
+- Investigate the source IP address or host from which the command was executed to verify if it is a known and trusted location for the user.
+- Look into recent authentication logs for the user account to identify any unusual login patterns or access from unfamiliar devices.
+- Assess the user's role and permissions to determine if the execution of such privileged commands aligns with their job responsibilities.
+
+### False positive analysis
+
+- Routine administrative tasks by IT staff may trigger alerts. Review and whitelist known administrative processes that are regularly executed by trusted personnel.
+- Automated scripts or scheduled tasks that perform privileged operations can be flagged. Identify and exclude these scripts if they are verified as part of normal operations.
+- Software updates or installations that require elevated privileges might be detected. Ensure that these processes are documented and excluded if they are part of standard maintenance procedures.
+- Development or testing environments where privileged commands are frequently used for legitimate purposes can cause false positives. Consider creating exceptions for these environments after thorough validation.
+- Temporary elevated access granted for specific projects or tasks can lead to alerts. Monitor and document these instances, and adjust the detection rule to accommodate such temporary changes.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized privileged actions. This can be done by disabling the account or changing its password.
+- Review and terminate any suspicious processes or sessions initiated by the user account to contain potential malicious activity.
+- Conduct a thorough audit of recent privileged commands executed by the user to identify any unauthorized changes or actions that need to be reversed.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or accounts have been compromised.
+- Implement additional monitoring on the affected system and user account to detect any further anomalous behavior or attempts at privilege escalation.
+- Review and update access controls and permissions for the affected user account to ensure they align with the principle of least privilege.
+- Document the incident, including actions taken and lessons learned, to improve response strategies and prevent recurrence."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "5eac16ab-6d4f-427b-9715-f33e1b745fc7"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Linux logs collected by integrations such as Elastic Defend and Sysmon Linux.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Linux events collected by [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) or [Sysmon Linux](https://docs.elastic.co/en/integrations/sysmon_linux) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add Sysmon Linux integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/06"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -81,7 +81,7 @@ Identifies the creation or modification of a K Desktop Environment (KDE) AutoSta
 execute upon each user logon. Adversaries may abuse this method for persistence.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "endgame-*", "logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via KDE AutoStart Script or Desktop File Modification"
@@ -96,7 +96,7 @@ Adversaries may exploit this feature to maintain persistence on a compromised sy
 The detection rule 'Persistence via KDE AutoStart Script or Desktop File Modification' is designed to identify such activities by monitoring file events on Linux systems. It specifically targets the creation or modification of files with extensions ".sh" or ".desktop" in various AutoStart directories. By detecting these events, the rule helps security analysts identify potential abuse of KDE AutoStart functionality by malicious actors.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 ### Possible investigation steps
@@ -151,6 +151,7 @@ references = [
     "https://userbase.kde.org/System_Settings/Autostart",
     "https://www.amnesty.org/en/latest/research/2020/09/german-made-finspy-spyware-found-in-egypt-and-mac-and-linux-versions-revealed/",
     "https://www.intezer.com/blog/research/operation-electrorat-attacker-creates-fake-companies-to-drain-your-crypto-wallets/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
 ]
 risk_score = 47
 rule_id = "e3e904b3-0a8e-4e68-86a8-977a163e21d3"
@@ -202,6 +203,8 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -220,8 +223,11 @@ file where host.os.type == "linux" and event.type != "deletion" and
       "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
       "/etc/xdg/autostart/*", "/usr/share/autostart/*"
     ) and
-    not process.name in ("yum", "dpkg", "install", "dnf", "teams", "yum-cron", "dnf-automatic", "docker", "dockerd", 
-    "rpm", "pacman", "podman", "nautilus", "remmina", "cinnamon-settings.py")
+    not process.name in (
+      "yum", "dpkg", "install", "dnf", "teams", "yum-cron", "dnf-automatic", "docker", "dockerd", "rpm", "pacman",
+      "podman", "nautilus", "remmina", "cinnamon-settings.py", "executor", "xfce4-clipman", "jetbrains-toolbox",
+      "ansible-admin", "apk"
+    )
 '''
 
 

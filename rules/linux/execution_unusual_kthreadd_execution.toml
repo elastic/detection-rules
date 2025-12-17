@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects suspicious child process from the kernel thread (kthreadd) parent process. Attackers may execute payloads from
+kernel space via kthreadd to perform actions on the host and evade detection. Through the usage of the new_terms rule type, this
+rule can identify uncommon child processes that may indicate the presence of a malicious process.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Execution from Kernel Thread (kthreadd) Parent"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Execution from Kernel Thread (kthreadd) Parent
+
+The kernel thread (kthreadd) is a fundamental component in Linux systems responsible for managing kernel-level processes. Adversaries may exploit kthreadd to execute payloads from kernel space, thereby evading detection due to its trusted status. The detection rule identifies suspicious child processes initiated by kthreadd, focusing on unusual executable paths and command lines indicative of malicious activity, while filtering out known benign processes.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific child process name and executable path that triggered the rule. Focus on paths like /dev/shm, /tmp, /var/tmp, and /var/www, which are commonly used for storing temporary or potentially malicious files.
+- Examine the command line arguments associated with the suspicious process. Look for indicators of compromise such as references to sensitive files or directories like /etc/shadow, /etc/sudoers, or ~/.ssh, as well as suspicious commands like base64 or cron.
+- Check the parent process details to confirm it is indeed kthreadd. Investigate any unusual behavior or anomalies in the parent process that might suggest exploitation or manipulation.
+- Investigate the network activity of the host to identify any connections to suspicious IP addresses or domains, especially if the command line includes references to /dev/tcp or other network-related paths.
+- Analyze the system logs and historical data to determine if similar alerts have been triggered in the past, which might indicate a persistent threat or repeated exploitation attempts.
+- Assess the risk and impact of the detected activity by correlating it with other security events or alerts on the host, considering the medium severity and risk score of 47 associated with this rule.
+
+### False positive analysis
+
+- Legitimate system maintenance tasks may trigger this rule, such as automated scripts running from temporary directories. Users can create exceptions for specific scripts or processes that are verified as safe.
+- Development or testing environments often use temporary directories for executing scripts. Exclude known development tools or scripts from these environments to reduce noise.
+- Some monitoring or backup tools might use command lines or executables that match the rule's criteria. Identify these tools and add them to the exclusion list to prevent false alerts.
+- Custom administrative scripts that perform routine checks or updates might inadvertently match the rule. Review these scripts and exclude them if they are part of regular operations.
+- If certain processes are consistently flagged but are known to be benign, consider adjusting the rule to exclude these specific processes or command lines to improve detection accuracy.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further malicious activity and lateral movement within the network.
+- Terminate any suspicious processes identified as child processes of kthreadd that match the alert criteria, ensuring to log the process details for further analysis.
+- Conduct a thorough review of the file paths and command lines flagged in the alert to identify any unauthorized or malicious files or scripts. Remove or quarantine these files as necessary.
+- Check for unauthorized modifications in critical system files and directories such as /etc/init.d, /etc/ssh, and /root/.ssh. Restore any altered files from a known good backup.
+- Escalate the incident to the security operations team for a deeper forensic investigation to determine the root cause and entry point of the threat.
+- Implement additional monitoring on the affected host and similar systems to detect any recurrence of the threat, focusing on the specific indicators identified in the alert.
+- Update and patch the affected system to the latest security standards to mitigate vulnerabilities that may have been exploited by the adversary.
+"""
+risk_score = 47
+rule_id = "656739a8-2786-402b-8ee1-22e0762b63ba"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Execution",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2) and process.parent.name:kthreadd and (
+  process.executable:(/dev/shm/* or /tmp/* or /var/tmp/* or /var/www/*) or
+  process.name:(bash or csh or curl or dash or fish or id or ksh or nohup or setsid or sh or tcsh or wget or whoami or zsh)
+) and
+process.command_line:(
+  */dev/shm/* or */dev/tcp/* or */etc/init.d* or */etc/ld.so* or */etc/profile* or */etc/rc.local* or */etc/shadow* or */etc/ssh* or
+  */etc/sudoers* or */home/*/.ssh/* or */root/.ssh* or */tmp/* or */var/log/* or */var/run/* or */var/tmp/* or */var/www/* or
+  *base64* or *cron* or *xxd* or *~/.ssh/*
+) and not (
+  process.name:(true or cifs.upcall or dpkg or flock or gdbus or getopt or grep or mount or touch or umount or uname) or
+  process.command_line:(
+    "sh -c /bin/true" or */bin/ps* or */usr/bin/find* or */usr/bin/grep* or *ds_agent* or *gitlabrunner* or *nagios* or
+    *omsagent* or *pgrep*
+  ) or
+  process.executable:(
+    /lib/systemd/systemd-cgroups-agent or /proc/self/exe or /usr/local/axs-haproxy-monitoring/haproxy_stats.sh or /tmp/newroot/* or
+    /var/lib/docker/overlay2/* or /vz/root/*
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.name", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

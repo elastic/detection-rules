@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/12/14"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,41 @@ index = [".alerts-security.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GitHub UEBA - Multiple Alerts from a GitHub Account"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub UEBA - Multiple Alerts from a GitHub Account
+
+User and Entity Behavior Analytics (UEBA) in GitHub environments helps identify unusual patterns that may indicate compromised accounts or tokens. Adversaries might exploit GitHub by executing multiple unauthorized actions within a short period. This detection rule flags such anomalies by monitoring for multiple alerts from the same user within an hour, aiding in prioritizing potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details in the security dashboard to identify the specific user account associated with the multiple alerts.
+- Check the recent activity logs for the identified user in GitHub to determine the nature and frequency of actions performed within the alert timeframe.
+- Investigate any recent changes to the user's permissions or access levels that might have facilitated unusual activity.
+- Correlate the alert data with other security tools or logs to identify any additional suspicious behavior or related alerts involving the same user.
+- Contact the user to verify if the actions were legitimate or if they suspect their account or personal access token (PAT) might be compromised.
+- If a compromise is suspected, initiate a password reset and revoke any active PATs for the user, and monitor for any further suspicious activity.
+
+### False positive analysis
+
+- High-frequency automated workflows or CI/CD pipelines may trigger multiple alerts within an hour. Review these workflows to ensure they are legitimate and consider adding exceptions for known, non-threatening automation.
+- Developers or teams working on time-sensitive projects might perform numerous actions in a short period, leading to false positives. Identify these users or teams and create exceptions to prevent unnecessary alerts.
+- Scheduled tasks or scripts that interact with GitHub repositories can generate multiple alerts. Verify the legitimacy of these tasks and exclude them from the rule if they are deemed safe.
+- Frequent use of GitHub Actions or bots that perform repetitive tasks could be misinterpreted as suspicious activity. Confirm their purpose and add them to an allowlist if they are part of normal operations.
+- Consider implementing a review process for alerts that involve known trusted users or service accounts to quickly dismiss false positives without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected GitHub account by revoking all active sessions and tokens to prevent further unauthorized actions.
+- Conduct a password reset for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Review recent activity logs for the affected account to identify any unauthorized changes or data exfiltration, and revert any malicious modifications.
+- Notify the account owner and relevant security teams about the potential compromise to ensure awareness and coordinated response efforts.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional accounts or systems are affected.
+- Implement additional monitoring on the affected account and related systems to detect any further suspicious activity.
+- Update and refine access controls and permissions for the affected account to minimize the risk of future unauthorized actions."""
 risk_score = 47
 rule_id = "929223b4-fba3-4a1c-a943-ec4716ad23ec"
 severity = "medium"
@@ -25,6 +60,7 @@ tags = [
     "Tactic: Execution",
     "Rule Type: Higher-Order Rule",
     "Data Source: Github",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "threshold"

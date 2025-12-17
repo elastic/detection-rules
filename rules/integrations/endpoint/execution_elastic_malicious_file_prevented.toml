@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2024/03/24"
+integration = ["endpoint"]
+maturity = "production"
+promotion = true
+updated_date = "2025/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Generates a detection alert each time an Elastic Defend alert for malicious files is received. Enabling this rule allows
+you to immediately begin investigating your Endpoint malicious file alerts. This rule identifies Elastic Defend
+malicious file preventions only, and does not include detection only alerts.
+"""
+enabled = false
+from = "now-2m"
+index = ["logs-endpoint.alerts-*"]
+interval = "1m"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "Malicious File - Prevented - Elastic Defend"
+note = """## Triage and analysis
+
+### Investigating Malicious File - Prevented - Elastic Defend
+
+Elastic Endpoint malware protection leverages a combination of supervised machine learning (ML) models (PE, MachO) and yara signatures. Our ML models are trained on hundreds of millions of executables and model updates are released approximately monthly. Our yara signatures are created with automated signature creation technologies built in-house along with  hand-written rules by our threat researchers.
+
+Files are scanned on write or deletion, process executables are scanned on executions and libraries are scanned on load. You can differentiate these types by looking at the `event.action` field in the alert. It can be execution, `load`, `creation`, `modification`, or `deletion`. Scanning files written to disk is best effort, while execution or load scanning is done ‘in-line’ for true prevention.
+
+### Possible investigation steps
+
+- For machine learning (ML) malware alerts the `file.Ext.malware_classification.score` and `file.Ext.malware_classification.version` fields indicate which model version was used to classify the file and the classification score (0 to 1).
+- For malware signature hits, `threat_name` is an important field which will guide the user on what malware family the sample belongs to.
+- For Yara matches, Malware alerts do provide the specific binary content identified by the yara rule in the alert metadata (it is base64 encoded and stored in the `matches` field).
+- A file can also hit on multiple Yara signatures. In the alert metadata, the `primary` signature (`malware_signature.primary`) will be whichever we determine to have the highest severity.
+- Malicious file alerts for files in download directories or written by browsers, office applications, script interpreters or other lolbins are especially correlated with malicious activity.
+- Particular attention should be paid to files located in suspicious directories like `Public` folder, `Downloads`, `Temp` and `ProgramData`.
+- Verify if the file is signed or not using the `file.Ext.code_signature` field. Even if the file is signed with a valid certificate verify the global prevalance of that signed in your environment.
+- Verify the malicious file timestamp metadata using `file.created`, `file.mtime` and `file.accessed` to asses exactly if it's an old or new infection.
+- Investigate the activity of the process that created, modified or loaded the malicious file (parent process tree, process.command_line, child processes, network, registry and files events).
+- Assess whether this file is prevalent in the environment by looking for similar occurrences across hosts by `file.hash.sha256` or by `file.name` patterns.
+- Verify the activity of the `user.name` associated with Malware alert (local or remote actity, privileged or standard user).
+- Verify if there are any other Alert types (Behavior or Memory Threat) associated with the same host or user or process within the same time.
+### False positive analysis
+
+- Other endpoint security vendors especially with their quarantine folders.
+- Dynamically generated or compiled executables such as from csc.exe or other compilers. Due to the dynamic nature, each instance will likely have a unique hash and no signer
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
+- Implement Elastic Endpoint Security to detect and prevent further post exploitation activities in the environment.
+   - Contain the affected system by isolating it from the network to prevent further spread of the attack.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Restore the affected system to its operational state by applying any necessary patches, updates, or configuration changes.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://github.com/elastic/protections-artifacts/tree/main/yara",
+    "https://docs.elastic.co/en/integrations/endpoint",
+]
+risk_score = 21
+rule_id = "f87e6122-ea34-11ee-a417-f661ea17fbce"
+rule_name_override = "message"
+setup = """## Setup
+
+### Elastic Defend Alerts
+This rule is designed to capture specific alerts generated by Elastic Defend.
+
+To capture all the Elastic Defend alerts, it is recommended to use all of the Elastic Defend feature-specific protection rules:
+
+Behavior - Detected - Elastic Defend (UUID: 0f615fe4-eaa2-11ee-ae33-f661ea17fbce)
+Behavior - Prevented - Elastic Defend (UUID: eb804972-ea34-11ee-a417-f661ea17fbce)
+Malicious File - Detected - Elastic Defend (UUID: f2c3caa6-ea34-11ee-a417-f661ea17fbce)
+Malicious File - Prevented - Elastic Defend (UUID: f87e6122-ea34-11ee-a417-f661ea17fbce)
+Memory Threat - Detected - Elastic Defend (UUID: 017de1e4-ea35-11ee-a417-f661ea17fbce)
+Memory Threat - Prevented - Elastic Defend (UUID: 06f3a26c-ea35-11ee-a417-f661ea17fbce)
+Ransomware - Detected - Elastic Defend (UUID: 0c74cd7e-ea35-11ee-a417-f661ea17fbce)
+Ransomware - Prevented - Elastic Defend (UUID: 10f3d520-ea35-11ee-a417-f661ea17fbce)
+
+To avoid generating duplicate alerts, you should enable either all feature-specific protection rules or the Endpoint Security (Elastic Defend) rule (UUID: 9a1a2dae-0b5f-4c3d-8305-a268d404c306).
+
+### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
+severity = "low"
+tags = ["Data Source: Elastic Defend", "Tactic: Execution", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.kind : alert and event.code : malicious_file and event.type : denied and event.outcome : success
+'''
+
+
+[[rule.exceptions_list]]
+id = "endpoint_list"
+list_id = "endpoint_list"
+namespace_type = "agnostic"
+type = "endpoint"
+
+[[rule.risk_score_mapping]]
+field = "event.risk_score"
+operator = "equals"
+value = ""
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "low"
+value = "21"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "medium"
+value = "47"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "high"
+value = "73"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "critical"
+value = "99"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/11"
 
 [transform]
 [[transform.osquery]]
@@ -49,7 +49,7 @@ Identifies the creation of a new Windows service with suspicious Service command
 as SYSTEM and can be used for privilege escalation and persistence.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["logs-system.security*", "logs-system.system*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Service was Installed in the System"
@@ -62,7 +62,7 @@ Attackers may create new services to execute system shells and other command exe
 This rule looks for suspicious services being created with suspicious traits compatible with the above behavior.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
@@ -103,26 +103,37 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Windows System Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where
+any where host.os.type == "windows" and
   (event.code : "4697" and
    (winlog.event_data.ServiceFileName : 
-           ("*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*PSEXESVC*", 
+           ("*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
             "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*", 
-            "*\\Users\\*", "*\\Windows\\Temp\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
+            "*\\Users\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
             "*regsvr32*", "*msbuild*") or
-   winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe""")) or
+   winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe""") and
+   not winlog.event_data.ServiceFileName:
+                                     ("%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+                                      "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+                                      "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
+                                      "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service")) or
 
   (event.code : "7045" and
    winlog.event_data.ImagePath : (
-       "*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*PSEXESVC*",
-       "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*",
-       "*\\Users\\*", "*\\Windows\\Temp\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
-       "*regsvr32*", "*msbuild*"))
+       "*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
+       "*echo*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*",
+       "*\\Users\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
+       "*regsvr32*", "*msbuild*") and
+   not winlog.event_data.ImagePath : ("%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+                                      "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+                                      "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
+                                      "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"))
 '''
 
 

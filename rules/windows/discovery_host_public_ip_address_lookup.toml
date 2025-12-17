@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2025/08/20"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies DNS queries to known public IP address lookup web services. Malwares tend to perform this action to assess potential targets.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.network-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "System Public IP Discovery via DNS Query"
+note = """## Triage and analysis
+
+### Investigating System Public IP Discovery via DNS Query
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes or malicious scripts.
+- Verify if the executed process is persistent on the host like common mechanisms Startup folder, task or Run key.
+- Review any unusual network, files or registry events by the same process.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
+
+### False positive analysis
+
+- Trusted domain from an expected process running in the environment.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Immediately block the identified indicators of compromise (IoCs).
+- Implement any temporary network rules, procedures, and segmentation required to contain the attack.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Update firewall rules to be more restrictive.
+- Reimage the host operating system or restore the compromised files to clean versions.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://attack.mitre.org/techniques/T1016/"]
+risk_score = 73
+rule_id = "642ce354-4252-4d43-80c9-6603f16571c1"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and dns.question.name != null and process.name != null and
+(
+  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
+  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+
+  (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
+
+  ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+
+  ?process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe")
+ ) and
+ dns.question.name :
+         (
+          "ip-api.com",
+          "checkip.dyndns.org",
+          "api.ipify.org",
+          "api.ipify.com",
+          "whatismyip.akamai.com",
+          "bot.whatismyipaddress.com",
+          "ifcfg.me",
+          "ident.me",
+          "ipof.in",
+          "ip.tyk.nu",
+          "icanhazip.com",
+          "curlmyip.com",
+          "wgetip.com",
+          "eth0.me",
+          "ipecho.net",
+          "ip.appspot.com",
+          "api.myip.com",
+          "geoiptool.com",
+          "api.2ip.ua",
+          "api.ip.sb",
+          "ipinfo.io",
+          "checkip.amazonaws.com",
+          "wtfismyip.com",
+          "iplogger.*",
+          "freegeoip.net",
+          "freegeoip.app",
+          "ipinfo.io",
+          "geoplugin.net",
+          "myip.dnsomatic.com",
+          "www.geoplugin.net",
+          "api64.ipify.org",
+          "ip4.seeip.org",
+          "*.geojs.io",
+          "*portmap.io",
+          "api.2ip.ua",
+          "api.db-ip.com",
+          "geolocation-db.com",
+          "httpbin.org",
+          "myip.opendns.com"
+         )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

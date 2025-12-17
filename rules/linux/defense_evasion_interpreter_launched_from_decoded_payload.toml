@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a base64 decoded payload is piped to an interpreter on Linux systems. Adversaries may use
+base64 encoding to obfuscate data and pipe it to an interpreter to execute malicious code. This technique may
+be used to evade detection by host- or network-based security controls.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Base64 Decoded Payload Piped to Interpreter"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Base64 Decoded Payload Piped to Interpreter
+
+Base64 encoding is a method to encode binary data into ASCII text, often used for data obfuscation. Adversaries exploit this by encoding malicious payloads and decoding them on a target system, piping the output to interpreters like bash or python for execution. The detection rule identifies such activities by monitoring for processes that decode Base64 and subsequently execute scripts, indicating potential malicious behavior.
+
+### Possible investigation steps
+
+- Review the process command line arguments to identify the specific Base64 decoding activity, focusing on the presence of flags like `-d` or `-a` in conjunction with tools such as `base64`, `openssl`, or scripting languages like `python`, `perl`, or `ruby`.
+- Examine the parent process entity ID and command line to understand the context in which the Base64 decoding was initiated, identifying any potentially suspicious parent processes.
+- Investigate the subsequent interpreter process that was executed, such as `bash`, `python`, or `ruby`, to determine the nature of the script or command being run, looking for any signs of malicious activity.
+- Check the timing and sequence of the processes involved to confirm if the Base64 decoding and interpreter execution occurred within the specified maxspan of 3 seconds, indicating a likely automated or scripted action.
+- Analyze the host ID and any associated user accounts to determine if the activity aligns with expected behavior for that system or user, or if it suggests unauthorized access or compromise.
+- Correlate the alert with other security events or logs from the same host or user to identify any additional indicators of compromise or related suspicious activities.
+
+### False positive analysis
+
+- Legitimate administrative scripts may use Base64 encoding to handle data securely. Review the context of the script execution and consider excluding specific scripts or directories from monitoring if they are verified as safe.
+- Automated backup or data transfer processes might use Base64 encoding for data integrity. Identify these processes and create exceptions for known, trusted applications or scripts.
+- Development environments often use Base64 encoding for testing purposes. If a development tool or script is frequently triggering alerts, consider excluding the specific development environment or user accounts from this rule.
+- Security tools or monitoring solutions may use Base64 encoding as part of their normal operations. Verify the source of the alert and exclude known security tools from triggering this rule.
+- System updates or package installations might involve Base64 operations. Monitor the timing and context of these alerts and exclude specific update processes if they are consistently identified as false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further execution of potentially malicious code and lateral movement.
+- Terminate any suspicious processes identified by the detection rule, particularly those involving base64 decoding and piping to interpreters.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise, such as unauthorized file modifications or network connections.
+- Restore the system from a known good backup if malicious activity is confirmed and the integrity of the system is compromised.
+- Update and patch all software and systems to mitigate vulnerabilities that could be exploited by similar techniques.
+- Implement enhanced monitoring and logging for base64 decoding activities and interpreter executions to detect similar threats in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if broader organizational impacts exist.
+"""
+risk_score = 47
+rule_id = "5bdad1d5-5001-4a13-ae99-fa8619500f1a"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Execution",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=3s
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and (
+    (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.command_line like~ "*-*d*") or
+    (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
+    (process.name like "python*" and
+    (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
+    (process.args == "-c" and process.args like "*base64*" and process.command_line like~ "*b64decode*")
+    ) or
+    (process.name like "perl*" and process.command_line like~ "*decode_base64*") or
+    (process.name like "ruby*" and process.args == "-e" and process.command_line like~ "*Base64.decode64*")
+  )]
+ [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name like~ (
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*"
+ )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Obfuscated Files or Information"
+    id = "T1027"
+    reference = "https://attack.mitre.org/techniques/T1027/"
+
+    [[rule.threat.technique]]
+    name = "Deobfuscate/Decode Files or Information"
+    id = "T1140"
+    reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique]]
+    name = "User Execution"
+    id = "T1204"
+    reference = "https://attack.mitre.org/techniques/T1204/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Malicious File"
+      id = "T1204.002"
+      reference = "https://attack.mitre.org/techniques/T1204/002/"

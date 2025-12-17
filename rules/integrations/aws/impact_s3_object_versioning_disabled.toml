@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2024/07/12"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when object versioning is suspended for an Amazon S3 bucket. Object versioning allows for multiple versions of an object to exist in the same bucket. This allows for easy recovery of deleted or overwritten objects. When object versioning is suspended for a bucket, it could indicate an adversary's attempt to inhibit system recovery following malicious activity. Additionally, when versioning is suspended, buckets can then be deleted.
+"""
+event_category_override = "event.type"
+false_positives = [
+    """
+    Administrators within an AWS Organization structure may legitimately suspend object versioning. Ensure that this behavior is not part of a legitimate operation before taking action.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS S3 Object Versioning Suspended"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS S3 Object Versioning Suspended
+
+This rule detects when object versioning for an S3 bucket is suspended. S3 object versioning protects against data loss by maintaining prior versions of objects, allowing recovery if they are deleted or overwritten.  
+Adversaries with access to a misconfigured or compromised S3 bucket may disable versioning to inhibit recovery efforts, conceal data destruction, or prepare for ransomware-like activity.  
+This rule uses [EQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-eql-rule) to detect use of the `PutBucketVersioning` API operation where the request parameters include `Status=Suspended`.
+
+#### Possible investigation steps
+
+- **Identify the Actor**  
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine who performed the action.  
+  - Verify whether this user or role has a legitimate operational reason to modify bucket versioning and whether such actions are common for this identity.
+
+- **Analyze the Source and Context**  
+  - Review `source.ip` and `user_agent.original` to assess the origin of the request.  
+  - Check for unusual geographic locations, IP ranges, or clients that do not typically manage storage configurations.  
+
+- **Evaluate the Affected Resource**  
+  - Review `aws.cloudtrail.resources.arn` or `aws.cloudtrail.request_parameters` to identify which bucket’s versioning was modified.  
+  - Determine whether this bucket contains critical or regulated data (logs, backups, audit evidence, etc.) that would be impacted by versioning suspension.
+
+- **Correlate with Related Activity**  
+  - Search for additional CloudTrail events performed by the same actor or IP address within the same timeframe, such as:  
+    - `DeleteObject`, `DeleteObjects`, or `PutBucketLifecycle` events (potential data destruction).  
+    - `PutBucketPolicy` or `PutBucketAcl` changes (permission manipulation).  
+  - Review other detections related to S3 buckets or IAM changes to determine if this event is part of a larger sequence of destructive or unauthorized actions.
+
+- **Validate Intent**  
+  - Confirm whether this configuration change aligns with approved maintenance or automation activity (e.g., cost optimization, test environment reset).  
+  - If no corresponding change request or justification exists, treat this as a potential defense evasion or impact event.
+
+### False positive analysis
+
+- **Legitimate Administrative Actions**  
+  - Administrators or infrastructure automation tools may suspend versioning during migrations or lifecycle testing. Confirm through change management documentation.  
+- **Automation and Pipelines**  
+  - Verify whether Infrastructure-as-Code tools (e.g., Terraform, CloudFormation) or backup lifecycle scripts routinely modify versioning states.  
+  - Exclude predictable automation identities where justified, while ensuring strong audit controls remain in place.
+
+### Response and remediation
+
+**Containment and Validation**  
+- Re-enable versioning immediately for the affected bucket using the AWS Console or CLI (`aws s3api put-bucket-versioning --bucket my-bucket --versioning-configuration Status=Enabled`).  
+- Verify the change with `get-bucket-versioning` to confirm the bucket is restored to “Enabled.”  
+- Identify IAM users or roles with `s3:PutBucketVersioning` permissions and restrict access to trusted administrators only.  
+- Preserve relevant CloudTrail, Config, and CloudWatch logs for the timeframe of the change to ensure integrity of investigation evidence.
+
+**Investigation and Scoping**  
+- Search CloudTrail for related actions by the same user or IP, including `DeleteObject`, `PutBucketLifecycle`, or `PutBucketPolicy`, to determine whether versioning suspension preceded object deletion or policy manipulation.  
+- Review S3 access logs or Data Events for deleted, overwritten, or newly uploaded files after versioning suspension.  
+- Validate if the change corresponds to an authorized change request or approved pipeline deployment.
+
+**Recovery and Hardening**  
+- If object loss or overwrites occurred, attempt recovery using cross-region replication, AWS Backup, or previous snapshot copies.  
+- Enable S3 Object Lock and MFA Delete on critical buckets to prevent future tampering.  
+- Configure the AWS Config rule `s3-bucket-versioning-enabled` to continuously monitor for versioning suspension and trigger automated alerts.  
+- Review IAM and service control policies to ensure the principle of least privilege is enforced for all S3 management actions.  
+- Document findings and update incident response procedures to include versioning protection as part of ransomware and data destruction prevention strategies.
+
+
+### Additional information
+- AWS Documentation: [Using Versioning in S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html)  
+- API Reference: [PutBucketVersioning](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html)  
+- [AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)
+- [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html/",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html/",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-s3-post-exploitation/",
+    "https://www.invictus-ir.com/news/ransomware-in-the-cloud/",
+    "https://rhinosecuritylabs.com/aws/s3-ransomware-part-2-prevention-and-defense/",
+]
+risk_score = 47
+rule_id = "30b5bb96-c7db-492c-80e9-1eab00db580b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+info where event.dataset == "aws.cloudtrail"
+   and event.provider == "s3.amazonaws.com"
+   and event.action == "PutBucketVersioning"
+   and event.outcome == "success"
+   and stringContains(aws.cloudtrail.request_parameters, "Status=Suspended")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn", 
+    "aws.cloudtrail.resources.type", 
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]

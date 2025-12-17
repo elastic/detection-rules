@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/20"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,52 @@ Windows cryptographic system to validate file signatures on the system. This may
 validation checks or inject code into critical processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "SIP Provider Modification"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SIP Provider Modification
+
+Subject Interface Package (SIP) providers are integral to Windows' cryptographic system, ensuring file signature validation. Adversaries may modify SIP providers to bypass these checks, facilitating unauthorized code execution. The detection rule identifies suspicious registry changes linked to SIP providers, excluding benign processes, to flag potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the registry path and value changes to confirm if they match the suspicious patterns specified in the query, such as modifications under the paths related to CryptSIPDllPutSignedDataMsg or Trust FinalPolicy.
+- Identify the process responsible for the registry change by examining the process name and compare it against the exclusions in the query, ensuring it is not a benign process like msiexec.exe or regsvr32.exe.
+- Investigate the DLL file specified in the registry change to determine its legitimacy, checking its digital signature and origin.
+- Correlate the event with other security logs or alerts from data sources like Sysmon or Microsoft Defender for Endpoint to identify any related suspicious activities or patterns.
+- Assess the risk context by considering the host's role and any recent changes or incidents that might explain the registry modification, ensuring it aligns with expected behavior or authorized changes.
+
+### False positive analysis
+
+- Installation or update processes like msiexec.exe may trigger registry changes as part of legitimate software installations. Exclude these by adding exceptions for msiexec.exe when registry data strings include mso.dll.
+- System maintenance tasks using regsvr32.exe might modify SIP provider-related registry entries. Exclude regsvr32.exe when registry data strings match WINTRUST.DLL to prevent false alerts.
+- Regular updates or patches from trusted software vendors may alter SIP provider registry entries. Monitor and document these changes to establish a baseline of expected behavior, allowing for informed exclusions.
+- Security software or endpoint protection solutions might interact with SIP provider settings as part of their normal operation. Identify and whitelist these processes to reduce unnecessary alerts.
+- Custom enterprise applications with legitimate needs to modify cryptographic settings should be reviewed and, if verified as safe, added to an exclusion list to prevent disruption.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or code execution.
+- Terminate any suspicious processes identified in the alert, such as those not typically associated with legitimate SIP provider modifications.
+- Restore the modified registry entries to their original state using a known good backup or by manually correcting the entries to ensure the integrity of the SIP providers.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
+- Review and update endpoint protection policies to ensure that similar unauthorized modifications are detected and blocked in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Document the incident details, including the steps taken for containment and remediation, to enhance future response efforts and update threat intelligence databases."""
 references = ["https://github.com/mattifestation/PoCSubjectInterfacePackage"]
 risk_score = 47
 rule_id = "f2c7b914-eda3-40c2-96ac-d23ef91776ca"
@@ -28,19 +70,25 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type:"change" and
+registry where host.os.type == "windows" and event.type == "change" and registry.value : ("Dll", "$Dll") and
   registry.path: (
     "*\\SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllPutSignedDataMsg\\{*}\\Dll",
     "*\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllPutSignedDataMsg\\{*}\\Dll",
     "*\\SOFTWARE\\Microsoft\\Cryptography\\Providers\\Trust\\FinalPolicy\\{*}\\$Dll",
     "*\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\Providers\\Trust\\FinalPolicy\\{*}\\$Dll"
     ) and
-  registry.data.strings:"*.dll"
+  registry.data.strings:"*.dll" and
+  not (process.name : "msiexec.exe" and registry.data.strings : "mso.dll") and
+  not (process.name : "regsvr32.exe" and registry.data.strings == "WINTRUST.DLL")
 '''
 
 

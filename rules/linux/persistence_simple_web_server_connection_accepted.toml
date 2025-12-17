@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2024/12/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects connections accepted by a simple HTTP web server in Python and PHP built-in modules. Adversaries may
+create simple HTTP web servers to establish persistence on a compromised system by uploading a reverse or command shell
+payload to the server web root, allowing them to regain remote access to the system if lost. This event may occur when
+an attacker requests the server to execute a command or script via a potential backdoor.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-endpoint.events.network*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Simple HTTP Web Server Connection"
+risk_score = 21
+rule_id = "183f3cd2-4cc6-44c0-917c-c5d29ecdcf74"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=1m
+[process where host.os.type == "linux" and event.type == "start" and 
+ (
+  (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.command_line like "*-S*") or
+  (process.name like "python*" and process.command_line like ("*--cgi*", "*CGIHTTPServer*"))
+ )]
+[network where host.os.type == "linux" and event.type == "start" and event.action == "connection_accepted"]
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Simple HTTP Web Server Connection
+
+Simple HTTP servers in Python and PHP are often used for development and testing, providing a quick way to serve web content. However, attackers can exploit these servers to maintain access on compromised Linux systems by deploying backdoors or executing commands remotely. The detection rule identifies suspicious server activity by monitoring for specific process patterns and command-line arguments indicative of these lightweight servers, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the process details, including the process name and command line arguments, to confirm if the server was started using Python or PHP, as indicated by the query fields.
+- Check the network connection details associated with the event, such as the source and destination IP addresses and ports, to identify any suspicious or unexpected connections.
+- Investigate the user account under which the process was initiated to determine if it aligns with expected behavior or if it indicates potential unauthorized access.
+- Examine the system logs and any related events around the time of the alert to identify any additional suspicious activities or anomalies.
+- Assess the server's web root directory for any unauthorized files or scripts that could indicate a backdoor or malicious payload.
+- Correlate this event with other alerts or indicators of compromise on the system to evaluate if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Development and testing environments may frequently trigger this rule when developers use Python or PHP's built-in HTTP servers for legitimate purposes. To manage this, consider excluding specific user accounts or IP addresses associated with development activities from the rule.
+- Automated scripts or cron jobs that start simple HTTP servers for routine tasks can also generate false positives. Identify these scripts and add their process names or command-line patterns to an exception list.
+- Educational or training environments where students are learning web development might cause alerts. In such cases, exclude the network segments or user groups associated with these activities.
+- Internal tools or services that rely on lightweight HTTP servers for functionality might be flagged. Review these tools and whitelist their specific process names or command-line arguments to prevent unnecessary alerts.
+- Temporary testing servers spun up for short-term projects can be mistaken for malicious activity. Document these instances and apply temporary exceptions during the project duration.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious Python or PHP processes identified by the detection rule to stop the potential backdoor or unauthorized server activity.
+- Conduct a thorough review of the system's file system, focusing on the web root directory, to identify and remove any unauthorized scripts or payloads that may have been uploaded.
+- Change all credentials associated with the compromised system, including SSH keys and passwords, to prevent attackers from regaining access.
+- Restore the system from a known good backup if any unauthorized changes or persistent threats are detected that cannot be easily remediated.
+- Implement network monitoring to detect any future unauthorized HTTP server activity, focusing on unusual process patterns and command-line arguments.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+    [[rule.threat.technique]]
+    id = "T1505"
+    name = "Server Software Component"
+    reference = "https://attack.mitre.org/techniques/T1505/"
+
+      [[rule.threat.technique.subtechnique]]
+      id = "T1505.003"
+      name = "Web Shell"
+      reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+    [[rule.threat.technique]]
+    name = "Application Layer Protocol"
+    id = "T1071"
+    reference = "https://attack.mitre.org/techniques/T1071/"

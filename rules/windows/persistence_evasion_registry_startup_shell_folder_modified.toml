@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/03/15"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/11"
 
 [transform]
 [[transform.osquery]]
@@ -37,7 +37,15 @@ Identifies suspicious startup shell folder modifications to change the default S
 detections monitoring file creation in the Windows Startup folder.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Startup Shell Folder Modification"
@@ -48,7 +56,7 @@ note = """## Triage and analysis
 Techniques used within malware and by adversaries often leverage the Windows registry to store malicious programs for persistence. Startup shell folders are often targeted as they are not as prevalent as normal Startup folder paths so this behavior may evade existing AV/EDR solutions. These programs may also run with higher privileges which can be ideal for an attacker.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -93,6 +101,10 @@ Techniques used within malware and by adversaries often leverage the Windows reg
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = [
+    "https://www.elastic.co/security-labs/elastic-security-uncovers-blister-malware-campaign",
+    "https://www.elastic.co/security-labs/revisiting-blister-new-developments-of-the-blister-loader",
+]
 risk_score = 73
 rule_id = "c8b150f0-0164-475b-a75e-74b47800a9ff"
 severity = "high"
@@ -106,12 +118,16 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
+registry where host.os.type == "windows" and event.type == "change" and
+ registry.value : ("Common Startup", "Startup") and
  registry.path : (
      "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Common Startup",
      "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Common Startup",
@@ -119,10 +135,16 @@ registry where host.os.type == "windows" and
      "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup",
      "HKU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Startup",
      "HKU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup",
+     "HKCU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Startup",
+     "HKCU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup",
      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Common Startup",
      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Common Startup",
      "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Startup",
-     "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup"
+     "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup",
+     "MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Common Startup",
+     "MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Common Startup",
+     "USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\Startup",
+     "USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\Startup"
      ) and
   registry.data.strings != null and
   /* Normal Startup Folder Paths */
@@ -130,7 +152,9 @@ registry where host.os.type == "windows" and
            "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
            "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
            "%USERPROFILE%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
-           "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
+           "%%USERPROFILE%%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+           "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+           "\\\\*"
            )
 '''
 

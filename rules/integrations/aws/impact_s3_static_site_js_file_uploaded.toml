@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2025/04/15"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a JavaScript file is uploaded in an S3 static site directory (`static/js/`) by an IAM
+user or assumed role. This can indicate suspicious modification of web content hosted on S3, such as injecting malicious
+scripts into a static website frontend.
+"""
+false_positives = [
+    """
+    Development or deployment pipelines that update static frontends frequently (e.g., React/Vue apps) may trigger this.
+    Verify the user agent, source IP, and whether the modification was expected.
+    """,
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS S3 Static Site JavaScript File Uploaded"
+note = """## Triage and Analysis
+
+### Investigating AWS S3 Static Site JavaScript File Uploaded
+
+An S3 `PutObject` action that targets a path like `static/js/` and uploads a `.js` file is a potential signal for web content modification. If done by an unexpected IAM user or outside of CI/CD workflows, it may indicate a compromise.
+
+#### Possible Investigation Steps
+
+- **Identify the Source User**: Check `aws.cloudtrail.user_identity.arn`, access key ID, and session type (`IAMUser`, `AssumedRole`, etc).
+- **Review File Content**: Use the S3 `GetObject` or CloudTrail `requestParameters` to inspect the uploaded file for signs of obfuscation or injection.
+- **Correlate to Other Events**: Review events from the same IAM user before and after the upload (e.g., `ListBuckets`, `GetCallerIdentity`, IAM activity).
+- **Look for Multiple Uploads**: Attackers may attempt to upload several files or modify multiple directories.
+
+### False Positive Analysis
+
+- This behavior may be expected during app deployments. Look at:
+  - The `user_agent.original` to detect legitimate CI tools (like Terraform or GitHub Actions).
+  - Timing patterns—does this match a regular release window?
+  - The origin IP and device identity.
+
+### Response and Remediation
+
+- **Revert Malicious Code**: Replace the uploaded JS file with a clean version and invalidate CloudFront cache if applicable.
+- **Revoke Access**: If compromise is confirmed, revoke the IAM credentials and disable the user.
+- **Audit IAM Policies**: Ensure that only deployment users can modify static site buckets.
+- **Enable Bucket Versioning**: This can allow for quick rollback and historical review.
+"""
+references = [
+    "https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html",
+]
+risk_score = 47
+rule_id = "16acac42-b2f9-4802-9290-d6c30914db6e"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
+    "Tactic: Impact",
+    "Use Case: Web Application Compromise",
+    "Use Case: Cloud Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail* metadata _id, _version, _index
+
+| where
+    // S3 object write activity
+    event.dataset == "aws.cloudtrail"
+    and event.provider == "s3.amazonaws.com"
+    and event.action == "PutObject"
+    and event.outcome == "success"
+
+    // IAM users or assumed roles only
+    and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
+
+    // Requests for static site bundles
+    and aws.cloudtrail.request_parameters like "*static/js/*.js*"
+
+    // Exclude IaC and automation tools
+    and not (
+        user_agent.original like "*Terraform*"
+        or user_agent.original like "*Ansible*"
+        or user_agent.original like "*Pulumi*"
+    )
+
+// Extract fields from request parameters
+| dissect aws.cloudtrail.request_parameters
+    "%{{?bucket.name.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_name}, %{?host.key}=%{Esql_priv.aws_cloudtrail_request_parameters_host}, %{?bucket.object.location.key}=%{Esql.aws_cloudtrail_request_parameters_bucket_object_location}}"
+
+// Extract file name portion from full object path
+| dissect Esql.aws_cloudtrail_request_parameters_bucket_object_location "%{}static/js/%{Esql.aws_cloudtrail_request_parameters_object_key}"
+
+// Match on JavaScript files
+| where ends_with(Esql.aws_cloudtrail_request_parameters_object_key, ".js")
+
+// Retain relevant ECS and dissected fields
+| keep
+    aws.cloudtrail.user_identity.arn,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.user_identity.type,
+    aws.cloudtrail.request_parameters,
+    Esql.aws_cloudtrail_request_parameters_bucket_name,
+    Esql.aws_cloudtrail_request_parameters_object_key,
+    user_agent.original,
+    source.ip,
+    event.action,
+    @timestamp,
+    _id,
+    _version,
+    _index
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
+

@@ -2,7 +2,7 @@
 creation_date = "2020/06/09"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,43 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS WAF Rule or Rule Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS WAF Rule or Rule Group Deletion
+
+AWS Web Application Firewall (WAF) protects web applications by filtering and monitoring HTTP requests. Adversaries may delete WAF rules or groups to disable security measures, facilitating attacks like SQL injection or cross-site scripting. The detection rule monitors AWS CloudTrail logs for successful deletion actions, signaling potential defense evasion attempts by identifying unauthorized or suspicious deletions.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role associated with the deletion action by examining the userIdentity field.
+- Check the event.time field in the CloudTrail logs to determine when the deletion occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the source IP address and user agent from the CloudTrail logs to assess if the request originated from a known or expected location and device.
+- Verify if the deleted WAF rule or rule group was part of a critical security configuration by reviewing the AWS WAF setup and any associated documentation.
+- Contact the user or team responsible for AWS WAF management to confirm if the deletion was authorized and understand the rationale behind it.
+- Examine any recent changes in IAM policies or permissions that might have allowed unauthorized users to perform the deletion action.
+
+### False positive analysis
+
+- Routine maintenance or updates by authorized personnel can trigger rule deletions. Verify if the deletion aligns with scheduled maintenance activities and consider excluding these events from alerts.
+- Automated scripts or tools used for infrastructure management might delete and recreate WAF rules as part of their normal operation. Identify these scripts and whitelist their actions to prevent unnecessary alerts.
+- Changes in security policies or architecture might necessitate the removal of certain WAF rules. Ensure that such changes are documented and approved, and exclude these documented actions from triggering alerts.
+- Temporary rule deletions for testing purposes by security teams can be mistaken for malicious activity. Coordinate with the security team to log these activities and exclude them from detection rules.
+- Ensure that IAM roles or users with permissions to delete WAF rules are reviewed regularly. Exclude actions performed by trusted roles or users after confirming their legitimacy.
+
+### Response and remediation
+
+- Immediately review AWS CloudTrail logs to confirm the unauthorized deletion of WAF rules or rule groups and identify the source of the action, including the IAM user or role involved.
+- Reapply the deleted WAF rules or rule groups to restore the intended security posture and prevent potential attacks such as SQL injection or cross-site scripting.
+- Temporarily restrict or revoke permissions for the identified IAM user or role to prevent further unauthorized actions until a thorough investigation is completed.
+- Conduct a security review of the affected AWS environment to identify any other potential security gaps or unauthorized changes that may have occurred.
+- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring and alerting for AWS WAF configuration changes to detect and respond to similar unauthorized actions promptly in the future.
+- Consider enabling AWS Config rules to continuously monitor and enforce compliance with WAF configurations, ensuring any unauthorized changes are automatically flagged.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,6 +72,7 @@ tags = [
     "Data Source: Amazon Web Services",
     "Use Case: Network Security Monitoring",
     "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"

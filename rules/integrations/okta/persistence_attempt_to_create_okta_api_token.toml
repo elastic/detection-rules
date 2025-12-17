@@ -2,9 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
-min_stack_version = "8.10.0"
-updated_date = "2023/10/24"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -23,18 +21,60 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Create Okta API Token"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Create Okta API Token
+
+Okta API tokens are crucial for automating and managing identity and access tasks within an organization. However, if compromised, these tokens can be exploited by adversaries to gain persistent access, manipulate user accounts, or alter security settings. The detection rule identifies suspicious token creation activities by monitoring specific Okta system events, helping to thwart unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the event logs for entries with event.dataset:okta.system and event.action:system.api_token.create to identify the specific instance of API token creation.
+- Identify the user account associated with the token creation event to determine if the action aligns with their typical behavior or role within the organization.
+- Check the timestamp of the event to correlate with other security events or anomalies that occurred around the same time.
+- Investigate the IP address and location from which the API token creation request originated to assess if it matches the user's usual access patterns.
+- Examine any recent changes to user accounts or security settings that may have been executed using the newly created API token.
+- Review the organization's policy on API token creation to ensure compliance and determine if the action was authorized.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger the rule when legitimate IT staff create API tokens for automation or integration purposes. To manage this, maintain a list of authorized personnel and their expected activities, and create exceptions for these known users.
+- Scheduled system maintenance or updates might involve creating API tokens, leading to false positives. Document these events and adjust the monitoring window or create temporary exceptions during these periods.
+- Third-party integrations that require API tokens for functionality can also trigger alerts. Identify and whitelist these integrations by verifying their necessity and security compliance.
+- Development and testing environments often involve frequent token creation for testing purposes. Exclude these environments from the rule or set up separate monitoring with adjusted thresholds to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revoke the suspicious Okta API token to prevent any unauthorized access or actions within the organization's network.
+- Conduct a thorough review of recent activities associated with the compromised token to identify any unauthorized changes or access attempts.
+- Reset credentials and enforce multi-factor authentication for any accounts that were accessed or potentially compromised using the API token.
+- Notify the security team and relevant stakeholders about the incident to ensure awareness and coordination for further investigation and response.
+- Implement additional monitoring on Okta API token creation events to detect and respond to any further unauthorized attempts promptly.
+- Review and update access controls and permissions related to API token creation to ensure they align with the principle of least privilege.
+- Escalate the incident to senior security management if there is evidence of broader compromise or if the threat actor's objectives are unclear.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 47
 rule_id = "96b9f4ea-0e8c-435b-8d53-2096e75fcac5"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Persistence"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

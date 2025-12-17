@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/15"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -38,7 +38,14 @@ is often done by adversaries while staging, executing temporary utilities, or tr
 on the process name.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Renamed Utility Executed with Short Program Name"
@@ -49,7 +56,7 @@ note = """## Triage and analysis
 Identifies the execution of a process with a single character process name, differing from the original file name. This is often done by adversaries while staging, executing temporary utilities, or trying to bypass security detections based on the process name.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -99,16 +106,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and length(process.name) > 0 and
- length(process.name) == 5 and length(process.pe.original_file_name) > 5
+process where host.os.type == "windows" and event.type == "start" and 
+ process.name regex~ """[a-z0-9]\.exe""" and process.pe.original_file_name != null
 '''
 
 
@@ -120,7 +129,7 @@ name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
-name = "Rename System Utilities"
+name = "Rename Legitimate Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
 
 

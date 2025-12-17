@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user performing privileged operations in Windows from an uncommon device,
+indicating potential privileged access activity. This could signal a compromised account, an attacker using stolen
+credentials, or an insider threat leveraging an unauthorized device to escalate privileges.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_rare_device_by_user"
+name = "Unusual Host Name for Windows Privileged Operations Detected"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Host Name for Windows Privileged Operations Detected
+
+Machine learning models analyze patterns of privileged operations in Windows environments to identify anomalies, such as access from uncommon devices. Adversaries may exploit stolen credentials or unauthorized devices to escalate privileges. This detection rule flags such anomalies, indicating potential threats like compromised accounts or insider attacks, by assessing deviations from typical host usage patterns.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user and host involved in the unusual privileged operation.
+- Check the historical login patterns for the user to determine if the host has been used previously or if this is a new occurrence.
+- Investigate the host's identity and location to assess if it aligns with the user's typical access patterns or if it appears suspicious.
+- Examine recent activity logs for the user and host to identify any other unusual or unauthorized actions that may indicate a broader compromise.
+- Verify if there are any known vulnerabilities or security incidents associated with the host that could have facilitated unauthorized access.
+- Contact the user to confirm whether they recognize the host and the privileged operations performed, ensuring to rule out legitimate use.
+
+### False positive analysis
+
+- Users accessing systems from new or temporary devices, such as during travel or remote work, may trigger false positives. Regularly update the list of approved devices for users who frequently change their access points.
+- IT administrators performing maintenance or updates from different machines can be mistaken for suspicious activity. Implement a process to log and approve such activities in advance to prevent unnecessary alerts.
+- Employees using virtual machines or remote desktop services might appear as accessing from uncommon devices. Ensure these environments are recognized and whitelisted if they are part of regular operations.
+- Changes in network infrastructure, such as new IP addresses or subnets, can lead to false positives. Keep the machine learning model updated with the latest network configurations to minimize these alerts.
+- Temporary use of shared devices in collaborative workspaces can trigger alerts. Establish a protocol for logging shared device usage to differentiate between legitimate and suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected device from the network to prevent further unauthorized access or lateral movement.
+- Revoke or reset the credentials of the compromised account to prevent further misuse and unauthorized access.
+- Conduct a thorough review of recent privileged operations performed by the affected account to identify any unauthorized changes or actions.
+- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring on the affected account and device to detect any further suspicious activities.
+- Review and update access controls and permissions to ensure that only authorized devices and users can perform privileged operations.
+- Consider implementing multi-factor authentication (MFA) for privileged accounts to enhance security and prevent unauthorized access."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "2bca4fcd-5228-4472-9071-148903a31057"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

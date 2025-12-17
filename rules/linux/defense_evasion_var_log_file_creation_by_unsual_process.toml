@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2025/03/11"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of files in the /var/log/ directory via process executables located in world-writeable
+locations or via hidden processes. Attackers may attempt to hide their activities by creating files in the /var/log/
+directory, which is commonly used for logging system events.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "File Creation in /var/log via Suspicious Process"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Creation in /var/log via Suspicious Process
+
+In Linux environments, the `/var/log` directory is crucial for storing system logs, which are essential for monitoring and troubleshooting. Adversaries may exploit this by creating files in this directory using executables from insecure locations, aiming to conceal their activities. The detection rule identifies such suspicious file creations by monitoring processes from world-writable or hidden paths, flagging potential evasion tactics.
+
+### Possible investigation steps
+
+- Review the process executable path to determine if it originates from a world-writable or hidden location such as /tmp, /var/tmp, /dev/shm, or similar directories. This can indicate potential malicious activity.
+- Examine the process name and its parent process to understand the context of the file creation and identify if it is associated with known legitimate or suspicious activities.
+- Check the file path in /var/log to see if the created file has any unusual naming conventions or lacks a file extension, which might suggest an attempt to hide or disguise the file.
+- Investigate the user account under which the process was executed to determine if it has the necessary permissions and if the activity aligns with the user's typical behavior.
+- Correlate the event with other logs or alerts from the same host to identify any related suspicious activities or patterns that could indicate a broader compromise.
+- Assess the risk and impact of the file creation by considering the severity and risk score provided, and prioritize further actions based on this assessment.
+
+### False positive analysis
+
+- System maintenance scripts or legitimate applications may create temporary log files in /var/log using executables from directories like /tmp or /var/tmp. To handle this, identify and whitelist these known processes by their executable paths.
+- Automated backup or monitoring tools might generate files in /var/log as part of their routine operations. Review these tools and exclude their processes from the rule to prevent unnecessary alerts.
+- Development or testing environments often involve scripts that create log files in /var/log for debugging purposes. Consider excluding these environments from the rule or creating specific exceptions for known development processes.
+- Some system updates or package installations might temporarily use world-writable directories for executable scripts that interact with /var/log. Monitor these activities and create exceptions for trusted update processes to reduce false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified as originating from world-writable or hidden paths, especially those involved in file creation within /var/log.
+- Conduct a thorough review of the files created in /var/log to determine if they contain malicious content or scripts, and remove any unauthorized files.
+- Restore any affected system files or logs from a known good backup to ensure system integrity and continuity of logging.
+- Implement stricter permissions on directories like /tmp, /var/tmp, and /dev/shm to prevent unauthorized execution of processes from these locations.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are compromised.
+- Update and enhance monitoring rules to detect similar suspicious activities in the future, focusing on process execution from insecure locations and unauthorized file creation in critical directories.
+"""
+risk_score = 21
+rule_id = "ddf26e25-3e30-42b2-92db-bde8eb82ad67"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:file and host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and
+(process.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or ./* or /boot/*) or process.name:.*) and
+file.path:/var/log/* and not file.extension:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "process.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

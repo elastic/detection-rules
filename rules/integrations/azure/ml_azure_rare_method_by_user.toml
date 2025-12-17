@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2025/10/06"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "New job added"
+min_stack_version = "9.3.0"
+updated_date = "2025/12/08"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job detected Azure Activity Logs activity that, while not inherently suspicious or abnormal, is sourcing from
+user context that does not normally use the event action. This can be the result of compromised credentials or keys as
+someone uses a valid account to persist, move laterally, or exfiltrate data.
+"""
+false_positives = [
+    """
+    New or unusual user event activity can be due to manual troubleshooting or reconfiguration; changes in cloud
+    automation scripts or workflows; adoption of new services; or changes in the way services are used.
+    """,
+]
+from = "now-2h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "azure_activitylogs_rare_event_action_for_a_username"
+name = "Unusual Azure Activity Logs Event for a User"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Azure Activity Logs Event for a User
+
+This rule flags an Azure Activity Logs event when a user performs an action they don’t normally execute, highlighting potential misuse of valid credentials. It matters because attackers often blend in by operating under legitimate identities to persist, escalate, move laterally, or exfiltrate without tripping simple allowlists. A common pattern is a compromised account creating a new role assignment to grant itself elevated rights, then using that access to enumerate resources and pull data from storage.
+
+### Possible investigation steps
+
+- Reconstruct the timeline by pivoting on the user and ±60 minutes to collect all related Azure Activity Log entries (including those sharing the same correlation ID) and map any subsequent privilege changes, resource modifications, or data access. 
+- Validate identity context by reviewing Entra ID sign-in logs for IP/ASN, geolocation, device compliance, MFA outcome, authentication protocol, and client app to spot first-time usage or impossible travel. 
+- Determine whether the caller is a human account, service principal, or managed identity and confirm legitimate need by checking current and recently changed role assignments and group memberships within the affected scope. 
+- Correlate the activity with approved change records and CI/CD runs (e.g., Azure DevOps, GitHub Actions, Terraform) by matching service principal/user agent and verify the pipeline or requestor was authorized and correctly scoped.
+
+### False positive analysis
+
+- The user temporarily covered an admin role and performed uncommon RBAC changes or resource provider registrations that are legitimate but deviate from their historical baseline.
+- A scheduled maintenance or setup task ran under the user’s credentials and invoked management APIs they rarely call, generating Azure Activity Logs that appear unusual for this identity.
+
+### Response and remediation
+
+- Immediately revoke the user’s refresh tokens and active sessions, force a password reset, and apply a temporary Conditional Access policy to block the source IPs and device observed during the unusual operation.
+- Remove any RBAC role assignments or resource policy changes created by this identity during the event window (including Owner/Contributor grants on subscriptions or resource groups) and require approvals through Privileged Identity Management before restoring access.
+- If a service principal or managed identity executed the action, rotate its client secret/certificate, invalidate issued SAS tokens and storage account keys, and delete any unauthorized app registrations or automation accounts created.
+- Restore affected configurations to baseline by reapplying IaC templates and verifying Key Vault access policies, storage account firewalls, and NSG rules match approved standards before re-enabling routine operations.
+- Escalate to incident response and notify cloud security leadership if the unusual action involved new role assignments granting elevated rights, access to Key Vault secrets, listing storage account keys, disabling logs, or activity across multiple subscriptions.
+- Implement hardening by enforcing MFA with phishing-resistant methods, enabling risk-based Conditional Access, requiring just-in-time elevation via PIM, restricting management-plane access to approved network locations, and adding alerts for role assignment writes, secret reads, and key listings.
+"""
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from Azure Activity Logs.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Azure Activity Logs Integration Setup
+The Azure Activity Logs integration allows you to collect logs and metrics from Azure with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "Azure Activity Logs" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Azure Activity Logs” and select the integration to see more details about it.
+- Click “Add Azure Activity Logs”.
+- Configure the integration.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/reference/integrations/azure/activitylogs).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "81892f44-4946-4b27-95d3-1d8929b114a7"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.007"
+name = "Cloud Services"
+reference = "https://attack.mitre.org/techniques/T1021/007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+

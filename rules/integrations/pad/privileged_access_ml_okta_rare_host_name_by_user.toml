@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "okta"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user performing privileged operations in Okta from an uncommon device,
+indicating potential privileged access activity. This could signal a compromised account, an attacker using stolen
+credentials, or an insider threat leveraging an unauthorized device to escalate privileges.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_rare_host_name_by_user"
+name = "Unusual Host Name for Okta Privileged Operations Detected"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Host Name for Okta Privileged Operations Detected
+
+Okta is a widely used identity management service that facilitates secure user authentication and access control. Adversaries may exploit Okta by using stolen credentials or unauthorized devices to perform privileged operations, potentially leading to privilege escalation. The detection rule leverages machine learning to identify anomalies in host names associated with privileged actions, flagging unusual device usage that may indicate compromised accounts or insider threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user and host name involved in the unusual activity.
+- Check the user's recent login history and device usage patterns in Okta to determine if the host name has been used before or if it is indeed uncommon.
+- Investigate the geographical location and IP address associated with the unusual host name to assess if it aligns with the user's typical access patterns.
+- Examine any recent changes to the user's account, such as password resets or modifications to multi-factor authentication settings, to identify potential signs of compromise.
+- Correlate the alert with other security logs and alerts to identify any related suspicious activities or patterns that could indicate a broader attack or insider threat.
+- Contact the user to verify if they recognize the device and host name, and if they were performing the privileged operations at the time of the alert.
+- If unauthorized access is confirmed, follow incident response procedures to secure the account, such as resetting credentials and reviewing access permissions.
+
+### False positive analysis
+
+- Users accessing Okta from new or temporary devices may trigger false positives. Regularly update the list of approved devices to include these new devices if they are legitimate.
+- Employees traveling or working remotely might use different devices or networks, causing alerts. Implement a process to verify and whitelist these devices when travel or remote work is expected.
+- IT staff performing legitimate administrative tasks from shared or uncommon devices can be mistaken for threats. Maintain a log of such activities and cross-reference with alerts to identify and exclude these benign actions.
+- Changes in device naming conventions or system upgrades can result in unusual host names. Ensure that any planned changes are communicated and documented to adjust the detection parameters accordingly.
+- Regularly review and refine the machine learning model's training data to minimize false positives by incorporating feedback from security teams on legitimate activities that were incorrectly flagged.
+
+### Response and remediation
+
+- Immediately isolate the device associated with the unusual host name from the network to prevent further unauthorized access or potential lateral movement.
+- Revoke any active sessions and reset the credentials for the affected Okta account to prevent further unauthorized access.
+- Conduct a thorough review of recent privileged operations performed by the affected account to identify any unauthorized changes or access.
+- Notify the security operations team and relevant stakeholders about the potential compromise for further investigation and monitoring.
+- Implement additional monitoring on the affected account and similar privileged accounts to detect any further suspicious activities.
+- Review and update access controls and policies to ensure that only authorized devices can perform privileged operations in Okta.
+- Consider enabling multi-factor authentication (MFA) for all privileged accounts to add an additional layer of security against unauthorized access."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "8c9ae3e2-f0b1-4b2c-9eba-bd87c2db914f"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

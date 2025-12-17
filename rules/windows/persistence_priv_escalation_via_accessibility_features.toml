@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/11"
 
 [transform]
 [[transform.osquery]]
@@ -38,7 +38,13 @@ adversary can modify the way these programs are launched to get a command prompt
 system.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Modification of Accessibility Binaries"
@@ -53,7 +59,7 @@ More details can be found [here](https://attack.mitre.org/techniques/T1546/008/)
 This rule looks for the execution of supposed accessibility binaries that don't match any of the accessibility features binaries' original file names, which is likely a custom binary deployed by the attacker.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -99,14 +105,6 @@ This rule looks for the execution of supposed accessibility binaries that don't 
 references = ["https://www.elastic.co/blog/practical-security-engineering-stateful-detection"]
 risk_score = 73
 rule_id = "7405ddf1-6c8e-41ce-818f-48bea6bcaed8"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -117,6 +115,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -142,6 +141,7 @@ process where host.os.type == "windows" and event.type == "start" and
     "sethc.exe",
     "utilman2.exe",
     "DisplaySwitch.exe",
+    "atbroker.exe",
     "ATBroker.exe",
     "ScreenMagnifier.exe",
     "SR.exe",
@@ -149,9 +149,6 @@ process where host.os.type == "windows" and event.type == "start" and
     "magnify.exe",
     "MAGNIFY.EXE"
     )
-
-/* uncomment once in winlogbeat to avoid bypass with rogue process with matching pe original file name */
-/* and process.code_signature.subject_name == "Microsoft Windows" and process.code_signature.status == "trusted" */
 '''
 
 

@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2025/11/28"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a self-hosted Github runner from a first time seen user.name in the last 5 days. Adversaries
+may abuse self-hosted runners to execute workflow jobs on customer infrastructure.
+"""
+false_positives = [
+    "Authorized self-hosted GitHub actions runner.",
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "New GitHub Self Hosted Action Runner"
+note = """## Triage and analysis
+
+### Investigating New GitHub Self Hosted Action Runner
+
+Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute arbitrary commands on the runner host.
+
+### Possible investigation steps
+
+- Validate the user is authoried to perform this change
+- Review the purpose of the self-hosted action runner and what actions will be executed.
+- Verify if there is any adjascent  sensitive file access or collection.
+- Correlate with other alerts and investiguate if this activity is related to a supply chain attack.
+
+### False positive analysis
+
+- Authorized github self-hosted actions runner.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized command execution and potential lateral movement.
+- Terminate any suspicious child processes that were initiated by the Github actions runner.
+- Conduct a thorough review of the affected system's logs and configurations to identify any unauthorized changes or additional indicators of compromise.
+- Restore the system from a known good backup if any unauthorized changes or malicious activities are confirmed.
+- Implement application whitelisting to prevent unauthorized execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack"
+]
+risk_score = 47
+rule_id = "40c34c8a-b0bc-43bc-83aa-d2b76bf129e1"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:"github.audit" and
+    event.category:"configuration" and
+    event.action: (
+        "repo.register_self_hosted_runner" or
+        "org.register_self_hosted_runner" or
+        "enterprise.register_self_hosted_runner"
+    )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "github.actor_ip"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

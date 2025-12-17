@@ -2,7 +2,7 @@
 creation_date = "2023/09/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,41 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New GitHub Owner Added"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New GitHub Owner Added
+
+GitHub organizations allow collaborative management of repositories, where the 'owner' role grants full administrative control. Adversaries may exploit this by adding unauthorized owners, gaining unrestricted access to sensitive data and settings. The detection rule monitors audit logs for new admin-level additions, flagging potential unauthorized access attempts for further investigation.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to identify the specific user account that was added as an owner, focusing on the event.action "org.add_member" and github.permission "admin".
+- Verify the identity and role of the newly added owner by cross-referencing with internal HR or user management systems to confirm if the addition was authorized.
+- Check the activity history of the newly added owner account for any suspicious actions or changes made to repositories or settings since their addition.
+- Contact the individual or team responsible for managing GitHub organization permissions to confirm if they were aware of and approved the new owner addition.
+- Investigate any recent changes in the organization's membership or access policies that might explain the addition of a new owner.
+- Assess the potential impact of the new owner's access by reviewing the repositories and sensitive data they now have administrative control over.
+
+### False positive analysis
+
+- Legitimate organizational changes: New owners may be added during legitimate restructuring or team expansions. Regularly review and document organizational changes to differentiate between authorized and unauthorized additions.
+- Automated processes: Some organizations use automated scripts or tools to manage GitHub permissions, which might trigger this rule. Identify and whitelist these processes to prevent unnecessary alerts.
+- Temporary access requirements: Occasionally, temporary owner access might be granted for specific projects or tasks. Implement a process to track and review these temporary changes, ensuring they are reverted once the task is completed.
+- Onboarding of new senior staff: When new senior staff members join, they might be added as owners. Establish a clear onboarding process that includes notifying the security team to avoid false positives.
+- Cross-functional team collaborations: In some cases, cross-functional teams may require owner-level access for collaboration. Maintain a list of such collaborations and review them periodically to ensure they remain necessary and authorized.
+
+### Response and remediation
+
+- Immediately revoke the admin privileges of the newly added GitHub owner to prevent further unauthorized access.
+- Conduct a thorough review of recent changes and activities performed by the unauthorized owner to identify any potential data breaches or malicious actions.
+- Notify the security team and relevant stakeholders about the incident to ensure awareness and coordinated response efforts.
+- Reset credentials and enforce multi-factor authentication for all existing GitHub organization owners to enhance security.
+- Review and update access control policies to ensure that owner roles are granted only to verified and necessary personnel.
+- Implement additional monitoring and alerting for any future changes to GitHub organization roles to detect similar threats promptly.
+- If evidence of compromise is found, consider engaging with a digital forensics team to assess the full impact and scope of the breach."""
 risk_score = 47
 rule_id = "24401eca-ad0b-4ff9-9431-487a8e183af9"
 severity = "medium"
@@ -25,6 +60,7 @@ tags = [
     "Use Case: UEBA",
     "Tactic: Persistence",
     "Data Source: Github",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

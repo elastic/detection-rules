@@ -2,31 +2,29 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an AWS Amazon Machine Image (AMI) being shared with another AWS account. Adversaries with access may share an
-AMI with an external AWS account as a means of data exfiltration. AMIs can contain secrets, bash histories, code
-artifacts, and other sensitive data that adversaries may abuse if shared with unauthorized accounts. AMIs can be made
-publicly available accidentally as well.
+Identifies an AWS Amazon Machine Image (AMI) being shared with another AWS account. Adversaries with access may share an AMI with an external AWS account as a means of data exfiltration. AMIs can contain secrets, bash histories, code artifacts, and other sensitive data that adversaries may abuse if shared with unauthorized accounts. AMIs can be made publicly available accidentally as well.
 """
 false_positives = [
     """
     AMI sharing is a common practice in AWS environments. Ensure that the sharing is authorized before taking action.
+    AWS Marketplace subscriptions automatically result in assets.marketplace.amazonaws.com invoking ModifyImageAttribute to share the AMI with your account. This rule excludes Marketplace-invoked sharing by design. Other AWS services like workspaces.amazonaws.com and backup.amazonaws.com may invoke this action when users configure sharing through WorkSpaces or Backup plans. Review such service-invoked events to confirm they match legitimate and intended sharing configurations.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
+interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
-name = "EC2 AMI Shared with Another Account"
+name = "AWS EC2 AMI Shared with Another Account"
 note = """
-## Triage and Analysis
+## Triage and analysis
 
-### Investigating EC2 AMI Shared with Another Account
+### Investigating AWS EC2 AMI Shared with Another Account
 
 This rule identifies when an Amazon Machine Image (AMI) is shared with another AWS account. While sharing AMIs is a common practice, adversaries may exploit this feature to exfiltrate data by sharing AMIs with external accounts under their control.
 
@@ -44,6 +42,7 @@ This rule identifies when an Amazon Machine Image (AMI) is shared with another A
 
 - **Legitimate Sharing Practices**: AMI sharing is a common and legitimate practice for collaboration and resource management in AWS. Always verify that the sharing activity was unauthorized before escalating.
 - **Automation Tools**: Some organizations use automation tools for AMI management which might programmatically share AMIs. Verify if such tools are in operation and whether their actions are responsible for the observed behavior.
+- **AWS Services**: Some AWS services, such as WorkSpaces and Backup, automate AMI sharing when users configure cross-account sharing or disaster recovery plans. These will appear in CloudTrail with `userIdentity.invokedBy` and `source.address` fields like `workspaces.amazonaws.com` or `backup.amazonaws.com`. Confirm that such activity aligns with your organization's approved configurations.
 
 ### Response and Remediation
 
@@ -73,6 +72,7 @@ tags = [
     "Data Source: AWS EC2",
     "Use Case: Threat Detection",
     "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -80,7 +80,8 @@ type = "query"
 query = '''
 event.dataset: "aws.cloudtrail" and event.provider: "ec2.amazonaws.com"
     and event.action: ModifyImageAttribute and event.outcome: success
-    and aws.cloudtrail.request_parameters: (*imageId* and *add* and *userId*)
+    and aws.cloudtrail.request_parameters: *add=*
+    and not aws.cloudtrail.user_identity.invoked_by: "assets.marketplace.amazonaws.com"
 '''
 
 

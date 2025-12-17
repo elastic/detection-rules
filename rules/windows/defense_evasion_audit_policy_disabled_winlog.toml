@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2025/01/14"
+integration = ["windows", "system"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to disable auditing for some security sensitive audit policy sub-categories. This is often done by
+attackers in an attempt to evade detection and forensics on a system.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.forwarded*", "logs-system.security*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Sensitive Audit Policy Sub-Category Disabled"
+note = """## Triage and analysis
+
+### Investigating Sensitive Audit Policy Sub-Category Disabled
+
+Windows event logs are a fundamental data source for security monitoring, forensics, and incident response. Adversaries can tamper, clear, and delete this data to break SIEM detections, cover their tracks, and slow down incident response.
+
+This rule looks for attempts to disable security-sensitive audit policies.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+  - Verify if any other anti-forensics behaviors were observed.
+- Investigate the event logs prior to the action for suspicious behaviors that an attacker may be trying to cover up.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Re-enable affected logging components, services, and security monitoring.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4719",
+    "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-gpac/77878370-0712-47cd-997d-b07053429f6d",
+]
+risk_score = 47
+rule_id = "0ef5d3eb-67ef-43ab-93b7-305cfa5a21f6"
+setup = """## Setup
+
+The 'Audit Audit Policy Change' logging policy must be configured for (Success, Failure).
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+Policy Change >
+Audit Audit Policy Change (Success,Failure)
+```
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Windows Security Event Logs",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code : "4719" and host.os.type : "windows" and
+  winlog.event_data.AuditPolicyChangesDescription : "Success removed" and
+  winlog.event_data.SubCategory : (
+     "Logon" or
+     "Audit Policy Change" or
+     "Process Creation" or
+     "Audit Other System Events" or
+     "Audit Security Group Management" or
+     "Audit User Account Management"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.001"
+name = "Clear Windows Event Logs"
+reference = "https://attack.mitre.org/techniques/T1070/001/"
+
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.002"
+name = "Disable Windows Event Logging"
+reference = "https://attack.mitre.org/techniques/T1562/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.006"
+name = "Indicator Blocking"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

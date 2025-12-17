@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2024/05/30"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by attaching
+additional permissions to compromised user accounts. This rule looks for use of the IAM AttachUserPolicy API operation
+to attach the highly permissive AdministratorAccess AWS managed policy to an existing IAM user.
+"""
+false_positives = [
+    """
+    While this can be normal behavior, it should be investigated to ensure validity. Verify whether the user identity
+    should be using the IAM `AttachUserPolicy` API operation to attach the `AdministratorAccess` policy to the target
+    user.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS IAM AdministratorAccess Policy Attached to User"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM AdministratorAccess Policy Attached to User
+
+The AWS-managed `AdministratorAccess` policy grants full access to all AWS services and resources.  
+When attached to a user, it effectively elevates that user to full administrative privileges.  
+An adversary with `iam:AttachUserPolicy` permissions can abuse this operation to escalate privileges or maintain persistence.  
+This rule detects `AttachUserPolicy` events where the attached policy name is `AdministratorAccess`.
+
+#### Possible investigation steps
+
+- **Validate intent and context.**  
+  Identify the calling user (`aws.cloudtrail.user_identity.arn`) and the target IAM user (`aws.cloudtrail.request_parameters.userName`).  
+  Confirm whether this was an intentional administrative action, part of provisioning automation, or a potential privilege escalation.  
+
+- **Review CloudTrail event details.**  
+  Check `source.ip`, `user_agent.original`, and `source.geo` fields.  
+  Compare to historical login or automation behavior. Unrecognized IPs, non-SDK user agents, or new regions may indicate misuse.  
+
+- **Correlate with related IAM activity.**  
+  Search CloudTrail for additional IAM events around the same time (`CreateUser`, `CreateAccessKey`, `AttachGroupPolicy`, `PutUserPolicy`, etc.) that could indicate lateral movement or persistence attempts.  
+
+- **Review the target user’s permissions.**  
+  Determine if the target user already had elevated privileges or if this represents a meaningful privilege increase.  
+  Check for new API calls from the target user post-attachment, especially `CreateAccessKey`, `UpdateAssumeRolePolicy`, or S3 access attempts.  
+
+- **Investigate associated entities.**  
+  Look for other alerts tied to the same caller or target within the past 48 hours to identify potential correlated activity.  
+
+### False positive analysis
+
+- **Legitimate administrative change.**  
+  Policy attachments may be expected during provisioning or troubleshooting. Validate through change management records.  
+- **Authorized automation.**  
+  Some CI/CD pipelines or identity automation systems temporarily attach this policy. Review automation logs and intended IAM behavior.  
+- **Delegated admin scenarios.**  
+  Verify if the calling user or role is part of a delegated IAM administration group.
+
+### Response and remediation
+
+> Per AWS IR Playbooks, unauthorized administrative policy attachment represents a Privilege Escalation event.
+
+**1. Immediate containment**
+- Detach the policy. Remove the `AdministratorAccess` policy from the affected IAM user immediately (`aws iam detach-user-policy`).  
+- Rotate credentials. Rotate passwords and access keys for both the caller and target users.  
+- Restrict IAM permissions. Temporarily remove `iam:AttachUserPolicy` privileges from non-administrative roles during scoping.  
+- Enable or confirm MFA for affected accounts.  
+
+**2. Evidence preservation**
+- Export related `AttachUserPolicy` CloudTrail events ±30 minutes from the alert to a secure evidence bucket.  
+- Preserve GuardDuty findings and AWS Config snapshots for correlation.  
+
+**3. Scoping and investigation**
+- Search CloudTrail for subsequent use of the affected user’s credentials.  
+  Look for newly created keys, S3 access, or changes to IAM trust policies.  
+- Review other accounts for similar policy attachment attempts from the same user or IP.  
+
+**4. Recovery and hardening**
+- Reinforce least privilege by granting only role-based admin access instead of direct user-level AdministratorAccess.  
+- Implement IAM service control policies (SCPs) to prevent attachment of `AdministratorAccess` except for trusted roles.  
+- Enable CloudTrail, GuardDuty, and Security Hub across all regions.  
+- Regularly audit IAM policy attachments through AWS Config or CloudFormation drift detection.  
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/): response steps related to IAM policy modification and unauthorized privilege escalation.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/):** for containment, analysis, and recovery guidance.  
+- **AWS Documentation:** [AdministratorAccess Policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html#jf_administrator).  
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).  
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachUserPolicy.html",
+    "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AdministratorAccess.html",
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/",
+]
+risk_score = 47
+rule_id = "9aa4be8d-5828-417d-9f54-7cd304571b24"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.dataset == "aws.cloudtrail"
+   and event.provider == "iam.amazonaws.com"
+   and event.action == "AttachUserPolicy"
+   and event.outcome == "success"
+   and stringContains(aws.cloudtrail.request_parameters, "policyArn=arn:aws:iam::aws:policy/AdministratorAccess")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "user.target.name",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+

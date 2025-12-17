@@ -2,9 +2,7 @@
 creation_date = "2024/01/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
-min_stack_version = "8.11.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +12,11 @@ Enlightenment. enlightenment_sys in Enlightenment before 0.25.4 allows local use
 setuid root, and the system library function mishandles pathnames that begin with a /dev/.. substring.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Enlightenment"
-references = [
-    "https://ubuntu.com/security/CVE-2022-37706",
-    "https://www.exploit-db.com/exploits/51180"]
+references = ["https://ubuntu.com/security/CVE-2022-37706", "https://www.exploit-db.com/exploits/51180"]
 risk_score = 73
 rule_id = "bc0fc359-68db-421e-a435-348ced7a7f92"
 setup = """## Setup
@@ -50,24 +46,70 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
     process.name == "enlightenment_sys" and process.args in ("/bin/mount/", "-o","noexec","nosuid","nodev","uid=*") ]
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and user.id == "0"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Enlightenment
+
+Enlightenment, a Linux window manager, can be exploited for privilege escalation due to a flaw in its setuid root configuration. Attackers may exploit this by manipulating pathnames, gaining unauthorized root access. The detection rule identifies suspicious execution of 'enlightenment_sys' with specific arguments and subsequent UID changes to root, flagging potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the process "enlightenment_sys" with the specified arguments ("/bin/mount/", "-o", "noexec", "nosuid", "nodev", "uid=*") on a Linux host.
+- Check the process execution timeline to verify if the suspicious "enlightenment_sys" execution was followed by a UID change to root (user.id == "0") within a 5-second window.
+- Investigate the host.id and process.parent.entity_id to identify the parent process and determine if it was initiated by a legitimate user or service.
+- Examine the system logs around the time of the alert to identify any other unusual activities or related processes that might indicate a broader attack or exploitation attempt.
+- Assess the affected system for any unauthorized changes or signs of compromise, focusing on privilege escalation indicators and potential persistence mechanisms.
+- Review user access logs and permissions to determine if the user associated with the process had legitimate reasons to execute "enlightenment_sys" with elevated privileges.
+- Consider isolating the affected system to prevent further exploitation and begin remediation steps, such as applying patches or configuration changes to mitigate the vulnerability.
+
+### False positive analysis
+
+- Legitimate administrative tasks using enlightenment_sys may trigger the rule. Review the context of the execution, such as the user and the specific arguments used, to determine if the activity is authorized.
+- Automated scripts or system maintenance processes that involve enlightenment_sys with similar arguments might be flagged. Identify these scripts and consider excluding them by specifying their process hashes or paths in the detection rule.
+- System updates or package installations that temporarily change UID to root could be misinterpreted as exploitation attempts. Monitor these activities and whitelist known update processes to prevent false alerts.
+- Custom user applications that interact with enlightenment_sys for legitimate purposes may cause false positives. Evaluate these applications and, if deemed safe, add them to an exception list based on their unique identifiers.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious processes related to 'enlightenment_sys' that are running with elevated privileges to stop ongoing exploitation.
+- Conduct a thorough review of system logs to identify any unauthorized changes or access patterns, focusing on UID changes to root.
+- Revoke any unauthorized access or privileges granted during the exploitation, ensuring that only legitimate users have root access.
+- Apply the latest security patches and updates to the Enlightenment package, specifically upgrading to version 0.25.4 or later to mitigate the vulnerability.
+- Implement file integrity monitoring to detect unauthorized changes to critical system files and configurations in the future.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

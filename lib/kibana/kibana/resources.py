@@ -4,7 +4,7 @@
 # 2.0.
 
 import datetime
-from typing import Any, List, Optional, Type
+from typing import List, Optional, Type
 
 import json
 
@@ -42,7 +42,8 @@ class BaseResource(dict):
         if per_page is None:
             per_page = DEFAULT_PAGE_SIZE
 
-        params.setdefault("sort_field", "_id")
+        # _id is no valid sort field so we sort by name by default
+        params.setdefault("sort_field", "name")
         params.setdefault("sort_order", "asc")
 
         return ResourceIterator(cls, cls.BASE_URI + "/_find", per_page=per_page, **params)
@@ -137,7 +138,7 @@ class RuleResource(BaseResource):
         cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
         dry_run: Optional[bool] = False, edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
         include_exceptions: Optional[bool] = False, **kwargs
-    ) -> (dict, List['RuleResource']):
+    ) -> dict | List['RuleResource']:
         """Perform a bulk action on rules using the _bulk_action API."""
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
@@ -154,17 +155,11 @@ class RuleResource(BaseResource):
             data['rule_ids'] = rule_ids
         response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data, **kwargs)
 
-        # export returns ndjson, which requires manual parsing since response.json() fails
+        # export returns ndjson
         if action == 'export':
-            response = [json.loads(r) for r in response.text.splitlines()]
-            result_ids = [r['rule_id'] for r in response if 'rule_id' in r]
-        else:
-            results = response['attributes']['results']
-            result_ids = [r['rule_id'] for r in results['updated']]
-            result_ids.extend([r['rule_id'] for r in results['created']])
+            response = [cls(r) for r in [json.loads(r) for r in response.text.splitlines()]]
 
-        rule_resources = cls.export_rules(result_ids)
-        return response, rule_resources
+        return response
 
     @classmethod
     def bulk_enable(
@@ -230,17 +225,28 @@ class RuleResource(BaseResource):
             raise
 
     @classmethod
-    def import_rules(cls, rules: List[dict], overwrite: bool = False, overwrite_exceptions: bool = False,
-                     overwrite_action_connectors: bool = False) -> (dict, list, List[Optional['RuleResource']]):
+    def import_rules(
+        cls,
+        rules: List[dict],
+        exceptions: List[List[dict]] = [],
+        action_connectors: List[List[dict]] = [],
+        overwrite: bool = False,
+        overwrite_exceptions: bool = False,
+        overwrite_action_connectors: bool = False,
+    ) -> (dict, list, List[Optional["RuleResource"]]):
         """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
         url = f'{cls.BASE_URI}/_import'
         params = dict(
             overwrite=stringify_bool(overwrite),
             overwrite_exceptions=stringify_bool(overwrite_exceptions),
-            overwrite_action_connectors=stringify_bool(overwrite_action_connectors)
+            overwrite_action_connectors=stringify_bool(overwrite_action_connectors),
         )
         rule_ids = [r['rule_id'] for r in rules]
-        headers, raw_data = Kibana.ndjson_file_data_prep(rules, "import.ndjson")
+        flattened_exceptions = [e for sublist in exceptions for e in sublist]
+        flattened_actions_connectors = [a for sublist in action_connectors for a in sublist]
+        headers, raw_data = Kibana.ndjson_file_data_prep(
+            rules + flattened_exceptions + flattened_actions_connectors, "import.ndjson"
+        )
         response = Kibana.current().post(url, headers=headers, params=params, raw_data=raw_data)
         errors = response.get("errors", [])
         error_rule_ids = [e['rule_id'] for e in errors]

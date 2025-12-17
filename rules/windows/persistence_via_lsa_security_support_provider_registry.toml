@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,20 +11,55 @@ Identifies registry modifications related to the Windows Security Support Provid
 abuse this to establish persistence in an environment.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Installation of Security Support Provider"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Installation of Security Support Provider
+
+Security Support Providers (SSPs) in Windows environments facilitate authentication processes. Adversaries may exploit SSPs by modifying registry entries to maintain persistence or evade defenses. The detection rule identifies suspicious changes to specific registry paths associated with SSPs, excluding legitimate processes like msiexec.exe, to flag potential unauthorized modifications indicative of malicious activity.
+
+### Possible investigation steps
+
+- Review the registry change event details to identify the specific registry path that was modified, focusing on paths related to "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages" and "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages".
+- Investigate the process responsible for the registry modification by examining the process executable path, ensuring it is not a legitimate process like "C:\\Windows\\System32\\msiexec.exe" or "C:\\Windows\\SysWOW64\\msiexec.exe".
+- Check the historical activity of the identified process to determine if it has been involved in other suspicious activities or registry changes.
+- Analyze the user account context under which the process was executed to assess if it aligns with expected behavior or if it indicates potential compromise.
+- Correlate the event with other security alerts or logs from data sources such as Elastic Endgame, Elastic Defend, Sysmon, Microsoft Defender for Endpoint, or SentinelOne to gather additional context and identify any related malicious activity.
+- Evaluate the potential impact of the registry change on system security and persistence mechanisms, considering the MITRE ATT&CK tactic of Persistence and technique T1547.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger registry changes in SSP paths. Users can create exceptions for known software installers or updaters that frequently modify these registry entries.
+- System administrators performing routine maintenance or configuration changes might inadvertently cause registry modifications. Document and exclude these activities when they are verified as non-threatening.
+- Security software updates, including those from Microsoft or third-party vendors, may alter SSP configurations as part of their normal operation. Monitor and whitelist these updates to prevent false alerts.
+- Automated deployment tools or scripts that modify system settings could lead to false positives. Ensure these tools are accounted for and excluded if they are part of regular operations.
+- Custom scripts or applications developed in-house that interact with SSP registry paths should be reviewed and excluded if they are deemed safe and necessary for business operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes that are not whitelisted, especially those modifying the registry paths associated with Security Support Providers.
+- Restore the modified registry entries to their original state using a known good backup or by manually correcting the entries to remove unauthorized changes.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious software or artifacts.
+- Review and update access controls and permissions to ensure that only authorized personnel can modify critical registry paths related to Security Support Providers.
+- Monitor the affected system and network for any signs of re-infection or further suspicious activity, focusing on registry changes and process executions.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 risk_score = 47
 rule_id = "e86da94d-e54b-4fb5-b96c-cecff87e8787"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -35,19 +70,28 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
-   registry.path : (
-      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
-      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*",
-      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*",
-      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*"
-   ) and
-   not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "Security Packages" and
+  registry.path : (
+      "*\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages",
+      "*\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages"
+  ) and
+  not process.executable : (
+        "C:\\Windows\\System32\\msiexec.exe",
+        "C:\\Windows\\SysWOW64\\msiexec.exe",
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\msiexec.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\msiexec.exe"
+  )
 '''
 
 

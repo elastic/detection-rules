@@ -2,57 +2,101 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
-min_stack_version = "8.10.0"
-updated_date = "2023/11/07"
-
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a user has started multiple Okta sessions with the same user account and different session IDs. This may indicate that an attacker has stolen the user's session cookie and is using it to access the user's account from a different location.
+Detects when a user has started multiple Okta sessions with the same user account and different session IDs. This may
+indicate that an attacker has stolen the user's session cookie and is using it to access the user's account from a
+different location.
 """
-false_positives = [
-    "A user may have multiple sessions open at the same time, such as on a mobile device and a laptop.",
-]
-from = "now-30m"
-interval = "60m"
+false_positives = ["A user may have multiple sessions open at the same time, such as on a mobile device and a laptop."]
+from = "now-35m"
 index = ["filebeat-*", "logs-okta*"]
+interval = "30m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Multiple Okta Sessions Detected for a Single User"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Multiple Okta Sessions Detected for a Single User
+
+Okta is a widely used identity management service that facilitates secure user authentication and access control. Adversaries may exploit Okta by hijacking session cookies, allowing unauthorized access to user accounts from different locations. The detection rule identifies anomalies by flagging multiple session initiations with distinct session IDs for the same user, excluding legitimate Okta system actors, thus highlighting potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the Okta logs to identify the specific user account associated with the multiple session initiations and note the distinct session IDs.
+- Check the geographic locations and IP addresses associated with each session initiation to determine if there are any unusual or unexpected locations.
+- Investigate the timestamps of the session initiations to see if they align with the user's typical login patterns or if they suggest simultaneous logins from different locations.
+- Examine the okta.actor.id and okta.actor.display_name fields to ensure that the sessions were not initiated by legitimate Okta system actors.
+- Contact the user to verify if they recognize the session activity and if they have recently logged in from multiple devices or locations.
+- Assess if there are any other related security alerts or incidents involving the same user account that could indicate a broader compromise.
+
+### False positive analysis
+
+- Legitimate multiple device usage: Users may legitimately access their accounts from multiple devices, leading to multiple session initiations. To handle this, create exceptions for users who frequently use multiple devices for work.
+- Frequent travel or remote work: Users who travel often or work remotely may trigger this rule due to accessing Okta from various locations. Consider setting up location-based exceptions for these users.
+- Shared accounts: In environments where account sharing is common, multiple sessions may be expected. Implement policies to discourage account sharing or create exceptions for known shared accounts.
+- Automated scripts or integrations: Some users may have automated processes that initiate multiple sessions. Identify these scripts and exclude them from the rule by their specific session patterns.
+- Testing and development environments: Users involved in testing or development may generate multiple sessions as part of their work. Exclude these environments from the rule to prevent false positives.
+
+### Response and remediation
+
+- Immediately terminate all active sessions for the affected user account to prevent further unauthorized access.
+- Reset the user's password and invalidate any existing session cookies to ensure that any stolen session cookies are rendered useless.
+- Conduct a thorough review of recent login activity and session logs for the affected user to identify any suspicious or unauthorized access patterns.
+- Notify the user of the potential compromise and advise them to verify any recent account activity for unauthorized actions.
+- Escalate the incident to the security operations team for further investigation and to determine if additional accounts or systems may be affected.
+- Implement multi-factor authentication (MFA) for the affected user account if not already in place, to add an additional layer of security against unauthorized access.
+- Update and enhance monitoring rules to detect similar anomalies in the future, focusing on unusual session patterns and access from unexpected locations.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
-    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection"
+    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 47
 rule_id = "621e92b6-7e54-11ee-bdc0-f661ea17fbcd"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Lateral Movement"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "threshold"
+
 query = '''
-event.dataset:okta.system and okta.event_type:user.session.start and okta.authentication_context.external_session_id:*
-    and not (okta.actor.id: okta* or okta.actor.display_name: okta*) 
+event.dataset:okta.system
+    and okta.event_type:user.session.start
+    and okta.authentication_context.external_session_id:*
+    and not (okta.actor.id: okta* or okta.actor.display_name: okta*)
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1550.004"
 name = "Web Session Cookie"
 reference = "https://attack.mitre.org/techniques/T1550/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0008"
@@ -62,8 +106,8 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 [rule.threshold]
 field = ["okta.actor.id"]
 value = 1
-
 [[rule.threshold.cardinality]]
 field = "okta.authentication_context.external_session_id"
 value = 3
+
 

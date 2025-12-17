@@ -2,28 +2,61 @@
 creation_date = "2020/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of an AWS Elastic Compute Cloud (EC2) network access control list (ACL) or an entry in a network
-ACL with a specified rule number.
+Identifies the creation of an AWS EC2 network access control list (ACL) or an entry in a network ACL with a specified rule number. Adversaries may exploit ACLs to establish persistence or exfiltrate data by creating permissive rules.
 """
 false_positives = [
     """
-    Network ACL's may be created by a network administrator. Verify whether the user identity, user agent, and/or
-    hostname should be making changes in your environment. Network ACL creations by unfamiliar users or hosts should be
-    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Network ACL's may be created by a network administrator. Verify whether the user identity should be making changes in your environment. Network ACL creations by unfamiliar users should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
+interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Network Access Control List Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Network Access Control List Creation
+
+AWS EC2 Network ACLs are stateless firewalls for controlling inbound and outbound traffic at the subnet level. Adversaries may exploit ACLs to establish persistence or exfiltrate data by creating permissive rules. The detection rule monitors successful creation events of ACLs or entries, flagging potential unauthorized modifications that align with persistence tactics, aiding in early threat identification.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.dataset:aws.cloudtrail entries to identify the user or role (event.user) that initiated the CreateNetworkAcl or CreateNetworkAclEntry actions.
+- Examine the event.provider:ec2.amazonaws.com logs to determine the IP addresses and locations associated with the request to assess if they are expected or suspicious.
+- Check the event.action details to understand the specific rules created in the Network ACL, focusing on any overly permissive rules that could indicate a security risk.
+- Investigate the event.outcome:success entries to confirm the successful creation of the ACL or ACL entry and correlate with any other suspicious activities in the AWS environment.
+- Cross-reference the event with other security alerts or logs to identify any patterns or anomalies that could suggest malicious intent or unauthorized access.
+- Assess the impact of the new ACL rules on the network security posture, ensuring they do not inadvertently allow unauthorized access or data exfiltration.
+
+### False positive analysis
+
+- Routine infrastructure updates or deployments may trigger the creation of new network ACLs or entries. To manage this, establish a baseline of expected changes during scheduled maintenance windows and exclude these from alerts.
+- Automated scripts or infrastructure-as-code tools like Terraform or CloudFormation can create network ACLs as part of normal operations. Identify and whitelist these automated processes to prevent unnecessary alerts.
+- Changes made by trusted administrators or security teams for legitimate purposes can be mistaken for suspicious activity. Implement a process to log and review approved changes, allowing you to exclude these from detection.
+- Temporary ACLs created for troubleshooting or testing purposes can generate alerts. Document and track these activities, and use tags or naming conventions to easily identify and exclude them from monitoring.
+- Third-party services or integrations that require specific network configurations might create ACLs. Review and validate these services, and if deemed safe, add them to an exception list to reduce false positives.
+
+### Response and remediation
+
+- Immediately review the AWS CloudTrail logs to confirm the creation of the Network ACL or entry and identify the IAM user or role responsible for the action. This helps determine if the action was authorized or potentially malicious.
+- Revoke any suspicious or unauthorized IAM credentials associated with the creation of the Network ACL or entry to prevent further unauthorized access.
+- Modify or delete the newly created Network ACL or entry if it is determined to be unauthorized or overly permissive, ensuring that it aligns with your organization's security policies.
+- Conduct a security review of the affected AWS environment to identify any other unauthorized changes or indicators of compromise, focusing on persistence mechanisms.
+- Implement additional monitoring and alerting for changes to Network ACLs and other critical AWS resources to enhance detection of similar threats in the future.
+- Escalate the incident to the security operations team or incident response team for further investigation and to determine if additional containment or remediation actions are necessary.
+- Review and update IAM policies and permissions to ensure the principle of least privilege is enforced, reducing the risk of unauthorized changes to network configurations.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -42,6 +75,8 @@ tags = [
     "Data Source: AWS EC2",
     "Use Case: Network Security Monitoring",
     "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -50,6 +85,22 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateNetworkAcl or CreateNetworkAclEntry) and event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -63,4 +114,20 @@ reference = "https://attack.mitre.org/techniques/T1133/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

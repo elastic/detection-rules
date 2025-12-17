@@ -1,8 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/08/24"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,9 +13,14 @@ The Microsoft Connection Manager Profile Installer (CMSTP.exe) is a command-line
 service profiles, which accept installation information file (INF) files. Adversaries may abuse CMSTP to proxy the
 execution of malicious code by supplying INF files that contain malicious commands.
 """
-from = "now-119m"
-index = ["logs-endpoint.events.process-*"]
-interval = "60m"
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Defense Evasion via CMSTP.exe"
@@ -29,6 +35,9 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Rule Type: BBR",
+    "Data Source: Sysmon",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

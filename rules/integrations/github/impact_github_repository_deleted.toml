@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,39 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GitHub Repository Deleted"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Repository Deleted
+GitHub repositories are essential for managing code and collaboration within organizations. Adversaries may exploit this by deleting repositories to disrupt operations or erase critical data, potentially indicating a security breach. The detection rule monitors GitHub audit logs for repository deletion events, enabling analysts to swiftly identify and investigate unauthorized actions, thereby mitigating potential data loss and compromise.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to confirm the repository deletion event by checking for entries where event.module is "github", event.dataset is "github.audit", and event.action is "repo.destroy".
+- Identify the user account associated with the deletion event and verify their access permissions and recent activity to determine if the action was authorized.
+- Contact the user or team responsible for the repository to confirm whether the deletion was intentional and documented.
+- Check for any recent changes in user access or permissions that could indicate a compromised account or unauthorized access.
+- Investigate any other suspicious activities or alerts related to the same user or repository around the time of the deletion event to identify potential patterns of malicious behavior.
+- Assess the impact of the repository deletion on ongoing projects and data availability, and initiate recovery procedures if necessary.
+
+### False positive analysis
+
+- Routine repository clean-up activities by authorized personnel may trigger alerts. To manage this, maintain a list of users or teams responsible for such tasks and create exceptions for their actions.
+- Automated scripts or tools used for repository management might delete repositories as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific identifiers or tags.
+- Test or temporary repositories that are frequently created and deleted during development cycles can cause false positives. Implement naming conventions for these repositories and configure the rule to ignore deletions matching these patterns.
+- Scheduled repository deletions as part of a lifecycle management policy can be mistaken for unauthorized actions. Document these schedules and adjust the detection rule to accommodate these planned activities.
+
+### Response and remediation
+
+- Immediately revoke access for any user account associated with the unauthorized repository deletion to prevent further malicious actions.
+- Restore the deleted repository from backups or snapshots, if available, to recover lost data and minimize operational disruption.
+- Conduct a thorough review of recent access logs and user activities to identify any other suspicious actions or potential indicators of compromise.
+- Notify the security team and relevant stakeholders about the incident to ensure coordinated response efforts and awareness.
+- Implement additional access controls, such as multi-factor authentication and role-based access, to prevent unauthorized deletions in the future.
+- Escalate the incident to higher management and legal teams if intellectual property theft or significant data loss is suspected.
+- Enhance monitoring and alerting mechanisms to detect similar unauthorized actions promptly, leveraging the MITRE ATT&CK framework for guidance on potential threat vectors."""
 risk_score = 47
 rule_id = "345889c4-23a8-4bc0-b7ca-756bd17ce83b"
 severity = "medium"
@@ -26,12 +59,13 @@ tags = [
     "Use Case: UEBA",
     "Tactic: Impact",
     "Data Source: Github",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-configuration where event.module == "github" and event.action == "repo.destroy"
+configuration where event.module == "github" and event.dataset == "github.audit" and event.action == "repo.destroy"
 '''
 
 

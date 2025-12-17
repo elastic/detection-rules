@@ -1,0 +1,197 @@
+[metadata]
+creation_date = "2025/03/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/08/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the unusual occurrence of outbound network connections to suspicious webservice domains. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Network Connection to Suspicious Web Service"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Network Connection to Suspicious Web Service
+
+In macOS environments, network connections to web services are routine for data sharing and collaboration. However, adversaries exploit these services for command and control by disguising malicious traffic as legitimate. The detection rule identifies unusual outbound connections to known suspicious domains, flagging potential misuse by monitoring specific domain patterns and connection events, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the destination domain and process executable from the alert to determine if it matches any expected web service communication.
+- Check the event.category and event.type fields to confirm the nature of the network connection and ensure it aligns with the expected behavior of a macOS system.
+- Investigate the source host identified by host.os.type to gather information about its recent activities, installed applications, and any potential indicators of compromise.
+- Analyze network traffic logs for the source host to identify any other unusual or suspicious outbound connections that may indicate a broader compromise.
+- Correlate the alert with other security events or alerts from the same host or network segment to identify patterns or related incidents.
+- Consult threat intelligence sources to gather additional context on the flagged domain and assess its reputation and history of malicious activity.
+
+### False positive analysis
+
+- Frequent access to legitimate cloud storage services like Google Drive or Dropbox for routine file sharing can trigger false positives. Users can create exceptions for specific domains or IP addresses known to be safe and frequently accessed by their organization.
+- Automated backup services that use domains such as OneDrive or SharePoint may be flagged. To mitigate this, identify and whitelist the specific services or applications that are part of regular backup operations.
+- Collaboration tools like Slack or Discord, used for legitimate communication, might be mistakenly flagged. Users should review and whitelist these domains if they are part of standard business operations.
+- URL shorteners like bit.ly or tinyurl.com used in marketing or communication campaigns can cause false alerts. Establish a list of trusted shortener services and exclude them from monitoring if they are regularly used by the organization.
+- Development and testing environments using services like ngrok or localtunnel for temporary public URLs can be misidentified. Ensure these environments are documented and excluded from the rule if they are part of normal development workflows.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS device from the network to prevent further communication with the suspicious domains.
+- Conduct a thorough review of the network logs to identify any data exfiltration attempts or additional suspicious connections originating from the isolated device.
+- Remove any unauthorized or suspicious applications or scripts found on the device that may be facilitating the outbound connections.
+- Update the device's security software and perform a full system scan to detect and remove any malware or unauthorized software.
+- Reset credentials and review access permissions for the affected user accounts to prevent unauthorized access.
+- Monitor the network for any further attempts to connect to the flagged domains and ensure that alerts are configured to notify security teams of any recurrence.
+- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further investigation and to determine if the threat is part of a larger attack campaign.
+"""
+risk_score = 47
+rule_id = "b07f0fba-0a78-11f0-8311-b66272739ecb"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category : "network" and host.os.type : "macos" and event.type : "start" and
+destination.domain : (
+    pastebin.* or
+    paste.ee or
+    ghostbin.com or
+    drive.google.com or
+    ?.docs.live.net or
+    api.dropboxapi.* or
+    content.dropboxapi.* or
+    *dl.dropboxusercontent.* or
+    api.onedrive.com or
+    *.onedrive.org or
+    onedrive.live.com or
+    filebin.net or
+    *.ngrok.io or
+    ngrok.com or
+    *.portmap.* or
+    *serveo.net or
+    *localtunnel.me or
+    *pagekite.me or
+    *localxpose.io or
+    *notabug.org or
+    rawcdn.githack.* or
+    paste.nrecom.net or
+    zerobin.net or
+    controlc.com or
+    requestbin.net or
+    api.slack.com or
+    slack-redir.net or
+    slack-files.com or
+    cdn.discordapp.com or
+    discordapp.com or
+    discord.com or
+    apis.azureedge.net or
+    cdn.sql.gg or
+    ?.top4top.io or
+    top4top.io or
+    uplooder.net or
+    *.cdnmegafiles.com or
+    transfer.sh or
+    updates.peer2profit.com or
+    api.telegram.org or
+    t.me or
+    meacz.gq or
+    rwrd.org or
+    *.publicvm.com or
+    *.blogspot.com or
+    api.mylnikov.org or
+    script.google.com or
+    script.googleusercontent.com or
+    paste4btc.com or
+    workupload.com or
+    temp.sh or
+    filetransfer.io or
+    gofile.io or
+    store?.gofile.io or
+    tiny.one or
+    api.notion.com or
+    *.sharepoint.com or
+    *upload.ee or
+    bit.ly or
+    t.ly or
+    cutt.ly or
+    mbasic.facebook.com or
+    api.gofile.io or
+    file.io or
+    api.anonfiles.com or
+    api.trello.com or
+    gist.githubusercontent.com or
+    dpaste.com or
+    *azurewebsites.net or
+    *.zulipchat.com or
+    *.4shared.com or
+    filecloud.me or
+    i.ibb.co or
+    files.catbox.moe or
+    *.getmyip.com or
+    mockbin.org or
+    webhook.site or
+    run.mocky.io or
+    *infinityfreeapp.com or
+    free.keep.sh or
+    tinyurl.com or
+    ftpupload.net or
+    lobfile.com or
+    *.ngrok-free.app or
+    myexternalip.com or
+    yandex.ru or
+    *.yandex.ru or
+    *.aternos.me or
+    cdn??.space or
+    *.pcloud.com or
+    mediafire.zip or
+    urlz.fr or
+    rentry.co or
+    *.b-cdn.net or
+    pastecode.dev or
+    i.imgur.com or
+    the.earth.li or
+    *.trycloudflare.com
+) and 
+not (destination.domain : (*.sharepoint.com or *.azurewebsites.net or "onedrive.live.com" or *.b-cdn.net or api.onedrive.com or "drive.google.com" or *.blogspot.com) and process.code_signature.subject_name:(*Microsoft* or "Software Signing" or "Apple Mac OS Application Signing" or *VMware*) and process.code_signature.trusted:true) and 
+not (process.code_signature.subject_name:(*Mozilla* or *Google* or *Brave* or *Opera* or "Software Signing" or *Zscaler* or *Browser*) and process.code_signature.trusted:true)  and 
+not (destination.domain :("discord.com" or cdn.discordapp.com or "content.dropboxapi.com" or "dl.dropboxusercontent.com") and process.code_signature.subject_name :(*Discord* or *Dropbox*) and process.code_signature.trusted:true)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "destination.domain"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

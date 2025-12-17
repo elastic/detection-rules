@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2024/09/09"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/08/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of an MsiExec service child process followed by network or dns lookup activity. Adversaries may
+abuse Windows Installers for initial access and delivery of malware.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "MsiExec Service Child Process With Network Connection"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating MsiExec Service Child Process With Network Connection
+
+MsiExec is a Windows utility for installing, maintaining, and removing software. Adversaries exploit it to execute malicious payloads by disguising them as legitimate installations. The detection rule identifies suspicious child processes spawned by MsiExec that initiate network activity, which is atypical for standard installations. By focusing on unusual executable paths and network connections, the rule helps uncover potential misuse indicative of malware delivery or initial access attempts.
+
+### Possible investigation steps
+
+- Review the process tree to identify the parent and child processes of the suspicious MsiExec activity, focusing on the process.entity_id and process.parent.name fields to understand the execution flow.
+- Examine the process.executable path to determine if it deviates from typical installation paths, as specified in the query, to assess the likelihood of malicious activity.
+- Analyze the network or DNS activity associated with the process by reviewing the event.category field for network or dns events, and correlate these with the process.name to identify any unusual or unauthorized connections.
+- Check the process.args for any unusual or suspicious command-line arguments that might indicate an attempt to execute malicious payloads or scripts.
+- Investigate the host's recent activity and security logs to identify any other indicators of compromise or related suspicious behavior, leveraging data sources like Elastic Defend, Sysmon, or SentinelOne as mentioned in the rule's tags.
+- Assess the risk and impact of the detected activity by considering the context of the alert, such as the host's role in the network and any potential data exposure or system compromise.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule if they involve network activity. Users can create exceptions for known software update processes that are verified as safe.
+- Custom enterprise applications that use MsiExec for deployment and require network access might be flagged. Identify these applications and exclude their specific executable paths from the rule.
+- Automated deployment tools that utilize MsiExec and perform network operations could be misidentified. Review these tools and whitelist their processes to prevent false alerts.
+- Security software or system management tools that leverage MsiExec for legitimate purposes may cause false positives. Confirm these tools' activities and add them to an exclusion list if necessary.
+- Regularly review and update the exclusion list to ensure it reflects the current environment and any new legitimate software that may interact with MsiExec.
+
+### Response and remediation
+
+- Isolate the affected system from the network immediately to prevent further malicious activity and lateral movement.
+- Terminate the suspicious child process spawned by MsiExec to halt any ongoing malicious operations.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious payloads or remnants.
+- Review and analyze the process execution and network activity logs to identify any additional indicators of compromise (IOCs) and assess the scope of the intrusion.
+- Reset credentials and review access permissions for any accounts that may have been compromised or used during the attack.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and detection rules to identify similar threats in the future, focusing on unusual MsiExec activity and network connections."""
+risk_score = 47
+rule_id = "65432f4a-e716-4cc1-ab11-931c4966da2d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+ [process where host.os.type == "windows" and event.type : "start" and
+  process.parent.name : "msiexec.exe" and process.parent.args : "/v" and
+  not process.executable :
+        ("?:\\Windows\\System32\\msiexec.exe",
+         "?:\\Windows\\sysWOW64\\msiexec.exe",
+         "?:\\Windows\\system32\\srtasks.exe",
+         "?:\\Windows\\syswow64\\srtasks.exe",
+         "?:\\Windows\\sys*\\taskkill.exe",
+         "?:\\Program Files\\*.exe",
+         "?:\\Program Files (x86)\\*.exe",
+         "?:\\Windows\\Installer\\MSI*.tmp",
+         "?:\\Windows\\Microsoft.NET\\Framework*\\RegSvcs.exe",
+         "C:\\Windows\\System32\\regsvr32.exe",
+         "C:\\Windows\\Sys?????\\certutil.exe",
+         "C:\\Windows\\System32\\WerFault.exe",
+         "C:\\Windows\\System32\\wevtutil.exe",
+         "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe") and
+ not (process.name : ("rundll32.exe", "regsvr32.exe", "powershell.exe", "regasm.exe", "wscript.exe") and process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")) and
+ not (?process.code_signature.subject_name : ("Bruno Software Inc", "Proton AG", "Axis Communications AB", "Citrix Systems, Inc.", "NSUS Limited", "Action1 Corporation", "Solarwinds Worldwide, LLC") and
+      ?process.code_signature.trusted == true) and
+ not (?process.pe.original_file_name in ("dxsetup.exe", "MofCompiler.exe", "ShellApp.exe") and
+      ?process.code_signature.subject_name : "Microsoft Corporation" and ?process.code_signature.trusted == true) and
+ not ?process.hash.sha256 in ("cfaef8c711db04d6c4a4381c66ac21b9e234e57febedb77fedc9316898b214bc",
+                              "2f26f37cce780ca76f0dbac0de233f4c8d84c31b3f37380b9d5faacc3ee2d03e",
+                              "7d9c691bfbf3beb78919dfd940fa6d325c3437425d5b0371df39aef6accf858d")
+ ]
+[network where host.os.type == "windows" and process.name != null and
+ not dns.question.name : ("core.bdec.microsoft.com", "go.microsoft.com", "ocsp.digicert.com", "localhost", "www.google-analytics.com",
+                          "ocsp.verisign.com", "*.symcb.com")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

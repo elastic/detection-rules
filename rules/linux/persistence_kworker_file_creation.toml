@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/10/26"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -52,7 +52,7 @@ to be done in kernel space, which might include tasks like handling interrupts, 
 kernel-related tasks. Attackers may attempt to evade detection by masquerading as a kernel worker process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["endgame-*", "logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious File Creation via Kworker"
@@ -67,7 +67,7 @@ Attackers may attempt to evade detection by masquerading as a kernel worker proc
 This rule monitors for suspicious file creation events through the kworker process. This is not common, and could indicate malicious behaviour.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible Investigation Steps
@@ -159,6 +159,9 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -167,7 +170,13 @@ query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
   process.name : "kworker*" and not (
     (process.name : "kworker*kcryptd*") or
-    (file.path : ("/var/log/*", "/var/crash/*", "/var/run/*", "/var/lib/systemd/coredump/*", "/var/spool/*"))
+    (file.path : (
+      "/var/log/*", "/var/crash/*", "/var/run/*", "/var/lib/systemd/coredump/*", "/var/spool/*",
+      "/var/lib/nfs/nfsdcltrack/main.sqlite-journal", "/proc/*/cwd/core.*", "/var/run/apport.lock",
+      "/var/spool/abrt/ccpp-*", "/var/lib/dynatrace/oneagent/*", "/var/lib/nfs*", "/run/user/*/.bubblewrap/*",
+      "/etc/localtime/*", "/proc/*/cwd/core.*"
+      )
+    )
   )
 '''
 

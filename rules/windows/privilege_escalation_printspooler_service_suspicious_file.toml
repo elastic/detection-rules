@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/13"
 
 [rule]
 author = ["Elastic"]
@@ -12,25 +12,58 @@ information refer to the following CVE's - CVE-2020-1048, CVE-2020-1337 and CVE-
 system is patched.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
-language = "eql"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious PrintSpooler Service Executable File Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious PrintSpooler Service Executable File Creation
+
+The Print Spooler service in Windows manages print jobs, but vulnerabilities like CVE-2020-1048 can be exploited for privilege escalation. Adversaries may create malicious DLL files executed by the spooler to gain elevated privileges. The detection rule identifies such threats by monitoring file creation events linked to the spooler process, focusing on DLL files, which are common vectors for exploitation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a file creation event with the extension "dll" associated with the "spoolsv.exe" process on a Windows host.
+- Check the file path and name of the created DLL to determine if it matches known malicious patterns or locations typically used for exploitation.
+- Investigate the source of the spoolsv.exe process by examining the parent process and any associated user accounts to identify potential unauthorized access or activity.
+- Analyze recent system logs and security events for any other suspicious activities or anomalies around the time of the DLL creation, such as unexpected user logins or privilege changes.
+- Verify the patch status of the affected system against the vulnerabilities CVE-2020-1048, CVE-2020-1337, and CVE-2020-1300 to ensure it is up to date and not susceptible to known exploits.
+- If the DLL is confirmed to be malicious, isolate the affected system to prevent further exploitation and begin remediation efforts, including removing the malicious file and any associated threats.
+
+### False positive analysis
+
+- Legitimate DLL updates by trusted software can trigger the rule. Users should verify the source of the DLL and, if confirmed safe, add the software's update process to an exception list.
+- System maintenance activities, such as Windows updates, may create DLLs that match the rule's criteria. Users can exclude these activities by identifying the associated update processes and adding them to the exception list.
+- Custom in-house applications that interact with the Print Spooler service might generate DLLs during normal operation. Users should validate these applications and exclude their file creation events if they are deemed non-threatening.
+- Security software or monitoring tools that interact with the Print Spooler service could inadvertently create DLLs. Users should confirm the legitimacy of these tools and configure exceptions for their operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Terminate the spoolsv.exe process if it is confirmed to be executing a malicious DLL, to halt any ongoing malicious activity.
+- Remove the malicious DLL file from the system to prevent re-execution and further exploitation.
+- Apply the latest security patches and updates to the affected system, specifically addressing CVE-2020-1048, CVE-2020-1337, and CVE-2020-1300, to close the vulnerabilities exploited by the adversary.
+- Conduct a thorough review of user accounts and privileges on the affected system to ensure no unauthorized privilege escalation has occurred.
+- Monitor the network for any signs of similar exploitation attempts or related suspicious activity, using enhanced logging and alerting mechanisms.
+- Report the incident to the appropriate internal security team or external authorities if required, providing details of the exploit and actions taken for further investigation and response."""
 references = [
     "https://voidsec.com/cve-2020-1337-printdemon-is-dead-long-live-printdemon/",
     "https://www.thezdi.com/blog/2020/7/8/cve-2020-1300-remote-code-execution-through-microsoft-windows-cab-files",
 ]
-risk_score = 73
+risk_score = 21
 rule_id = "5bb4a95d-5a08-48eb-80db-4c3a63ec78a8"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "high"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -40,25 +73,67 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-file where host.os.type == "windows" and event.type == "creation" and
-  process.name : "spoolsv.exe" and file.extension : "dll" and
-  file.path : ("?:\\Windows\\System32\\*", "?:\\Windows\\SysWOW64\\*") and
-  not file.path : (
-    "?:\\WINDOWS\\SysWOW64\\PrintConfig.dll",
-    "?:\\WINDOWS\\system32\\x5lrs.dll",
-    "?:\\WINDOWS\\sysWOW64\\x5lrs.dll",
-    "?:\\WINDOWS\\system32\\PrintConfig.dll",
-    "?:\\WINDOWS\\system32\\spool\\DRIVERS\\x64\\*.dll",
-    "?:\\WINDOWS\\system32\\spool\\DRIVERS\\W32X86\\*.dll",
-    "?:\\WINDOWS\\system32\\spool\\PRTPROCS\\x64\\*.dll",
-    "?:\\WINDOWS\\system32\\spool\\{????????-????-????-????-????????????}\\*.dll"
-  )
+event.category : "file" and host.os.type : "windows" and event.type : "creation" and
+  process.name : "spoolsv.exe" and file.extension : "dll"
 '''
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = false
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\Sys?????\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\Sys?????\\\\PrintConfig.dll"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\Sys?????\\\\x5lrs.dll"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\x64\\\\*.dll"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\W32X86\\\\*.dll"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\PRTPROCS\\\\x64\\\\*.dll"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\{????????-????-????-????-????????????}\\\\*.dll"
 
 
 [[rule.threat]]
@@ -73,4 +148,12 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "file.path"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
 

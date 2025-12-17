@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the deletion of the authorized_keys or authorized_keys2 files on Linux systems. These files
+are used to store public keys for SSH authentication. Unauthorized deletion of these files can be an indicator
+of an attacker removing access to the system, and may be a precursor to further malicious activity.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SSH Authorized Keys File Deletion"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSH Authorized Keys File Deletion
+
+SSH authorized keys files are crucial for secure, password-less authentication on Linux systems, storing public keys that grant access. Adversaries may delete these files to disrupt legitimate access or cover their tracks. The detection rule identifies unauthorized deletions by monitoring file removal events, excluding benign processes, thus highlighting potential defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file name (authorized_keys or authorized_keys2) and the host where the deletion occurred.
+- Examine the process that triggered the deletion event, focusing on the process.executable field to determine if it is a known benign process or potentially malicious.
+- Check the user account associated with the process that deleted the file to assess if it is a legitimate user or potentially compromised.
+- Investigate recent login attempts and SSH access logs on the affected host to identify any unauthorized access or anomalies around the time of the file deletion.
+- Look for any other suspicious activities or alerts on the same host that might indicate a broader attack or compromise, such as other file deletions or modifications.
+- Assess the impact of the deletion by determining if legitimate access was disrupted and if any critical operations were affected.
+
+### False positive analysis
+
+- Routine system maintenance or updates may trigger deletions of authorized_keys files. To handle this, identify and exclude processes related to scheduled maintenance tasks from the detection rule.
+- Automated configuration management tools like Ansible or Puppet might remove and recreate authorized_keys files as part of their operations. Consider excluding these tools' processes if they are verified as non-threatening.
+- Cloud service agents, such as those from Google Cloud, may modify SSH keys as part of their operations. Ensure that processes like /usr/bin/google_guest_agent are excluded to prevent false positives.
+- Container management services like Docker and containerd might interact with SSH keys during container lifecycle events. Exclude these processes if they are part of legitimate container operations.
+- Custom scripts or applications that manage SSH keys for legitimate purposes should be reviewed and, if necessary, added to the exclusion list to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement by the attacker.
+- Verify the integrity of the SSH configuration and authorized keys files on the affected system. Restore the deleted authorized_keys or authorized_keys2 files from a secure backup if available.
+- Conduct a thorough review of recent user and process activity on the affected system to identify any unauthorized access or suspicious behavior that may have led to the deletion.
+- Change SSH keys and credentials for all users on the affected system to prevent unauthorized access using potentially compromised keys.
+- Implement additional monitoring on the affected system to detect any further unauthorized file deletions or suspicious activities, ensuring that alerts are configured for immediate response.
+- Escalate the incident to the security operations team for further investigation and to determine if the attack is part of a larger campaign targeting the organization.
+- Review and update access controls and permissions on the affected system to ensure that only authorized users and processes can modify critical files like authorized_keys.
+"""
+risk_score = 21
+rule_id = "3c216ace-2633-4911-9aac-b61d4dc320e8"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "deletion" and file.name in ("authorized_keys", "authorized_keys2") and
+not (
+  process.executable in (
+    "/usr/bin/google_guest_agent", "/usr/bin/dockerd", "/bin/dockerd", "/usr/bin/containerd"
+  ) or
+  process.executable like~ "/nix/store/*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/05"
 
 [transform]
 [[transform.osquery]]
@@ -34,7 +34,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Identifies an executable or script file remotely downloaded via a TeamViewer transfer session."
 from = "now-9m"
-index = ["logs-endpoint.events.file-*"]
+index = ["logs-endpoint.events.file-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Copy via TeamViewer"
@@ -47,7 +47,7 @@ Attackers commonly transfer tooling or malware from external systems into a comp
 TeamViewer is a remote access and remote control tool used by helpdesks and system administrators to perform various support activities. It is also frequently used by attackers and scammers to deploy malware interactively and other malicious activities. This rule looks for the TeamViewer process creating files with suspicious extensions.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -93,14 +93,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "b25a7df2-120a-4db2-bd3f-3e4b86b24bee"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -108,8 +100,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -122,7 +114,9 @@ file where host.os.type == "windows" and event.type == "creation" and process.na
     file.path : (
       "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\*.js",
       "?:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\update.exe",
-      "?:\\Users\\*\\AppData\\Local\\Temp\\?\\TeamViewer\\update.exe"
+      "?:\\Users\\*\\AppData\\Local\\Temp\\?\\TeamViewer\\update.exe",
+      "?:\\Users\\*\\AppData\\Local\\TeamViewer\\CustomConfigs\\???????\\TeamViewer_Resource_??.dll",
+      "?:\\Users\\*\\AppData\\Local\\TeamViewer\\CustomConfigs\\???????\\TeamViewer*.exe"
     ) and process.code_signature.trusted == true
   )
 '''
@@ -137,7 +131,7 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 
 [[rule.threat.technique]]
 id = "T1219"
-name = "Remote Access Software"
+name = "Remote Access Tools"
 reference = "https://attack.mitre.org/techniques/T1219/"
 
 

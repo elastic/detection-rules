@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2024/07/12"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when server access logging is disabled for an Amazon S3 bucket. Server access logs provide a detailed record
+of requests made to an S3 bucket. When server access logging is disabled for a bucket, it could indicate an adversary's
+attempt to impair defenses by disabling logs that contain evidence of malicious activity.
+"""
+event_category_override = "event.type"
+false_positives = [
+    """
+    Bucket logging may be disabled by a system or network administrator. Verify whether the user identity and/or user
+    agent should be making changes in your environment. Bucket component deletions by unfamiliar users should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS S3 Bucket Server Access Logging Disabled"
+note = """
+## Triage and analysis
+
+### Investigating AWS S3 Bucket Server Access Logging Disabled
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+This detection alerts when the server-access logging configuration for an S3 bucket is changed so that logging is disabled.  
+Because detailed request logs are central to tracking object access, modifications here are significant from a visibility and forensics standpoint. They can signal that an adversary is preparing to act (exfiltrate, delete, or manipulate data) while minimizing audit evidence.
+
+#### Possible investigation steps
+
+**Identify the actor and context**
+   - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id` to determine the who/what of the change.  
+   - Inspect `user_agent.original`, `source.ip`, `@timestamp`, `cloud.account.id`, `cloud.region` for unusual or non-standard access patterns (e.g., new user, external IP, off-hours).
+   - Check the bucket resource (via `aws.cloudtrail.resources.arn`, `aws.cloudtrail.resources.type`) to determine the bucket’s business role (e.g., logs, backups, sensitive data store).
+        - Consider whether the bucket houses audit logs or access logs; if so, disabling logging is especially suspicious and a higher risk.
+
+**Correlate with related activities**
+   - Search for preceding or subsequent events by the same principal or for the same bucket:  
+     - `DeleteObject`, `PutBucketAcl`, `PutBucketPolicy`, `RemoveBucketAccessPoint`, or other permissions changes (e.g., `PutBucketLifecycle`).  
+     - `ListBucket`, `GetObject`, `CopyObject`, or large `GetObject` operations, especially from unusual IPs or cross-account.  
+     - IAM changes in proximity: `AttachUserPolicy`, `CreateAccessKey`, `AssumeRole` by same principal or against the same principal.  
+   - Review AWS Config or Audit logs to see if the bucket’s logging was previously enabled and how long it has been disabled.
+
+**Evaluate intent and risk**
+   - If the bucket was being used to collect access logs or audit data, disabling logging significantly degrades forensic capability.  
+   - Determine whether the actor has a legitimate business reason for modifying logging (ticket, change request, known automation).  
+   - If not justified, treat this as a high-priority visibility compromise and proceed through escalation.
+
+### False positive analysis
+
+- Storage teams may disable logging temporarily during migration or cost-optimisation exercises.  
+- Test or development buckets may routinely toggle logging for experimentation—document such buckets and roles.  
+- Trusted automation (tagged, known user-agent, internal IPs) may adjust logging. Consider allow-listing such automation while preserving watch-points for changes to high-sensitivity buckets.
+
+### Response and remediation
+
+**1. Contain & restore visibility**
+   - Immediately re-enable server‐access logging for the affected bucket (ensure `LoggingEnabled=true` and correct `TargetBucket/Prefix`).  
+   - If you suspect activity while logging was disabled, preserve any remaining object versions, cross-account access logs, or S3 Inventory data.  
+
+**2. Investigate scope and impact**
+   - Use CloudTrail Lake or Athena to query access to the bucket and objects for the timeframe when logging was disabled.  
+   - Identify external IP addresses, unusual principals, or rapid object transfers or deletions.
+
+**3. Recover & harden**
+   - Apply bucket-policy or SCP restrictions to prevent unauthorized modifications of `PutBucketLogging` for audit/logging buckets.  
+   - Enable AWS Config rule (e.g., `cloudtrail-s3-bucket-access-logging`) to alert if logging is disabled.  
+   - Ensure logging target buckets are configured with retention, versioning, and immutability (S3 Object Lock) to prevent tampering.
+
+**4. Improve & monitor**
+   - Update your incident response playbook to include this scenario (see AWS IR + Customer Playbook Framework).  
+   - Educate stakeholders (storage, DevOps, security) that any change to logging configuration on buckets — especially audit/log buckets should be treated as a security event and ticketed.
+
+### Additional information
+
+- AWS documentation on [S3 Server Access Logging](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerLogs.html)  
+- [AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/tree/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks)  
+- [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)  
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketLogging.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html",
+]
+risk_score = 47
+rule_id = "a6788d4b-b241-4bf0-8986-a3b4315c5b70"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon S3",
+    "Use Case: Asset Visibility",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+info where event.dataset == "aws.cloudtrail"
+   and event.provider == "s3.amazonaws.com"
+   and event.action == "PutBucketLogging"
+   and event.outcome == "success"
+   and not stringContains(aws.cloudtrail.request_parameters, "LoggingEnabled")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+

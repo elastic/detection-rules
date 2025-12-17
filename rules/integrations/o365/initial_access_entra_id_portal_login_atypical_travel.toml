@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2024/09/04"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/10/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Microsoft 365 portal logins from rare locations. Rare locations are defined as locations that are not
+commonly associated with the user's account. This behavior may indicate an adversary attempting to access a Microsoft
+365 account from an unusual location or behind a VPN.
+"""
+false_positives = [
+    """
+    False positives may occur when users are using a VPN or when users are traveling to different locations"
+    """,
+    """
+    Mobile access may also result in false positives, as users may log in from various locations while on the go.
+    """,
+]
+from = "now-15m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Identity Login from Atypical Travel Location"
+note = """## Triage and analysis
+
+### Investigating M365 Identity Login from Atypical Travel Location
+
+Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon locations, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access attempts by analyzing login events and user location patterns.
+
+### Possible investigation steps
+
+- Review the user associated with these sign-ins to determine if the login attempt was legitimate or if further investigation is needed.
+- Analyze the geographic locations of the logins to identify any patterns or anomalies that may indicate malicious activity.
+- Review the ISP information for the login attempts to identify any unusual or suspicious providers.
+- Review the authorization request type to understand the context of the login attempts and whether they align with the user's typical behavior.
+- Analyze the client application used for the login attempts to determine if it is consistent with the user's normal usage patterns (Teams, Office, etc.)
+- Analyze the user-agent associated with the login attempts to identify any unusual or suspicious patterns. These could also indicate mobile and endpoint logins causing false-positives.
+
+### False positive analysis
+
+- Users traveling or using VPNs may trigger this alert. Verify with the user if they were traveling or using a VPN at the time of the login attempt.
+- Mobile access may also result in false positives, as users may log in from various locations while on the go.
+
+### Response and remediation
+
+- Investigate the login attempt further by checking for any additional context or related events that may provide insight into the user's behavior.
+- If the login attempt is deemed suspicious, consider implementing additional security measures, such as requiring multi-factor authentication (MFA) for logins from unusual locations.
+- Educate users about the risks of accessing corporate resources from unfamiliar locations and the importance of using secure connections (e.g., VPNs) when doing so.
+- Monitor for any subsequent login attempts from the same location or IP address to identify potential patterns of malicious activity.
+- Consider adding exceptions to this rule for the user or source application ID if the login attempts are determined to be legitimate and not a security concern.
+"""
+references = ["https://www.huntress.com/blog/time-travelers-busted-how-to-detect-impossible-travel-"]
+risk_score = 47
+rule_id = "32d3ad0e-6add-11ef-8c7b-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:o365.audit and
+    event.provider:AzureActiveDirectory and
+    event.action:UserLoggedIn and
+    event.outcome:success and
+    o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
+    o365.audit.UserId:(* and not "Not Available") and
+    source.geo.region_iso_code:* and
+    not o365.audit.ApplicationId:(
+        29d9ed98-a469-4536-ade2-f981bc1d605e or
+        38aa3b87-a06d-4817-b275-7a316988d93b or
+        a809996b-059e-42e2-9866-db24b99a9782
+    ) and not o365.audit.ExtendedProperties.RequestType:(
+        "Cmsi:Cmsi" or
+        "Consent:Set" or
+        "Login:reprocess" or
+        "Login:resume" or
+        "MessagePrompt:MessagePrompt" or
+        "SAS:EndAuth"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "organization.id",
+    "o365.audit.UserId",
+    "o365.audit.ActorIpAddress",
+    "o365.audit.ApplicationId",
+    "o365.audit.ExtendedProperties.RequestType",
+    "o365.audit.Target.ID",
+    "source.geo.region_iso_code",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId", "source.geo.region_iso_code"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

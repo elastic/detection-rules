@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2024/08/28"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may attempt to disable the Auditd service to evade detection. Auditd is a Linux service that provides system
+auditing and logging. Disabling the Auditd service can prevent the system from logging important security events, which
+can be used to detect malicious activity.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Attempt to Disable Auditd Service"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Disable Auditd Service
+
+Auditd is a critical Linux service responsible for system auditing and logging, capturing security-relevant events. Adversaries may target this service to evade detection by disabling it, thus preventing the logging of their activities. The detection rule identifies suspicious processes attempting to stop or disable Auditd, such as using commands like `service stop` or `systemctl disable`, signaling potential defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the process details to identify the user account associated with the suspicious command execution, focusing on the process fields such as process.name and process.args.
+- Check the system logs for any preceding or subsequent suspicious activities around the time of the alert, particularly looking for other defense evasion tactics or unauthorized access attempts.
+- Investigate the command history of the user identified to determine if there are any other unauthorized or suspicious commands executed.
+- Verify the current status of the Auditd service on the affected host to ensure it is running and properly configured.
+- Correlate the alert with any other security events or alerts from the same host or user to identify potential patterns or broader attack campaigns.
+
+### False positive analysis
+
+- System administrators may intentionally stop or disable the Auditd service during maintenance or troubleshooting. To handle this, create exceptions for known maintenance windows or specific administrator accounts.
+- Automated scripts or configuration management tools might stop or disable Auditd as part of routine system updates or deployments. Identify these scripts and whitelist their activities to prevent false alerts.
+- Some Linux distributions or custom setups might have alternative methods for managing services that could trigger this rule. Review and adjust the detection criteria to align with the specific service management practices of your environment.
+- In environments where Auditd is not used or is replaced by another logging service, the rule might trigger unnecessarily. Consider disabling the rule or adjusting its scope in such cases.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and potential lateral movement by the adversary.
+- Terminate any suspicious processes identified in the alert that are attempting to disable the Auditd service to stop the adversary's actions.
+- Re-enable and restart the Auditd service on the affected system to ensure that auditing and logging are resumed, capturing any further suspicious activities.
+- Conduct a thorough review of the system logs and audit records to identify any unauthorized changes or additional indicators of compromise that may have occurred prior to the alert.
+- Apply any necessary security patches or updates to the affected system to address vulnerabilities that may have been exploited by the adversary.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected.
+- Implement enhanced monitoring and alerting for similar activities across the network to detect and respond to future attempts to disable critical security services."""
+risk_score = 21
+rule_id = "6a058ed6-4e9f-49f3-8f8e-f32165ae7ebf"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and (
+  (process.name == "service" and process.args == "stop") or
+  (process.name == "chkconfig" and process.args == "off") or
+  (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
+) and
+process.args in ("auditd", "auditd.service") and 
+not process.parent.name == "auditd.prerm"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -2,7 +2,7 @@
 creation_date = "2022/08/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -51,7 +51,7 @@ PowerShell is one of the main tools system administrators use for automation, re
 Adversaries can abuse PowerShell to perform token impersonation, which involves duplicating and impersonating another user's token to escalate privileges and bypass access controls. This rule identifies scripts containing PowerShell functions, structures, or Windows API functions related to token impersonation/theft.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 ### Possible investigation steps
 
@@ -134,6 +134,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -168,6 +169,10 @@ event.category:process and host.os.type:windows and
   ) and
   not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
+  ) and
+  not (
+    powershell.file.script_block_text : "New-HPPrivateToastNotificationLogo" and
+    file.path : "C:\Program Files\HPConnect\hp-cmsl-wl\modules\HP.Notifications\HP.Notifications.psm1"
   )
 '''
 

@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of the LD_PRELOAD and LD_LIBRARY_PATH environment variables in a command line argument.
+This behavior is unusual and may indicate an attempt to hijack the execution flow of a process. Threat actors may use
+this technique to evade defenses, escalate privileges, or maintain persistence on a system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual LD_PRELOAD/LD_LIBRARY_PATH Command Line Arguments"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual LD_PRELOAD/LD_LIBRARY_PATH Command Line Arguments
+
+LD_PRELOAD and LD_LIBRARY_PATH are environment variables in Linux that influence dynamic linking by specifying libraries to load before others. Adversaries exploit these to hijack execution flow, evade defenses, or escalate privileges. The detection rule identifies suspicious use of these variables in shell commands, excluding benign processes, signaling potential misuse for persistence or defense evasion.
+
+### Possible investigation steps
+
+- Review the process command line to identify the specific libraries being loaded via LD_PRELOAD or LD_LIBRARY_PATH and assess their legitimacy.
+- Examine the parent process name to determine if the process is expected to use these environment variables, considering the exclusion list provided in the query.
+- Investigate the user account associated with the process to check for any signs of compromise or unusual activity.
+- Analyze the process execution context, including the timestamp and host details, to identify any patterns or correlations with other suspicious activities.
+- Check system logs and other security tools for related alerts or events that might indicate broader malicious activity or attempts to evade defenses.
+
+### False positive analysis
+
+- Development and testing environments often use LD_PRELOAD and LD_LIBRARY_PATH for legitimate purposes such as testing new libraries or debugging. Consider excluding processes associated with these environments if they are known and trusted.
+- Some software installations or updates may temporarily use these environment variables to ensure compatibility or to load specific libraries. Monitor installation logs and exclude these processes if they are verified as part of legitimate software management.
+- System administration scripts or automation tools might use these variables to manage library paths dynamically. Review and whitelist these scripts if they are part of routine maintenance and have been vetted for security.
+- Certain applications, like custom-built software or legacy systems, may rely on these variables for normal operation. Document these applications and exclude them from the rule if they are essential and secure.
+- Security tools or monitoring agents might use these variables to hook into processes for legitimate monitoring purposes. Verify the behavior of these tools and exclude them if they are part of your security infrastructure.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity or lateral movement.
+- Terminate any suspicious processes identified with unusual LD_PRELOAD or LD_LIBRARY_PATH usage to halt potential exploitation.
+- Conduct a thorough review of the affected system's environment variables and remove any unauthorized or suspicious entries.
+- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement stricter access controls and monitoring on the affected system to prevent unauthorized changes to environment variables.
+- Update and enhance detection rules to include additional indicators of compromise related to LD_PRELOAD and LD_LIBRARY_PATH misuse, ensuring future attempts are identified promptly.
+"""
+risk_score = 21
+rule_id = "65613f5e-0d48-4b55-ad61-2fb9567cb1ad"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2) and
+process.parent.name:(* and not (
+  awk or bwrap or cylancesvc or dbus-run-session or java or julia or make or matlab_helper or ninja or noproc_sandbox or
+  nxrunner or nxserver or perl or rear or sapcontrol or setsid or spoold or sshd or steam or su or sudo or titanagent or
+  vls_agent or zabbix_agentd
+)) and
+process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
+process.args:-c and process.command_line:(*LD_LIBRARY_PATH=* or *LD_PRELOAD=*)
+'''
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Privilege Escalation"
+  id = "TA0004"
+  reference = "https://attack.mitre.org/tactics/TA0004/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.name", "process.command_line", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

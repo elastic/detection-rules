@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2024/12/19"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a Linux kernel object file (.ko) on a system. Threat actors may leverage Linux kernel
+object files to load a rootkit or other type of malware on a system providing them with complete control and the ability
+to hide from security products.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kernel Object File Creation"
+risk_score = 21
+rule_id = "1965eab8-d17f-4b21-8c48-ad5ff133695d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:file and host.os.type:linux and event.type:creation and file.extension:ko and not (
+  file.path:/var/tmp/mkinitramfs_* or process.executable:/snap/* or process.name:cpio
+) and not file.path:/tmp/mkinitramfs*
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Object File Creation
+
+Kernel object files (.ko) are loadable modules that extend the functionality of the Linux kernel, often used for adding drivers or system features. Adversaries exploit this by loading malicious modules, such as rootkits, to gain control and evade detection. The detection rule identifies suspicious .ko file creation, excluding benign paths, to flag potential threats while minimizing false positives.
+
+### Possible investigation steps
+
+- Review the file path of the created .ko file to determine if it is located in a suspicious or unusual directory that is not excluded by the rule, such as /var/tmp or /usr/local.
+- Examine the process that created the .ko file by checking the process.executable and process.name fields to identify if it is a known legitimate process or potentially malicious.
+- Investigate the parent process of the process that created the .ko file to understand the context of how the file was created and if it was initiated by a legitimate user action or a script.
+- Check for any recent system changes or anomalies around the time of the .ko file creation, such as new user accounts, changes in system configurations, or other suspicious file activities.
+- Look for any associated network activity from the host around the time of the .ko file creation to identify potential command and control communications or data exfiltration attempts.
+- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise that may suggest a broader attack campaign.
+
+### False positive analysis
+
+- Kernel updates and system maintenance activities can generate .ko files in legitimate scenarios. Users should monitor for these activities and consider excluding paths related to official update processes.
+- Custom kernel module development by developers or system administrators may trigger this rule. Establish a process to whitelist known development environments or specific user accounts involved in module creation.
+- Automated system recovery tools, such as those using mkinitramfs, may create .ko files. Ensure these paths are excluded as indicated in the rule to prevent unnecessary alerts.
+- Snap package installations might involve .ko file creation. Exclude the /snap/ directory to avoid false positives from legitimate package installations.
+- Backup and restoration processes using tools like cpio can lead to .ko file creation. Verify these processes and exclude them if they are part of routine system operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Terminate any suspicious processes associated with the creation of the .ko file, especially those not originating from known benign paths.
+- Remove the suspicious .ko file from the system to prevent it from being loaded into the kernel.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious components.
+- Review system logs and audit trails to identify any unauthorized access or changes made around the time of the .ko file creation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
+- Implement additional monitoring and alerting for similar activities, ensuring that any future attempts to create or load unauthorized .ko files are promptly detected and addressed."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.name", "file.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

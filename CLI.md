@@ -5,7 +5,7 @@ the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBU
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
-## Using a config file or environment variables
+## Using a user config file or environment variables
 
 CLI commands which are tied to Kibana and Elasticsearch are capable of parsing auth-related keyword args from a config
 file or environment variables.
@@ -17,16 +17,19 @@ follows:
 * config values
 * prompt (this only applies to certain values)
 
-#### Setup a config file
+#### Setup a user config file
 
-In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
+In the root directory of this repo, create the file `.detection-rules-cfg.json` (or `.yaml`) and add relevant values
 
 Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_username (kibana and es)
-* *_password (kibana and es)
+* es_user 
+* es_password
+* api_key
+
+Authenticating to Kibana is only available using api_key.
 
 #### Using environment variables
 
@@ -40,6 +43,15 @@ Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass t
 on the building block rules.
 
 Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
+
+Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
+
+Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
+For instance, some users may want to increase the default value in cases where help messages are cut off. 
+
+Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
+
+Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
 
 ## Importing rules into the repo
 
@@ -81,12 +93,25 @@ and will accept any valid rule in the following formats:
 ```console
 Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
 
-  Import rules from json, toml, yaml, or Kibana exported rule file(s).
+  Import rules from json, toml, or yaml files containing Kibana exported rule(s).
 
 Options:
-  --required-only            Only prompt for required fields
-  -d, --directory DIRECTORY  Load files from a directory
-  -h, --help                 Show this message and exit.
+  -ac, --action-connector-import  Include action connectors in export
+  -e, --exceptions-import         Include exceptions in export
+  --required-only                 Only prompt for required fields
+  -d, --directory DIRECTORY       Load files from a directory
+  -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -se, --exceptions-directory DIRECTORY
+                                  Save imported exceptions to a directory
+  -sa, --action-connectors-directory DIRECTORY
+                                  Save imported actions to a directory
+  -ske, --skip-errors             Skip rule import errors
+  -da, --default-author TEXT      Default author for rules missing one
+  -snv, --strip-none-values       Strip None values from the rule
+  -lc, --local-creation-date      Preserve the local creation date of the rule
+  -lu, --local-updated-date       Preserve the local updated date of the rule
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -h, --help                      Show this message and exit.
 ```
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
@@ -96,9 +121,13 @@ a combination of both.
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file
 containing multiple rules (as would be the case with a bulk export).
 
+The `-s/--save-directory` is an optional parameter to specify a non default directory to place imported rules. If it is not specified, the first directory specified in the rules config will be used.
+
 This will also strip additional fields and prompt for missing required fields.
 
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
+
+Additionally, the `-e` flag can be used to import exceptions in addition to rules from the export file.
 
 
 ## Commands using Elasticsearch and Kibana clients
@@ -109,28 +138,6 @@ Commands which connect to Elasticsearch or Kibana are embedded under the subcomm
 
 These command groups will leverage their respective clients and will automatically use parsed config options if
 defined, otherwise arguments should be passed to the sub-command as:
-
-`python -m detection-rules kibana -u <username> -p <password> upload-rule <...>`
-
-
-```console
-python -m detection_rules es -h
-
-Usage: detection_rules es [OPTIONS] COMMAND [ARGS]...
-
-  Commands for integrating with Elasticsearch.
-
-Options:
-  -et, --timeout INTEGER        Timeout for elasticsearch client
-  -ep, --es-password TEXT
-  -eu, --es-user TEXT
-  --cloud-id TEXT
-  -e, --elasticsearch-url TEXT
-  -h, --help                    Show this message and exit.
-
-Commands:
-  collect-events  Collect events from Elasticsearch.
-```
 
 Providers are the name that Elastic Cloud uses to configure authentication in Kibana. When we create deployment, Elastic Cloud configures two providers by default: basic/cloud-basic and saml/cloud-saml (for SSO).
 
@@ -147,25 +154,17 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: cloud-basic and
-                               cloud-saml (for SSO)
-  --provider-type TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: basic and saml (for
-                               SSO)
-  -ku, --kibana-user TEXT
+  --space TEXT              Kibana space
+  --api-key TEXT
+  --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
-  --cloud-id TEXT              ID of the cloud instance. Defaults the cloud
-                               provider to cloud-basic if this option is
-                               supplied
-  -h, --help                   Show this message and exit.
+  -h, --help                Show this message and exit.
 
 Commands:
+  export-rules   Export custom rules from Kibana.
+  import-rules   Import custom rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
-  upload-rule    Upload a list of rule .toml files to Kibana.
+  upload-rule    [Deprecated] Upload a list of rule .toml files to Kibana.
 ```
 
 ## Searching Kibana for Alerts
@@ -176,23 +175,17 @@ Alerts stored in Kibana can be quickly be identified by searching with the `sear
 ```console
 python -m detection_rules kibana search-alerts -h
 
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: cloud-basic and
-                               cloud-saml (for SSO)
-  --provider-type TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: basic and saml (for
-                               SSO)
-  -ku, --kibana-user TEXT
+  --space TEXT              Kibana space
+  --api-key TEXT
+  --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
-  --cloud-id TEXT              ID of the cloud instance. Defaults the cloud
-                               provider to cloud-basic if this option is
-                               supplied
 
 Usage: detection_rules kibana search-alerts [OPTIONS] [QUERY]
 
@@ -202,13 +195,13 @@ Options:
   -d, --date-range <TEXT TEXT>...
                                   Date range to scope search
   -c, --columns TEXT              Columns to display in table
-  -e, --extend                    If columns are specified, extend the
-                                  original columns
+  -e, --extend                    If columns are specified, extend the original columns
+  -m, --max-count INTEGER         The max number of alerts to return
   -h, --help                      Show this message and exit.
 ```
 
 Running the following command will print out a table showing any alerts that have been generated recently.
-`python3 -m detection_rules kibana --provider-name cloud-basic --kibana-url <url> --kibana-user <username> --kibana-password <password> search-alerts`
+`python3 -m detection_rules kibana --provider-name cloud-basic --kibana-url <url> --api-key <api-key> search-alerts`
 
 ```console
 
@@ -235,67 +228,9 @@ Running the following command will print out a table showing any alerts that hav
 ```
 ## Uploading rules to Kibana
 
-Toml formatted rule files can be uploaded as custom rules using the `kibana upload-rule` command. To upload more than one
-file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of
-rules and is not intended for production use in its current state.
+### Using `kibana import-rules`
 
-This command is built on soon to be deprecated APIs and so should be phased off. For a better option, see below...
-
-```console
-python -m detection_rules kibana upload-rule -h
-
-Kibana client:
-Options:
-  --space TEXT                 Kibana space
-  -kp, --kibana-password TEXT
-  -ku, --kibana-user TEXT
-  --cloud-id TEXT
-  -k, --kibana-url TEXT
-
-Usage: detection_rules kibana upload-rule [OPTIONS]
-
-  Upload a list of rule .toml files to Kibana.
-
-Options:
-  -f, --rule-file FILE
-  -d, --directory DIRECTORY  Recursively export rules from a directory
-  -id, --rule-id TEXT
-  -r, --replace-id           Replace rule IDs with new IDs before export
-  -h, --help                 Show this message and exit.
-(detection-rules-build) (base) ➜  detection-rules git:(rule-loader) ✗
-```
-
-Alternatively, rules can be exported into a consolidated ndjson file which can be imported in the Kibana security app
-directly.
-
-```console
-Usage: detection_rules export-rules-from-repo [OPTIONS]
-
-  Export rule(s) into an importable ndjson file.
-
-Options:
-  -f, --rule-file FILE
-  -d, --directory DIRECTORY       Recursively load rules from a directory
-  -id, --rule-id TEXT
-  -o, --outfile PATH              Name of file for exported rules
-  -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.10|8.11|8.12|8.13|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9]
-                                  Downgrade a rule version to be compatible
-                                  with older instances of Kibana
-  -s, --skip-unsupported          If `--stack-version` is passed, skip rule
-                                  types which are unsupported (an error will
-                                  be raised otherwise)
-  --include-metadata              Add metadata to the exported rules
-  -h, --help                      Show this message and exit.
-```
-
-_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
-the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
-
-
-### Using `import-rules`
-
-This is a better option than `upload-rule` as it is built on refreshed APIs
+To directly load Toml formatted rule files into Kibana, one can use the `kibana import-rules` command as shown below.
 
 ```
 python -m detection_rules kibana import-rules -h
@@ -307,16 +242,10 @@ python -m detection_rules kibana import-rules -h
 Kibana client:
 Options:
   --ignore-ssl-errors TEXT
-  --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
-                               saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
-                               SSO)
-  -ku, --kibana-user TEXT
+  --space TEXT              Kibana space
+  --api-key TEXT
+  --cloud-id TEXT           ID of the cloud instance.
   --kibana-url TEXT
-  -kp, --kibana-password TEXT
-  -kc, --kibana-cookie TEXT    Cookie from an authed session
-  --cloud-id TEXT              ID of the cloud instance.
 
 Usage: detection_rules kibana import-rules [OPTIONS]
 
@@ -326,11 +255,11 @@ Options:
   -f, --rule-file FILE
   -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
+  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -o, --overwrite                 Overwrite existing rules
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
-  -a, --overwrite-action-connectors
-                                  Overwrite action connectors in existing
-                                  rules
+  -ac, --overwrite-action-connectors
+                                  Overwrite action connectors in existing rules
   -h, --help                      Show this message and exit.
 ```
 
@@ -473,7 +402,120 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 
 </details>
 
+### Using `export-rules-from-repo`
+
+Toml formatted rule files can also be imported into Kibana through Kibana security app via a consolidated ndjson file
+which is exported from detection rules.
+
+```console
+Usage: detection_rules export-rules-from-repo [OPTIONS]
+
+  Export rule(s) and exception(s) into an importable ndjson file.
+
+Options:
+  -f, --rule-file FILE
+  -d, --directory DIRECTORY       Recursively load rules from a directory
+  -id, --rule-id TEXT
+  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
+  -o, --outfile PATH              Name of file for exported rules
+  -r, --replace-id                Replace rule IDs with new IDs before export
+  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15|8.16|8.17|8.18|9.0]
+                                  Downgrade a rule version to be compatible with older instances of Kibana
+  -s, --skip-unsupported          If `--stack-version` is passed, skip rule types which are unsupported (an error will be raised otherwise)
+  --include-metadata              Add metadata to the exported rules
+  -ac, --include-action-connectors
+                                  Include Action Connectors in export
+  -e, --include-exceptions        Include Exceptions Lists in export
+  -h, --help                      Show this message and exit.
+```
+
+_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
+the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
+
+
+### Deprecated Methods
+
+Toml formatted rule files can also be uploaded as custom rules using the `kibana upload-rule` command. This command is 
+deprecated as of Elastic Stack version 9.0, but is included for compatibility with older stacks. To upload more than one
+file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of
+rules and is not intended for production use in its current state.
+
+```console
+python -m detection_rules kibana upload-rule -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT              Kibana space
+  --api-key TEXT
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
+
+Usage: detection_rules kibana upload-rule [OPTIONS]
+
+  [Deprecated] Upload a list of rule .toml files to Kibana.
+
+Options:
+  -f, --rule-file FILE
+  -d, --directory DIRECTORY  Recursively load rules from a directory
+  -id, --rule-id TEXT
+  -nt, --no-tactic-filename  Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
+  -r, --replace-id           Replace rule IDs with new IDs before export
+  -h, --help                 Show this message and exit.
+```
+
 ### Exporting rules
+
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs-dev/custom-rules-management.md) for more information.
+
+Note: This command can be used for exporting pre-built, customized pre-built, and custom rules. By default, all rules will be exported. Use the `-cro` flag to only export custom rules, or the `-eq` flag to filter by query.
+
+```
+python -m detection_rules kibana export-rules -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT              Kibana space
+  --api-key TEXT
+  --cloud-id TEXT           ID of the cloud instance.
+  --kibana-url TEXT
+
+Usage: detection_rules kibana export-rules [OPTIONS]
+
+  Export custom rules from Kibana.
+
+Options:
+  -d, --directory PATH            Directory to export rules to  [required]
+  -acd, --action-connectors-directory PATH
+                                  Directory to export action connectors to
+  -ed, --exceptions-directory PATH
+                                  Directory to export exceptions to
+  -da, --default-author TEXT      Default author for rules missing one
+  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
+  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)
+  -ac, --export-action-connectors
+                                  Include action connectors in export
+  -e, --export-exceptions         Include exceptions in export
+  -s, --skip-errors               Skip errors when exporting rules
+  -sv, --strip-version            Strip the version fields from all rules
+  -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
+  -lc, --local-creation-date      Preserve the local creation date of the rule
+  -lu, --local-updated-date       Preserve the local updated date of the rule
+  -cro, --custom-rules-only       Only export custom rules
+  -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -h, --help                      Show this message and exit.
+
+```
 
 Example of a rule exporting, with errors skipped
 
@@ -553,7 +595,7 @@ Unknown field
 data_stream.dataset:osquery_manager.result and osquery_meta.counter>0 and osquery_meta.type:diff and osquery.last_run_code:0 and osquery_meta.action:removed
                                                                           ^^^^^^^^^^^^^^^^^
 stack: 8.9.0, beats: 8.9.0, ecs: 8.9.0
-- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(refresh-kibana-module-with-new-APIs) ✗
+- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(main) ✗
 ```
 
 
@@ -602,7 +644,7 @@ method specific to the transform type.
 This applies to osquery and insights for the moment but could expand in the future.
 
 ```
-(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms -h
+(venv312) ➜  detection-rules-fork git:(main) python -m detection_rules dev transforms -h
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
@@ -624,7 +666,7 @@ Commands:
 
 
 ```
-(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms guide-plugin-convert
+(venv312) ➜  detection-rules-fork git:(main) python -m detection_rules dev transforms guide-plugin-convert
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄

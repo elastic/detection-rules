@@ -1,29 +1,64 @@
 [metadata]
 creation_date = "2024/05/05"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2024/05/05"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
-min_stack_version = "8.13.0"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects repeated high-confidence 'BLOCKED' actions coupled with specific violation codes such as 'MISCONDUCT',
-indicating persistent misuse or attempts to probe the model's ethical boundaries.
+Detects repeated high-confidence 'BLOCKED' actions coupled with specific 'Content Filter' policy violation having codes
+such as 'MISCONDUCT', 'HATE', 'SEXUAL', INSULTS', 'PROMPT_ATTACK', 'VIOLENCE' indicating persistent misuse or attempts
+to probe the model's ethical boundaries.
 """
 false_positives = ["New model deployments.", "Testing updates to compliance policies."]
 from = "now-60m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
-name = "Unusual High Confidence Misconduct Blocks Detected"
+name = "Unusual High Confidence Content Filter Blocks Detected"
+note = """## Triage and analysis
+
+### Investigating Unusual High Confidence Content Filter Blocks Detected
+
+Amazon Bedrock Guardrail is a set of features within Amazon Bedrock designed to help businesses apply robust safety and privacy controls to their generative AI applications.
+
+It enables users to set guidelines and filters that manage content quality, relevancy, and adherence to responsible AI practices.
+
+Through Guardrail, organizations can enable Content filter for Hate, Insults, Sexual Violence and Misconduct along with Prompt Attack filters prompts
+to prevent the model from generating content on specific, undesired subjects, and they can establish thresholds for harmful content categories.
+
+#### Possible investigation steps
+
+- Identify the user account whose prompts caused high confidence content filter blocks and whether it should perform this kind of action.
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Consider the time of day. If the user is a human (not a program or script), did the activity take place during a normal time of day?
+- Examine the account's prompts and responses in the last 24 hours.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking Amazon Bedrock model access, prompts generated, and responses to the prompts by the account in the last 24 hours.
+
+### False positive analysis
+
+- Verify the user account that queried denied topics, is not testing any new model deployments or updated compliance policies in Amazon Bedrock guardrails.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Identify if the attacker is moving laterally and compromising other Amazon Bedrock Services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Review the permissions assigned to the implicated user group or role behind these requests to ensure they are authorized and expected to access bedrock and ensure that the least privilege principle is being followed.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
     "https://atlas.mitre.org/techniques/AML.T0051",
     "https://atlas.mitre.org/techniques/AML.T0054",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "4f855297-c8e0-4097-9d97-d653f7e471c4"
 setup = """## Setup
 
@@ -31,7 +66,7 @@ This rule requires that guardrails are configured in AWS Bedrock. For more infor
 
 https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: LLM",
     "Data Source: AWS Bedrock",
@@ -39,14 +74,49 @@ tags = [
     "Use Case: Policy Violation",
     "Mitre Atlas: T0051",
     "Mitre Atlas: T0054",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| where gen_ai.policy.confidence == "HIGH" and gen_ai.policy.action == "BLOCKED" and gen_ai.compliance.violation_code == "MISCONDUCT"
-| stats high_confidence_blocks = count() by user.id
-| where high_confidence_blocks > 5
-| sort high_confidence_blocks desc
+
+// Expand multi-value fields
+| mv_expand gen_ai.compliance.violation_code
+| mv_expand gen_ai.policy.confidence
+| mv_expand gen_ai.policy.name
+| mv_expand gen_ai.policy.action
+
+// Filter for high-confidence content policy blocks with targeted violations
+| where
+  gen_ai.policy.action == "BLOCKED"
+  and gen_ai.policy.name == "content_policy"
+  and gen_ai.policy.confidence like "HIGH"
+  and gen_ai.compliance.violation_code in ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
+
+// keep ECS + compliance fields
+| keep
+  user.id,
+  gen_ai.compliance.violation_code
+
+// count blocked violations per user per violation type
+| stats
+    Esql.ml_policy_blocked_violation_count = count()
+  by
+    user.id,
+    gen_ai.compliance.violation_code
+
+// Aggregate all violation types per user
+| stats
+    Esql.ml_policy_blocked_violation_total_count = sum(Esql.ml_policy_blocked_violation_count)
+  by
+    user.id
+
+// Filter for users with more than 5 total violations
+| where Esql.ml_policy_blocked_violation_total_count > 5
+
+// sort by violation volume
+| sort Esql.ml_policy_blocked_violation_total_count desc
 '''
+

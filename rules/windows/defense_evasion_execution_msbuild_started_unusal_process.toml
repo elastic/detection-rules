@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -17,21 +17,54 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "logs-system.security*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started an Unusual Process"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft Build Engine Started an Unusual Process
+
+The Microsoft Build Engine (MSBuild) is a platform for building applications, often used in software development environments. Adversaries may exploit MSBuild to execute malicious scripts or compile code, bypassing security controls. The detection rule identifies unusual processes initiated by MSBuild, such as PowerShell or C# compiler, signaling potential misuse for executing unauthorized or harmful actions.
+
+### Possible investigation steps
+
+- Review the process tree to understand the parent-child relationship, focusing on MSBuild.exe or msbuild.exe as the parent process and any unusual child processes like csc.exe, iexplore.exe, or powershell.exe.
+- Examine the command line arguments used by the unusual process to identify any suspicious or malicious scripts or commands being executed.
+- Check the user account associated with the process to determine if it aligns with expected usage patterns or if it might be compromised.
+- Investigate the source and integrity of the MSBuild project file (.proj or .sln) to ensure it hasn't been tampered with or used to execute unauthorized code.
+- Analyze recent changes or deployments in the environment that might explain the unusual process execution, such as new software installations or updates.
+- Correlate this event with other security alerts or logs to identify any patterns or additional indicators of compromise that might suggest a broader attack.
+
+### False positive analysis
+
+- Development environments often use MSBuild to execute legitimate PowerShell scripts or compile C# code. Regularly review and whitelist known development processes to prevent unnecessary alerts.
+- Automated build systems may trigger this rule when running scripts or compiling code as part of their normal operation. Identify and exclude these systems by their hostnames or IP addresses.
+- Some software installations or updates might use MSBuild to execute scripts. Monitor and document these activities, and create exceptions for recognized software vendors.
+- Internal tools or scripts that rely on MSBuild for execution should be cataloged. Establish a baseline of expected behavior and exclude these from triggering alerts.
+- Collaborate with development teams to understand their use of MSBuild and adjust the detection rule to accommodate their workflows without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution of potentially malicious processes and lateral movement.
+- Terminate any suspicious processes initiated by MSBuild, such as PowerShell or the C# compiler, to halt any ongoing malicious activity.
+- Conduct a thorough review of the affected system for any unauthorized changes or additional malicious files, focusing on scripts or executables that may have been deployed.
+- Restore the system from a known good backup if any malicious activity or unauthorized changes are confirmed, ensuring that the backup is clean and uncompromised.
+- Escalate the incident to the security operations team for further analysis and to determine if the threat is part of a larger attack campaign.
+- Implement additional monitoring and logging for MSBuild and related processes to detect any future misuse or anomalies promptly.
+- Review and update endpoint protection configurations to enhance detection and prevention capabilities against similar threats, ensuring that security controls are effectively blocking unauthorized script execution."""
 references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
 risk_score = 21
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -40,6 +73,9 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"

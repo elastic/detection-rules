@@ -2,7 +2,7 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/12"
 
 [transform]
 [[transform.osquery]]
@@ -57,7 +57,7 @@ By examining the specific traits of Windows binaries -- such as process trees, c
 This rule identifies a potential malicious process masquerading as `wermgr.exe` or `WerFault.exe`, by looking for a process creation with no arguments followed by a network connection.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -102,6 +102,7 @@ references = [
     "https://twitter.com/SBousseaden/status/1235533224337641473",
     "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
     "https://app.any.run/tasks/26051d84-b68e-4afb-8a9a-76921a271b81/",
+    "https://www.elastic.co/security-labs/elastic-security-uncovers-blister-malware-campaign",
 ]
 risk_score = 47
 rule_id = "6ea41894-66c3-4df7-ad6b-2c5074eb3df8"
@@ -119,7 +120,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan = 5s
-  [process where host.os.type == "windows" and event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and process.args_count == 1]
+  [process where host.os.type == "windows" and event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and
+    (process.args_count == 1 and
+      /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+      not process.command_line regex~ """\".*\.exe[^\"].*""")]
   [network where host.os.type == "windows" and process.name : ("wermgr.exe", "WerFault.exe") and network.protocol != "dns" and
     network.direction : ("outgoing", "egress") and destination.ip !="::1" and destination.ip !="127.0.0.1"
   ]
@@ -134,7 +138,7 @@ name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
-name = "Match Legitimate Name or Location"
+name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 

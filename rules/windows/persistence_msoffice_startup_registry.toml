@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/22"
-integration = ["endpoint"]
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,51 @@ specify a DLL which will be executed every time an MS Office application is star
 persistence on a compromised host.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "logs-m365_defender.event-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Office Test Registry Persistence"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Office Test Registry Persistence
+
+The Office Test Registry key in Windows environments allows specifying a DLL to execute whenever an Office application starts, providing a mechanism for legitimate customization. However, adversaries can exploit this for persistence by loading malicious DLLs. The detection rule monitors modifications to this registry path, excluding deletions, to identify potential abuse, leveraging data from various security sources to flag suspicious activity.
+
+### Possible investigation steps
+
+- Review the registry event details to identify the specific DLL path that was added or modified in the Office Test Registry key.
+- Check the file properties and digital signature of the DLL specified in the registry modification to determine its legitimacy.
+- Investigate the source of the registry modification by correlating with user activity logs to identify which user account made the change.
+- Analyze recent process execution logs for any Office applications to detect if the suspicious DLL has been loaded or executed.
+- Cross-reference the DLL and associated registry modification with threat intelligence sources to check for known malicious indicators.
+- Examine the system for additional signs of compromise, such as unusual network connections or other persistence mechanisms, to assess the scope of potential intrusion.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify the Office Test Registry key as part of their setup process. Users can create exceptions for known software vendors or specific applications that are frequently updated.
+- System administrators might use scripts or management tools that modify the registry for configuration purposes. Identify and exclude these trusted scripts or tools from triggering alerts.
+- Customization by IT departments for legitimate business needs can lead to registry modifications. Document and whitelist these customizations to prevent false positives.
+- Security software or monitoring tools might interact with the registry as part of their normal operations. Verify and exclude these interactions if they are known to be safe and necessary for system functionality.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further spread or communication with potential command and control servers.
+- Use endpoint detection and response (EDR) tools to terminate any suspicious processes associated with the malicious DLL identified in the registry path.
+- Remove the malicious DLL entry from the Office Test Registry key to prevent it from executing on future Office application startups.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or remnants.
+- Review recent user activity and system logs to identify any unauthorized access or changes that may have led to the registry modification, and reset credentials if necessary.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for similar registry modifications across the network to detect and respond to future attempts promptly."""
 references = [
     "https://unit42.paloaltonetworks.com/unit42-technical-walkthrough-office-test-persistence-method-used-in-recent-sofacy-attacks/",
 ]
@@ -29,6 +70,12 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

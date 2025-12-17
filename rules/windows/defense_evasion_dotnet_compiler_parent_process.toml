@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/21"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,25 +12,56 @@ compile code after delivery in order to bypass security mechanisms.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious .NET Code Compilation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious .NET Code Compilation
+
+.NET compilers like `csc.exe` and `vbc.exe` are integral to compiling C# and VB.NET code, respectively, in Windows environments. Adversaries exploit these compilers by executing them with unusual parent processes, such as scripting engines or system utilities, to compile malicious code stealthily. The detection rule identifies such anomalies by monitoring compiler executions initiated by suspicious parent processes, signaling potential evasion or execution tactics.
+
+### Possible investigation steps
+
+- Review the process tree to understand the relationship between the suspicious parent process (e.g., wscript.exe, mshta.exe) and the .NET compiler process (csc.exe or vbc.exe) to determine if the execution flow is typical or anomalous.
+- Examine the command-line arguments used by the .NET compiler process to identify any potentially malicious code or scripts being compiled.
+- Check the user account associated with the process execution to determine if it aligns with expected behavior or if it indicates potential compromise or misuse.
+- Investigate the source and integrity of the parent process executable to ensure it has not been tampered with or replaced by a malicious version.
+- Correlate the event with other security alerts or logs from the same host or user to identify any patterns or additional indicators of compromise.
+- Analyze network activity from the host around the time of the alert to detect any suspicious outbound connections that may indicate data exfiltration or command-and-control communication.
+
+### False positive analysis
+
+- Legitimate software development activities may trigger this rule if developers use scripting engines or system utilities to automate the compilation of .NET code. To manage this, identify and whitelist known development environments or scripts that frequently compile code using these methods.
+- System administrators might use scripts or automation tools that invoke .NET compilers for maintenance tasks. Review and document these processes, then create exceptions for recognized administrative scripts to prevent unnecessary alerts.
+- Some enterprise applications may use .NET compilers as part of their normal operation, especially if they dynamically generate or compile code. Investigate these applications and exclude their processes from the rule if they are verified as non-threatening.
+- Security tools or monitoring solutions might simulate suspicious behavior for testing purposes, which could trigger this rule. Coordinate with your security team to identify such tools and exclude their activities from detection.
+- In environments where custom scripts are frequently used for deployment or configuration, ensure these scripts are reviewed and, if safe, added to an exclusion list to reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution or spread of potentially malicious code.
+- Terminate any suspicious processes identified, such as `csc.exe` or `vbc.exe`, that are running with unusual parent processes.
+- Conduct a thorough scan of the isolated system using updated antivirus and endpoint detection tools to identify and remove any malicious files or remnants.
+- Review and analyze the execution logs to determine the source and scope of the threat, focusing on the parent processes like `wscript.exe` or `mshta.exe` that initiated the compiler execution.
+- Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated through cleaning.
+- Implement application whitelisting to prevent unauthorized execution of compilers and scripting engines by non-standard parent processes.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the need for broader organizational response measures."""
 risk_score = 47
 rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -40,6 +71,12 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

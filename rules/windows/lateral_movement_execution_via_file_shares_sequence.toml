@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/04"
 
 [transform]
 [[transform.osquery]]
@@ -48,7 +48,7 @@ note = """## Triage and analysis
 Adversaries can use network shares to host tooling to support the compromise of other hosts in the environment. These tools can include discovery utilities, credential dumpers, malware, etc.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -91,6 +91,7 @@ Adversaries can use network shares to host tooling to support the compromise of 
 """
 references = [
     "http://web.archive.org/web/20230329172636/https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
 ]
 risk_score = 47
 rule_id = "ab75c24b-2502-43a0-bf7c-e60e662c811e"
@@ -112,17 +113,30 @@ sequence with maxspan=1m
    process.pid == 4 and (file.extension : "exe" or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
   [process where host.os.type == "windows" and event.type == "start" and
     not (
-      /* Veeam related processes */
       (
-        process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
-        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
+        process.code_signature.trusted == true and
+        process.code_signature.subject_name : (
+              "Veeam Software Group GmbH",
+              "Elasticsearch, Inc.",
+              "PDQ.com Corporation",
+              "CrowdStrike, Inc.",
+              "Microsoft Windows Hardware Compatibility Publisher",
+              "ZOHO Corporation Private Limited",
+              "BeyondTrust Corporation", 
+              "CyberArk Software Ltd.", 
+              "Sophos Ltd"
+        )
       ) or
-      /* PDQ related processes */
       (
-        process.name : (
-          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe", "PDQInventoryWakeCommand-?.exe"
-        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
+        process.executable : (
+          "?:\\Windows\\ccmsetup\\ccmsetup.exe",
+          "?:\\Windows\\SoftwareDistribution\\Download\\Install\\AM_Delta*.exe",
+          "?:\\Windows\\CAInvokerService.exe"
+        ) and process.code_signature.trusted == true
+      ) or
+      (
+        process.executable : "G:\\SMS_*\\srvboot.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation"
       )
     )
   ] by host.id, process.executable

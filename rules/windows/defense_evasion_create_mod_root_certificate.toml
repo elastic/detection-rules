@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/02/01"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,14 @@ certificate would allow an attacker the ability to masquerade malicious files as
 """
 false_positives = ["Certain applications may install root certificates for the purpose of inspecting SSL traffic."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation or Modification of Root Certificate"
@@ -68,14 +75,6 @@ references = [
 ]
 risk_score = 21
 rule_id = "203ab79b-239b-4aa5-8e54-fc50623ee8e4"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -86,12 +85,14 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and registry.value : "Blob" and
   registry.path :
     (
       "HKLM\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
@@ -101,27 +102,52 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
       "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
       "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
       "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
-      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
     ) and
   not process.executable : (
-          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
-          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
-          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Program Files\\*.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\sra-pin.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\bomgar-scc.exe",
+          "?:\\ProgramData\\CTES\\Ctes.exe",
+          "?:\\ProgramData\\CTES\\Components\\SNG\\AbtSngSvc.exe",
+          "?:\\ProgramData\\CTES\\Components\\SVC\\CtesHostSvc.exe",
+          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
+          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\*.exe",
+          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
+          "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\*.exe",
+          "?:\\ProgramData\\tychoncloud\\bin\\OVAL\\tvs.exe",
+          "?:\\Windows\\CCM\\CcmEval.exe",
           "?:\\Windows\\CCM\\CcmExec.exe",
+          "?:\\Windows\\ccmsetup\\autoupgrade\\ccmsetup*.exe",
           "?:\\Windows\\ccmsetup\\cache\\ccmsetup.exe",
+          "?:\\Windows\\ccmsetup\\ccmsetup.exe",
           "?:\\Windows\\Cluster\\clussvc.exe",
           "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
           "?:\\Windows\\Lenovo\\ImController\\PluginHost86\\Lenovo.Modern.ImController.PluginHost.Device.exe",
           "?:\\Windows\\Lenovo\\ImController\\Service\\Lenovo.Modern.ImController.exe",
           "?:\\Windows\\Sysmon.exe",
           "?:\\Windows\\Sysmon64.exe",
-          "?:\\Windows\\System32\\*.exe",
-          "?:\\Windows\\SysWOW64\\*.exe",
           "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\UUS\\amd64\\WaaSMedicAgent.exe",
+          "?:\\Windows\\UUS\\Packages\\Preview\\amd64\\MoUsoCoreWorker.exe",
           "?:\\Windows\\WinSxS\\*.exe"
+  ) and
+  not
+  (
+    process.executable : (
+      "?:\\Windows\\System32\\*.exe",
+      "?:\\Windows\\SysWOW64\\*.exe"
+    ) and
+    not process.name : (
+        "rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "expand.exe",
+        "regsvr32.exe", "cscript.exe", "wscript.exe", "wmiprvse.exe", "certutil.exe", "xcopy.exe"
+    )
   )
 '''
 

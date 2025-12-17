@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/11/18"
 
 [rule]
 anomaly_threshold = 50
@@ -81,6 +81,102 @@ references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs
 risk_score = 21
 rule_id = "17e68559-b274-4948-ad0b-f8415bb31126"
 severity = "low"
-tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning"]
+tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Network Destination Domain Name
+
+Machine learning models analyze network traffic to identify atypical domain names, which may indicate malicious activities like phishing or malware communication. Adversaries exploit uncommon domains for initial access or command-and-control. This detection rule leverages ML to flag these anomalies, aiding analysts in identifying potential threats early.
+
+### Possible investigation steps
+
+- Review the domain name flagged by the alert to determine if it is known for malicious activity or if it is newly registered, using threat intelligence sources and domain reputation services.
+- Analyze the network traffic associated with the domain to identify the source IP address and any related communication patterns, such as frequency and data volume.
+- Check the user or system that initiated the connection to the unusual domain for any recent changes or suspicious activities, such as software installations or configuration changes.
+- Investigate any related alerts or logs that might provide additional context, such as other unusual domain requests or failed login attempts, to identify potential patterns or correlations.
+- Assess the endpoint security logs for signs of malware or unauthorized access attempts that could be linked to the unusual domain activity.
+
+### False positive analysis
+
+- Legitimate software updates or downloads from uncommon domains can trigger false positives. Users should maintain a list of known software vendors and their associated domains to exclude these from alerts.
+- Internal testing or development environments may use non-standard domain names. Organizations should document these domains and configure exceptions to prevent unnecessary alerts.
+- Newly registered domains for legitimate business purposes might be flagged. Regularly update the list of approved domains as new business initiatives arise.
+- Third-party services or APIs that use unique domain names can cause false positives. Identify and whitelist these services to reduce noise in alerts.
+- Temporary or one-time use domains for events or campaigns should be monitored and excluded as needed to avoid repeated false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with the suspicious domain and potential spread of malware.
+- Conduct a thorough scan of the isolated system using updated antivirus and anti-malware tools to identify and remove any malicious software.
+- Review and analyze network logs to identify any other systems that may have communicated with the unusual domain and apply similar isolation and scanning procedures to those systems.
+- Change passwords and credentials associated with the affected system and any potentially compromised accounts to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment measures are necessary.
+- Implement network-level blocking of the identified unusual domain across the organization to prevent future access attempts.
+- Update threat intelligence feeds and detection systems with indicators of compromise (IOCs) related to the unusual domain to enhance future detection capabilities."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
 

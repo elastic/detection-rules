@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2025/01/07"
+integration = ["endpoint", "auditd_manager", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule identifies Linux system information discovery via the `getconf` command. The `getconf` command is used to query system configuration
+variables and system limits. Adversaries may use this command to gather information about the system, such as the page size, maximum number
+of open files, and other system limits, to aid in further exploration and exploitation of the system.
+"""
+from = "now-119m"
+index = [
+  "logs-endpoint.events.process*",
+  "endgame-*",
+  "auditbeat-*",
+  "logs-auditd_manager.auditd-*",
+  "logs-crowdstrike.fdr*",
+]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Linux System Information Discovery via Getconf"
+references = ["https://blog.exatrack.com/Perfctl-using-portainer-and-new-persistences/"]
+risk_score = 21
+rule_id = "90e5976d-ed8c-489a-a293-bfc57ff8ba89"
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Rule Type: BBR",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
+process.name == "getconf"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

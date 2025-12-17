@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/19"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,26 +12,61 @@ be indicative of adversary lateral movement.
 """
 from = "now-9m"
 index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Cmd Execution via WMI"
-risk_score = 47
-rule_id = "12f07955-1674-44f7-86b5-c35da0a6f41a"
-setup = """## Setup
+note = """## Triage and analysis
 
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Cmd Execution via WMI
+
+Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. Adversaries exploit WMI for lateral movement by executing commands remotely, often using cmd.exe. The detection rule identifies such activity by monitoring for cmd.exe processes initiated by WmiPrvSE.exe with specific arguments, indicating potential misuse for executing commands on remote hosts.
+
+### Possible investigation steps
+
+- Review the process details to confirm the parent-child relationship between WmiPrvSE.exe and cmd.exe, ensuring that cmd.exe was indeed initiated by WmiPrvSE.exe.
+- Examine the command-line arguments used by cmd.exe, specifically looking for the presence of "\\\\\\\\127.0.0.1\\\\*" and redirection operators like "2>&1" or "1>", to understand the nature of the command executed.
+- Investigate the source and destination IP addresses involved in the WMI activity to determine if the remote host is legitimate or potentially compromised.
+- Check for any related alerts or logs from the same host or user account around the same timeframe to identify any patterns or additional suspicious activities.
+- Correlate the event with user activity logs to determine if the command execution aligns with expected user behavior or if it appears anomalous.
+- Consult threat intelligence sources to see if the command or pattern matches known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Legitimate administrative tasks using WMI may trigger this rule. System administrators often use WMI for remote management, which can include executing scripts or commands. To handle this, identify and whitelist known administrative accounts or specific scripts that are regularly used for maintenance.
+- Automated scripts or software that rely on WMI for legitimate operations might also cause false positives. Review and document these processes, then create exceptions for them in the detection rule to prevent unnecessary alerts.
+- Security software or monitoring tools that utilize WMI for system checks can inadvertently match the rule's criteria. Verify these tools and exclude their specific processes or arguments from the rule to reduce noise.
+- Scheduled tasks or system updates that use WMI for execution might be flagged. Regularly review scheduled tasks and update the rule to exclude these known benign activities.
+- Internal network monitoring or testing tools that simulate attacks for security assessments may trigger alerts. Ensure these activities are logged and excluded from the rule to avoid confusion during security evaluations.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further lateral movement and potential data exfiltration. Disconnect it from the network while maintaining power to preserve volatile data for forensic analysis.
+- Terminate any suspicious cmd.exe processes initiated by WmiPrvSE.exe to halt any ongoing malicious activities.
+- Conduct a thorough review of the affected system's WMI subscriptions and scripts to identify and remove any unauthorized or malicious entries.
+- Reset credentials for any accounts that were used in the suspicious activity to prevent further unauthorized access.
+- Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
+- Enhance monitoring and logging for WMI activities across the network to detect similar threats in the future, ensuring that logs are retained for an adequate period for forensic purposes.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised."""
+references = [
+    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
+    "https://www.elastic.co/security-labs/operation-bleeding-bear",
+]
+risk_score = 73
+rule_id = "12f07955-1674-44f7-86b5-c35da0a6f41a"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -39,14 +74,21 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
- process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
+ process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and process.args : "/c" and process.args:"/Q" and 
+ process.args : "2>&1" and process.args: "1>"  and 
+ process.args : ("C:\\windows\\temp\\*.txt", "\\Windows\\Temp\\*", "-encodehex", "\\\\127.0.0.1\\C$\\Windows\\Temp\\*", "\\\\127.0.0.1\\ADMIN$\\__*.*")
 '''
 
 

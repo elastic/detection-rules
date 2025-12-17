@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/05/31"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,46 @@ tool to move laterally across a network or maintain persistence by generating un
 access to systems.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.file*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SSH Key Generated via ssh-keygen"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSH Key Generated via ssh-keygen
+
+SSH keys, created using the ssh-keygen tool, are essential for secure authentication in Linux environments. While typically used for legitimate access to remote systems, adversaries can exploit this by generating unauthorized keys, enabling lateral movement or persistence. The detection rule identifies suspicious key creation by monitoring specific directories and actions, helping to flag potential misuse by threat actors.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and name where the SSH key was created, focusing on directories like "/home/*/.ssh/*", "/root/.ssh/*", and "/etc/ssh/*".
+- Check the user account associated with the SSH key creation event to determine if the action aligns with expected behavior for that user.
+- Investigate the process execution context by examining the process tree and parent processes of "/usr/bin/ssh-keygen" to identify any potentially suspicious activity leading to the key generation.
+- Analyze recent login and access logs for the user and system involved to detect any unusual or unauthorized access patterns.
+- Correlate the event with other security alerts or logs to identify if there are signs of lateral movement or persistence tactics being employed by a threat actor.
+- Verify the legitimacy of the SSH key by consulting with the system owner or user to confirm if the key creation was authorized and necessary.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger the rule when system administrators generate SSH keys for legitimate purposes. To manage this, create exceptions for specific user accounts or directories known to be used by trusted administrators.
+- Automated scripts or configuration management tools that regularly generate SSH keys for system provisioning or maintenance can cause false positives. Identify these scripts and exclude their associated processes or file paths from the rule.
+- Development environments where developers frequently create SSH keys for testing or deployment purposes might be flagged. Consider excluding directories or user accounts associated with these environments to reduce noise.
+- Backup or recovery processes that involve SSH key generation can also trigger alerts. Review these processes and exclude relevant file paths or processes to prevent unnecessary alerts.
+- Security tools or monitoring solutions that simulate SSH key generation for testing or validation purposes may be mistakenly flagged. Identify these tools and add exceptions for their activities to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Revoke any unauthorized SSH keys found in the monitored directories (/home/*/.ssh/*, /root/.ssh/*, /etc/ssh/*) to cut off access for threat actors.
+- Conduct a thorough review of user accounts and SSH key pairs on the affected system to identify and remove any unauthorized accounts or keys.
+- Reset passwords and regenerate SSH keys for legitimate users to ensure that compromised credentials are not reused.
+- Monitor network traffic and system logs for any signs of further unauthorized access attempts or suspicious activity related to SSH.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach.
+- Implement additional monitoring and alerting for SSH key generation activities across the network to enhance detection of similar threats in the future."""
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "7df3cb8b-5c0c-4228-b772-bb6cd619053c"
 severity = "low"
@@ -28,57 +64,61 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
 process.executable == "/usr/bin/ssh-keygen" and file.path : ("/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*") and
 not file.name : "known_hosts.*"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.004"
 name = "SSH Authorized Keys"
 reference = "https://attack.mitre.org/techniques/T1098/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.004"
 name = "SSH"
 reference = "https://attack.mitre.org/techniques/T1021/004/"
 
+
 [[rule.threat.technique]]
 id = "T1563"
 name = "Remote Service Session Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1563.001"
 name = "SSH Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

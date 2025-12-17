@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/01/29"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/04/25"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,12 @@ detailing the memory segments, permissions, and what files are mapped to these s
 memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious /proc/maps Discovery"
@@ -20,7 +25,6 @@ references = ["https://github.com/arget13/DDexec"]
 risk_score = 21
 rule_id = "2f95540c-923e-4f57-9dae-de30169c68b9"
 setup = """## Setup
-
 
 This rule requires data coming in from Elastic Defend.
 
@@ -52,28 +56,61 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("cat", "grep") and process.args : "/proc/*/maps" and process.entry_leader.name in (
-  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-)
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.args like "/proc/*/maps"
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious /proc/maps Discovery
+
+In Linux environments, the `/proc/*/maps` files provide detailed memory mapping of processes, crucial for system diagnostics. However, adversaries exploit this by reading these files to pinpoint memory addresses for malicious activities like code injection. The detection rule identifies suspicious reads of these files by monitoring specific command executions, such as `cat` or `grep`, initiated from common shell environments, flagging potential reconnaissance attempts.
+
+### Possible investigation steps
+
+- Review the process details, including the process name and arguments, to confirm if the access to /proc/*/maps was initiated by a legitimate user or application. Pay special attention to the process.name and process.args fields.
+- Check the process.entry_leader.name to determine the shell environment from which the command was executed, and assess if this aligns with typical user behavior or known scripts.
+- Investigate the user account associated with the process to determine if there are any signs of compromise or unusual activity, such as recent logins from unfamiliar IP addresses or changes in user permissions.
+- Examine the parent process and any related child processes to understand the broader context of the command execution, looking for any signs of a script or automated task that might have triggered the alert.
+- Correlate this event with other security alerts or logs from the same host or user to identify any patterns or sequences of suspicious activities that could indicate a larger attack or reconnaissance effort.
+
+### False positive analysis
+
+- System diagnostics tools may read /proc/*/maps files as part of routine checks. Identify these tools and create exceptions for their processes to avoid unnecessary alerts.
+- Developers and system administrators might manually inspect /proc/*/maps during debugging or performance tuning. Establish a list of known users and processes that perform these actions regularly and exclude them from triggering the rule.
+- Automated scripts for monitoring or logging purposes could access /proc/*/maps files. Review these scripts and whitelist them if they are verified to be non-malicious.
+- Security software might access these files as part of its scanning operations. Confirm the legitimacy of such software and add it to an exception list to prevent false positives.
+- Consider the context of the process entry leader. If certain shell environments are used predominantly for legitimate administrative tasks, adjust the rule to reduce sensitivity for those specific environments.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified as reading the `/proc/*/maps` files using commands like `cat` or `grep` from unauthorized shell environments.
+- Conduct a memory analysis on the affected system to identify any injected code or unauthorized modifications in the process memory.
+- Review and audit user accounts and permissions on the affected system to ensure that only authorized users have access to sensitive files and directories.
+- Implement stricter access controls and monitoring on `/proc/*/maps` files to limit exposure and detect unauthorized access attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Update and enhance endpoint detection and response (EDR) solutions to improve monitoring and alerting for similar suspicious activities in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

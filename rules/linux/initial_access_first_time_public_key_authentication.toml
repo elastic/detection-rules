@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["system"]
+maturity = "production"
+updated_date = "2025/09/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to detect successful SSH authentications via a public
+key that has not been seen in the last 10 days. Public key authentication is a secure method for
+authenticating users to a server. Monitoring unusual public key authentication events can help
+detect unauthorized access attempts or suspicious activity on the system.
+"""
+false_positives = [
+    """
+    This rule may trigger in cases where a user has routine work patterns that result in infrequent authentications.
+    """,
+]
+from = "now-9m"
+index = ["logs-system.auth-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Successful SSH Authentication from Unusual SSH Public Key"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Successful SSH Authentication from Unusual SSH Public Key
+
+SSH public key authentication is a secure method for accessing Linux systems, relying on cryptographic keys rather than passwords. Adversaries may exploit this by using stolen or unauthorized keys to gain access. The detection rule identifies successful logins using new public keys, unseen in the past 10 days, signaling potential unauthorized access attempts. This helps in early detection of suspicious activities, aligning with threat tactics like Initial Access.
+
+### Possible investigation steps
+
+- Review the specific SSH login event details, focusing on the event.category, event.action, and event.outcome fields to confirm the successful authentication via public key.
+- Identify the source IP address and user account associated with the login event to determine if they are known or expected.
+- Check the system.auth.ssh.method field to ensure the authentication method was indeed public key and not another method.
+- Investigate the history of the public key used for authentication by searching logs for any previous occurrences or related activities within the last 10 days.
+- Correlate the event with other security logs or alerts from the same host or user to identify any patterns or additional suspicious activities.
+- Assess the risk by considering the context of the login, such as the time of access, the location of the source IP, and any recent changes in user behavior or system configurations.
+- If unauthorized access is suspected, initiate incident response procedures, including revoking the public key, notifying affected parties, and conducting a thorough security review of the system.
+
+### False positive analysis
+
+- Frequent logins from known automation scripts or services using rotating SSH keys can trigger false positives. To manage this, identify these services and add their public keys to an exception list.
+- Developers or system administrators who regularly update their SSH keys for security reasons may cause alerts. Maintain a record of authorized personnel and their key update schedules to exclude these events.
+- Temporary access granted to third-party vendors or contractors might appear as unusual activity. Ensure that any temporary access is documented and keys are added to an exception list during the access period.
+- Test environments where SSH keys are frequently generated and used for various testing purposes can lead to false positives. Implement a separate monitoring policy for test environments to reduce noise in production alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Revoke the unauthorized SSH public key from the system's authorized_keys file to block further access using that key.
+- Conduct a thorough review of recent login activities and system logs to identify any additional unauthorized access or suspicious activities that may have occurred.
+- Change passwords and regenerate SSH keys for all legitimate users on the affected system to ensure no compromised credentials remain in use.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring on the affected system and related network segments to detect any further suspicious activities or attempts to regain access.
+- Review and update access control policies and SSH key management practices to prevent similar incidents in the future, ensuring that only authorized keys are allowed and regularly audited.
+"""
+risk_score = 21
+rule_id = "267dace3-a4de-4c94-a7b5-dd6c0f5482e5"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Filebeat
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat for the Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete Setup and Run Filebeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the Filebeat System Module to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success and system.auth.ssh.method:publickey
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["system.auth.ssh.signature"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

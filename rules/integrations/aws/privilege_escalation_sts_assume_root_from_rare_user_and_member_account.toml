@@ -1,0 +1,227 @@
+[metadata]
+creation_date = "2024/11/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/12/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the STS AssumeRoot action is performed by a rare user in AWS. The AssumeRoot action allows users to
+assume the root member account role, granting elevated but specific permissions based on the task policy specified.
+Adversaries who have compromised user credentials can use this technique to
+escalate privileges and gain unauthorized access to AWS resources. This is a New Terms rule that identifies
+when the STS AssumeRoot action is performed by a user that rarely assumes this role against a specific member account.
+"""
+false_positives = [
+    "AWS administrators or automated processes might regularly assume root for legitimate administrative purposes.",
+    "AWS services might assume root to access AWS resources as part of their standard operations.",
+    "Automated workflows might assume root to perform periodic administrative tasks.",
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS STS AssumeRoot by Rare User and Member Account"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
+
+### Investigating AWS STS AssumeRoot by Rare User and Member Account
+
+AWS STS `AssumeRoot` issues temporary credentials that grant elevated access into a member account, constrained by the
+task policy and target policy attached to the request. In normal operations, only a small set of platform, security, or
+automation roles should ever need to perform `AssumeRoot`, and typically only against a predictable set of member
+accounts.
+
+This rule is a New Terms rule that detects when a previously unseen combination of calling principal (`aws.cloudtrail.user_identity.arn`) and target member account (`aws.cloudtrail.resources.account_id`) successfully invokes `AssumeRoot`. Activity that matches this pattern may indicate privilege escalation, lateral movement into a new account, abuse of cross-account access paths, or misuse of administrative workflows.
+
+#### Possible investigation steps
+
+- **Identify the actor and target context**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine:
+    - Whether the caller is an IAM user, federated user, or role.
+    - Whether this identity is normally used for organization-level administration or automation.
+  - Inspect `aws.cloudtrail.resources.account_id` and `aws.cloudtrail.recipient_account_id` to identify the affected member account.
+  - Check `source.address`, `source.geo.*`, and `user_agent.original` to understand where and how the call was made (console, CLI, SDK, automation runner, VPN, corporate IP, etc.).
+
+- **Understand session, policy, and target details**
+  - Examine `aws.cloudtrail.request_parameters` for:
+    - `taskPolicyArn` – which predefined task policy was requested and what category of operations it enables (e.g., investigation, remediation, read-only, or broad admin).
+    - `targetPrincipal` and/or related target fields – which member account principal is being accessed.
+    - Any duration or configuration parameters (such as `durationSeconds`) that indicate unusually long-lived sessions.
+  - In `aws.cloudtrail.response_elements`, review:
+    - `credentials.accessKeyId` and `credentials.expiration` to confirm that credentials were successfully issued and how long they are valid.
+    - Any additional response fields that indicate session constraints or failures (if present).
+
+- **Correlate follow-on activity from the assumed root session**
+  - Use the temporary access key from `aws.cloudtrail.response_elements.credentials.accessKeyId` to pivot in CloudTrail:
+    - Search for subsequent events where `aws.cloudtrail.user_identity.access_key_id` matches that key.
+    - Look for high-impact actions such as:
+      - IAM changes (`iam:CreateUser`, `iam:AttachRolePolicy`, `iam:PutRolePolicy`, `iam:UpdateAssumeRolePolicy`).
+      - Guardrail changes (CloudTrail, Security Hub, Config, GuardDuty configuration or detector changes).
+      - Data-impacting actions (S3 bucket policy changes, RDS/RDS snapshot operations, EFS/RDS delete, secrets reads).
+  - Correlate with any prior events for the calling identity:
+    - STS calls that created the session used to invoke `AssumeRoot` (e.g., `AssumeRole`, SSO/identity provider activity).
+    - Recent IAM policy updates that broadened its ability to perform cross-account administration.
+
+- **Assess timing and operational alignment**
+  - Use `@timestamp`, `cloud.region`, and your change calendar to determine:
+    - Whether the event occurred during a documented maintenance window or deployment.
+    - Whether the region and account align with the caller’s normal operational scope.
+  - Compare with other events in the same time window:
+    - Organization-level changes, new account creation, or migration work.
+    - Other sensitive operations from the same `source.ip` or principal.
+
+- **Validate with owners**
+  - Confirm with:
+    - Cloud/infra platform teams that normally operate organization-level admin roles.
+    - Security/IR teams if they were running an investigation workflow that legitimately uses `AssumeRoot`.
+  - Check whether the use of `AssumeRoot` is documented in CI/CD or automation designs that might have just expanded to this account, explaining the New Terms trigger.
+
+### False positive analysis
+
+- **Legitimate administrative cross-account access**
+  - Platform, security, or central operations teams may use `AssumeRoot` as part of sanctioned workflows for:
+    - New account onboarding.
+    - Centralized remediation or investigation.
+    - Complex deployment or migration tasks.
+  - If this is the first time a specific engineer or automation role is onboarded to a given member account, the rule will fire once because it is a New Terms rule. Validate and, if appropriate, document this as expected behavior.
+
+- **Automation and scheduled workflows**
+  - CI/CD pipelines, organization-wide maintenance jobs, or incident response automation may use `AssumeRoot`:
+    - Identify automation roles and service principals that legitimately call `AssumeRoot`.
+    - Tune with rule exceptions based on `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or specific `taskPolicyArn` values used only by trusted workflows.
+
+If a pattern emerges where specific roles regularly and legitimately assume root into a consistent set of accounts, consider documenting those identities and, if appropriate, creating narrow exceptions — while preserving coverage for new, unexpected combinations.
+
+### Response and remediation
+
+- **Contain potentially unauthorized sessions**
+  - If the activity appears suspicious or unapproved:
+    - Invalidate the credentials issued by `AssumeRoot` (where supported) or constrain their impact by immediately tightening IAM, SCPs, or network controls in the affected member account.
+    - Rotate or revoke long-lived access keys associated with the calling principal.
+    - Temporarily restrict permissions on roles allowed to call `AssumeRoot` until the investigation is complete.
+
+- **Investigate scope and impact**
+  - Using CloudTrail:
+    - Enumerate all actions performed with the `AssumeRoot` session access key and identify:
+      - Privilege changes (IAM users, roles, policies, permission boundaries, SCPs).
+      - Changes to logging and security controls (CloudTrail, GuardDuty, Security Hub, Config, firewall/WAF rules).
+      - Data-impacting operations on high-value services (S3, RDS, DynamoDB, Secrets Manager, KMS).
+    - Check if similar `AssumeRoot` activity has occurred recently from the same `source.ip`, principal, or member account.
+  - Engage application, data, and platform owners for the impacted account(s) to:
+    - Assess potential data exposure, integrity issues, or downtime.
+    - Determine whether any actions conflict with intended change plans.
+
+- **Hardening and preventive controls**
+  - Restrict and monitor `AssumeRoot` usage:
+    - Limit which IAM roles and identities can call `sts:AssumeRoot`, using IAM conditions (e.g., `aws:PrincipalArn`, `aws:PrincipalOrgID`, `aws:RequestedRegion`).
+    - Where possible, require strong authentication on the initiating principal (MFA, federated SSO, device posture).
+  - Add guardrails and observability:
+    - Use AWS Config, Security Hub, and/or AWS Organizations SCPs to:
+      - Detect or constrain highly privileged cross-account actions.
+      - Ensure logging and monitoring services cannot be disabled or modified by assumed sessions without additional friction.
+    - Ensure `AssumeRoot` activity is included in your SIEM dashboards and investigation playbooks.
+
+- **Post-incident improvements**
+  - If activity is confirmed malicious or unsafe:
+    - Rotate credentials for all involved principals and review recent STS session usage for anomalies.
+    - Update internal runbooks to clearly define when `AssumeRoot` is allowed, who can perform it, and how it should be documented.
+    - Refine this rule’s exceptions or tagging strategy so that legitimate, recurring workflows are well-understood, while preserving high-fidelity visibility into new or unexpected `AssumeRoot` behavior.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
+references = ["https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoot.html"]
+risk_score = 47
+rule_id = "962a71ae-aac9-11ef-9348-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS STS",
+    "Resources: Investigation Guide",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sts.amazonaws.com"
+    and event.action: "AssumeRoot"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.account_id",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn", "aws.cloudtrail.resources.account_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

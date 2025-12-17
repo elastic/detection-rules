@@ -1,0 +1,533 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "type": [
+          "string",
+          "number",
+          "object",
+          "array",
+          "boolean"
+        ]
+      },
+      "type": "array"
+    },
+    "alert_suppression": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "additionalProperties": false,
+          "properties": {
+            "unit": {
+              "enum": [
+                "s",
+                "m",
+                "h"
+              ],
+              "enumNames": [],
+              "type": "string"
+            },
+            "value": {
+              "description": "AlertSupressionValue",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "unit",
+            "value"
+          ],
+          "type": "object"
+        },
+        "group_by": {
+          "description": "AlertSuppressionGroupBy",
+          "items": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "type": "array"
+        },
+        "missing_fields_strategy": {
+          "description": "AlertSuppressionMissing",
+          "enum": [
+            "suppress",
+            "doNotSuppress"
+          ],
+          "enumNames": [],
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_by",
+        "missing_fields_strategy"
+      ],
+      "type": "object"
+    },
+    "author": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "building_block_type": {
+      "enum": [
+        "default"
+      ],
+      "type": "string"
+    },
+    "data_view_id": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "exceptions_list": {
+      "items": {
+        "type": [
+          "string",
+          "number",
+          "object",
+          "array",
+          "boolean"
+        ]
+      },
+      "type": "array"
+    },
+    "false_positives": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "filters": {
+      "items": {
+        "additionalProperties": {
+          "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "from": {
+      "type": "string"
+    },
+    "index": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "interval": {
+      "description": "Interval",
+      "pattern": "^\\d+[mshd]$",
+      "type": "string"
+    },
+    "investigation_fields": {
+      "additionalProperties": false,
+      "properties": {
+        "field_names": {
+          "items": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "field_names"
+      ],
+      "type": "object"
+    },
+    "language": {
+      "enum": [
+        "eql",
+        "esql",
+        "kuery",
+        "lucene"
+      ],
+      "enumNames": [],
+      "type": "string"
+    },
+    "license": {
+      "type": "string"
+    },
+    "max_signals": {
+      "description": "MaxSignals",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "meta": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "object",
+          "array",
+          "boolean"
+        ]
+      },
+      "type": "object"
+    },
+    "name": {
+      "description": "RuleName",
+      "type": "string"
+    },
+    "new_terms": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "description": "NonEmptyStr",
+          "minLength": 1,
+          "type": "string"
+        },
+        "history_window_start": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "description": "NonEmptyStr",
+                "minLength": 1,
+                "type": "string"
+              },
+              "value": {
+                "description": "NonEmptyStr",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "field",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "value": {
+          "description": "NewTermsFields",
+          "items": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "history_window_start",
+        "value"
+      ],
+      "type": "object"
+    },
+    "note": {
+      "description": "MarkdownField",
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "references": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "related_integrations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "integration": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "package": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "package",
+          "version"
+        ],
+        "type": "object"
+      },
+      "min_compat": "8.3",
+      "type": "array"
+    },
+    "required_fields": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ecs": {
+            "type": "boolean"
+          },
+          "name": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ecs",
+          "name",
+          "type"
+        ],
+        "type": "object"
+      },
+      "min_compat": "8.3",
+      "type": "array"
+    },
+    "revision": {
+      "min_compat": "8.8",
+      "type": "integer"
+    },
+    "risk_score": {
+      "description": "MaxSignals",
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "risk_score_mapping": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "equals"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "rule_id": {
+      "description": "UUIDString",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "rule_name_override": {
+      "type": "string"
+    },
+    "setup": {
+      "description": "MarkdownField",
+      "min_compat": "8.3",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "enumNames": [],
+      "type": "string"
+    },
+    "severity_mapping": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "equals"
+            ],
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "threat": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "framework": {
+            "enum": [
+              "MITRE ATT&CK"
+            ],
+            "type": "string"
+          },
+          "tactic": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "reference": {
+                "description": "TacticURL",
+                "pattern": "^https://attack.mitre.org/tactics/TA[0-9]+/$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "reference"
+            ],
+            "type": "object"
+          },
+          "technique": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "reference": {
+                  "description": "TechniqueURL",
+                  "pattern": "^https://attack.mitre.org/techniques/T[0-9]+/$",
+                  "type": "string"
+                },
+                "subtechnique": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "reference": {
+                        "description": "SubTechniqueURL",
+                        "pattern": "^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "reference"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "reference"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "framework",
+          "tactic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "throttle": {
+      "type": "string"
+    },
+    "timeline_id": {
+      "description": "TimelineTemplateId",
+      "type": "string"
+    },
+    "timeline_title": {
+      "description": "TimelineTemplateTitle",
+      "type": "string"
+    },
+    "timestamp_override": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "new_terms"
+      ],
+      "type": "string"
+    },
+    "version": {
+      "description": "PositiveInteger",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "author",
+    "description",
+    "language",
+    "name",
+    "new_terms",
+    "query",
+    "risk_score",
+    "rule_id",
+    "severity",
+    "type"
+  ],
+  "type": "object"
+}

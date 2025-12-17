@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2025/04/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a symbolic link from a system binary to a suspicious and writable location. This
+activity may indicate an attacker's attempt to evade detection by behavioral rules that depend on predefined process
+parent/child relationships. By executing the symlinked variant of a binary instead of the original, the attacker aims to
+bypass these rules. Through the new_terms rule type, this rule can identify uncommon parent processes that may indicate the
+presence of a malicious symlink.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "System Binary Symlink to Suspicious Location"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Binary Symlink to Suspicious Location
+
+Symbolic links in Linux create shortcuts to files or directories, allowing flexible file management. Adversaries exploit this by linking system binaries to writable, suspicious locations, aiming to bypass security measures that monitor standard execution paths. The detection rule identifies unusual parent processes and symbolic link creation to these locations, flagging potential evasion attempts.
+
+### Possible investigation steps
+
+- Review the parent process executable (process.parent.executable) to determine if it is a known and legitimate process that should be creating symbolic links.
+- Examine the specific system binary involved (process.args) to verify if it is commonly used in the environment and assess if its redirection to a suspicious location is justified.
+- Investigate the destination path of the symbolic link (process.args) to determine if it is a writable and potentially malicious location such as /tmp, /dev/shm, or /var/tmp.
+- Check for any recent or concurrent alerts or logs related to the same parent process or destination path to identify potential patterns or repeated attempts.
+- Assess the user account associated with the process (if available) to determine if it has the necessary permissions and if the activity aligns with the user's typical behavior.
+- Correlate with other security tools or logs to identify any additional suspicious activities or anomalies around the time of the alert.
+
+### False positive analysis
+
+- Routine system maintenance tasks may create symbolic links in monitored directories. Exclude known maintenance scripts or processes like mkinitcpio and dracut from triggering alerts by adding them to the exception list.
+- Software installations or updates often involve creating symbolic links in writable directories. Identify and whitelist trusted installation processes or package managers to prevent unnecessary alerts.
+- Development environments may frequently use symbolic links for testing purposes. Consider excluding specific user directories or development tools that are known to create such links regularly.
+- Backup or synchronization tools might create symbolic links as part of their operation. Verify and exclude these tools if they are part of a legitimate and routine process.
+- Custom scripts or automation tools used within the organization might trigger this rule. Review and whitelist these scripts if they are verified to be safe and necessary for business operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified as creating symbolic links to writable locations, especially those with uncommon parent processes.
+- Remove any unauthorized symbolic links from system binaries to suspicious locations, ensuring the integrity of the original binaries.
+- Conduct a thorough review of user accounts and permissions on the affected system to identify and disable any compromised accounts or unnecessary elevated privileges.
+- Restore affected binaries and system files from a known good backup to ensure no tampered files remain.
+- Monitor the system for any further attempts to create unauthorized symbolic links, using enhanced logging and alerting mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "d19a2399-f8e2-4b10-80d8-a561ce9d24d1"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.parent.executable:* and
+(process.name:ln or process.name:busybox and process.args:ln or process.name:cp and process.args:--symbolic-link) and
+process.args:(
+  (
+    /bin/* or /lib/* or /lib64/* or /sbin/* or /usr/bin/* or /usr/lib/* or /usr/lib64/* or /usr/local/bin/* or
+    /usr/local/lib/* or /usr/local/lib64/* or /usr/local/sbin/* or /usr/sbin/*
+  ) and (
+    /*/.* or /dev/shm/* or /home/* or /root/* or /tmp/* or /var/tmp/*
+  ) and
+  not (/usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs*)
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Hijack Execution Flow"
+    id = "T1574"
+    reference = "https://attack.mitre.org/techniques/T1574/"
+
+    [[rule.threat.technique]]
+    name = "Indirect Command Execution"
+    id = "T1202"
+    reference = "https://attack.mitre.org/techniques/T1202/"
+
+    [[rule.threat.technique]]
+    name = "Hide Artifacts"
+    id = "T1564"
+    reference = "https://attack.mitre.org/techniques/T1564/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

@@ -2,18 +2,16 @@
 creation_date = "2024/04/20"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
-min_stack_version = "8.9.0"
-updated_date = "2024/06/03"
+updated_date = "2025/11/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of an AWS Roles Anywhere profile. AWS Roles Anywhere is a feature that allows you to use AWS
-Identity and Access Management (IAM) profiles to manage access to your AWS resources from any location via trusted
-anchors. This rule detects the creation of a profile that can be assumed from any service. Adversaries may create
-profiles tied to overly permissive roles to maintain access to AWS resources. Ensure that the profile creation is
-expected and that the trust policy is configured securely.
+Detects the creation of a new AWS IAM Roles Anywhere profile. Roles Anywhere allows workloads or external systems to
+assume IAM roles from outside AWS by authenticating via trusted certificate authorities (trust anchors). Adversaries who
+have established persistence through a rogue trust anchor may create or modify profiles to link them with highly
+privileged roles, enabling long-term external access to the AWS environment. This rule identifies successful
+"CreateProfile" API calls and helps detect potentially unauthorized or risky external access configurations.
 """
 false_positives = [
     """
@@ -21,54 +19,102 @@ false_positives = [
     location. Ensure that the profile created is expected and that the trust policy is configured securely.
     """,
 ]
-from = "now-30m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Roles Anywhere Profile Creation"
-note = """
+note = """## Triage and analysis
 
-## Triage and Analysis
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
 
 ### Investigating AWS IAM Roles Anywhere Profile Creation
 
-This rule detects the creation of an AWS Roles Anywhere profile. AWS Roles Anywhere allows you to use AWS Identity and Access Management (IAM) profiles to manage access to your AWS resources from any location via trusted anchors. Adversaries may create profiles tied to overly permissive roles to maintain access to AWS resources. It is crucial to ensure that the profile creation is expected and that the trust policy is configured securely.
+AWS IAM Roles Anywhere allows external workloads — such as CI/CD runners, on-premises systems, or third-party services — 
+to assume IAM roles securely by presenting a certificate from a trusted anchor. A profile defines the IAM roles that 
+can be assumed, the trust anchor they are associated with, and session duration limits.
 
-#### Possible Investigation Steps:
+This rule detects when a new Roles Anywhere profile is created using the `CreateProfile` API call. Unauthorized profile 
+creation can enable persistent external access if tied to over-privileged roles or to trust anchors associated with 
+unauthorized certificate authorities (CAs). Monitoring profile creation is crucial to ensuring that only approved roles 
+and anchors are in use.
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who created the profile. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific details of the profile creation. Look for any unusual parameters or overly permissive roles that could suggest unauthorized or malicious activity.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the location and origin of the request. Ensure the request originated from a known and trusted location.
-- **Check the Created Profile’s Permissions**: Review the `roleArns` associated with the created profile. Verify that the roles are appropriate for the user's intended actions and do not grant excessive permissions.
-- **Verify the Profile’s Configuration**: Ensure that the profile's `durationSeconds`, `enabled`, and `tags` are configured according to your organization's security policies. Pay particular attention to any configuration that might allow prolonged access or concealment of activity.
+#### Possible investigation steps
 
-### False Positive Analysis:
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine 
+    which IAM user, role, or principal created the profile.
+  - Check whether this identity normally manages Roles Anywhere configurations.
 
-- **Legitimate Administrative Actions**: Confirm if the profile creation aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the profile creation was successful and intended according to policy.
+- **Review profile configuration**
+  - Inspect `aws.cloudtrail.request_parameters` for key values such as:
+    - `profileName`
+    - `roleArns` – confirm that the listed IAM roles are expected and not overly permissive.
+    - `trustAnchorArn` – verify the trust anchor is valid and authorized.
+    - `durationSeconds` – check for unusually long session durations.
+  - Determine if multiple roles were attached, which may indicate excessive privilege aggregation.
 
-### Response and Remediation:
+- **Correlate related activity**
+  - Check for prior or concurrent events by the same actor, including:
+    - `CreateTrustAnchor` with external or unauthorized certificate authorities.
+    - `CreateRole`, `PutRolePolicy`, or `AttachRolePolicy` for privilege escalation paths.
+  - Review whether subsequent `AssumeRoleWithCertificate` events occurred, indicating use of the new profile.
 
-- **Immediate Review and Reversal if Necessary**: If the profile creation was unauthorized, disable or delete the created profile and review the associated roles and permissions for any potential misuse.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive roles or unexpected locations.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning profile and role management and the risks of unauthorized profile creation.
-- **Audit IAM Policies and Permissions**: Conduct a comprehensive audit of all IAM policies and associated permissions to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+- **Assess the source context**
+  - Investigate `source.ip`, `user_agent.original`, and `source.geo` fields to identify if this request originated from an unfamiliar host, region, or automation client (e.g., `boto3`, `curl`, custom SDKs).
+  - Compare to baseline patterns of legitimate IAM or infrastructure automation.
 
-### Additional Information:
+- **Validate legitimacy**
+  - Contact the responsible team (e.g., platform, PKI, or IAM administration) to confirm whether this profile creation 
+    aligns with approved change management or onboarding activities.
 
-For further guidance on managing AWS IAM Roles Anywhere profiles and securing AWS environments, refer to the [AWS Roles Anywhere documentation](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html) and AWS best practices for security. Additionally, consult the following resources for specific details on profile management and potential abuse:
-- [AWS IAM Roles Anywhere Profile Creation API Reference](https://docs.aws.amazon.com/rolesanywhere/latest/APIReference/API_CreateProfile.html)
-- [Ermetic Blog - Managing Third Party Access](https://ermetic.com/blog/aws/keep-your-iam-users-close-keep-your-third-parties-even-closer-part-1/)
 
+### False positive analysis:
+
+- **Legitimate administrative actions**
+  - IAM or PKI engineers may legitimately create profiles during setup of new external integrations or workloads. 
+    Validate against change control records and deployment logs.
+- **Authorized automation**
+  - Infrastructure-as-code (IaC) pipelines (Terraform, CloudFormation, etc.) may automatically create profiles. 
+    Confirm these operations are sourced from known automation accounts or IP ranges.
+- **Development and testing**
+  - Lab or sandbox accounts may test Roles Anywhere configurations with less restrictive controls. 
+    Ensure alerts from non-production accounts are tuned accordingly.
+
+### Response and remediation:
+
+- **Immediate review and containment**
+  - If unauthorized, disable or delete the created profile (`aws rolesanywhere delete-profile`) and review all 
+    associated IAM roles for misuse.
+  - Rotate any credentials or revoke certificates issued from unapproved trust anchors.
+
+- **Investigation**
+  - Search CloudTrail for additional related actions by the same identity, such as 
+    `CreateTrustAnchor`, `AssumeRoleWithCertificate`, or cross-account access attempts.
+  - Verify whether any sessions have been initiated using the new profile and identify 
+    which roles were assumed.
+
+- **Recovery and hardening**
+  - Restrict `rolesanywhere:CreateProfile` to a small set of administrative roles.
+  - Implement AWS Config or Security Hub controls to alert on unauthorized or overly 
+    permissive Roles Anywhere profiles.
+  - Audit IAM role trust policies linked to external anchors and ensure adherence to the 
+    principle of least privilege.
+  - Review and document all approved Roles Anywhere profiles and their corresponding trust anchors.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
 """
 references = [
     "https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html",
     "https://docs.datadoghq.com/security/default_rules/cloudtrail-aws-iam-roles-anywhere-trust-anchor-created/",
     "https://ermetic.com/blog/aws/keep-your-iam-users-close-keep-your-third-parties-even-closer-part-1/",
-    "https://docs.aws.amazon.com/rolesanywhere/latest/APIReference/API_CreateProfile.html"
+    "https://docs.aws.amazon.com/rolesanywhere/latest/APIReference/API_CreateProfile.html",
 ]
 risk_score = 21
 rule_id = "1d4ca9c0-ff1e-11ee-91cc-f661ea17fbce"
@@ -80,12 +126,13 @@ tags = [
     "Data Source: AWS IAM",
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail
+event.dataset: aws.cloudtrail
     and event.provider: rolesanywhere.amazonaws.com
     and event.action: CreateProfile
     and event.outcome: success
@@ -109,4 +156,21 @@ reference = "https://attack.mitre.org/techniques/T1098/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

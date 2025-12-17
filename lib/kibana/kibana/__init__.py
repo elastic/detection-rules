@@ -8,7 +8,7 @@
 from .connector import Kibana
 from .resources import RuleResource, Signal
 
-__version__ = '0.2.1'
+__version__ = '0.4.1'
 __all__ = (
     "Kibana",
     "RuleResource",

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/03/26"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/12"
 
 [rule]
 author = ["Elastic"]
@@ -12,15 +12,54 @@ activity may indicate exploitation activity or access to an existing web shell b
 """
 from = "now-9m"
 index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-    "logs-system.security*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "ScreenConnect Server Spawning Suspicious Processes"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ScreenConnect Server Spawning Suspicious Processes
+
+ScreenConnect, a remote support tool, allows administrators to control systems remotely. Adversaries may exploit this by executing unauthorized commands or scripts, potentially using it as a backdoor. The detection rule identifies unusual child processes like command shells spawned by the ScreenConnect service, signaling possible exploitation or web shell activity, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the parent process is ScreenConnect.Service.exe and identify the suspicious child process name, such as cmd.exe or powershell.exe.
+- Check the timestamp of the process start event to determine when the suspicious activity occurred and correlate it with any other unusual activities or alerts around the same time.
+- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
+- Examine the command line arguments of the spawned process to identify any malicious or unauthorized commands being executed.
+- Review network logs for any unusual outbound connections initiated by the ScreenConnect service or the suspicious child process, which may indicate data exfiltration or communication with a command and control server.
+- Analyze the system for any additional indicators of compromise, such as unexpected file modifications or the presence of web shells, to assess the extent of the potential breach.
+
+### False positive analysis
+
+- Legitimate administrative tasks using command shells or scripting tools like cmd.exe or powershell.exe may trigger the rule. To manage this, create exceptions for known administrative scripts or tasks that are regularly executed by trusted users.
+- Automated maintenance scripts that utilize ScreenConnect for legitimate purposes can be mistaken for suspicious activity. Identify these scripts and whitelist their execution paths or specific process names to prevent false alerts.
+- Software updates or installations that require command line execution through ScreenConnect might be flagged. Document these processes and exclude them from the rule by specifying the associated process names or hashes.
+- Security tools or monitoring solutions that interact with ScreenConnect for legitimate scanning or logging purposes may inadvertently trigger the rule. Verify these tools and add them to an exception list based on their process identifiers or parent-child process relationships.
+- Training or demonstration sessions using ScreenConnect to showcase command line features could be misinterpreted as threats. Schedule these sessions and temporarily adjust the rule sensitivity or disable it during the known timeframes to avoid false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes identified as being spawned by ScreenConnect.Service.exe, such as cmd.exe or powershell.exe, to halt any ongoing malicious activity.
+- Conduct a thorough review of recent ScreenConnect session logs to identify unauthorized access or unusual activity patterns, and revoke any compromised credentials.
+- Scan the affected system for additional indicators of compromise, such as web shells or other malware, using endpoint detection and response tools.
+- Apply security patches and updates to the ScreenConnect server and any other vulnerable applications to mitigate exploitation risks.
+- Restore the system from a known good backup if evidence of compromise is confirmed, ensuring that the backup is free from malicious artifacts.
+- Report the incident to the appropriate internal security team or external authorities if required, providing them with detailed findings and evidence for further investigation."""
 references = ["https://blackpointcyber.com/resources/blog/breaking-through-the-screen/"]
 risk_score = 73
 rule_id = "3d00feab-e203-4acc-a463-c3e15b7e9a73"
@@ -34,6 +73,11 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -42,7 +86,7 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "ScreenConnect.Service.exe" and
   (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "csc.exe") or
-  ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
+  ?process.pe.original_file_name in ("Cmd.Exe", "PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE"))
 '''
 
 

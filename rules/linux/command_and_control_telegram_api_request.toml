@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2025/04/29"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a process executes the curl or wget command with an argument that includes the
+api.telegram.org domain. This may indicate command and control behavior.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Telegram API Request"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Telegram API Request
+
+Telegram's API allows applications to interact with its messaging platform, often used for legitimate automation and communication tasks. However, adversaries may exploit this by using commands like `curl` or `wget` to communicate with Telegram's API for command and control purposes. The detection rule identifies such suspicious activity by monitoring for these commands accessing the Telegram API, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of the curl or wget command with the api.telegram.org domain in the command line, as indicated by the process.command_line field.
+- Investigate the user account associated with the process to determine if the activity aligns with expected behavior or if the account may be compromised.
+- Check the network activity logs to identify any additional connections to api.telegram.org or other suspicious domains, which may indicate further command and control communication.
+- Analyze the parent process of the detected curl or wget command to understand how the process was initiated and if it was triggered by another suspicious activity.
+- Examine the system for any other indicators of compromise, such as unusual file modifications or additional unauthorized processes, to assess the scope of potential malicious activity.
+
+### False positive analysis
+
+- Legitimate automation scripts or applications may use curl or wget to interact with Telegram's API for non-malicious purposes. Review the context and purpose of these scripts to determine if they are authorized.
+- System administrators or developers might use curl or wget for testing or maintenance tasks involving Telegram's API. Verify if these activities are part of routine operations and consider excluding them if they are deemed safe.
+- Monitoring tools or integrations that rely on Telegram for notifications could trigger this rule. Identify these tools and add exceptions for their known processes to prevent unnecessary alerts.
+- If a specific user or service account frequently triggers this rule due to legitimate use, consider creating an exception for that account to reduce noise while maintaining security oversight.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further communication with the Telegram API and potential data exfiltration.
+- Terminate any suspicious processes identified as using curl or wget to interact with api.telegram.org to halt ongoing malicious activities.
+- Conduct a thorough review of the affected system's process logs and network connections to identify any additional indicators of compromise or related malicious activity.
+- Remove any unauthorized scripts or binaries that may have been used to automate the interaction with the Telegram API.
+- Reset credentials and review access permissions for any accounts that were active on the affected system to prevent unauthorized access.
+- Update and patch the affected system to the latest security standards to mitigate vulnerabilities that could be exploited in similar attacks.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "af1e36fe-0abd-4463-b5ec-4e276dec0b26"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process.name in ("curl", "wget") and process.command_line like "*api.telegram.org*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"

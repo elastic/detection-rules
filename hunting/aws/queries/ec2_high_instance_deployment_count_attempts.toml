@@ -1,0 +1,38 @@
+
+[hunt]
+author = "Elastic"
+description = """
+This hunting query identifies when a user makes EC2 `RunInstances` API calls with a high instance deployment count within a 7-day window. The `RunInstances` API call launches one or more instances in a specified subnet. High instance deployment counts may indicate an adversary attempting to deploy a large number of instances for cryptomining or other malicious activities. This may also aid in identifying potential resource abuse or misconfigurations.
+"""
+integration = ["aws.cloudtrail"]
+uuid = "c3d24ae8-655d-11ef-a990-f661ea17fbcc"
+name = "High EC2 Instance Deployment Count Attempts by Single User or Role"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "Use the `aws.cloudtrail.user_identity.arn` field to identify the user making the requests and their role permissions",
+    "Review `cloud.region` to identify the regions where the `RunInstances` API calls were made",
+    "`subnet_id` should be reviewed to identify the subnet where the instances are being deployed but can also help pivot and narrow down the scope of further queries",
+    "`instance_type` should be reviewed to identify the type of instances being deployed. Cryptomining campaigns often deploy specific instance types to maximize mining efficiency",
+]
+mitre = ['T1578.002']
+query = [
+    '''
+from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
+| where
+    event.dataset == "aws.cloudtrail"
+    and event.provider == "ec2.amazonaws.com"
+    and event.action == "RunInstances"
+    and aws.cloudtrail.request_parameters RLIKE ".*minCount.*maxCount.*"
+| eval date = DATE_FORMAT("YYYY-mm-dd", @timestamp)
+| dissect aws.cloudtrail.request_parameters "%{}subnetId=%{subnet_id},"
+| dissect aws.cloudtrail.request_parameters "%{}minCount=%{min_count},"
+| dissect aws.cloudtrail.request_parameters "%{}maxCount=%{max_count}}]},"
+| dissect aws.cloudtrail.request_parameters "%{}instanceType=%{instance_type},"
+| stats
+    target_instance_count = sum(to_integer(max_count) - to_integer(min_count) + 1),
+    user_attempts = count(*) by user.name, date, subnet_id, instance_type, event.outcome
+| where target_instance_count >= 10
+'''
+]

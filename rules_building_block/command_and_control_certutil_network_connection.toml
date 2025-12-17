@@ -1,11 +1,42 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2020/03/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
-bypass_bbr_timing = true
+updated_date = "2025/03/20"
 
 [transform]
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
 query = "SELECT * FROM dns_cache"
@@ -30,37 +61,6 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-[[transform.investigate]]
-label = "Alerts associated with the user in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-    [
-        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
-    ]
-]
-
-[[transform.investigate]]
-label = "Alerts associated with the host in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-    [
-        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
-    ]
-]
-
-[[transform.investigate]]
-label = "Investigate the Subject Process Network Events"
-providers = [
-    [
-        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
-        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
-    ]
-]
-
 
 [rule]
 author = ["Elastic"]
@@ -70,7 +70,7 @@ Identifies certutil.exe making a network connection. Adversaries could abuse cer
 malware, from a remote URL.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection via Certutil"
@@ -83,8 +83,8 @@ Attackers can abuse `certutil.exe` to download malware, offensive security tools
 This rule looks for network events where `certutil.exe` contacts IP ranges other than the ones specified in [IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -135,7 +135,17 @@ references = [
 risk_score = 21
 rule_id = "3838e0e3-1850-4850-a411-2e8c5ba40ba8"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Elastic Endgame",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

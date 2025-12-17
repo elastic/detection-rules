@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/23"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,14 @@ and gain unauthorized access to internal resources, facilitating data exfiltrati
 control.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Tunneling and/or Port Forwarding"
@@ -52,7 +59,7 @@ Attackers can leverage many utilities to clandestinely tunnel network communicat
 This rule looks for several utilities that are capable of setting up tunnel network communications by analyzing process names or command line arguments. 
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -79,6 +86,7 @@ This rule looks for several utilities that are capable of setting up tunnel netw
 
 ### Related rules
 
+- Potential Linux Tunneling and/or Port Forwarding via Command Line - 8c8df61f-ed2a-4832-87b8-ee30812606e0
 - Potential Protocol Tunneling via Chisel Client - 3f12325a-4cc6-410b-8d4c-9fbbeb744cfd
 - Potential Protocol Tunneling via Chisel Server - ac8805f6-1e08-406c-962e-3937057fa86f
 - Potential Protocol Tunneling via EarthWorm - 9f1c4ca3-44b5-481d-ba42-32dc215a2769
@@ -145,17 +153,21 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and (
   (
     // gost & pivotnacci - spawned without process.parent.name
     (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or (process.name == "pivotnacci")) or (
     // ssh
-    (process.name in ("ssh", "sshd") and (process.args in ("-R", "-L", "-D", "-w") and process.args_count >= 4 and 
+    (process.name == "ssh" and (process.args in ("-R", "-L", "-D", "-w") and process.args_count >= 4 and 
      not process.args : "chmod")) or
     // sshuttle
     (process.name == "sshuttle" and process.args in ("-r", "--remote", "-l", "--listen") and process.args_count >= 4) or
@@ -164,7 +176,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     // chisel
     (process.name : "chisel*" and process.args in ("client", "server")) or
     // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
-    (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok"))
+    (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok", "wstunnel"))
   ) and process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 )
 '''

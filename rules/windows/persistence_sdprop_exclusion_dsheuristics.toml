@@ -2,7 +2,7 @@
 creation_date = "2022/02/24"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ remain unchanged. Attackers can abuse this misconfiguration to maintain long-ter
 groups.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AdminSDHolder SDProp Exclusion Added"
@@ -77,12 +77,6 @@ Audit Policies >
 DS Access >
 Audit Directory Service Changes (Success)
 ```
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
 tags = [
@@ -93,13 +87,13 @@ tags = [
     "Data Source: Active Directory",
     "Resources: Investigation Guide",
     "Use Case: Active Directory Monitoring",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Changes" and
-  event.code == "5136" and
+any where host.os.type == "windows" and event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and
   winlog.event_data.AttributeValue regex~ "[0-9]{15}([1-9a-f]).*"

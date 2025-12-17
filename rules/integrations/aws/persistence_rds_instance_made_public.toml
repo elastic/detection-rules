@@ -1,0 +1,191 @@
+[metadata]
+creation_date = "2024/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation or modification of an Amazon RDS DB instance or cluster where the "publiclyAccessible" attribute
+is set to "true". Publicly accessible RDS instances expose a network endpoint on the public internet, which may allow
+unauthorized access if combined with overly permissive security groups, weak authentication, or misconfigured IAM
+policies. Adversaries may enable public access on an existing instance, or create a new publicly accessible instance, to
+establish persistence, move data outside of controlled network boundaries, or bypass internal access controls.
+"""
+false_positives = [
+    """
+    Public access is a common configuration used to enable access from outside a private VPC. Ensure that the instance
+    should not be modified in this way before taking action.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS RDS DB Instance Made Public"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
+
+### Investigating AWS RDS DB Instance Made Public
+
+This rule detects when an Amazon RDS DB instance or cluster is created or modified with
+`publiclyAccessible=true`. While some environments operate publicly accessible RDS instances,
+unexpected exposure of a database to the internet is a meaningful security risk. Adversaries who
+gain access to AWS credentials may modify a DB instance’s public accessibility to exfiltrate data,
+establish persistence, or bypass internal network restrictions. 
+
+#### Possible Investigation Steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `access_key_id` to determine which IAM principal made the change.
+  - Determine whether the user, role, or automation service typically manages RDS configurations.
+
+- **Examine the request parameters**
+  - Review `aws.cloudtrail.request_parameters` for:
+    - `publiclyAccessible=true`
+    - DBInstanceIdentifier / DBClusterIdentifier
+    - Additional changes included in the same modification request (e.g., master user changes, security group updates)
+
+- **Validate the target resource**
+  - Determine the sensitivity of the instance (`target.entity.id`):
+    - What data does it store?
+    - Is it production, staging, dev, or ephemeral?
+  - Confirm whether the instance was previously private.
+
+- **Assess network exposure**
+  - Check associated security groups for:
+    - `0.0.0.0/0` (unrestricted ingress)
+    - Unexpected IP ranges  
+  - Review VPC/subnet placement to determine if the instance is reachable externally.
+
+- **Correlate with other recent CloudTrail activity**
+  - Look for related events performed by the same actor:
+    - `AuthorizeSecurityGroupIngress`
+    - `ModifyDBInstance`
+    - IAM policy modifications enabling broader DB access
+  - Look for indicators of credential misuse:
+    - unusual `source.ip`
+    - unusual `user_agent.original`
+    - MFA not used (`session_context.mfa_authenticated=false`)
+
+- **Validate intent with owners**
+  - Contact the service or database owner to confirm whether the change was an approved part of a deployment or migration.
+
+### False Positive Analysis
+
+- **Expected public-access configuration**
+  - Some workloads intentionally require public access (e.g., internet-facing reporting tools).
+  - Validate against change management tickets, deployment pipelines, or Terraform/IaC automation logs.
+
+### Response and Remediation
+
+- **Containment**
+  - If exposure is unauthorized:
+    - Modify the instance to disable public access (`publiclyAccessible=false`).
+    - Restrict the security group inbound rules immediately.
+    - Snapshot the instance to preserve state if compromise is suspected.
+
+- **Investigation**
+  - Review all recent actions from the same IAM principal.
+  - Check for data access patterns (CloudWatch, RDS Enhanced Monitoring, VPC Flow Logs).
+  - Identify whether this exposure correlates with suspicious outbound network activity.
+
+- **Hardening**
+  - Require private-only RDS instances unless explicitly documented.
+  - Enforce security group least privilege and block public DB access via:
+    - AWS Config rules (`rds-instance-public-access-check`)
+    - Service Control Policies (SCPs) preventing public RDS settings
+  - Implement continuous monitoring for network or configuration drift.
+
+- **Recovery**
+  - Restore the database to a private subnet if necessary.
+  - Rotate credentials used by the DB instance and associated applications.
+  - Document the incident and update policies or IaC templates to prevent recurrence.
+
+### Additional Information:
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html",
+    "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.Modifying.html",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-rds-persistence#make-instance-publicly-accessible-rds-modifydbinstance",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-rds-privesc#rds-createdbinstance",
+]
+risk_score = 47
+rule_id = "9efb3f79-b77b-466a-9fa0-3645d22d1e7f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS RDS",
+    "Resources: Investigation Guide",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.dataset == "aws.cloudtrail"
+    and event.provider == "rds.amazonaws.com"
+    and event.outcome == "success"
+    and (
+        (event.action == "ModifyDBInstance" and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true"))
+        or
+        (event.action in ("CreateDBInstance", "CreateDBCluster") and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true"))
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

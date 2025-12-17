@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/20"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,20 @@ process where host.os.type == "windows" and event.type == "start" and
     (
       process.name : "net1.exe" and not process.parent.name : "net.exe" and not process.args : ("start", "stop", "/active:*")
     )
-  )
+  ) and 
+process.parent.executable != null and 
+not (process.name : "net1.exe" and process.working_directory : "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\") and 
+not process.parent.executable : 
+                ("C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\MonitoringHost.exe", 
+                 "C:\\Program Files\\Dell\\SupportAssistAgent\\SRE\\SRE.exe", 
+                 "C:\\Program Files\\Obkio Agent\\main.dist\\ObkioAgentSoftware.exe", 
+                 "C:\\Windows\\Temp\\WinGet\\defaultState\\PostgreSQL.PostgreSQL*\\postgresql-*-windows-x64.exe", 
+                 "C:\\Program Files\\Obkio Agent\\main.dist\\ObkioAgentSoftware.exe", 
+                 "C:\\Program Files (x86)\\SolarWinds\\Agent\\Plugins\\JobEngine\\SWJobEngineWorker2.exe") and 
+not (process.parent.executable : "C:\\Windows\\Sys?????\\WindowsPowerShell\\v1.0\\powershell.exe" and 
+     process.parent.args : ("C:\\Program Files (x86)\\Microsoft Intune Management Extension\\*.ps1", 
+                            "Agent\\Modules\\AdHealthConfiguration\\AdHealthConfiguration.psd1'")) and 
+not (process.parent.name : "cmd.exe" and process.working_directory : "C:\\Program Files\\Infraon Corp\\SecuraAgent\\")
 '''
 
 

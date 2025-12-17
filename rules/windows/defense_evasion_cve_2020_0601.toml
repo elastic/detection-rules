@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/03/19"
-integration = ["windows"]
+integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +11,44 @@ A spoofing vulnerability exists in the way Windows CryptoAPI (Crypt32.dll) valid
 certificates. An attacker could exploit the vulnerability by using a spoofed code-signing certificate to sign a
 malicious executable, making it appear the file was from a trusted, legitimate source.
 """
-index = ["winlogbeat-*", "logs-windows.*", "logs-system.security*"]
+index = ["winlogbeat-*", "logs-windows.forwarded*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)
+
+The Windows CryptoAPI is crucial for validating ECC certificates, ensuring secure communications and software authenticity. CVE-2020-0601, known as CurveBall, exposes a flaw where attackers can craft fake certificates, misleading systems into trusting malicious software. The detection rule identifies exploitation attempts by monitoring specific event logs and messages linked to this vulnerability, focusing on defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the event logs filtered by event.provider:"Microsoft-Windows-Audit-CVE" and message:"[CVE-2020-0601]" to identify the specific instances of the vulnerability being triggered.
+- Analyze the host.os.type:windows field to determine which Windows systems are affected and prioritize them based on their criticality and exposure.
+- Examine the details of the spoofed certificates involved in the alert to understand the scope and potential impact of the attack.
+- Investigate any associated processes or executables that were signed with the spoofed certificates to assess if malicious software was executed.
+- Check for any recent changes or updates to Crypt32.dll on the affected systems to ensure they are patched against CVE-2020-0601.
+- Correlate the findings with other security events or alerts to identify any patterns or additional indicators of compromise related to defense evasion tactics.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger alerts if they use ECC certificates similar to those exploited in the vulnerability. Users can create exceptions for known trusted software vendors to reduce noise.
+- Internal testing environments that simulate certificate validation processes might generate false positives. Exclude these environments from monitoring or adjust the rule to ignore specific test-related events.
+- Security tools or scripts that perform certificate validation checks could inadvertently match the detection criteria. Identify and whitelist these tools to prevent unnecessary alerts.
+- Regular system maintenance activities involving certificate updates might be flagged. Schedule these activities during known maintenance windows and temporarily adjust monitoring rules to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further exploitation or spread of malicious software.
+- Revoke any certificates identified as spoofed or compromised and update the certificate trust list to prevent future misuse.
+- Apply the latest security patches from Microsoft to all affected systems to address the CVE-2020-0601 vulnerability.
+- Conduct a thorough scan of the isolated systems using updated antivirus and endpoint detection tools to identify and remove any malicious software.
+- Review and update endpoint protection configurations to ensure they are set to detect and block similar spoofing attempts.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems may be affected.
+- Implement enhanced monitoring for signs of defense evasion tactics, focusing on event logs and messages related to certificate validation processes."""
 risk_score = 21
 rule_id = "56557cde-d923-4b88-adee-c61b3f3b5dc3"
 severity = "low"
@@ -24,6 +58,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Use Case: Vulnerability",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"

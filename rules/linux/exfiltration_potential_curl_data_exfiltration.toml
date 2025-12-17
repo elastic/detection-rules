@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/04/29"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the use of curl to upload an archived file to an internet server. Threat actors often will collect data on a 
+system and compress it in an archive file before exfiltrating the file back to their C2 server for review. Many threat 
+actors have been seen utilizing curl to upload this archive file with the collected data to do this. Use of curl in this 
+way while not inherently malicious should be considered highly abnormal and suspicious activity.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Data Exfiltration Through Curl"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Through Curl
+
+Curl is a command-line tool used for transferring data with URLs, commonly employed for legitimate data exchange tasks. However, adversaries can exploit curl to exfiltrate sensitive data by uploading compressed files to remote servers. The detection rule identifies suspicious curl usage by monitoring for specific command patterns and arguments indicative of data uploads, flagging abnormal activities for further investigation.
+
+### Possible investigation steps
+
+- Review the process command line to confirm the presence of suspicious arguments such as "-F", "-T", "-d", or "--data*" and check for any compressed file extensions like .zip, .gz, or .tgz being uploaded to an external server.
+- Investigate the parent process of the curl command to understand the context in which curl was executed, including the parent executable and its purpose.
+- Examine network logs to identify the destination IP address or domain to which the data was being uploaded, and assess whether it is a known or suspicious entity.
+- Check for any recent file creation or modification events on the host that match the compressed file types mentioned in the query, which could indicate data collection prior to exfiltration.
+- Correlate this event with other security alerts or logs from the same host to identify any patterns of behavior that might suggest a broader compromise or data exfiltration attempt.
+
+### False positive analysis
+
+- Legitimate data transfers using curl for system backups or data synchronization can trigger the rule. To manage this, identify and whitelist specific processes or scripts that are known to perform these tasks regularly.
+- Automated system updates or software installations that use curl to download and upload data might be flagged. Exclude these processes by verifying their source and adding them to an exception list if they are from trusted vendors.
+- Internal data transfers within a secure network that use curl for efficiency can be mistaken for exfiltration. Monitor the destination IP addresses and exclude those that are internal or known safe endpoints.
+- Developers or system administrators using curl for testing or development purposes may inadvertently trigger the rule. Educate these users on the potential alerts and establish a process for them to notify security teams of their activities to prevent unnecessary investigations.
+- Scheduled tasks or cron jobs that use curl for routine data uploads should be reviewed and, if deemed safe, added to an exception list to avoid repeated false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration and contain the threat.
+- Terminate any suspicious curl processes identified by the detection rule to stop ongoing data transfers.
+- Conduct a forensic analysis of the affected system to identify any additional malicious activities or compromised data.
+- Change credentials and access keys that may have been exposed or used during the incident to prevent unauthorized access.
+- Notify the security operations team and relevant stakeholders about the incident for awareness and further action.
+- Review and update firewall and network security rules to block unauthorized outbound traffic, especially to suspicious or unknown external servers.
+- Implement enhanced monitoring and logging for curl usage and similar data transfer tools to detect and respond to future exfiltration attempts promptly.
+"""
+references = ["https://everything.curl.dev/usingcurl/uploads"]
+risk_score = 47
+rule_id = "be70614d-4295-473c-a953-582aef41c865"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Exfiltration",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "curl" and
+?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like "--data*") and 
+process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
+process.command_line like~ "*http*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+    [[rule.threat.technique]]
+    name = "Exfiltration Over Alternative Protocol"
+    id = "T1048"
+    reference = "https://attack.mitre.org/techniques/T1048/"

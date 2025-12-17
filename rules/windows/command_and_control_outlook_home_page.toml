@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2024/08/01"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modifications in registry keys associated with abuse of the Outlook Home Page functionality for command and
+control or persistence.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Outlook Home Page Registry Modification"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Outlook Home Page Registry Modification
+
+The Outlook Home Page feature allows users to set a webpage as the default view for folders, leveraging registry keys to store URL configurations. Adversaries exploit this by modifying these keys to redirect to malicious sites, enabling command and control or persistence. The detection rule identifies suspicious registry changes, focusing on URL entries within specific paths, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the registry path and value to confirm the presence of a suspicious URL entry in the specified registry paths, such as "HKCU\\\\*\\\\SOFTWARE\\\\Microsoft\\\\Office\\\\*\\\\Outlook\\\\Webview\\\\Inbox\\\\URL".
+- Investigate the URL found in the registry data strings to determine if it is known to be malicious or associated with suspicious activity.
+- Check the modification history of the registry key to identify when the change occurred and which user or process made the modification.
+- Correlate the registry modification event with other security events on the host, such as network connections or process executions, to identify potential malicious activity.
+- Assess the affected system for signs of compromise, including unusual network traffic or unauthorized access attempts, to determine the scope of the incident.
+- Consult threat intelligence sources to see if the URL or related indicators are associated with known threat actors or campaigns.
+
+### False positive analysis
+
+- Legitimate software updates or installations may modify the registry keys associated with Outlook's Home Page feature. Users can create exceptions for known software update processes to prevent unnecessary alerts.
+- Custom scripts or administrative tools used by IT departments to configure Outlook settings across multiple machines might trigger this rule. Identifying and excluding these trusted scripts or tools can reduce false positives.
+- Some third-party Outlook add-ins or plugins may alter the registry keys for legitimate purposes. Users should verify the legitimacy of these add-ins and whitelist them if they are deemed safe.
+- Automated backup or recovery solutions that restore Outlook settings might cause registry changes. Users can exclude these processes if they are part of a regular and secure backup routine.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further communication with potentially malicious sites.
+- Use endpoint detection and response (EDR) tools to terminate any suspicious processes associated with the modified registry keys.
+- Restore the modified registry keys to their default values to remove the malicious URL configuration.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional threats.
+- Review and analyze network logs to identify any outbound connections to suspicious domains or IP addresses, and block these at the firewall.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if other systems are affected.
+- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of the threat, focusing on registry changes and network activity."""
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/breaking-the-rules-tough-outlook-for-home-page-attacks/",
+    "https://github.com/trustedsec/specula",
+]
+risk_score = 73
+rule_id = "ac5a2759-5c34-440a-b0c4-51fe674611d6"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and registry.value : "URL" and
+    registry.path : (
+        "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\*",
+        "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Today\\*"
+    ) and registry.data.strings : ("*://*", "*:\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1137"
+name = "Office Application Startup"
+reference = "https://attack.mitre.org/techniques/T1137/"
+[[rule.threat.technique.subtechnique]]
+id = "T1137.004"
+name = "Outlook Home Page"
+reference = "https://attack.mitre.org/techniques/T1137/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2021/08/24"
-integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -16,8 +14,17 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*", "logs-sentinel_one_cloud_funnel.*"]
-language = "eql"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "kuery"
 license = "Elastic License v2"
 name = "Web Shell Detection: Script Process Child of Common Web Processes"
 note = """## Triage and analysis
@@ -70,35 +77,73 @@ references = [
 ]
 risk_score = 73
 rule_id = "2917d495-59bd-4250-b395-c29409b76086"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Initial Access", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : ("w3wp.exe", "httpd.exe", "nginx.exe", "php.exe", "php-cgi.exe", "tomcat.exe") and
-  process.name : ("cmd.exe", "cscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "wmic.exe", "wscript.exe") and
+host.os.type:windows and event.category:process and event.type:start and process.args : * and
+  process.parent.name:("w3wp.exe" or "httpd.exe" or "nginx.exe" or "php.exe" or "php-cgi.exe" or "tomcat.exe") and
+  (
+    process.name : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe") or
+    process.name.caseless : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe")
+  ) and
   not
   (
-    process.parent.name : ("php.exe", "httpd.exe") and process.name : "cmd.exe" and
     process.command_line : (
-      "cmd.exe /c mode CON",
-      "cmd.exe /s /c \"mode CON\"",
-      "cmd.exe /c \"mode\"",
-      "cmd.exe /s /c \"tput colors 2>&1\""
-    )
+      "cmd.exe /c mode CON" or
+      "cmd.exe /s /c \"mode CON\"" or
+      "cmd.exe /c \"mode\"" or
+      "cmd.exe /s /c \"tput colors 2>&1\"" or
+      "cmd.exe /s /c \"stty 2> NUL\"" or
+      "cmd.exe /s /c \"stty 2>&1\"" or
+      "cmd.exe /c \"stty 2>&1\"" or
+      "cmd.exe /s /c \"ipconfig /all 2>&1\"" or
+      "cmd.exe /s /c \"echo '%os%'\"" or
+      *.\\install\\awk.exe*
+    ) or
+    process.args : (\(git or (*artisan* and *queue\:work*) or *rmdir* or "mode CON" or ver or ls or mode or dir)
   )
 '''
 
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files\\\\*"
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+case_insensitive = true
+value = "*?:\\\\Program Files (x86)\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -129,9 +174,13 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -140,20 +189,16 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.005"
 name = "Visual Basic"
 reference = "https://attack.mitre.org/techniques/T1059/005/"
-
-
-[[rule.threat.technique]]
-id = "T1047"
-name = "Windows Management Instrumentation"
-reference = "https://attack.mitre.org/techniques/T1047/"
 
 
 
@@ -162,3 +207,10 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

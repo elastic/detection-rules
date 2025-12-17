@@ -5,41 +5,38 @@
 
 """Detection rules."""
 
-import sys
-
-
-assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
-
-from . import (  # noqa: E402
+from . import (
+    custom_rules,
+    custom_schemas,
     devtools,
     docs,
     eswrap,
     ghwrap,
     kbwrap,
     main,
-    mappings,
-    ml,
     misc,
+    ml,
     navigator,
     rule_formatter,
     rule_loader,
     schemas,
-    utils
+    utils,
 )
 
 __all__ = (
-    'devtools',
-    'docs',
-    'eswrap',
-    'ghwrap',
-    'kbwrap',
-    'mappings',
+    "custom_rules",
+    "custom_schemas",
+    "devtools",
+    "docs",
+    "eswrap",
+    "ghwrap",
+    "kbwrap",
     "main",
-    'misc',
-    'ml',
-    'navigator',
-    'rule_formatter',
-    'rule_loader',
-    'schemas',
-    'utils'
+    "misc",
+    "ml",
+    "navigator",
+    "rule_formatter",
+    "rule_loader",
+    "schemas",
+    "utils",
 )

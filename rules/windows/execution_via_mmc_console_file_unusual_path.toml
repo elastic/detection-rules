@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2024/06/19"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to open a Microsoft Management Console File from untrusted paths. Adversaries may use MSC files for
+initial access and execution.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Microsoft Management Console File from Unusual Path"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft Management Console File from Unusual Path
+
+Microsoft Management Console (MMC) is a Windows utility that provides a framework for system management. Adversaries may exploit MMC by executing .msc files from non-standard directories to bypass security controls. The detection rule identifies such anomalies by monitoring the execution of mmc.exe with .msc files from untrusted paths, flagging potential unauthorized access or execution attempts.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the path of the mmc.exe and the .msc file being executed. Check if the path is indeed non-standard or untrusted as per the query criteria.
+- Investigate the origin of the .msc file by examining file creation and modification timestamps, and check for any recent changes or unusual activity in the directory where the file resides.
+- Analyze the user account associated with the process execution to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Check for any related alerts or logs around the same timeframe that might indicate lateral movement or other malicious activities, such as unusual network connections or file access patterns.
+- Correlate the event with other data sources mentioned in the rule, such as Microsoft Defender for Endpoint or Crowdstrike, to gather additional context or corroborating evidence of potential malicious activity.
+- Assess the risk and impact of the execution by determining if the .msc file has any known malicious signatures or if it attempts to perform unauthorized actions on the system.
+
+### False positive analysis
+
+- Legitimate administrative tasks may trigger this rule if system administrators execute .msc files from custom directories. To manage this, create exceptions for known administrative scripts or tools that are regularly used from non-standard paths.
+- Software installations or updates might involve executing .msc files from temporary or installation directories. Monitor these activities and whitelist specific installation paths if they are verified as safe and part of routine operations.
+- Automated scripts or third-party management tools could execute .msc files from non-standard locations as part of their normal operation. Identify these tools and add their execution paths to the exception list to prevent unnecessary alerts.
+- Development or testing environments may involve running .msc files from various directories for testing purposes. Establish a separate monitoring policy for these environments or exclude known development paths to reduce false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes related to mmc.exe executing from untrusted paths to halt potential malicious activity.
+- Conduct a thorough review of the system's recent activity logs to identify any additional indicators of compromise or related suspicious activities.
+- Remove any unauthorized .msc files found in non-standard directories and ensure they are not reintroduced.
+- Restore the system from a known good backup if any unauthorized changes or damage is detected.
+- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+references = ["https://www.elastic.co/security-labs/grimresource"]
+risk_score = 47
+rule_id = "7e23dfef-da2c-4d64-b11d-5f285b638853"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.executable : (
+    "?:\\Windows\\System32\\mmc.exe",
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\mmc.exe"
+  ) and
+  process.args : "*.msc" and
+  not process.args : (
+        "?:\\Windows\\System32\\*.msc",
+        "?:\\Windows\\SysWOW64\\*.msc",
+        "?:\\Program files\\*.msc",
+        "?:\\Program Files (x86)\\*.msc",
+        "?:\\Windows\\ADFS\\Microsoft.IdentityServer.msc"
+  ) and
+  not process.command_line : (
+    "C:\\Windows\\system32\\mmc.exe eventvwr.msc /s",
+    "mmc.exe eventvwr.msc /s",
+    "\"C:\\Windows\\System32\\mmc.exe\" CompMgmt.msc*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.014"
+name = "MMC"
+reference = "https://attack.mitre.org/techniques/T1218/014/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

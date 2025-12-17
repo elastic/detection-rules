@@ -1,0 +1,218 @@
+[metadata]
+creation_date = "2025/03/04"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential command execution from a web server parent process on a Linux host. Adversaries may attempt
+to execute commands from a web server parent process to blend in with normal web server activity and evade detection.
+This behavior is commonly observed in web shell attacks where adversaries exploit web server vulnerabilities to execute
+arbitrary commands on the host. The detection rule identifies unusual command execution from web server parent
+processes, which may indicate a compromised host or an ongoing attack. ESQL rules have limited fields available in its
+alert documents. Make sure to review the original documents to aid in the investigation of this alert.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Unusual Command Execution from Web Server Parent"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Command Execution from Web Server Parent
+
+Web servers, such as Apache or Nginx, are crucial for hosting web applications, often running on Linux systems. Adversaries exploit vulnerabilities in these servers to execute arbitrary commands, typically through web shells, blending malicious activity with legitimate server processes. The detection rule identifies suspicious command executions originating from web server processes, focusing on unusual patterns and contexts, such as unexpected working directories or command structures, to flag potential compromises.
+
+### Possible investigation steps
+
+- Review the process.command_line field to understand the specific command executed and assess its legitimacy or potential malicious intent.
+- Examine the process.working_directory to determine if the command was executed from an unusual or suspicious directory, which could indicate a compromise.
+- Check the process.parent.executable and process.parent.name fields to identify the parent process and verify if it is a known web server or related service that could be exploited.
+- Investigate the user.name and user.id fields to confirm if the command was executed by a legitimate user or service account, or if it was potentially executed by an unauthorized user.
+- Correlate the @timestamp with other logs and events to identify any related activities or anomalies occurring around the same time, which could provide additional context or evidence of an attack.
+- Assess the agent.id to determine if the alert is isolated to a single host or if similar activities are observed across multiple hosts, indicating a broader issue.
+
+### False positive analysis
+
+- Web development or testing environments may frequently execute commands from web server processes. To handle this, exclude specific working directories like /var/www/dev or /var/www/test from the rule.
+- Automated scripts or cron jobs running under web server user accounts can trigger alerts. Identify these scripts and add exceptions for their specific command lines or user IDs.
+- Legitimate administrative tasks performed by web server administrators might appear suspicious. Document these tasks and exclude their associated command lines or parent executables.
+- Continuous integration or deployment processes that involve web server interactions can be mistaken for threats. Exclude known CI/CD tool command lines or working directories from the rule.
+- Monitoring or logging tools that interact with web server processes may generate false positives. Identify these tools and exclude their specific process names or parent executables.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further malicious activity and lateral movement within the network. This can be done by removing the host from the network or applying network segmentation.
+
+- Terminate any suspicious processes identified by the detection rule, especially those originating from web server parent processes executing shell commands. Use process IDs and command lines from the alert to target specific processes.
+
+- Conduct a thorough review of the web server logs and application logs to identify any unauthorized access or modifications. Look for patterns that match the command execution detected and any other anomalies.
+
+- Patch the web server and any associated applications to address known vulnerabilities that may have been exploited. Ensure that all software is up to date with the latest security patches.
+
+- Restore the affected system from a known good backup if any unauthorized changes or persistent threats are detected. Ensure that the backup is free from compromise before restoration.
+
+- Implement additional monitoring and alerting for similar activities, focusing on unusual command executions and web server behavior. Enhance logging and alerting to capture more detailed information about process executions and network connections.
+
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the attack is part of a larger campaign. Provide them with all relevant data and findings from the initial containment and remediation steps.
+"""
+risk_score = 47
+rule_id = "8a7933b4-9d0a-4c1c-bda5-e39fb045ff1d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.events.process-*
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.parent.name,
+    user.name,
+    user.id,
+    process.working_directory,
+    process.name,
+    process.command_line,
+    process.parent.executable,
+    agent.id,
+    host.name
+| where
+    @timestamp > now() - 1 hours and
+    host.os.type == "linux" and
+    event.type == "start" and
+    event.action == "exec" and (
+      (
+        process.parent.name in (
+            "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
+            "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
+            "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
+        ) or
+        user.name in (
+            "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
+        ) or
+        user.id in ("99", "33", "498", "48") or
+        process.working_directory like "/var/www/*"
+      ) or
+      (
+        (
+          process.parent.name like "php-*" or
+          process.parent.name like "python*" or
+          process.parent.name like "ruby*" or
+          process.parent.name like "perl*"
+        ) and (
+          process.working_directory like "/var/www/*" or
+          process.working_directory like "/srv/www/*" or
+          process.working_directory like "/usr/share/nginx/*"
+        )
+      )
+    ) and
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.command_line like "* -c *" and not (
+        process.working_directory like "/home/*" or
+        process.working_directory == "/" or
+        process.working_directory like "/vscode/vscode-server/*" or
+        process.parent.executable like "/vscode/vscode-server/*" or
+        process.parent.executable == "/usr/bin/xfce4-terminal"
+    )
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+  by process.command_line, process.working_directory, process.parent.executable
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count < 5
+| sort Esql.event_count asc
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

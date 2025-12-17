@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies the execution of the shell process (sh) via scripting (JXA or AppleSc
 doShellScript functionality in JXA or do shell script in AppleScript to execute system commands.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Shell Execution via Apple Scripting"
@@ -53,14 +53,50 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
- [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "osascript" and process.args : "-e"] by process.entity_id
- [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : ("sh", "bash", "zsh") and process.args == "-c" and process.args : ("*curl*", "*pbcopy*", "*http*", "*chmod*")] by process.parent.entity_id
+sequence by host.id with maxspan=10s
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and event.action == "exec" and process.name == "osascript" and process.args == "-e"] by process.entity_id
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name in ("sh", "bash", "zsh") and process.args == "-c" and process.command_line : ("*curl*", "*pbpaste*", "*http*", "*chmod*", "*nscurl*")] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shell Execution via Apple Scripting
+
+AppleScript and JXA are scripting languages used in macOS to automate tasks and control applications. Adversaries exploit these by executing shell commands through functions like `doShellScript`, enabling unauthorized actions such as data exfiltration or system modification. The detection rule identifies suspicious shell processes initiated by AppleScript, focusing on specific command patterns and rapid sequence execution, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id and process.entity_id involved in the suspicious activity.
+- Examine the process arguments for osascript to determine the exact AppleScript command executed, focusing on the presence of the "-e" flag which indicates script execution.
+- Investigate the parent process of the shell (sh, bash, zsh) to understand the context in which the shell command was executed, using process.parent.entity_id for correlation.
+- Analyze the shell command arguments, particularly looking for potentially malicious patterns such as "*curl*", "*pbcopy*", "*http*", or "*chmod*", which may indicate data exfiltration or system modification attempts.
+- Check the sequence and timing of the processes to assess if the execution pattern aligns with typical user behavior or if it suggests automated or rapid execution indicative of a script.
+- Correlate the findings with any other security alerts or logs from the same host to identify if this activity is part of a broader attack or isolated incident.
+- If necessary, escalate the investigation by capturing additional forensic data from the affected host, such as network traffic or file system changes, to further understand the impact and scope of the activity.
+
+### False positive analysis
+
+- Routine administrative scripts may trigger the rule if they use AppleScript or JXA to automate tasks involving shell commands. To manage this, identify and whitelist these scripts by their specific command patterns or execution context.
+- Software updates or legitimate application installations might execute shell commands through AppleScript, appearing suspicious. Monitor and document these activities, and create exceptions for known update processes.
+- Development tools and environments that rely on scripting for building or testing applications can generate false positives. Exclude these processes by verifying their source and ensuring they align with expected development activities.
+- User-initiated automation tasks, such as custom scripts for personal productivity, may be flagged. Educate users on safe scripting practices and establish a process for reviewing and approving such scripts to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious shell processes identified by the detection rule, specifically those initiated by `osascript` executing shell commands.
+- Conduct a thorough review of the affected system's logs and process history to identify any additional unauthorized activities or persistence mechanisms.
+- Remove any unauthorized scripts or files that were executed or created as part of the malicious activity.
+- Reset credentials and review permissions for any accounts that may have been compromised or used in the attack.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for similar patterns of behavior, focusing on the use of `osascript` and shell command execution, to prevent recurrence."""
 
 
 [[rule.threat]]

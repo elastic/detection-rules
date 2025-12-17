@@ -4,18 +4,25 @@
 # 2.0.
 
 """Test stack versioned schemas."""
+
 import copy
 import unittest
 import uuid
-from semver import Version
+from pathlib import Path
 
 import eql
-from detection_rules import utils
-from detection_rules.misc import load_current_package_version
-from detection_rules.rule import TOMLRuleContents
-from detection_rules.schemas import downgrade
-from detection_rules.version_lock import VersionLockFile
+import pytest
+import pytoml
 from marshmallow import ValidationError
+from semver import Version
+
+from detection_rules import utils
+from detection_rules.config import load_current_package_version
+from detection_rules.esql_errors import EsqlSemanticError
+from detection_rules.rule import TOMLRuleContents
+from detection_rules.rule_loader import RuleCollection
+from detection_rules.schemas import RULES_CONFIG, downgrade
+from detection_rules.version_lock import VersionLockFile
 
 
 class TestSchemas(unittest.TestCase):
@@ -42,7 +49,7 @@ class TestSchemas(unittest.TestCase):
                     "tactic": {
                         "id": "TA0001",
                         "name": "Execution",
-                        "reference": "https://attack.mitre.org/tactics/TA0001/"
+                        "reference": "https://attack.mitre.org/tactics/TA0001/",
                     },
                     "technique": [
                         {
@@ -52,25 +59,25 @@ class TestSchemas(unittest.TestCase):
                         }
                     ],
                 }
-            ]
+            ],
         }
         cls.v79_kql = dict(cls.v78_kql, author=["Elastic"], license="Elastic License v2")
         cls.v711_kql = copy.deepcopy(cls.v79_kql)
         # noinspection PyTypeChecker
-        cls.v711_kql["threat"][0]["technique"][0]["subtechnique"] = [{
-            "id": "T1059.001",
-            "name": "PowerShell",
-            "reference": "https://attack.mitre.org/techniques/T1059/001/"
-        }]
+        cls.v711_kql["threat"][0]["technique"][0]["subtechnique"] = [
+            {"id": "T1059.001", "name": "PowerShell", "reference": "https://attack.mitre.org/techniques/T1059/001/"}
+        ]
         # noinspection PyTypeChecker
-        cls.v711_kql["threat"].append({
-            "framework": "MITRE ATT&CK",
-            "tactic": {
-                "id": "TA0008",
-                "name": "Lateral Movement",
-                "reference": "https://attack.mitre.org/tactics/TA0008/"
-            },
-        })
+        cls.v711_kql["threat"].append(
+            {
+                "framework": "MITRE ATT&CK",
+                "tactic": {
+                    "id": "TA0008",
+                    "name": "Lateral Movement",
+                    "reference": "https://attack.mitre.org/tactics/TA0008/",
+                },
+            }
+        )
 
         cls.v79_threshold_contents = {
             "author": ["Elastic"],
@@ -88,14 +95,14 @@ class TestSchemas(unittest.TestCase):
             },
             "type": "threshold",
         }
-        cls.v712_threshold_rule = dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
-            'field': ['destination.bytes', 'process.args'],
-            'value': 75,
-            'cardinality': [{
-                'field': 'user.name',
-                'value': 2
-            }]
-        })
+        cls.v712_threshold_rule = dict(
+            copy.deepcopy(cls.v79_threshold_contents),
+            threshold={
+                "field": ["destination.bytes", "process.args"],
+                "value": 75,
+                "cardinality": [{"field": "user.name", "value": 2}],
+            },
+        )
 
     def test_query_downgrade_7_x(self):
         """Downgrade a standard KQL rule."""
@@ -142,21 +149,21 @@ class TestSchemas(unittest.TestCase):
             return
 
         api_contents = self.v712_threshold_rule
-        self.assertDictEqual(downgrade(api_contents, '7.13'), api_contents)
-        self.assertDictEqual(downgrade(api_contents, '7.13.1'), api_contents)
+        self.assertDictEqual(downgrade(api_contents, "7.13"), api_contents)
+        self.assertDictEqual(downgrade(api_contents, "7.13.1"), api_contents)
 
-        exc_msg = 'Cannot downgrade a threshold rule that has multiple threshold fields defined'
+        exc_msg = "Cannot downgrade a threshold rule that has multiple threshold fields defined"
         with self.assertRaisesRegex(ValueError, exc_msg):
-            downgrade(api_contents, '7.9')
+            downgrade(api_contents, "7.9")
 
         v712_threshold_contents_single_field = copy.deepcopy(api_contents)
-        v712_threshold_contents_single_field['threshold']['field'].pop()
+        v712_threshold_contents_single_field["threshold"]["field"].pop()
 
         with self.assertRaisesRegex(ValueError, "Cannot downgrade a threshold rule that has a defined cardinality"):
             downgrade(v712_threshold_contents_single_field, "7.9")
 
         v712_no_cardinality = copy.deepcopy(v712_threshold_contents_single_field)
-        v712_no_cardinality['threshold'].pop('cardinality')
+        v712_no_cardinality["threshold"].pop("cardinality")
         self.assertEqual(downgrade(v712_no_cardinality, "7.9"), self.v79_threshold_contents)
 
         with self.assertRaises(ValueError):
@@ -191,14 +198,14 @@ class TestSchemas(unittest.TestCase):
             "risk_score": 21,
             "rule_id": str(uuid.uuid4()),
             "severity": "low",
-            "type": "eql"
+            "type": "eql",
         }
 
         def build_rule(query):
             metadata = {
                 "creation_date": "1970/01/01",
                 "updated_date": "1970/01/01",
-                "min_stack_version": load_current_package_version()
+                "min_stack_version": load_current_package_version(),
             }
             data = base_fields.copy()
             data["query"] = query
@@ -209,12 +216,22 @@ class TestSchemas(unittest.TestCase):
             process where process.name == "cmd.exe"
         """)
 
-        example_text_fields = ['client.as.organization.name.text', 'client.user.full_name.text',
-                               'client.user.name.text', 'destination.as.organization.name.text',
-                               'destination.user.full_name.text', 'destination.user.name.text',
-                               'error.message', 'error.stack_trace.text', 'file.path.text',
-                               'file.target_path.text', 'host.os.full.text', 'host.os.name.text',
-                               'host.user.full_name.text', 'host.user.name.text']
+        example_text_fields = [
+            "client.as.organization.name.text",
+            "client.user.full_name.text",
+            "client.user.name.text",
+            "destination.as.organization.name.text",
+            "destination.user.full_name.text",
+            "destination.user.name.text",
+            "error.message",
+            "error.stack_trace.text",
+            "file.path.text",
+            "file.target_path.text",
+            "host.os.full.text",
+            "host.os.name.text",
+            "host.user.full_name.text",
+            "host.user.name.text",
+        ]
         for text_field in example_text_fields:
             with self.assertRaises(eql.parser.EqlSchemaError):
                 build_rule(f"""
@@ -247,7 +264,7 @@ class TestVersionLockSchema(unittest.TestCase):
                 "rule_name": "Remote File Download via PowerShell",
                 "sha256": "8679cd72bf85b67dde3dcfdaba749ed1fa6560bca5efd03ed41c76a500ce31d6",
                 "type": "eql",
-                "version": 4
+                "version": 4,
             },
             "34fde489-94b0-4500-a76f-b8a157cf9269": {
                 "min_stack_version": "8.2",
@@ -256,28 +273,29 @@ class TestVersionLockSchema(unittest.TestCase):
                         "rule_name": "Telnet Port Activity",
                         "sha256": "3dd4a438c915920e6ddb0a5212603af5d94fb8a6b51a32f223d930d7e3becb89",
                         "type": "query",
-                        "version": 9
+                        "version": 9,
                     }
                 },
                 "rule_name": "Telnet Port Activity",
                 "sha256": "b0bdfa73639226fb83eadc0303ad1801e0707743f96a36209aa58228d3bf6a89",
                 "type": "query",
-                "version": 10
-            }
+                "version": 10,
+            },
         }
 
     def test_version_lock_no_previous(self):
         """Pass field validation on version lock without nested previous fields"""
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
-        VersionLockFile.from_dict(dict(data=version_lock_contents))
+        VersionLockFile.from_dict({"data": version_lock_contents})
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_version_lock_has_nested_previous(self):
         """Fail field validation on version lock with nested previous fields"""
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
         with self.assertRaises(ValidationError):
             previous = version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]
             version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]["previous"] = previous
-            VersionLockFile.from_dict(dict(data=version_lock_contents))
+            VersionLockFile.from_dict({"data": version_lock_contents})
 
 
 class TestVersions(unittest.TestCase):
@@ -286,6 +304,56 @@ class TestVersions(unittest.TestCase):
     def test_stack_schema_map(self):
         """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
         package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        stack_map = utils.load_etc_dump('stack-schema-map.yaml')
-        err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
+        stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
+        err_msg = f"There is no entry defined for the current package ({package_version}) in the stack-schema-map"
         self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
+
+
+class TestESQLValidation(unittest.TestCase):
+    """Test ESQL rule validation"""
+
+    def test_esql_data_validation(self):
+        """Test ESQL rule data validation"""
+
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = pytoml.loads(rule_body)
+
+        # Most used order of the metadata fields
+        query = """
+            FROM logs-windows.powershell_operational* METADATA _id, _version, _index
+            | WHERE event.code == "4104"
+            | KEEP event.code
+        """
+        rule_dict["rule"]["query"] = query
+        _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+        # The order of the metadata fields from the example in the docs -
+        # https://www.elastic.co/guide/en/security/8.17/rules-ui-create.html#esql-non-agg-query
+        query = """
+            FROM logs-windows.powershell_operational* METADATA _id, _index, _version
+            | WHERE event.code == "4104"
+            | KEEP event.code
+        """
+        rule_dict["rule"]["query"] = query
+        _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+        # Different metadata fields
+        with pytest.raises(EsqlSemanticError):
+            query = """
+                FROM logs-windows.powershell_operational* METADATA _foo, _index
+                | WHERE event.code == "4104"
+                | KEEP event.code
+            """
+            rule_dict["rule"]["query"] = query
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+        # Missing `keep`
+        with pytest.raises(EsqlSemanticError):
+            query = """
+                FROM logs-windows.powershell_operational* METADATA _id, _index, _version
+                | WHERE event.code == "4104"
+            """
+            rule_dict["rule"]["query"] = query
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)

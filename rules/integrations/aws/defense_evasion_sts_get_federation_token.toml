@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2024/08/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/08/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first occurrence of an AWS Security Token Service (STS) GetFederationToken request made by a user. The GetFederationToken API call allows users to request temporary security credentials to
+access AWS resources. The maximum expiration period for these tokens is 36 hours and they can be used to create a console signin token even for identities that don't already have one. Adversaries may use this API to obtain temporary credentials for persistence and to bypass IAM API call limitations by gaining console access.
+"""
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS First Occurrence of STS GetFederationToken Request by User"
+references = [
+    "https://hackingthe.cloud/aws/post_exploitation/survive_access_key_deletion_with_sts_getfederationtoken/",
+    "https://www.crowdstrike.com/en-us/blog/how-adversaries-persist-with-aws-user-federation/",
+    "https://medium.com/@adan.alvarez/how-attackers-persist-in-aws-using-getfederationtoken-a-simple-and-effective-technique-used-in-the-987ec1f0bdfe/"
+]
+risk_score = 47
+rule_id = "7a5cc9a8-5ea3-11ef-beec-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS",
+    "Data Source: AWS STS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider:sts.amazonaws.com
+    and event.action:GetFederationToken
+    and event.outcome:success
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS First Occurrence of STS GetFederationToken Request by User
+
+AWS Security Token Service (STS) enables users to request temporary credentials for accessing AWS resources. While beneficial for legitimate use, adversaries may exploit this to gain unauthorized access. These credentials will remain active for the duration specified (maximum 36 hours), even if the initial compromised identity is deleted. They can also be used to request a console signin token which allows the adversary to make sensitive IAM API calls which would otherwise be denied with the federation token alone. The detection rule identifies unusual activity by flagging the first instance of a `GetFederationToken` request by a user helping to uncover potential misuse aimed at evading defenses and gaining persistence.
+
+### Possible investigation steps
+
+- Review the specific user account associated with the `GetFederationToken` request to determine if the activity aligns with their typical behavior and role within the organization.
+- Examine the AWS CloudTrail logs for additional context around the time of the `GetFederationToken` request, looking for any other unusual or suspicious activities by the same user or related accounts.
+- Check the `source.ip` and `source.geo` fields of the request to identify if it originates from an expected or unexpected location.
+- View the `aws.cloudtrail.response_elements` to find the created `federatedUser.arn`. Investigate the resources accessed by this Federated User to assess if there was any suspicious activity.
+- Consult with the requesting user `aws.cloudtrail.user_identity.arn` to verify if the `GetFederationToken` request was legitimate and necessary for their work tasks.
+
+### False positive analysis
+
+- Routine administrative tasks by cloud administrators may trigger the rule if they are using `GetFederationToken` for legitimate purposes. To manage this, create exceptions for known administrative accounts that regularly perform these actions.
+- Automated scripts or applications that use `GetFederationToken` for legitimate operations might be flagged. Identify these scripts and exclude their associated user accounts from the rule to prevent unnecessary alerts.
+- Third-party services integrated with AWS that require temporary credentials might cause false positives. Review and whitelist these services if they are verified and trusted to avoid repeated alerts.
+- New employees or contractors accessing AWS resources for the first time may trigger the rule. Implement a process to verify their access requirements and exclude their accounts if their actions are deemed non-threatening.
+
+### Response and remediation
+
+- If compromise is verified, attach a policy that denies all actions, effectively preventing any further activity, even from temporary credentials. You can use the AWS-managed policy [AWSDenyAll](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSDenyAll.html). This ensures that any temporary credentials generated by the compromised user are also blocked, stopping the attacker’s activities.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Conduct a root cause analysis to determine how the `GetFederationToken` request was initiated and identify any potential security gaps or misconfigurations.
+- Implement additional monitoring and alerting for `GetFederationToken` requests to detect and respond to similar activities promptly in the future.
+- Review and update IAM policies and permissions to ensure that only authorized users have the ability to request temporary credentials, reducing the risk of misuse."""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

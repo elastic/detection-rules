@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2025/02/25"
+integration = ["azure_openai"]
+maturity = "production"
+updated_date = "2025/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Azure OpenAI requests result in zero response length, potentially indicating issues in output handling that
+might lead to security exploits such as data leaks or code execution. This can occur in cases where the API fails to
+handle outputs correctly under certain input conditions.
+"""
+false_positives = ["Queries that are designed to expect empty responses or benign system errors"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure OpenAI Insecure Output Handling"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure OpenAI Insecure Output Handling
+
+Azure OpenAI integrates AI capabilities into applications, enabling natural language processing tasks. However, improper output handling can lead to vulnerabilities, such as data leaks or unauthorized code execution. Adversaries might exploit these by crafting inputs that cause the API to mishandle responses. The detection rule identifies anomalies by flagging instances where API responses are unexpectedly empty, suggesting potential misuse or misconfiguration, especially when such events occur frequently.
+
+### Possible investigation steps
+
+- Review the logs for the specific Azure resource name flagged in the alert to understand the context and frequency of zero-length responses.
+- Examine the request lengths associated with the zero-length responses to identify any patterns or anomalies in the input data that might be causing the issue.
+- Check the cloud account ID associated with the alert to determine if there are any known issues or recent changes in configuration that could affect output handling.
+- Investigate the operation name "ChatCompletions_Create" to ensure that the API is being used as intended and that there are no unauthorized or unexpected uses.
+- Assess the overall environment for any recent updates or changes in the Azure OpenAI configuration that might have impacted output handling.
+
+### False positive analysis
+
+- Frequent legitimate requests with zero response length can occur during testing or development phases. To manage this, exclude known test environments or accounts from the detection rule by adding exceptions for specific cloud.account.id or azure.resource.name values.
+- Some applications may intentionally send requests that do not require a response, resulting in zero response length. Identify these applications and adjust the rule to exclude their specific azure.resource.name.
+- Network issues or temporary service disruptions can lead to zero-length responses. Monitor for patterns of such occurrences and consider excluding specific time frames or network segments if they are known to cause false positives.
+- Automated scripts or bots that interact with the API might generate zero-length responses as part of their normal operation. Identify these scripts and exclude their associated identifiers from the rule to prevent false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Azure OpenAI resource to prevent further exploitation. This can be done by temporarily disabling the API or restricting access to it.
+- Review and validate the input handling mechanisms of the affected API to ensure they are robust against malformed or malicious inputs that could lead to insecure output handling.
+- Conduct a thorough audit of recent API requests and responses to identify any unauthorized access or data leaks. Pay special attention to requests with zero response length.
+- Implement additional logging and monitoring for the affected API to capture detailed information about requests and responses, which can help in identifying patterns or repeated attempts of exploitation.
+- Notify the security team and relevant stakeholders about the incident, providing them with detailed findings and any potential impact on data security.
+- If unauthorized access or data leakage is confirmed, follow the organization's incident response plan to notify affected parties and comply with any regulatory requirements.
+- Enhance detection capabilities by integrating anomaly detection tools that can identify unusual patterns in API usage, such as frequent zero-length responses, to prevent similar threats in the future.
+"""
+references = ["https://genai.owasp.org/llmrisk/llm02-insecure-output-handling"]
+risk_score = 21
+rule_id = "fb16f9ef-cb03-4234-adc2-44641f3b71ee"
+setup = """## Setup
+
+For more information on streaming events, see the Azure OpenAI documentation:
+
+https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
+"""
+severity = "low"
+tags = [
+    "Domain: LLM",
+    "Data Source: Azure OpenAI",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Insecure Output Handling",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_openai.logs-*
+| where
+    azure.open_ai.properties.response_length == 0 and
+    azure.open_ai.result_signature == "200" and
+    azure.open_ai.operation_name == "ChatCompletions_Create"
+| keep
+    azure.open_ai.properties.request_length,
+    azure.open_ai.result_signature,
+    cloud.account.id,
+    azure.resource.name
+| stats
+    Esql.event_count = count(*)
+  by
+    azure.resource.name
+| where
+    Esql.event_count >= 10
+| sort
+    Esql.event_count desc
+'''
+

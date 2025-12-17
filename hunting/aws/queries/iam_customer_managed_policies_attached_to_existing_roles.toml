@@ -1,0 +1,32 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunting query identifies instances where customer-managed IAM policies are attached to existing roles, potentially indicating a privilege escalation attempt. By detecting unexpected actors attaching customer-managed policies with elevated permissions to roles, this query helps identify potential abuse or misuse within AWS. Adversaries may attach these policies to gain unauthorized permissions or enable lateral movement and persistence within the environment.
+"""
+integration = ["aws.cloudtrail"]
+uuid = "418baaf2-9ae1-11ef-be63-f661ea17fbcd"
+name = "AWS IAM Customer-Managed Policy Attachment to Existing Roles"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+"Review the `attached_policy_name` and `target_role_name` fields to identify the customer-managed policy and role involved in the attachment.",
+"Review the permissions of the attached policy to determine the potential impact of the privilege escalation attempt.",
+"Review all entities that `target_role_name` may be attached to as these entities may have been compromised or misused.",
+"Consider reviewing the `aws.cloudtrail.user_identity.arn` field to identify the actor responsible for the privilege escalation attempt.",
+"Review the user agent of the actor to determine the source of the privilege escalation attempt, such as an AWS CLI or SDK.",
+]
+mitre = ['T1548.005']
+query = [
+'''
+from logs-aws.cloudtrail*
+| where
+    event.dataset == "aws.cloudtrail"
+    and event.provider == "iam.amazonaws.com"
+    and event.action == "AttachRolePolicy"
+    and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "{%{}::%{owner}:%{?policy_key}/%{attached_policy_name}, %{?role_name_key}=%{target_role_name}}"
+| where owner != "aws"
+| stats
+    actor_attaching_role_count = count(*) by aws.cloudtrail.user_identity.arn, attached_policy_name, target_role_name
+'''
+]

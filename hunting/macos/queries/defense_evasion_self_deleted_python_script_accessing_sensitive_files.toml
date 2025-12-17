@@ -1,0 +1,30 @@
+[hunt]
+author = "Elastic"
+name = "Self-Deleted Python Script Accessing Sensitive Files"
+uuid = "7ab00c3d-0ed3-4e4b-9806-b19959bf6b12"
+description = """
+Detects access to potentially sensitive files by a Python script that deletes itself from disk. This behavior is characteristic of sophisticated malware that executes from memory and avoids leaving behind forensic artifacts. Notably used in high-profile DPRK-linked financial heists.
+"""
+integration = ["endpoint"]
+language = ["EQL"]
+license = "Elastic License v2"
+mitre = ["T1059.006", "T1070.004", "T1552.001"]
+notes = [
+  "This hunt detects Python-based scripts that self-delete and continue to access sensitive files (e.g., AWS credentials, SSH keys, keychains).",
+  "File paths in this logic can be enriched or customized to detect access to specific secrets in your environment.",
+  "Ideal for detecting evasive memory-resident malware and credential theft operations."
+]
+query = [
+'''
+sequence by process.entity_id with maxspan=15s
+  [file where event.action == "deletion" and file.extension in ("py", "pyc") and process.name like~ "python*"]
+  [file where event.action == "open"]
+'''
+]
+references = [
+  "https://www.elastic.co/security-labs/dprk-code-of-conduct",
+  "https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/",
+  "https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34",
+  "https://x.com/safe/status/1897663514975649938",
+  "https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/"
+]

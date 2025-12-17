@@ -2,9 +2,7 @@
 creation_date = "2023/11/18"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type becomes available in 8.13.0 as technical preview."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/20"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -18,16 +16,14 @@ interval = "15m"
 language = "esql"
 license = "Elastic License v2"
 name = "Okta User Sessions Started from Different Geolocations"
-note = """
-
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Okta User Sessions Started from Different Geolocations
 
 This rule detects when a specific Okta actor has multiple sessions started from different geolocations. Adversaries may attempt to launch an attack by using a list of known usernames and passwords to gain unauthorized access to user accounts from different locations.
 
 #### Possible investigation steps:
-- Since this is an ES|QL rule, the `okta.actor.alternate_id` and `okta.client.id` values can be used to pivot into the raw authentication events related to this alert.
+- Since this is an ESQL rule, the `okta.actor.alternate_id` and `okta.client.id` values can be used to pivot into the raw authentication events related to this alert.
 - Identify the users involved in this action by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
 - Determine the device client used for these actions by analyzing `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - With Okta end users identified, review the `okta.debug_context.debug_data.dt_hash` field.
@@ -64,30 +60,46 @@ references = [
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
     "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
     "https://www.rezonate.io/blog/okta-logs-decoded-unveiling-identity-threats-through-threat-hunting/",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 47
 rule_id = "2e56e1bc-867a-11ee-b13e-f661ea17fbcd"
-setup = """
-The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
-"""
+setup = "The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.\n"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Initial Access"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-okta*
-| WHERE
-    event.dataset == "okta.system"
-    AND (event.action RLIKE "user\\.authentication(.*)" OR event.action == "user.session.start")
-    AND okta.security_context.is_proxy != true and okta.actor.id != "unknown"
-    AND event.outcome == "success"
-| STATS
-    geo_auth_counts = COUNT_DISTINCT(client.geo.country_name)
-    BY okta.actor.id, okta.actor.alternate_id
-| WHERE
-    geo_auth_counts >= 2
+from logs-okta*
+| where
+    event.dataset == "okta.system" and
+    (event.action like "user.authentication.*" or event.action == "user.session.start") and
+    okta.security_context.is_proxy != true and
+    okta.actor.id != "unknown" and
+    event.outcome == "success"
+| keep
+    event.action,
+    okta.security_context.is_proxy,
+    okta.actor.id,
+    okta.actor.alternate_id,
+    event.outcome,
+    client.geo.country_name
+| stats
+    Esql.client_geo_country_name_count_distinct = count_distinct(client.geo.country_name)
+    by okta.actor.id, okta.actor.alternate_id
+| where
+    Esql.client_geo_country_name_count_distinct >= 2
+| sort
+    Esql.client_geo_country_name_count_distinct desc
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -100,7 +112,10 @@ id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+

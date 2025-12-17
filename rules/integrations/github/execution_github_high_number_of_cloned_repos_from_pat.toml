@@ -2,7 +2,7 @@
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,40 @@ index = ["logs-github.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Cloned GitHub Repos From PAT"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Number of Cloned GitHub Repos From PAT
+
+Personal Access Tokens (PATs) facilitate automated access to GitHub repositories, enabling seamless integration and management. However, adversaries can exploit compromised PATs to clone numerous private repositories rapidly, potentially exfiltrating sensitive code. The detection rule identifies unusual cloning activity by monitoring for a surge in unique private repo clones from a single PAT, signaling potential misuse.
+
+### Possible investigation steps
+
+- Review the specific personal access token (PAT) involved in the alert to determine its owner and associated user account.
+- Analyze the event logs for the PAT to identify the number and names of private repositories cloned, focusing on any unusual or unauthorized access patterns.
+- Check the access history of the PAT to see if there are any other suspicious activities or anomalies, such as access from unfamiliar IP addresses or locations.
+- Contact the owner of the PAT to verify if the cloning activity was authorized and to gather additional context about the usage of the token.
+- Investigate the security posture of the affected repositories, including reviewing access permissions and recent changes to repository settings.
+- Consider revoking the compromised PAT and issuing a new one if unauthorized access is confirmed, and ensure the user updates any systems or scripts using the old token.
+
+### False positive analysis
+
+- Legitimate automated processes or CI/CD pipelines may trigger multiple clone events. Review and whitelist known IP addresses or tokens associated with these processes to prevent false alerts.
+- Developers working on multiple projects might clone several private repositories in a short period. Identify and exclude these users or their tokens from triggering alerts by maintaining a list of frequent cloners.
+- Organizational scripts or tools that require cloning multiple repositories for updates or backups can cause false positives. Document these scripts and create exceptions for their associated tokens.
+- Scheduled maintenance or migration activities involving repository cloning can be mistaken for suspicious activity. Coordinate with relevant teams to anticipate such events and temporarily adjust detection thresholds or exclude specific tokens.
+
+### Response and remediation
+
+- Immediately revoke the compromised Personal Access Token (PAT) to prevent further unauthorized access to private repositories.
+- Notify the repository owners and relevant stakeholders about the potential breach to assess the impact and initiate internal incident response procedures.
+- Conduct a thorough review of the cloned repositories to identify any sensitive or proprietary information that may have been exposed.
+- Implement additional access controls, such as IP whitelisting or two-factor authentication, to enhance security for accessing private repositories.
+- Monitor for any unusual activity or further unauthorized access attempts using other PATs or credentials.
+- Escalate the incident to the security team for a comprehensive investigation and to determine if any other systems or data have been compromised.
+- Update and enforce policies regarding the creation, usage, and management of PATs to prevent similar incidents in the future."""
 risk_score = 21
 rule_id = "fb0afac5-bbd6-49b0-b4f8-44e5381e1587"
 severity = "low"
@@ -24,13 +58,14 @@ tags = [
     "Use Case: UEBA",
     "Tactic: Execution",
     "Data Source: Github",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and 
-github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
+event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and
 github.repository_public:false
 '''
 

@@ -2,7 +2,7 @@
 creation_date = "2023/11/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -11,20 +11,64 @@ Identifies a new credentials logon type performed by an unusual process. This ma
 token forging capability that are often abused to bypass access control restrictions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen NewCredentials Logon Process"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Time Seen NewCredentials Logon Process
+
+The NewCredentials logon type in Windows allows processes to impersonate a user without requiring a new logon session, often used for legitimate tasks like network resource access. However, adversaries can exploit this by forging access tokens to escalate privileges and bypass controls. The detection rule identifies unusual processes performing this logon type, excluding known system paths and service accounts, to flag potential misuse indicative of token manipulation attacks.
+
+### Possible investigation steps
+
+- Review the process executable path to determine if it is a known or expected application, especially since the query excludes common system paths like Program Files.
+- Investigate the SubjectUserName to identify the user account associated with the logon event and determine if it is a legitimate user or a potential compromised account.
+- Check the historical activity of the identified process and user account to see if this behavior is consistent with past actions or if it is anomalous.
+- Correlate the event with other security logs to identify any preceding or subsequent suspicious activities, such as failed logon attempts or unusual network connections.
+- Assess the environment for any recent changes or incidents that might explain the unusual logon process, such as software updates or new application deployments.
+- Consult threat intelligence sources to determine if the process or behavior is associated with known malicious activity or threat actors.
+
+### False positive analysis
+
+- Legitimate administrative tools or scripts may trigger this rule if they use the NewCredentials logon type for network resource access. To manage this, identify and whitelist these tools by their process executable paths.
+- Scheduled tasks or automated processes running under service accounts might be flagged. Review these tasks and exclude them by adding exceptions for known service account names.
+- Software updates or installations that require elevated privileges could cause false positives. Monitor these activities and create exceptions for the specific processes involved in regular update cycles.
+- Custom in-house applications that use impersonation for legitimate purposes may be detected. Work with development teams to document these applications and exclude their process paths from the rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes identified as using the NewCredentials logon type that are not part of known system paths or service accounts.
+- Revoke any potentially compromised access tokens and reset credentials for affected user accounts to prevent further misuse.
+- Conduct a thorough review of recent logon events and process executions on the affected system to identify any additional unauthorized activities or compromised accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring for similar suspicious logon activities across the network to detect and respond to potential future attempts promptly.
+- Review and update access control policies and token management practices to mitigate the risk of access token manipulation in the future."""
 references = ["https://www.elastic.co/pt/blog/how-attackers-abuse-access-token-manipulation"]
 risk_score = 47
 rule_id = "e468f3f6-7c4c-45bb-846a-053738b3fe5d"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
+event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and
+    winlog.event_data.LogonProcessName:Advapi* and
+    not winlog.event_data.SubjectUserName:*$ and
+    not process.executable: (C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe)
 '''
 
 

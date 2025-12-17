@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -35,11 +35,15 @@ author = ["Elastic"]
 description = "Adversaries can add the 'hidden' attribute to files to hide them from the user in an attempt to evade detection."
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -55,7 +59,7 @@ Attackers can use this attribute to conceal tooling and malware to prevent admin
 This rule looks for the execution of the `attrib.exe` utility with a command line that indicates the modification of the `Hidden` attribute.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -109,6 +113,11 @@ tags = [
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
@@ -118,7 +127,14 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (process.name : "attrib.exe" or ?process.pe.original_file_name == "ATTRIB.EXE") and process.args : "+h" and
-  not (process.parent.name: "cmd.exe" and process.command_line: "attrib  +R +H +S +A *.cui")
+  not (process.parent.name: "cmd.exe" and process.command_line: "attrib  +R +H +S +A *.cui") and
+
+  not (
+    process.parent.name: "draw.io.exe" and
+    (
+      process.command_line : ("*drawio.bkp*", "*drawio.dtmp*")
+    )
+  )
 '''
 
 

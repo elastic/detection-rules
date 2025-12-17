@@ -2,7 +2,7 @@
 creation_date = "2023/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Detects Inter-Process Communication with Outlook via Component Object Model from
 target user email to collect sensitive information or send email on their behalf via API.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Inter-Process Communication via Outlook"
@@ -27,6 +27,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Collection",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
@@ -39,14 +40,49 @@ sequence with maxspan=1m
       "cmd.exe", "regsvr32.exe", "cscript.exe", "wscript.exe"
     ) or
     (
-      (process.code_signature.trusted == false or process.code_signature.exists == false) and 
+      (process.code_signature.trusted == false or process.code_signature.exists == false) and
       (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500)
     )
   )
-] by process.executable
+] by process.entity_id
 [process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE" and
-  process.Ext.effective_parent.name != null] by process.Ext.effective_parent.executable
+  process.Ext.effective_parent.name != null] by process.Ext.effective_parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Inter-Process Communication via Outlook
+
+Outlook's integration with the Component Object Model (COM) allows processes to automate tasks like sending emails. Adversaries exploit this by using unusual processes to interact with Outlook, potentially to exfiltrate data or send unauthorized emails. The detection rule identifies such anomalies by monitoring for unexpected processes initiating communication with Outlook, especially those lacking trusted signatures or recently modified, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the process entity ID to identify the specific process that initiated communication with Outlook and determine if it is one of the unusual processes listed, such as rundll32.exe, mshta.exe, or powershell.exe.
+- Check the code signature status of the initiating process. If the process is unsigned or has an untrusted signature, investigate the source and legitimacy of the executable.
+- Analyze the relative file creation and modification times of the initiating process. If the process was created or modified recently (within 500 seconds), it may indicate a newly introduced or altered executable, warranting further scrutiny.
+- Investigate the effective parent process of OUTLOOK.EXE to understand the context of how Outlook was launched. Determine if the parent process is expected or if it is an unusual or suspicious process.
+- Correlate the alert with any recent user activity or changes on the host to identify potential user actions or system changes that could explain the process behavior.
+- Examine any network activity associated with the initiating process to identify potential data exfiltration or unauthorized email sending attempts.
+- Review any additional alerts or logs related to the host or user account to identify patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Legitimate administrative scripts or tools may trigger the rule if they use processes like PowerShell or cmd.exe to automate tasks involving Outlook. To manage this, identify and whitelist these scripts or tools by their specific file paths or hashes.
+- Software updates or installations might cause processes to appear as recently modified, leading to false positives. Regularly update the list of trusted software and exclude these known update processes from triggering alerts.
+- Custom in-house applications that interact with Outlook for business purposes may be flagged. Ensure these applications are signed with a trusted certificate or add them to an exception list based on their unique identifiers.
+- Security tools or monitoring software that perform regular checks on Outlook might be misidentified. Verify these tools and exclude them by their process names or signatures to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified in the alert, particularly those interacting with Outlook, such as rundll32.exe, mshta.exe, or powershell.exe.
+- Conduct a thorough review of the email account associated with the affected Outlook process to identify any unauthorized access or email activity. Reset the account credentials if necessary.
+- Analyze the process code signatures and file modification times to determine if any legitimate applications have been compromised. Reinstall or update these applications as needed.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of the suspicious activity.
+- Review and update endpoint protection policies to ensure that similar threats are detected and blocked in the future, leveraging the MITRE ATT&CK framework for guidance on email collection techniques."""
 
 
 [[rule.threat]]

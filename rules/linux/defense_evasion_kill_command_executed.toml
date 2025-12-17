@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of kill, pkill, and killall commands on Linux systems. These commands are used to terminate
+processes on a system. Attackers may use these commands to kill security tools or other processes to evade detection or
+disrupt system operations.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kill Command Execution"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kill Command Execution
+In Linux environments, commands like kill, pkill, and killall are essential for managing processes, allowing users to terminate them as needed. However, adversaries can exploit these commands to disable security tools or disrupt operations, aiding in evasion tactics. The detection rule identifies such misuse by monitoring process execution events, specifically targeting these commands to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process execution event details to identify the user account associated with the kill, pkill, or killall command execution. This can help determine if the action was performed by a legitimate user or a potential adversary.
+- Examine the parent process of the command execution to understand the context in which the kill command was initiated. This can provide insights into whether the command was part of a script or an interactive session.
+- Check the target process IDs (PIDs) that were terminated by the kill command to assess if critical or security-related processes were affected, which might indicate malicious intent.
+- Investigate the timing and frequency of the command execution to identify patterns or anomalies, such as repeated or scheduled executions, which could suggest automated or scripted activity.
+- Correlate the event with other security alerts or logs from the same host around the same timeframe to identify any related suspicious activities or indicators of compromise.
+
+### False positive analysis
+
+- Routine system maintenance tasks may trigger the rule when administrators use kill commands to manage processes. To handle this, create exceptions for known maintenance scripts or processes by identifying their unique attributes, such as user or command line arguments.
+- Automated scripts or monitoring tools that use kill commands for legitimate purposes, like restarting services, can cause false positives. Exclude these by specifying the script names or paths in the detection rule.
+- Development environments where developers frequently use kill commands during testing can lead to alerts. Consider excluding processes executed by specific user accounts associated with development activities.
+- System updates or package management tools might use kill commands as part of their operation. Identify these processes and exclude them based on their parent process or command line patterns.
+- Backup or recovery operations that involve stopping services may trigger the rule. Exclude these by recognizing the specific backup software or service names involved.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux system from the network to prevent further malicious activity or lateral movement by the attacker.
+- Identify and terminate any unauthorized or suspicious processes that were started around the time of the alert, focusing on those that may have been targeted by the kill, pkill, or killall commands.
+- Review system logs and process execution history to determine the origin of the kill command execution and assess whether it was initiated by a legitimate user or a compromised account.
+- Restore any terminated security tools or critical processes to ensure the system's defenses are fully operational.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection tools to identify and remove any additional malware or persistence mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems may be affected.
+- Implement additional monitoring and alerting for similar command executions across the network to enhance detection and response capabilities for future incidents.
+"""
+risk_score = 21
+rule_id = "f391d3fd-219b-42a3-9ba9-2f66eb0155aa"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+process.name:(kill or pkill or killall) and not (
+  process.args:("-HUP" or "-SIGUSR1" or "-USR2" or "-WINCH" or "-USR1") or
+  process.parent.command_line:"runc init"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+
+[[rule.threat.technique]]
+name = "Impair Defenses"
+id = "T1562"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+name = "Indicator Blocking"
+id = "T1562.006"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

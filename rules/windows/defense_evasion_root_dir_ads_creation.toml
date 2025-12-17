@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/03/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -16,10 +16,48 @@ index = [
     "logs-endpoint.events.process-*",
     "logs-endpoint.events.file-*",
     "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Alternate Data Stream Creation/Execution at Volume Root Directory"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Alternate Data Stream Creation/Execution at Volume Root Directory
+
+Alternate Data Streams (ADS) in Windows allow files to contain multiple streams of data, which can be exploited by adversaries to conceal malicious tools or data. By creating or executing ADS at the root of a volume, attackers can evade detection by standard system utilities. The detection rule identifies suspicious ADS activity by monitoring file creation and process execution patterns at the volume root, flagging potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path or process executable that triggered the alert, focusing on the volume root directory pattern [A-Z]:\\\\:.
+- Check the file or process creation timestamp to determine when the suspicious activity occurred and correlate it with other events or activities on the system around the same time.
+- Investigate the file or process owner and the user account associated with the activity to assess if it aligns with expected behavior or if it indicates potential unauthorized access.
+- Examine the file or process for known indicators of compromise (IOCs) or signatures of malicious activity using threat intelligence sources or antivirus tools.
+- Analyze the system for additional signs of compromise, such as unexpected network connections, registry changes, or other suspicious files, to determine if the ADS activity is part of a larger attack.
+- Review system logs and security tools for any related alerts or anomalies that could provide further context or evidence of malicious intent.
+
+### False positive analysis
+
+- System utilities or legitimate applications may create ADS at the volume root for benign purposes, such as storing metadata or configuration data. Review the source of the ADS creation to determine if it is associated with known safe applications.
+- Backup or disk management software might use ADS to store additional information about files. Verify if the detected activity aligns with scheduled backup operations or disk management tasks.
+- Some security tools or system monitoring applications may use ADS for logging or tracking purposes. Cross-reference the process or file path with known security tools to rule out false positives.
+- If a specific application is consistently triggering alerts due to its use of ADS, consider creating an exception for that application's process or file path in your monitoring solution to reduce noise.
+- Regularly update your list of known safe applications and processes that interact with ADS to ensure that legitimate activities are not flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Use endpoint detection and response (EDR) tools to terminate any suspicious processes associated with the identified ADS activity.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any hidden malicious files or tools.
+- Review and delete any unauthorized or suspicious ADS found at the volume root directory to eliminate potential hiding places for malware.
+- Restore affected files from a known good backup to ensure system integrity and remove any compromised data.
+- Monitor network traffic for unusual patterns or connections that may indicate ongoing malicious activity or data exfiltration attempts.
+- Escalate the incident to the security operations center (SOC) or relevant IT security team for further investigation and to assess the need for broader organizational response measures."""
 references = ["https://www.crowdstrike.com/blog/anatomy-of-alpha-spider-ransomware/"]
 risk_score = 47
 rule_id = "ff6cf8b9-b76c-4cc1-ac1b-4935164d1029"
@@ -31,14 +69,18 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where host.os.type == "windows" and event.category in ("file", "process") and 
+any where host.os.type == "windows" and event.category in ("file", "process") and
   (
-    (event.type == "creation" and file.path regex~ """[A-Z]:\\:.+""") or 
+    (event.type == "creation" and file.path regex~ """[A-Z]:\\:.+""") or
     (event.type == "start" and process.executable regex~ """[A-Z]:\\:.+""")
   )
 '''

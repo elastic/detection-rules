@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2025/04/29"
+integration = ["endpoint", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the modification and reading of kernel features through built-in commands. Attackers may collect
+information, disable or weaken Linux kernel protections. For example, an attacker may modify ASLR protection by
+disabling kernel.randomize_va_space, allow ptrace by setting kernel.yama.ptrace_scope to 0, or disable the
+NMI watchdog by setting kernel.nmi_watchdog to 0. These changes may be used to impair defenses and evade detection.
+"""
+from = "now-9m"
+index = [
+  "logs-endpoint.events.process*",
+  "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Kernel Feature Activity"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Kernel Feature Activity
+
+Kernel features in Linux systems are critical for maintaining security and stability. They control various system behaviors, such as memory randomization and process tracing. Adversaries may exploit these features to weaken defenses, for instance, by disabling address space layout randomization (ASLR) or enabling unrestricted process tracing. The detection rule identifies suspicious activities by monitoring command executions that modify or read kernel settings, focusing on unusual patterns or contexts that suggest malicious intent.
+
+### Possible investigation steps
+
+- Review the process command line to identify which specific kernel feature was accessed or modified, focusing on entries like kernel.randomize_va_space or kernel.yama.ptrace_scope.
+- Examine the parent process executable and name to determine the context in which the suspicious command was executed, checking for unusual or unauthorized parent processes.
+- Investigate the user account associated with the process execution to assess whether the activity aligns with expected behavior for that user.
+- Check for any recent changes in the /etc/sysctl.conf or /etc/sysctl.d/ directories that might indicate unauthorized modifications to kernel settings.
+- Analyze the system's process execution history to identify any patterns or sequences of commands that suggest a broader attack or compromise.
+- Correlate the alert with other security events or logs to determine if this activity is part of a larger attack campaign or isolated incident.
+
+### False positive analysis
+
+- System administrators or automated scripts may frequently modify kernel settings for legitimate purposes such as performance tuning or system maintenance. To handle these, identify and whitelist known administrative scripts or processes that regularly perform these actions.
+- Security tools or monitoring solutions might execute commands that read kernel settings as part of their normal operation. Review and exclude these tools from triggering alerts by adding them to an exception list based on their process names or command patterns.
+- Developers and testers might disable certain kernel features temporarily during debugging or testing phases. Coordinate with development teams to document these activities and exclude them from detection by specifying the relevant process names or command lines.
+- Some system management tools may use commands like sysctl to apply configuration changes across multiple systems. If these tools are verified as non-threatening, exclude their specific command patterns or parent processes from triggering the rule.
+- Regular system updates or configuration management processes might involve reading or modifying kernel settings. Identify these processes and add them to an exception list to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Review and revert any unauthorized changes to kernel settings, such as ASLR, ptrace scope, or NMI watchdog, to their secure defaults using sysctl or by editing configuration files.
+- Conduct a thorough examination of the system for signs of compromise, including checking for unauthorized access, unusual processes, or modifications to critical files.
+- Restore the system from a known good backup if the integrity of the system is compromised and cannot be reliably remediated.
+- Implement additional monitoring and logging for kernel feature modifications to detect similar activities in the future, ensuring alerts are configured for immediate response.
+- Escalate the incident to the security operations center (SOC) or relevant security team for further investigation and correlation with other potential threats across the network.
+- Review and update security policies and configurations to prevent unauthorized kernel modifications, including enforcing stricter access controls and auditing procedures.
+"""
+risk_score = 21
+rule_id = "3aff6ab1-18bd-427e-9d4c-c5732110c261"
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Discovery",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process.command_line : (
+  "*/etc/sysctl.conf*", "*/etc/sysctl.d/*", "*/proc/sys/kernel/nmi_watchdog*",
+  "*/proc/sys/vm/nr_hugepages*", "*/proc/sys/kernel/yama/ptrace_scope*",
+  "*/proc/sys/kernel/randomize_va_space*", "*/proc/sys/vm/drop_caches*",
+  "*/proc/sys/kernel/sysrq*", "*grsecurity*", "*exec-shield*",
+  "*kernel.randomize_va_space*", "*kernel.yama.ptrace_scope*",
+  "*kernel.nmi_watchdog*", "*vm.nr_hugepages*", "*vm.drop_caches*",
+  "*kernel.sysrq*"
+) and
+?process.parent.executable != null and 
+(
+  (process.name == "tee" and process.args like "-*a*") or // also detects --append
+  (process.name == "cat" and not process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")) or
+  (process.name == "grep" and process.args_count == 3 and not process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")) or
+  (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
+  (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and process.args : "*echo *")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+name = "Impair Defenses"
+id = "T1562"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+name = "Indicator Blocking"
+id = "T1562.006"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
+
+[[rule.threat.technique]]
+name = "Subvert Trust Controls"
+id = "T1553"
+reference = "https://attack.mitre.org/techniques/T1553/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2025/07/24"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of ASPX files in specific directories that are commonly targeted by attackers to deploy web shells.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Web Shell ASPX File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Web Shell ASPX File Creation
+
+Web shells are malicious scripts uploaded to web servers, often exploiting vulnerabilities in web applications. ASPX files, used in Windows environments, can be manipulated by attackers to maintain persistence and execute arbitrary commands. Adversaries target specific directories for deploying these files. The detection rule identifies suspicious ASPX file creation in these directories, excluding legitimate processes, to flag potential web shell activity.
+
+### Possible investigation steps
+
+- Review the file path where the ASPX file was created to confirm it matches the targeted directory pattern: "?:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\*". This can help determine if the file is in a location commonly exploited for web shells.
+- Examine the process that created the ASPX file, ensuring it is not the legitimate "?:\\Windows\\System32\\msiexec.exe". Investigate the actual process responsible for the file creation to assess its legitimacy and potential malicious intent.
+- Check the timestamp of the file creation event to correlate it with other suspicious activities or alerts on the host, which might provide additional context or evidence of compromise.
+- Investigate the contents of the ASPX file to identify any malicious code or scripts that could indicate a web shell. Look for patterns or code snippets commonly associated with web shell functionality.
+- Analyze network activity from the host around the time of the ASPX file creation to identify any unusual outbound connections or data transfers that might suggest communication with a command and control server.
+- Review historical alerts and logs for the host to identify any previous suspicious activities or patterns that could indicate ongoing compromise or persistence mechanisms.
+
+### False positive analysis
+
+- Routine updates or installations of legitimate web server components may trigger alerts. Users can create exceptions for known update processes or installation paths to reduce false positives.
+- Development or testing environments often generate ASPX files as part of normal operations. Exclude directories or processes associated with these environments to prevent unnecessary alerts.
+- Automated scripts or tools used for web server maintenance might create ASPX files. Identify and whitelist these scripts to avoid false detections.
+- Legitimate third-party applications that integrate with web server extensions may create ASPX files. Monitor and whitelist these applications to ensure they do not trigger false positives.
+- Scheduled tasks or system processes that interact with web server directories can be mistaken for malicious activity. Review and exclude these tasks if they are verified as non-threatening.
+
+### Response and remediation
+
+- Isolate the affected server from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes associated with the creation of the ASPX file, especially those not originating from legitimate executables like msiexec.exe.
+- Remove the identified ASPX file from the targeted directory to eliminate the potential web shell.
+- Conduct a thorough scan of the server using updated antivirus and endpoint detection tools to identify and remove any additional malicious files or processes.
+- Review server logs and network traffic for signs of unauthorized access or data exfiltration, and document any findings for further analysis.
+- Restore the server from a known good backup if necessary, ensuring that the backup is free from any malicious artifacts.
+- Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures, such as patching vulnerabilities or enhancing monitoring capabilities.
+"""
+references = [
+    "https://blog.viettelcybersecurity.com/toolshell-a-critical-sharepoint-vulnerability-chain-under-active-exploitation/",
+    "https://www.sentinelone.com/blog/sharepoint-toolshell-zero-day-exploited-in-the-wild-targets-enterprise-servers/",
+    "https://www.rapid7.com/blog/post/2024/10/30/investigating-a-sharepoint-compromise-ir-tales-from-the-field/",
+]
+risk_score = 21
+rule_id = "32144184-7bfa-4541-9c3f-b65f16d24df9"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type != "deletion" and
+  file.extension : "aspx" and
+  file.path : "?:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\*" and
+  not process.executable: "?:\\Windows\\System32\\msiexec.exe"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

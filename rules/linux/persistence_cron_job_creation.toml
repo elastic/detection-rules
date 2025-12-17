@@ -2,22 +2,20 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/09/29"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE (path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE
-'/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE
-'/etc/cron.monthly/%' OR path LIKE '/var/spool/cron/crontabs/%')
+SELECT * FROM file WHERE (path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE '/etc/cron.hourly/%'
+OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE '/etc/cron.monthly/%' OR path LIKE
+'/var/spool/cron/crontabs/%')
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Cron File Information"
-query = """
-SELECT * FROM file WHERE (path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab')
-"""
+query = "SELECT * FROM file WHERE (path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab')\n"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
@@ -74,7 +72,7 @@ By creating or modifying cron job configurations, attackers can execute maliciou
 This rule monitors the creation of cron jobs by monitoring for file creation and rename events in the most common cron job task location directories.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible Investigation Steps
@@ -136,6 +134,7 @@ This rule monitors the creation of cron jobs by monitoring for file creation and
 """
 references = [
     "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
 ]
 risk_score = 47
 rule_id = "ff10d4d8-fea7-422d-afb1-e5a2702369a9"
@@ -173,9 +172,11 @@ tags = [
     "Tactic: Privilege Escalation",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and
 event.action in ("rename", "creation") and file.path : (
@@ -190,15 +191,26 @@ event.action in ("rename", "creation") and file.path : (
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/local/bin/dockerd"
+    "/bin/pamac-daemon", "/usr/local/bin/dockerd", "/opt/elasticbeanstalk/bin/platform-engine",
+    "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/opt/imunify360/venv/bin/python3",
+    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor",
+    "/usr/bin/pvedaemon", "./usr/bin/podman", "/usr/lib/systemd/systemd"
   ) or
-  file.path : "/var/spool/cron/crontabs/tmp.*" or
+  file.path like ("/var/spool/cron/crontabs/tmp.*", "/etc/cron.d/jumpcloud-updater") or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
-  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/libexec/platform-python*",
+    "/var/lib/waagent/Microsoft*"
+  ) or
   process.executable == null or
+  process.name in (
+    "crond", "executor", "puppet", "droplet-agent.postinst", "cf-agent", "schedd", "imunify-notifier", "perl",
+    "jumpcloud-agent", "crio", "dnf_install", "utild"
+  ) or
   (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*")  or
+  (process.name in ("vi", "vim") and file.name like "*~")
 )
 '''
 

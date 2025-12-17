@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/02/13"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -29,13 +29,20 @@ Identifies attempts to add a user to a privileged group. Attackers may add users
 establish persistence on a system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux User Added to Privileged Group"
 note = """## Triage and analysis
 
-### Investigating Linux User User Added to Privileged Group
+### Investigating Linux User Added to Privileged Group
 
 The `usermod`, `adduser`, and `gpasswd` commands can be used to assign user accounts to new groups in Linux-based operating systems.
 
@@ -44,7 +51,7 @@ Attackers may add users to a privileged group in order to escalate privileges or
 This rule identifies the usages of `usermod`, `adduser` and `gpasswd` to assign user accounts to a privileged group.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -79,6 +86,7 @@ This rule identifies the usages of `usermod`, `adduser` and `gpasswd` to assign 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "43d6ec12-2b1c-47b5-8f35-e9de65551d3b"
 setup = """## Setup
@@ -116,20 +124,22 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
- and process.args in (
-  "root", "admin", "wheel", "staff", "sudo","disk", "video", "shadow", "lxc", "lxd"
-) and
-(
-  process.name in ("usermod", "adduser") or
-  process.name == "gpasswd" and 
-  process.args in ("-a", "--add", "-M", "--members") 
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  process.args in (
+    "root", "admin", "wheel", "staff", "sudo","disk", "video", "shadow", "lxc", "lxd"
+  ) and
+  (
+    process.name in ("usermod", "adduser") or
+    (process.name == "gpasswd" and process.args in ("-a", "--add", "-M", "--members"))
+  )
 '''
 
 

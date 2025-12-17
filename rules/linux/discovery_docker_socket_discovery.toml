@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2025/03/04"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/04/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential Docker socket enumeration activity by monitoring processes that attempt to interact with the
+Docker socket file (/var/run/docker.sock). Docker socket enumeration is a common technique used by attackers to interact
+with the Docker daemon and perform various operations, such as creating, starting, stopping, and removing containers.
+Attackers may abuse Docker socket enumeration to gain unauthorized access to the host system, escalate privileges, or
+move laterally within the environment.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Docker Socket Enumeration"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Docker Socket Enumeration
+
+Docker sockets facilitate communication between the Docker client and daemon, enabling container management. Adversaries exploit this by accessing the socket to control containers, potentially escalating privileges or moving laterally. The detection rule identifies suspicious processes interacting with the Docker socket, using specific commands, to flag unauthorized enumeration attempts.
+
+### Possible investigation steps
+
+- Review the process details to confirm the presence of suspicious commands interacting with the Docker socket, specifically looking for the use of tools like curl, socat, nc, netcat, ncat, or nc.traditional.
+- Examine the command line arguments of the flagged process to understand the intent and scope of the interaction with the Docker socket, focusing on paths like /var/run/docker.sock or /run/docker.sock.
+- Identify the user account under which the suspicious process was executed to assess if it has legitimate access to Docker resources or if it might be compromised.
+- Check the historical activity of the involved user and process to determine if this behavior is anomalous or part of a known pattern.
+- Investigate any recent changes or deployments in the Docker environment that might explain the interaction with the Docker socket, such as new container setups or updates.
+- Correlate the alert with other security events or logs from the same host or network segment to identify potential lateral movement or privilege escalation attempts.
+
+### False positive analysis
+
+- Legitimate administrative tasks using tools like curl or socat to interact with Docker for monitoring or management purposes can trigger alerts. To handle this, create exceptions for specific user accounts or scripts that are known to perform these tasks regularly.
+- Automated scripts or services that check the status of Docker containers might be flagged. Identify these scripts and whitelist their process names or command lines to prevent unnecessary alerts.
+- Development environments where developers frequently use command-line tools to interact with Docker may cause false positives. Consider excluding specific development machines or user groups from the rule to reduce noise.
+- Continuous integration or deployment pipelines that use Docker commands as part of their workflow can be mistaken for enumeration attempts. Exclude these processes by identifying their unique command patterns or execution contexts.
+- Security tools that perform regular audits or checks on Docker environments might trigger the rule. Verify these tools and add them to an exception list to avoid false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious processes identified in the alert that are interacting with the Docker socket, such as those using curl, socat, or netcat.
+- Conduct a thorough review of Docker containers on the affected host to identify any unauthorized or malicious containers. Stop and remove any that are not recognized or are deemed suspicious.
+- Check for any unauthorized changes to Docker configurations or images and revert them to a known good state.
+- Review and restrict permissions on the Docker socket file (/var/run/docker.sock) to limit access to only trusted users and processes.
+- Escalate the incident to the security operations team for further investigation and to determine if additional hosts or systems are affected.
+- Implement enhanced monitoring and logging for Docker socket interactions to detect and respond to similar threats more quickly in the future.
+"""
+risk_score = 21
+rule_id = "dd983e79-22e8-44d1-9173-d57dba514cac"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in ("curl", "socat", "nc", "netcat", "ncat", "nc.traditional") and
+process.command_line like ("*/var/run/docker.sock*", "*/run/docker.sock*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

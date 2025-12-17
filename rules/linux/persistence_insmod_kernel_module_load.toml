@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,13 @@ security products. Manually loading a kernel module in this manner should not be
 suspcious or malicious behavior.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Load via insmod"
@@ -54,7 +60,7 @@ Threat actors can abuse this utility to load rootkits, granting them full contro
 The detection rule 'Kernel module load via insmod' is designed to identify instances where the insmod binary is used to load a kernel object file (with a .ko extension) on a Linux system. This activity is uncommon and may indicate suspicious or malicious behavior.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 ### Possible investigation steps
@@ -155,12 +161,18 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko"
+process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko" and
+not process.parent.executable like (
+  "/opt/ds_agent/*", "/usr/sbin/veeamsnap-loader", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*",
+  "/opt/commvault/Base/linux_drv", "/bin/falcoctl"
+)
 '''
 
 

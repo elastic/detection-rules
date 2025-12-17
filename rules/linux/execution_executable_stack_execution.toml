@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2025/01/07"
+integration = ["system"]
+maturity = "production"
+updated_date = "2025/01/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the syslog log file for messages related to instances of processes that are started with an executable
+stack. This can be an indicator of a process that is attempting to execute code from the stack, which can be a security risk.
+"""
+from = "now-9m"
+index = ["logs-system.syslog-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Process Started with Executable Stack"
+risk_score = 21
+rule_id = "fc5105ce-2584-48b6-a0cf-9ace7eeffd3c"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Filebeat
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat for the Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete Setup and Run Filebeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the Filebeat System Module to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: System",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:"linux" and event.dataset:"system.syslog" and process.name:"kernel" and
+message:"started with executable stack"
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Started with Executable Stack
+
+In Linux environments, processes with executable stacks can pose security risks as they may allow code execution from the stack, a behavior often exploited by attackers to run arbitrary code. Adversaries might leverage this to execute malicious scripts or commands. The detection rule monitors syslog for kernel messages indicating such processes, flagging potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the syslog entries to identify the specific process that triggered the alert, focusing on the message field containing "started with executable stack".
+- Investigate the process name and associated command-line arguments to understand the nature and purpose of the process.
+- Check the process's parent process to determine if it was spawned by a legitimate application or service.
+- Analyze the user account under which the process is running to assess if it aligns with expected behavior and permissions.
+- Look for any recent changes or anomalies in the system that might correlate with the process start time, such as new software installations or configuration changes.
+- Cross-reference the process with known threat intelligence sources to identify if it matches any known malicious patterns or indicators.
+
+### False positive analysis
+
+- Development tools and environments may intentionally use executable stacks for legitimate purposes, such as certain debugging or testing scenarios. Users can create exceptions for these specific tools by identifying their process names and excluding them from the detection rule.
+- Some legacy applications might require executable stacks due to outdated coding practices. Users should verify the necessity of these applications and, if deemed non-threatening, add them to an exclusion list based on their process names or paths.
+- Custom scripts or applications developed in-house might inadvertently use executable stacks. Conduct a review of these scripts to ensure they are safe, and if so, exclude them from monitoring by specifying their unique identifiers.
+- Certain system utilities or libraries might trigger this rule during normal operations. Users should consult documentation or vendor support to confirm if these are expected behaviors and exclude them accordingly if they pose no risk.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the attacker.
+- Terminate the suspicious process identified with an executable stack to halt any ongoing malicious activity.
+- Conduct a thorough analysis of the process and its associated files to identify any malicious payloads or scripts that may have been executed.
+- Restore the system from a known good backup if any unauthorized changes or malware are detected.
+- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by similar threats.
+- Implement stack protection mechanisms such as stack canaries or non-executable stack configurations to prevent future exploitation.
+- Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

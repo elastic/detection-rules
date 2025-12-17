@@ -2,7 +2,7 @@
 creation_date = "2021/10/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ a macOS endpoint by creating a malicious screensaver (.saver) file and configuri
 code each time the screensaver is activated.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Screensaver Plist File Modified by Unexpected Process"
@@ -60,14 +60,15 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "macos" and event.type != "deletion" and
-  file.name: "com.apple.screensaver.*.plist" and
-   file.path : (
+file where host.os.type == "macos" and event.action == "modification" and
+  file.name like~ "com.apple.screensaver.*.plist" and
+   file.path like (
       "/Users/*/Library/Preferences/ByHost/*",
       "/Library/Managed Preferences/*",
       "/System/Library/Preferences/*"
@@ -77,7 +78,7 @@ file where host.os.type == "macos" and event.type != "deletion" and
     process.code_signature.exists == false or
 
     /* common script interpreters and abused native macOS bins */
-    process.name : (
+    process.name like~ (
       "curl",
       "mktemp",
       "tail",
@@ -89,7 +90,7 @@ file where host.os.type == "macos" and event.type != "deletion" and
    ) and
 
   /* Filter OS processes modifying screensaver plist files */
-  not process.executable : (
+  not process.executable like (
     "/usr/sbin/cfprefsd",
     "/usr/libexec/xpcproxy",
     "/System/Library/CoreServices/ManagedClient.app/Contents/Resources/MCXCompositor",

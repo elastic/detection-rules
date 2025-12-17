@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/13"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,20 +12,54 @@ legitimate system administration, but can also be abused by an attacker with dom
 malicious payload remotely on all or a subset of the domain joined machines.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation or Modification of a new GPO Scheduled Task or Service"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation or Modification of a new GPO Scheduled Task or Service
+
+Group Policy Objects (GPOs) are crucial for centralized management in Windows environments, allowing administrators to configure settings across domain-joined machines. Adversaries with domain admin rights can exploit GPOs to create or modify scheduled tasks or services, deploying malicious payloads network-wide. The detection rule identifies such activities by monitoring specific file changes in GPO paths, excluding legitimate system processes, thus highlighting potential abuse for privilege escalation or persistence.
+
+### Possible investigation steps
+
+- Review the file path and name to confirm if the changes were made to "ScheduledTasks.xml" or "Services.xml" within the specified GPO paths, as these are indicative of potential unauthorized modifications.
+- Check the process that initiated the file change, ensuring it is not "C:\\\\Windows\\\\System32\\\\dfsrs.exe", which is excluded as a legitimate system process.
+- Investigate the user account associated with the file modification event to determine if it has domain admin rights and assess if the activity aligns with their typical behavior or role.
+- Examine recent changes in the GPO settings to identify any new or altered scheduled tasks or services that could be used for malicious purposes.
+- Correlate the event with other security logs or alerts from data sources like Elastic Endgame, Sysmon, or Microsoft Defender for Endpoint to identify any related suspicious activities or patterns.
+- Assess the impact by identifying which domain-joined machines are affected by the GPO changes and determine if any unauthorized tasks or services have been executed.
+
+### False positive analysis
+
+- Legitimate administrative changes to GPOs can trigger alerts. Regularly review and document scheduled administrative tasks to differentiate between expected and unexpected changes.
+- Automated system management tools may modify GPO scheduled tasks or services as part of routine operations. Identify these tools and create exceptions for their processes to reduce noise.
+- Updates or patches from Microsoft or other trusted vendors might alter GPO settings. Monitor update schedules and correlate changes with known update activities to verify legitimacy.
+- Internal IT scripts or processes that manage GPOs for configuration consistency can cause false positives. Ensure these scripts are well-documented and consider excluding their specific actions from monitoring.
+- Temporary changes made by IT staff for troubleshooting or testing purposes can be mistaken for malicious activity. Implement a change management process to log and approve such activities, allowing for easy exclusion from alerts.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further spread of any malicious payloads deployed via the modified GPO scheduled tasks or services.
+- Revoke domain admin privileges from any accounts that are suspected of being compromised to prevent further unauthorized modifications to GPOs.
+- Conduct a thorough review of the modified ScheduledTasks.xml and Services.xml files to identify any unauthorized or malicious entries, and revert them to their previous legitimate state.
+- Utilize endpoint detection and response (EDR) tools to scan for and remove any malicious payloads that may have been executed on domain-joined machines as a result of the GPO modifications.
+- Notify the security operations center (SOC) and escalate the incident to the incident response team for further investigation and to determine the scope of the compromise.
+- Implement additional monitoring on GPO paths and domain admin activities to detect any further unauthorized changes or suspicious behavior.
+- Review and strengthen access controls and auditing policies for GPO management to prevent unauthorized modifications in the future."""
 risk_score = 21
 rule_id = "c0429aa8-9974-42da-bfb6-53a0a515a145"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -36,15 +70,21 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type != "deletion" and
-  file.path : ("?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
-               "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Services\\Services.xml") and
-  not process.name : "dfsrs.exe"
+file where host.os.type == "windows" and event.type != "deletion" and event.action != "open" and
+ file.name : ("ScheduledTasks.xml", "Services.xml") and
+  file.path : (
+    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
+    "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Services\\Services.xml"
+  ) and
+  not process.executable : "C:\\Windows\\System32\\dfsrs.exe"
 '''
 
 

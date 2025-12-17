@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2021/03/15"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,22 +12,66 @@ task scheduling functionality to facilitate initial or recurring execution of ma
 """
 false_positives = ["Legitimate scheduled jobs may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Scheduled Job Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Scheduled Job Creation
+
+Scheduled jobs in Windows environments allow tasks to be automated by executing scripts or programs at specified times. Adversaries exploit this feature to maintain persistence by scheduling malicious code execution. The detection rule identifies suspicious job creation by monitoring specific file paths and extensions, excluding known legitimate processes, to flag potential abuse while minimizing false positives.
+
+### Possible investigation steps
+
+- Review the file path and extension to confirm the presence of a scheduled job in the "?:\\Windows\\Tasks\\" directory with a ".job" extension, which is indicative of a scheduled task.
+- Examine the process executable path to determine if the job creation is associated with any known legitimate processes, such as CCleaner or ManageEngine, which are excluded in the detection rule.
+- Investigate the origin of the process that created the scheduled job by checking the process execution history and command line arguments to identify any potentially malicious behavior.
+- Analyze the scheduled job's content and associated scripts or programs to identify any suspicious or unauthorized code that may indicate malicious intent.
+- Correlate the event with other security logs and alerts from data sources like Elastic Endgame, Sysmon, or Microsoft Defender for Endpoint to gather additional context and identify any related malicious activity.
+- Assess the risk and impact of the scheduled job by determining if it aligns with known adversary tactics, techniques, and procedures (TTPs) related to persistence, as outlined in the MITRE ATT&CK framework.
+
+### False positive analysis
+
+- Scheduled jobs created by CCleaner for crash reporting can trigger false positives. Exclude the path "?:\\Windows\\Tasks\\CCleanerCrashReporting.job" when the process executable is "?:\\Program Files\\CCleaner\\CCleaner64.exe".
+- ManageEngine UEMS Agent and DesktopCentral Agent may create scheduled jobs for updates, leading to false positives. Exclude the path "?:\\Windows\\Tasks\\DCAgentUpdater.job" when the process executable is "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\dcagentregister.exe" or "?:\\Program Files (x86)\\DesktopCentral_Agent\\bin\\dcagentregister.exe".
+- Regularly review and update exclusion lists to ensure they reflect the current environment and legitimate software behavior.
+- Consider implementing a whitelist of known legitimate processes and paths to further reduce false positives while maintaining effective threat detection.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution of potentially malicious scheduled jobs and limit lateral movement.
+- Terminate any suspicious processes associated with the identified scheduled job, using tools like Task Manager or PowerShell, to halt any ongoing malicious activity.
+- Delete the suspicious scheduled job file from the system to prevent future execution. This can be done using the Task Scheduler or command-line tools.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) solutions to identify and remove any additional malicious files or remnants.
+- Review and audit other scheduled tasks on the system to ensure no additional unauthorized or suspicious jobs are present.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems are affected.
+- Implement enhanced monitoring and alerting for scheduled job creation activities across the network to detect similar threats in the future, leveraging the specific query fields used in the detection rule."""
 risk_score = 47
 rule_id = "1327384f-00f3-44d5-9a8c-2373ba071e92"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

@@ -2,7 +2,7 @@
 creation_date = "2024/04/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/11/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,11 +11,15 @@ It identifies potential malicious shell executions through remote SSH and detect
 terminates soon after successful execution, suggesting suspicious behavior similar to the XZ backdoor.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Execution via XZBackdoor"
-references = ["https://github.com/amlweems/xzbot", "https://access.redhat.com/security/cve/CVE-2024-3094"]
+references = [
+    "https://github.com/amlweems/xzbot",
+    "https://access.redhat.com/security/cve/CVE-2024-3094",
+    "https://www.elastic.co/security-labs/500ms-to-midnight",
+]
 risk_score = 73
 rule_id = "7afc6cc9-8800-4c7f-be6b-b688d2dea248"
 severity = "high"
@@ -27,70 +31,106 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Lateral Movement",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-sequence by host.id, user.id with maxspan=1s
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sshd" and
-    process.args == "-D" and process.args == "-R"] by process.pid, process.entity_id
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd" and 
-  process.executable != "/usr/sbin/sshd"] by process.parent.pid, process.parent.entity_id
- [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.pid, process.entity_id
- [network where host.os.type == "linux" and event.type == "end" and event.action == "disconnect_received" and process.name == "sshd"] by process.pid, process.entity_id
+sequence by host.id with maxspan=1m
+  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.parent.name == "sshd" and process.parent.args == "-D" and process.parent.args == "-R" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+   not (
+     process.args like ("rsync*", "systemctl*", "/usr/sbin/unix_chkpwd", "/usr/bin/google_authorized_keys", "/usr/sbin/aad_certhandler*") or
+     process.command_line like ("sh -c /usr/bin/env -i PATH=*", "sh -c -- /usr/bin/env -i PATH=*") 
+   )] by process.parent.entity_id
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Execution via XZBackdoor
+
+The XZBackdoor leverages SSH, a secure protocol for remote access, to execute malicious commands stealthily. Adversaries exploit SSH by initiating sessions that mimic legitimate activity, then abruptly terminate them post-execution to evade detection. The detection rule identifies anomalies by tracking SSH processes that start and end unexpectedly, especially when non-standard executables are invoked, signaling potential backdoor activity.
+
+### Possible investigation steps
+
+- Review the SSH session logs on the affected host to identify any unusual or unauthorized access attempts, focusing on sessions that match the process.pid and process.entity_id from the alert.
+- Examine the command history and executed commands for the user associated with the user.id in the alert to identify any suspicious or unexpected activities.
+- Investigate the non-standard executables invoked by the SSH session by checking the process.executable field to determine if they are legitimate or potentially malicious.
+- Analyze the network activity associated with the SSH session, particularly any disconnect_received events, to identify any unusual patterns or connections to suspicious IP addresses.
+- Check the exit codes of the SSH processes, especially those with a non-zero process.exit_code, to understand the reason for the abrupt termination and whether it aligns with typical error codes or indicates malicious activity.
+
+### False positive analysis
+
+- Legitimate administrative SSH sessions may trigger the rule if they involve non-standard executables. To manage this, create exceptions for known administrative scripts or tools that are frequently used in your environment.
+- Automated processes or scripts that use SSH for routine tasks might mimic the behavior of the XZBackdoor. Identify these processes and exclude them by specifying their executable paths or command-line patterns in the rule exceptions.
+- Security tools or monitoring solutions that perform SSH-based checks could be mistaken for malicious activity. Review these tools and add their signatures to the exclusion list to prevent false alerts.
+- Custom applications that use SSH for communication might be flagged. Document these applications and adjust the rule to recognize their specific execution patterns as non-threatening.
+- Temporary network issues causing abrupt SSH session terminations could be misinterpreted as suspicious behavior. Monitor network stability and consider excluding known transient disconnections from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious SSH sessions identified by the detection rule to stop ongoing malicious activity.
+- Conduct a thorough review of the affected host's SSH configuration and logs to identify unauthorized changes or access patterns.
+- Reset credentials for any user accounts involved in the suspicious SSH activity to prevent further unauthorized access.
+- Restore the affected system from a known good backup if any unauthorized changes or malware are detected.
+- Implement network segmentation to limit SSH access to critical systems and reduce the attack surface.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems are compromised."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
 
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.004"
 name = "SSH"
 reference = "https://attack.mitre.org/techniques/T1021/004/"
 
-
 [[rule.threat.technique]]
 id = "T1563"
 name = "Remote Service Session Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1563.001"
 name = "SSH Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

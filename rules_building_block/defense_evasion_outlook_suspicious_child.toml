@@ -1,0 +1,112 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2025/01/10"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/05/05"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies suspicious child processes spawned by MS Outlook, which can indicate a potential masquerading or the
+exploitation of a vulnerability on the application causing it to execute code.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Outlook Child Process"
+risk_score = 21
+rule_id = "6cf17149-a8e3-44ec-9ec9-fdc8535547a1"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "outlook.exe" and
+  not (
+    (
+      process.executable : (
+        "?:\\Program Files\\*",
+        "?:\\Program Files (x86)\\*",
+        "?:\\Windows\\System32\\WerFault.exe",
+        "?:\\Windows\\SysWOW64\\WerFault.exe",
+        "?:\\Windows\\system32\\wermgr.exe",
+        "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
+        "?:\\Users\\*\\AppData\\Local\\Temp\\NewOutlookInstall\\NewOutlookInstaller.exe",
+        "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+        "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
+        "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
+        "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe",
+        "?:\\Windows\\System32\\IME\\SHARED\\IMEWDBLD.EXE",
+        "?:\\Windows\\System32\\spool\\drivers\\x64\\*",
+        "?:\\Windows\\System32\\prevhost.exe",
+        "?:\\Windows\\System32\\dwwin.exe",
+        "?:\\Windows\\System32\\mspaint.exe",
+        "?:\\Windows\\SysWOW64\\mspaint.exe",
+        "?:\\Windows\\System32\\notepad.exe",
+        "?:\\Windows\\SysWOW64\\notepad.exe",
+        "?:\\Windows\\System32\\smartscreen.exe",
+        "?:\\Windows\\explorer.exe",
+        "?:\\Windows\\splwow64.exe"
+      ) and process.code_signature.trusted == true  
+    ) or
+    (
+      process.name : "rundll32.exe" and
+      process.args : "*hpmsn???.dll,MonitorPrintJobStatus*"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Resource Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

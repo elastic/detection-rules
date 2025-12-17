@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2025/02/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a high number of egress network connections from an unusual executable on a Linux system. This could
+indicate a command and control (C2) communication attempt, a brute force attack via a malware infection, or other
+malicious activity. ESQL rules have limited fields available in its alert documents. Make sure to review the original
+documents to aid in the investigation of this alert.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "High Number of Egress Network Connections from Unusual Executable"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Number of Egress Network Connections from Unusual Executable
+
+In Linux environments, executables can initiate network connections for legitimate purposes. However, adversaries exploit this by deploying malware in temporary directories to establish command and control (C2) channels. The detection rule identifies unusual executables making numerous outbound connections, excluding trusted IP ranges and known benign paths, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process.executable field to identify the specific executable making the connections and determine if it is known or expected in the environment.
+- Examine the destination.ip field to identify the external IP addresses the executable is attempting to connect to and check if they are known malicious or suspicious.
+- Check the host.os.type and agent.id fields to identify the specific host and agent involved, and gather additional context about the system's role and recent activity.
+- Analyze the @timestamp field to correlate the timing of the connections with other events or activities on the network or host.
+- Cross-reference the identified executable and IP addresses with threat intelligence sources to determine if they are associated with known threats or campaigns.
+- If the executable is determined to be malicious or suspicious, isolate the affected host and perform a deeper forensic analysis to identify any additional indicators of compromise or lateral movement.
+
+### False positive analysis
+
+- Executables in temporary directories used by legitimate applications or scripts can trigger alerts. Review the process name and executable path to determine if they are associated with known applications or scripts.
+- Automated scripts or cron jobs that perform network operations might be flagged. Identify these scripts and consider excluding their paths from the rule if they are verified as non-malicious.
+- Development or testing environments often use temporary directories for network operations. If these environments are known and trusted, add their specific paths to the exclusion list.
+- Backup or synchronization tools that use temporary directories for data transfer can generate numerous connections. Verify these tools and exclude their paths if they are confirmed to be safe.
+- Security tools or monitoring agents that operate in temporary directories might be mistakenly flagged. Confirm their legitimacy and exclude their paths to prevent false positives.
+
+### Response and remediation
+
+- Isolate the affected host immediately from the network to prevent further potential malicious communication and lateral movement.
+- Terminate the suspicious process identified by the alert to stop any ongoing malicious activity.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise (IOCs) and assess the extent of the infection.
+- Remove any malicious executables or files found in temporary directories such as /tmp, /var/tmp, or /dev/shm to eliminate the threat.
+- Patch and update the affected system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Monitor network traffic for any unusual outbound connections from other systems to detect potential spread or similar threats.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation.
+"""
+risk_score = 47
+rule_id = "1fa350e0-0aa2-4055-bf8f-ab8b59233e59"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.events.network-*
+| where
+    @timestamp > now() - 1h and
+    host.os.type == "linux" and
+    event.type == "start" and
+    event.action == "connection_attempted" and
+    (
+        process.executable like "/tmp/*" or
+        process.executable like "/var/tmp/*" or
+        process.executable like "/dev/shm/*" or
+        process.executable like "/var/log/*" or
+        process.executable like "/sys/*" or
+        process.executable like "/media/*" or
+        process.executable like "/proc/*" or
+        process.executable like "/var/backups/*" or
+        process.executable like "/var/mail/*" or
+        process.executable like "/var/spool/*" or
+        process.executable like "./*" or
+        process.name like ".*"
+    ) and
+    not (
+        cidr_match(destination.ip,
+            "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+            "192.0.0.0/24", "192.0.0.29/32", "192.0.0.8/32", "192.0.0.9/32",
+            "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+            "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+            "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15",
+            "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+        ) or
+        process.executable like "/tmp/newroot/*" or
+        process.executable like "/tmp/.mount*" or
+        process.executable like "/tmp/go-build*"
+    )
+| keep
+    @timestamp,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.executable,
+    destination.ip,
+    agent.id,
+    host.name
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+    by process.executable
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count > 15
+| sort Esql.event_count asc
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

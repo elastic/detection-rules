@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/20"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,6 +13,7 @@ index = [
     "logs-endpoint.events.network-*",
     "winlogbeat-*",
     "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -45,6 +46,7 @@ note = """## Triage and analysis
 - Remove scheduled task and any other related artifacts.
 - Review privileged account management and user account management settings. Consider implementing group policy object (GPO) policies to further restrict activity, or configuring settings that only allow administrators to create remote scheduled tasks.
 """
+references = ["https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language"]
 risk_score = 47
 rule_id = "954ee7c8-5437-49ae-b2d6-2960883898e9"
 severity = "medium"
@@ -56,6 +58,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
@@ -65,9 +68,10 @@ query = '''
 sequence by host.id, process.entity_id with maxspan = 1m
    [network where host.os.type == "windows" and process.name : "svchost.exe" and
    network.direction : ("incoming", "ingress") and source.port >= 49152 and destination.port >= 49152 and
-   source.ip != "127.0.0.1" and source.ip != "::1"
+   source.ip != "127.0.0.1" and source.ip != "::1" and source.ip != null
    ]
-   [registry where host.os.type == "windows" and registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
+   [registry where host.os.type == "windows" and event.type == "change" and registry.value : "Actions" and
+    registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 '''
 
 

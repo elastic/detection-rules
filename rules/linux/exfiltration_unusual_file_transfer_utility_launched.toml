@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages ESQL to detect the execution of unusual file transfer utilities on Linux systems. Attackers may use
+these utilities to exfiltrate data from a compromised system. ESQL rules have limited fields available in its alert
+documents. Make sure to review the original documents to aid in the investigation of this alert.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Unusual File Transfer Utility Launched"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual File Transfer Utility Launched
+
+File transfer utilities like scp, ftp, and rsync are essential for data movement in Linux environments. However, adversaries can exploit these tools to exfiltrate sensitive data. The detection rule identifies suspicious executions of these utilities by monitoring process activities, focusing on rare occurrences and unique agent IDs, which may indicate unauthorized data transfers. This helps in early detection of potential data breaches.
+
+### Possible investigation steps
+
+- Review the process.command_line field to understand the exact command executed and assess if it aligns with typical usage patterns or if it appears suspicious.
+- Examine the process.parent.executable field to determine the parent process that initiated the file transfer utility, which may provide insights into whether the execution was part of a legitimate workflow or potentially malicious activity.
+- Check the agent.id field to identify the specific host involved in the alert and correlate it with other security events or logs from the same host to gather additional context.
+- Investigate the @timestamp field to verify the timing of the event and cross-reference with any known scheduled tasks or user activities that could explain the execution.
+- Analyze the host.os.type field to confirm the operating system and ensure that the alert pertains to a Linux environment, as expected by the rule.
+
+### False positive analysis
+
+- Routine administrative tasks using file transfer utilities may trigger alerts. Regularly scheduled backups or updates using scp, rsync, or ftp should be documented and excluded from alerts by creating exceptions for known scripts or cron jobs.
+- Automated system updates or patches that utilize these utilities can be mistaken for suspicious activity. Identify and whitelist the processes and command lines associated with these updates to prevent false positives.
+- Internal data transfers between trusted servers for legitimate business purposes might be flagged. Establish a list of trusted agent IDs and exclude them from the rule to avoid unnecessary alerts.
+- Development and testing environments often use these utilities for transferring test data. Ensure that these environments are recognized and excluded by specifying their hostnames or IP addresses in the rule configuration.
+- User-initiated file transfers for legitimate reasons, such as data analysis or reporting, can be misinterpreted. Educate users to notify the security team of such activities in advance, allowing for temporary exceptions to be made.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux system from the network to prevent further data exfiltration and unauthorized access.
+- Terminate any suspicious file transfer processes identified by the alert, such as scp, ftp, or rsync, to halt ongoing data transfers.
+- Conduct a thorough review of the process command lines and parent executables to identify any malicious scripts or unauthorized software that initiated the file transfer.
+- Change credentials and access keys associated with the compromised system to prevent further unauthorized access.
+- Escalate the incident to the security operations team for a deeper forensic analysis to determine the extent of the breach and identify any additional compromised systems.
+- Implement network monitoring to detect any further attempts of unauthorized file transfers or suspicious activities from the affected system.
+- Update and enhance endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+"""
+risk_score = 21
+rule_id = "8eeeda11-dca6-4c3e-910f-7089db412d1c"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.events.process-*
+| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, agent.id, host.name
+| where
+    @timestamp > now() - 1 hours and
+    host.os.type == "linux" and
+    event.type == "start" and
+    event.action == "exec" and
+    process.name in ("scp", "ftp", "sftp", "vsftpd", "sftp-server", "rsync")
+| stats
+    Esql.event_count = count(),
+    Esql.agent_id_count_distinct = count_distinct(agent.id),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id)
+  by process.executable, process.parent.executable
+| where
+    Esql.agent_id_count_distinct == 1 and
+    Esql.event_count < 5
+| sort Esql.event_count asc
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

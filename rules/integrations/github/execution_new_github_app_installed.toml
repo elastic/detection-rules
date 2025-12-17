@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -18,10 +18,50 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New GitHub App Installed"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New GitHub App Installed
+
+GitHub Apps enhance functionality by integrating with repositories and organization data, requiring careful scrutiny upon installation. Adversaries may exploit these apps to gain unauthorized access or manipulate data. The detection rule monitors audit logs for new app installations, flagging potential threats by identifying unauthorized or suspicious integrations, thus safeguarding organizational security.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.dataset "github.audit" and event.action "integration_installation.create" to identify the newly installed GitHub App.
+- Verify the identity of the user or service account that performed the installation to ensure it aligns with expected behavior and authorized personnel.
+- Check the permissions requested by the newly installed app to assess the level of access it has to your repositories and organization data.
+- Cross-reference the app with a list of approved or trusted applications within your organization to determine if it is authorized.
+- Investigate the app's developer or vendor to ensure they are reputable and have a history of secure and reliable applications.
+- Communicate with the team or individual responsible for the installation to confirm the app's purpose and necessity within the organization.
+
+### False positive analysis
+
+- Frequent installations of trusted internal apps may trigger alerts. To manage this, maintain a list of approved internal apps and create exceptions for these in the detection rule.
+- Automated deployment tools that integrate with GitHub might cause false positives. Identify these tools and exclude their installation events from triggering alerts.
+- Regular updates or re-installations of existing apps can be mistaken for new installations. Track app version updates separately and adjust the rule to differentiate between updates and new installations.
+- Development or testing environments often install and remove apps frequently. Consider excluding these environments from the rule or setting up a separate monitoring process for them.
+
+### Response and remediation
+
+- Immediately revoke the permissions of the newly installed GitHub App to prevent any unauthorized access or data manipulation.
+- Notify the security team and relevant stakeholders about the unauthorized app installation for awareness and further investigation.
+- Conduct a review of recent repository and organization changes to identify any unauthorized modifications or data access that may have occurred.
+- If malicious activity is detected, initiate a rollback of affected repositories to a secure state prior to the app installation.
+- Escalate the incident to higher-level security management if the app installation is linked to a broader security breach or if sensitive data has been compromised.
+- Implement stricter access controls and approval processes for future GitHub App installations to prevent unauthorized installations.
+- Update detection mechanisms to include additional indicators of compromise related to GitHub App installations, enhancing future threat detection capabilities."""
 risk_score = 47
 rule_id = "1ca62f14-4787-4913-b7af-df11745a49da"
 severity = "medium"
-tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Github"]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

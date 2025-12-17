@@ -1,10 +1,41 @@
 [metadata]
 creation_date = "2020/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/01"
 
 [transform]
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
 query = "SELECT * FROM dns_cache"
@@ -29,38 +60,6 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-[[transform.investigate]]
-label = "Alerts associated with the user in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-  [
-    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-    {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
-  ]
-]
-
-
-[[transform.investigate]]
-label = "Alerts associated with the host in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-  [
-    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-    {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
-  ]
-]
-
-[[transform.investigate]]
-label = "Investigate the Subject Process Network Events"
-providers = [
-  [
-    {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
-    {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
-  ]
-]
-
 
 [rule]
 author = ["Elastic"]
@@ -71,7 +70,7 @@ allows the adversary to blend into legitimate traffic activity. These popular se
 have most likely been used before compromise, which helps malicious traffic blend in.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network-*"]
+index = ["logs-endpoint.events.network-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Connection to Commonly Abused Web Services"
@@ -84,8 +83,8 @@ Adversaries may use an existing, legitimate external Web service as a means for 
 This rule looks for processes outside known legitimate program locations communicating with a list of services that can be abused for exfiltration or command and control.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -128,16 +127,29 @@ This rule looks for processes outside known legitimate program locations communi
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = [
+"https://www.elastic.co/security-labs/operation-bleeding-bear", 
+"https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry"
+]
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and network.protocol == "dns" and
-    process.name != null and user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+network where host.os.type == "windows" and
+    dns.question.name != null and process.name != null and
+    not (?user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") or user.domain == "NT AUTHORITY") and
     /* Add new WebSvc domains here */
     dns.question.name :
        (
@@ -217,7 +229,12 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         "*.zulipchat.com",
         "webhook.site",
         "run.mocky.io",
-        "mockbin.org") and
+        "mockbin.org", 
+        "www.googleapis.com", 
+        "googleapis.com",
+        "global.rel.tunnels.api.visualstudio.com",
+        "*.devtunnels.ms", 
+        "api.github.com") and
         
     /* Insert noisy false positives here */
     not (
@@ -225,19 +242,23 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         process.executable : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
-          "?:\\Windows\\System32\\WWAHost.exe",
-          "?:\\Windows\\System32\\smartscreen.exe",
-          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
           "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
           "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
-          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-          "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+          "?:\\Users\\*\\AppData\\Local\\PowerToys\\PowerToys.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Zen Browser\\zen.exe",
+          "?:\\Users\\*\\Wavesor Software\\WaveBrowser\\wavebrowser.exe",
+          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
           "?:\\Windows\\system32\\mobsync.exe",
-          "?:\\Windows\\SysWOW64\\mobsync.exe"
+          "?:\\Windows\\SysWOW64\\mobsync.exe", 
+          "?:\\Windows\\system32\\svchost.exe",
+          "?:\\Windows\\System32\\smartscreen.exe",
+          "?:\\Windows\\System32\\wsl.exe", 
+          "?:\\Windows\\System32\\WWAHost.exe"
         )
       ) or
     
@@ -246,19 +267,9 @@ network where host.os.type == "windows" and network.protocol == "dns" and
        process.code_signature.trusted == true) and dns.question.name : ("discord.com", "cdn.discordapp.com", "discordapp.com")
       ) or 
 
-      /* MS Sharepoint */
-      (process.name : "Microsoft.SharePoint.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
-       process.code_signature.trusted == true) and dns.question.name : "onedrive.live.com"
-      ) or 
-
-      /* Firefox */
-      (process.name : "firefox.exe" and (process.code_signature.subject_name : "Mozilla Corporation" and
-       process.code_signature.trusted == true)
-      ) or 
-
-      /* Dropbox */
-      (process.name : "Dropbox.exe" and (process.code_signature.subject_name : "Dropbox, Inc" and
-       process.code_signature.trusted == true) and dns.question.name : ("api.dropboxapi.com", "*.dropboxusercontent.com")
+      /* MS Sharepoint / OneDrive */
+      (process.name : ("Microsoft.SharePoint.exe", "OneDrive.Sync.Service.exe") and dns.question.name : "onedrive.live.com" and
+       (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
       ) or 
 
       /* Obsidian - Plugins are stored on raw.githubusercontent.com */
@@ -271,18 +282,50 @@ network where host.os.type == "windows" and network.protocol == "dns" and
        process.code_signature.trusted == true) and dns.question.name : ("onedrive.live.com", "skyapi.onedrive.live.com")
       ) or
 
-      (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
-       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com", "login.live.com")) or
+      /* IntelliJ IDEA connecting to raw.githubusercontent.com */
+      (process.code_signature.subject_name : "JetBrains s.r.o." and
+       process.code_signature.trusted == true and dns.question.name : ("api.github.com", "raw.githubusercontent.com")
+      ) or 
 
-      (process.code_signature.trusted == true and
-       process.code_signature.subject_name :
-                             ("Johannes Schindelin",
+      (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
+       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com")
+      ) or
+
+      (process.code_signature.subject_name : ("Python Software Foundation", "Anaconda, Inc.") and
+       process.code_signature.trusted == true and dns.question.name : "files.pythonhosted.org"
+      ) or
+
+      /* Zoom */
+      (process.name : "Zoom.exe" and (process.code_signature.subject_name : "Zoom Video Communications, Inc." and
+       process.code_signature.trusted == true) and dns.question.name : ("www.googleapis.com", "graph.microsoft.com")
+      ) or
+
+      /* VSCode */
+      (process.name : "Code.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
+       process.code_signature.trusted == true) and dns.question.name : ("api.github.com", "raw.githubusercontent.com")
+      ) or
+
+      /* Terraform */
+      (process.name : "terraform-provider*.exe" and (process.code_signature.subject_name : "HashiCorp, Inc." and
+       process.code_signature.trusted == true) and dns.question.name : "graph.microsoft.com"
+      ) or
+
+      (
+        process.code_signature.trusted == true and
+        process.code_signature.subject_name : (
+                              "Johannes Schindelin",
                               "Redis Inc.",
                               "Slack Technologies, LLC",
                               "Cisco Systems, Inc.",
                               "Dropbox, Inc",
-                              "Amazon.com Services LLC"))
-    ) 
+                              "Amazon.com Services LLC", 
+                              "Island Technology Inc.", 
+                              "GitHub, Inc.", 
+                              "Red Hat, Inc",
+                              "Mozilla Corporation"
+        )
+      )
+    )
 '''
 
 
@@ -297,11 +340,19 @@ reference = "https://attack.mitre.org/techniques/T1102/"
 id = "T1568"
 name = "Dynamic Resolution"
 reference = "https://attack.mitre.org/techniques/T1568/"
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1568.002"
-  name = "Domain Generation Algorithms"
-  reference = "https://attack.mitre.org/techniques/T1568/002/"
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
 
 [rule.threat.tactic]
 id = "TA0011"
@@ -309,6 +360,7 @@ name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"

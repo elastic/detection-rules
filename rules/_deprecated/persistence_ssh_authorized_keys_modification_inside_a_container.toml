@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2023/05/12"
+integration = ["cloud_defend"]
+deprecation_date = "2025/03/14"
+maturity = "deprecated"
+updated_date = "2025/03/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or modification of an authorized_keys or sshd_config file inside a container. The Secure
+Shell (SSH) authorized_keys file specifies which users are allowed to log into a server using public key authentication.
+Adversaries may modify it to maintain persistence on a victim host by adding their own public key(s). Unexpected and
+unauthorized SSH usage inside a container can be an indicator of compromise and should be investigated.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Deprecated - SSH Authorized Keys File Modified Inside a Container"
+risk_score = 73
+rule_id = "f7769104-e8f9-4931-94a2-68fc04eadec3"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where container.id:"*" and
+  event.type in ("change", "creation") and file.name: ("authorized_keys", "authorized_keys2", "sshd_config")
+'''
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - SSH Authorized Keys File Modified Inside a Container
+
+In containerized environments, SSH keys facilitate secure access, but adversaries can exploit this by altering the authorized_keys file to gain unauthorized access. This detection rule identifies suspicious changes to SSH configuration files within containers, signaling potential persistence tactics. By monitoring file modifications, it helps detect unauthorized SSH usage, a common indicator of compromise.
+
+### Possible investigation steps
+
+- Review the container ID associated with the alert to identify the specific container where the modification occurred.
+- Examine the timestamp of the event to determine when the file change or creation took place and correlate it with any known activities or changes in the environment.
+- Investigate the user account or process that made the modification to the authorized_keys or sshd_config file to assess if it was an authorized action.
+- Check for any recent SSH connections to the container, especially those using public key authentication, to identify potential unauthorized access.
+- Analyze the contents of the modified authorized_keys or sshd_config file to identify any suspicious or unauthorized keys or configurations.
+- Review the container's logs and any related network activity around the time of the modification for signs of compromise or lateral movement attempts.
+
+### False positive analysis
+
+- Routine updates or deployments within containers may modify SSH configuration files, leading to false positives. To manage this, create exceptions for known update processes or deployment scripts that regularly alter these files.
+- Automated configuration management tools like Ansible or Puppet might change SSH files as part of their normal operation. Identify these tools and exclude their activities from triggering alerts by specifying their process IDs or user accounts.
+- Development or testing environments often see frequent changes to SSH keys for legitimate reasons. Consider excluding these environments from the rule or setting up a separate, less sensitive monitoring profile for them.
+- Scheduled maintenance tasks that involve SSH key rotation can trigger alerts. Document these tasks and schedule exceptions during their execution windows to prevent unnecessary alerts.
+- Container orchestration systems might modify SSH configurations as part of scaling or updating services. Recognize these patterns and adjust the rule to ignore changes made by these systems.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or lateral movement within the environment.
+- Revoke any unauthorized SSH keys found in the authorized_keys file to cut off the adversary's access.
+- Conduct a thorough review of all SSH configuration files within the container to ensure no additional unauthorized modifications have been made.
+- Restore the container from a known good backup if available, ensuring that the backup does not contain the unauthorized changes.
+- Implement stricter access controls and monitoring on SSH usage within containers to prevent similar incidents in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if other containers or systems have been compromised.
+- Update detection and alerting mechanisms to include additional indicators of compromise related to SSH key manipulation and unauthorized access attempts."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

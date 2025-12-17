@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/12/03"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,11 +12,12 @@ short time period.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-endpoint.events.process-*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "kuery"
 license = "Elastic License v2"
@@ -64,6 +65,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
@@ -71,7 +74,7 @@ type = "threshold"
 query = '''
 event.category:process and host.os.type:windows and event.type:start and process.name:(net.exe or sc.exe or taskkill.exe) and
  process.args:(stop or pause or delete or "/PID" or "/IM" or "/T" or "/F" or "/t" or "/f" or "/im" or "/pid") and
- not process.parent.name:osquerybeat.exe
+ not process.parent.name:(osquerybeat.exe or agentbeat.exe)
 '''
 
 

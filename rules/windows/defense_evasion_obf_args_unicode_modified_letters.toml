@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2025/11/13"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/11/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the presence of unicode modifier letters in the process command_line. Adversaries sometimes replace ASCII characters
+with visually similar Unicode modifier letters or combining marks to evade simple string-based detections.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Command Obfuscation via Unicode Modifier Letters"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Command Obfuscation via Unicode Modifier Letters
+
+Adversaries sometimes replace ASCII characters with visually similar Unicode modifier letters or combining marks to evade simple string-based detections.
+
+### Possible investigation steps
+
+- Review the process execution details (command_line, parent, code signature, hash).
+- Analyze the full execution process tree to identify the root cause.
+- Check the creation of any persistence using scheduled tasks, Run key, services, shortcuts or startup folders.
+- Cross-reference with other logs or alerts to identify any related incidents or patterns of activity that might indicate a larger threat campaign.
+
+### False positive analysis
+
+- Legitimate internationalized applications and installers use Unicode (e.g., localized product names, non-Latin scripts).
+- Dev tools or fonts may create commands with combining marks (rare) — check installer/tool provenance.
+- Command lines that include user input, file names, or paths with non-ASCII characters (e.g., user folders) can trigger the rule.
+
+### Response and remediation
+
+- Isolate the host if there are signs of active compromise (outbound C2, credential theft, lateral movement).
+- Terminate the suspicious process and any direct descendants after collecting forensic evidence (memory, artifacts).
+- Collect EDR snapshots, full disk image or targeted file copies, registry hives, and network logs for investigation.
+- Remove any persistence entries (scheduled task, startup, services) tied to the activity.
+- Qurantine and submit samples to malware analysis; if confirmed malicious, remove and restore from known good backups.
+- Block and update indicators related to this activity (hashes, exact normalized command patterns, codepoint sequences, IPs/domains).
+- Run global hutning queries for same Unicode patterns, normalized variants, and identical parent/child process chains.
+"""
+references = ["https://www.wietzebeukema.nl/blog/windows-command-line-obfuscation"]
+risk_score = 73
+rule_id = "37148ae6-c6ec-4fe4-88b1-02f40aed93a9"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (
+   process.name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump.exe", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe") or
+   ?process.pe.original_file_name in ("reg.exe", "net.exe", "net1.exe", "CertUtil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe")
+ ) and
+ process.command_line regex """.*[ʰ-˿ᴬ-ᶻ]+.*"""
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+

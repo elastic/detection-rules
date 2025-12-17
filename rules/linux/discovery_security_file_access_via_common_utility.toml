@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2024/11/04"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/12/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects sensitive security file access via common utilities on Linux systems. Adversaries may attempt to read
+from sensitive files using common utilities to gather information about the system and its security configuration.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Security File Access via Common Utilities"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Security File Access via Common Utilities
+
+In Linux environments, common utilities like `cat`, `grep`, and `less` are essential for file manipulation and viewing. Adversaries exploit these tools to access sensitive security files, aiming to gather system and security configuration data. The detection rule identifies suspicious use of these utilities by monitoring process execution patterns and arguments, flagging attempts to access critical security files, thus helping to thwart potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the process execution details to identify the specific utility used (e.g., cat, grep, less) and the exact file path accessed, as indicated by the process.name and process.args fields.
+- Check the user account associated with the process execution to determine if the access was performed by a legitimate user or a potentially compromised account.
+- Investigate the timing and frequency of the access attempt to assess whether it aligns with normal user behavior or indicates suspicious activity.
+- Correlate the alert with other security events or logs from the same host to identify any preceding or subsequent suspicious activities, such as unauthorized logins or privilege escalation attempts.
+- Examine the host's recent changes or updates to security configurations or user permissions that might explain the access attempt.
+- If possible, contact the user or system owner to verify whether the access was intentional and authorized, providing additional context for the investigation.
+
+### False positive analysis
+
+- System administrators or automated scripts may frequently access security files for legitimate maintenance or configuration purposes. To handle this, create exceptions for known administrative accounts or specific scripts that regularly perform these actions.
+- Security monitoring tools or compliance checks might trigger the rule when scanning security files. Identify these tools and exclude their processes from the rule to prevent unnecessary alerts.
+- Backup processes that involve copying or reading security files can be mistaken for suspicious activity. Exclude backup software processes or scheduled tasks that are known to perform these operations.
+- Developers or DevOps personnel accessing configuration files for application deployment or troubleshooting might trigger the rule. Establish a list of trusted users or roles and exclude their access patterns from detection.
+- Regular system updates or package management operations may involve accessing security-related files. Recognize these update processes and exclude them to avoid false positives during routine maintenance.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule to halt potential reconnaissance activities.
+- Conduct a thorough review of the accessed files to determine if any sensitive information was exposed or altered.
+- Change credentials and access tokens for any compromised accounts, especially those related to AWS, GCP, or Azure, to prevent unauthorized access.
+- Implement stricter access controls and permissions on sensitive security files to limit exposure to only necessary users and processes.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on the broader network.
+- Enhance monitoring and logging for similar activities to improve detection and response times for future incidents."""
+risk_score = 21
+rule_id = "7efca3ad-a348-43b2-b544-c93a78a0ef92"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name in ("cat", "less", "more", "strings", "find", "xargs") and
+process.parent.executable != null and 
+process.args like (
+  "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
+  "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+  "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
+  "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
+  "/home/*/.azure/azureProfile.json"
+) and not (
+  process.parent.name in ("wazuh-modulesd", "lynis") or
+  process.command_line in ("cat /etc/login.defs" , "cat /home/asterisk/.aws/credentials") or
+  ?process.parent.command_line in (
+    "/bin/sh /usr/sbin/lynis audit system --cronjob",
+    "/usr/bin/find -L /etc/security/limits.conf /etc/security/limits.d -type f -exec /usr/bin/cat {} ;",
+    "/usr/bin/find /etc/security/limits.conf /etc/security/limits.d -type f -exec /usr/bin/cat {} ;"
+  ) or
+  ?process.parent.args in ("/opt/imperva/ragent/bin/get_sys_resources.sh", "/usr/sbin/lynis", "./terra_linux.sh") or
+  process.args == "/usr/bin/coreutils" or
+  (process.parent.name == "pwsh" and process.parent.command_line like "*Evaluate-STIG*") or
+  ?process.parent.executable == "/usr/sap/audit_scripts/auto_audit_gral.sh"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

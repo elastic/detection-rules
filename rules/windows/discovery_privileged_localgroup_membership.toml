@@ -2,9 +2,7 @@
 creation_date = "2020/10/15"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
-min_stack_version = "8.12.0"
-updated_date = "2024/03/12"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +29,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -38,7 +37,7 @@ Identifies instances of an unusual process enumerating built-in Windows privileg
 Administrators or Remote Desktop users.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Privileged Local Groups Membership"
@@ -51,7 +50,7 @@ After successfully compromising an environment, attackers may try to gain situat
 This rule looks for the enumeration of privileged local groups' membership by suspicious processes, and excludes known legitimate utilities and programs installed. Attackers can use this information to decide the next steps of the attack, such as mapping targets for credential compromise and other post-exploitation activities.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -107,20 +106,16 @@ Audit Security Group Management (Success)
 ```
 
 Microsoft introduced the [event used](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4799) in this detection rule on Windows 10 and Windows Server 2016 or later operating systems.
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Resources: Investigation Guide"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+    "Data Source: Windows Security Event Logs",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -159,6 +154,7 @@ host.os.type:windows and event.category:iam and event.action:user-member-enumera
                                        C\:\\Windows\\System32\\RecoveryDrive.exe or
                                        C\:\\Windows\\System32\\SystemPropertiesComputerName.exe or
                                        C\:\\Windows\\SysWOW64\\msiexec.exe or
+                                       C\:\\Windows\\System32\\taskhostw.exe or
                                        C\:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe or
                                        C\:\\Windows\\Temp\\rubrik_vmware*\\snaptool.exe or
                                        C\:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe or
@@ -168,32 +164,33 @@ host.os.type:windows and event.category:iam and event.action:user-member-enumera
   )
 '''
 
+
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."winlog.event_data.CallerProcessName"]
-"case_insensitive" = true
-"value" = "C:\\\\Program Files (x86)\\\\*.exe"
-
+case_insensitive = true
+value = "C:\\\\Program Files (x86)\\\\*.exe"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."winlog.event_data.CallerProcessName"]
-"case_insensitive" = true
-"value" = "C:\\\\Program Files\\\\*.exe"
-
+case_insensitive = true
+value = "C:\\\\Program Files\\\\*.exe"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -203,7 +200,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "winlog.event_data.SubjectUserName", "winlog.event_data.CallerProcessName"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

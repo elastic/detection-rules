@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential web server discovery or fuzzing activity by identifying a high volume of HTTP GET requests resulting
+in 404 or 403 status codes from a single source IP address within a short timeframe. Such patterns may indicate that an attacker
+is attempting to discover hidden or unlinked resources on a web server, which can be a precursor to more targeted attacks.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Discovery or Fuzzing Activity"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Discovery or Fuzzing Activity
+
+This rule flags a single origin generating a rapid burst of GET requests that produce many 404/403 responses, a hallmark of automated web discovery or fuzzing. Attackers commonly run wordlist-driven enumeration to probe paths such as /admin/, /login, /backup.zip, /.env, /.git/, and undocumented API routes, gauging which resources exist and where access controls fail. Detecting this reconnaissance early helps prevent subsequent targeted exploitation of newly found endpoints and weak authentication flows.
+
+### Possible investigation steps
+
+- Correlate user-agent, TLS JA3/JA4, Host/SNI, and X-Forwarded-For to fingerprint the client, identify common fuzzing tools or disguised automation, and recover the true origin if traffic traversed a CDN or proxy.
+- Summarize the top requested paths and response codes for this source to spot any 2xx or 401 outcomes amid the denials, flagging hits on sensitive locations such as /.env, /.git, /admin interfaces, backups, installer scripts, and undocumented API routes.
+- Pivot to the same timeframe for adjacent web and authentication activity from this origin to see whether POSTs, credential attempts, or parameterized requests followed the enumeration, indicating progression toward exploitation or spraying.
+- Review WAF/CDN and reverse-proxy logs for blocks, challenges, or rate limiting and whether multiple virtual hosts were targeted via the Host header, confirming if and how far requests reached the application tier.
+- Validate whether the source aligns with approved internal scanners or scheduled testing via inventories and change records, and if not, enrich with ASN/geolocation, reverse DNS, and threat intel to assess reputation and recurrence across your estate.
+
+### False positive analysis
+
+- An internal QA link checker or monitoring crawler run from a single host can request hundreds of unique paths and generate many 404/403 GETs when routes, assets, or permissions are misconfigured.
+- A shared egress IP (NAT or corporate proxy) aggregating many users during a faulty deployment can trigger high volumes of 404/403 GETs as browsers collectively hit moved or newly restricted resources.
+
+### Response and remediation
+
+- Immediately rate-limit or block the offending source IP at the WAF/CDN and reverse proxy, applying a challenge or temporary ban to the observed User-Agent and JA3/JA4 fingerprint driving the 500+ unique-path 404/403 GET burst.
+- If traffic came through a proxy or CDN, use X-Forwarded-For to identify and block the true origin, and add a temporary ASN or geolocation block if the source aligns with known scanner networks.
+- Verify whether the source is an approved internal scanner; if not, disable the job or container, remove any scheduled tasks and API keys used, and notify the owner to stop testing against production immediately.
+- Review the requested path list to identify any 2xx or 401 hits and remediate exposures such as accessible /.env, /.git, /admin interfaces, backup archives, or installer scripts by removing files, disabling endpoints, and rotating secrets.
+- Escalate to incident response if enumeration persists after blocking, pivots to POSTs or credential attempts, originates from rotating IPs (Tor/VPN/residential), or produces 2xx on sensitive endpoints despite WAF rules.
+- Harden the web tier by enabling per-IP rate limiting and bot challenges, turning off directory listing and default app endpoints, blocking patterns like /.git/, /.env, and /backup.zip at the WAF, and restricting origin access to CDN egress only.
+"""
+risk_score = 21
+rule_id = "8383a8d0-008b-47a5-94e5-496629dc3590"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+| where
+    http.request.method == "GET" and 
+    http.response.status_code in (404, 403)
+
+| eval Esql.url_original_to_lower = to_lower(url.original)
+
+| keep
+    @timestamp,
+    event.dataset,
+    http.request.method,
+    http.response.status_code,
+    source.ip,
+    agent.id,
+    host.name,
+    Esql.url_original_to_lower,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_count_distinct = count_distinct(Esql.url_original_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_original_values = values(Esql.url_original_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip
+| where
+  Esql.event_count > 500 and Esql.url_original_count_distinct > 250
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"

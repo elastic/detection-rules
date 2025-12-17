@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/04/25"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of git to clone a repository or download files from GitHub using wget or curl, followed by
+the creation of files in suspicious directories such as /tmp, /var/tmp, or /dev/shm. This behavior may indicate an
+attempt to download a payload, exploit or tool.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Git Repository or File Download to Suspicious Directory"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Git Repository or File Download to Suspicious Directory
+
+Git, wget, and curl are essential tools for managing and transferring files in Linux environments. Adversaries exploit these tools to download malicious payloads into temporary directories like /tmp, /var/tmp, or /dev/shm, which are often overlooked. The detection rule identifies this behavior by monitoring for git clone commands or GitHub downloads followed by file creation in these directories, signaling potential threats.
+
+### Possible investigation steps
+
+- Review the process details, including process.entity_id and process.name, to confirm the execution of git, wget, or curl commands and verify if they align with expected usage patterns.
+- Examine the process.command_line field to identify the specific GitHub URL or repository being accessed, and assess whether it is known or potentially malicious.
+- Check the file creation event details, focusing on the file.path to determine the exact location and nature of the files created in /tmp, /var/tmp, or /dev/shm directories.
+- Investigate the host.id and host.os.type to gather additional context about the affected system, including its role and any recent changes or anomalies.
+- Correlate the timing of the process start and file creation events to understand the sequence of actions and identify any potential patterns or anomalies.
+- Consult threat intelligence sources to determine if the accessed GitHub repository or downloaded files are associated with known threats or malicious activity.
+
+### False positive analysis
+
+- Development activities may trigger this rule when developers clone repositories or download files from GitHub into temporary directories for testing purposes. To manage this, create exceptions for specific user accounts or processes that are known to perform legitimate development tasks.
+- Automated scripts or cron jobs that regularly update or download files from GitHub into temporary directories can also cause false positives. Identify these scripts and exclude their process IDs or command patterns from the rule.
+- System maintenance tasks that involve downloading updates or patches into temporary directories might be flagged. Coordinate with system administrators to identify these tasks and whitelist the associated processes or directories.
+- Security tools or monitoring solutions that download threat intelligence feeds or other data into temporary directories could be mistakenly identified. Verify these tools and exclude their activities from the rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system to prevent further potential malicious activity and lateral movement within the network.
+- Terminate any suspicious processes related to git, wget, or curl that are actively running and associated with the creation of files in the /tmp, /var/tmp, or /dev/shm directories.
+- Conduct a thorough examination of the files created in these directories to identify and remove any malicious payloads or tools.
+- Restore any compromised files or systems from clean backups to ensure the integrity of the affected system.
+- Implement network monitoring to detect and block any unauthorized outbound connections to suspicious domains, particularly those related to GitHub or other code repositories.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems may be affected.
+- Update endpoint protection and intrusion detection systems to enhance detection capabilities for similar threats, focusing on the specific indicators of compromise identified in this alert.
+"""
+risk_score = 21
+rule_id = "70089609-c41a-438e-b132-5b3b43c5fc07"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by process.entity_id, host.id with maxspan=10s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+     (process.name == "git" and process.args == "clone") or
+     (process.name in ("wget", "curl") and process.command_line like~ "*github*")
+  )]
+  [file where host.os.type == "linux" and event.type == "creation" and file.path like ("/tmp/*", "/var/tmp/*", "/dev/shm/*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2023/10/26"
+integration = ["cloud_defend"]
+deprecation_date = "2025/03/14"
+maturity = "deprecated"
+updated_date = "2025/03/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of the built-in Linux DebugFS utility from inside a privileged container. DebugFS is a special
+file system debugging utility which supports reading and writing directly from a hard drive device. When launched inside
+a privileged container, a container deployed with all the capabilities of the host machine, an attacker can access
+sensitive host level files which could be used for further privilege escalation and container escapes to the host
+machine.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Deprecated - File System Debugger Launched Inside a Privileged Container"
+references = [
+    "https://cyberark.wistia.com/medias/ygbzkzx93q?wvideo=ygbzkzx93q",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
+]
+risk_score = 47
+rule_id = "97697a52-4a76-4f0a-aa4f-25c178aae6eb"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.module == "cloud_defend" and
+  event.type == "start" and process.name == "debugfs" and
+  process.args : "/dev/sd*" and not process.args == "-R" and
+  container.security_context.privileged == true
+'''
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - File System Debugger Launched Inside a Privileged Container
+
+DebugFS is a Linux utility for direct file system manipulation, often used for debugging. In a privileged container, which has extensive access to the host, adversaries can exploit DebugFS to access sensitive host files, potentially leading to privilege escalation or container escape. The detection rule identifies suspicious DebugFS usage by monitoring process initiation with specific arguments in privileged containers, flagging potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is "debugfs" and check the specific arguments used, particularly looking for "/dev/sd*" to identify potential access to host file systems.
+- Verify the container's security context to ensure it is indeed privileged, as this increases the risk of host-level access.
+- Investigate the origin of the container image and deployment configuration to determine if the use of a privileged container was intentional or necessary.
+- Check the user or service account that initiated the process to assess if it aligns with expected behavior or if it indicates potential unauthorized access.
+- Examine recent logs and events from the container and host to identify any unusual activities or patterns that coincide with the alert.
+- Assess the potential impact by identifying any sensitive files or directories that may have been accessed or modified by the debugfs process.
+
+### False positive analysis
+
+- Routine maintenance tasks using DebugFS in privileged containers can trigger alerts. To manage this, identify and document regular maintenance processes and create exceptions for these specific processes.
+- Automated scripts or tools that utilize DebugFS for legitimate monitoring or debugging purposes may cause false positives. Review these scripts and whitelist them by excluding their specific process arguments or execution contexts.
+- Development and testing environments often run privileged containers with DebugFS for debugging purposes. Establish a separate set of rules or exceptions for these environments to prevent unnecessary alerts.
+- Backup or recovery operations that involve direct disk access might use DebugFS. Ensure these operations are well-documented and create exceptions based on their unique process signatures or execution schedules.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further access to sensitive host files. This can be done by stopping the container or removing its network access.
+- Conduct a thorough review of the container's security context and capabilities to ensure it does not have unnecessary privileges. Adjust the container's configuration to remove privileged access if not required.
+- Analyze the container's logs and process history to identify any unauthorized access or actions taken by the DebugFS utility. This will help determine the extent of the potential breach.
+- If unauthorized access to host files is confirmed, perform a security assessment of the host system to identify any changes or breaches. This may include checking for new user accounts, modified files, or unexpected network connections.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected. Provide them with all relevant logs and findings.
+- Implement additional monitoring and alerting for similar activities across other containers and hosts to detect any recurrence of this threat.
+- Review and update container deployment policies to enforce the principle of least privilege, ensuring containers only have the necessary permissions to perform their intended functions."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

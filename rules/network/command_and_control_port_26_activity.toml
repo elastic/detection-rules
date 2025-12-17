@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMTP on Port 26/TCP"
@@ -29,13 +29,47 @@ references = [
 risk_score = 21
 rule_id = "d7e62693-aab9-4f66-a21a-3d79ecdd603d"
 severity = "low"
-tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection"]
+tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection", "Data Source: PAN-OS", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 (event.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and network.transport:tcp and destination.port:26
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SMTP on Port 26/TCP
+
+SMTP, typically operating on port 25, is crucial for email transmission. However, port 26 is often used to avoid conflicts or restrictions on port 25. Adversaries exploit this by using port 26 for covert command and control, as seen with the BadPatch malware. The detection rule identifies suspicious SMTP activity on port 26 by analyzing network traffic patterns, helping to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the network traffic logs to identify any unusual patterns or anomalies associated with TCP port 26, focusing on the event.dataset fields such as network_traffic.flow or zeek.smtp.
+- Analyze the source and destination IP addresses involved in the alert to determine if they are known or associated with any previous suspicious activities.
+- Check for any additional alerts or logs related to the same source or destination IP addresses to identify potential patterns or repeated attempts of communication on port 26.
+- Investigate the context of the communication by examining the payload data, if available, to identify any indicators of compromise or malicious content.
+- Correlate the findings with threat intelligence sources to determine if the IP addresses or domains are associated with known threat actors or malware, such as BadPatch.
+- Assess the risk and impact on the affected systems by determining if any sensitive data or critical systems are involved in the communication on port 26.
+
+### False positive analysis
+
+- Legitimate mail transfer agents may use port 26 to avoid conflicts with port 25. Identify these agents and create exceptions in the detection rule to prevent unnecessary alerts.
+- Some network configurations might reroute SMTP traffic to port 26 for load balancing or security reasons. Verify these configurations and whitelist known IP addresses or domains to reduce false positives.
+- Internal testing or development environments might use port 26 for non-malicious purposes. Document these environments and exclude their traffic from triggering alerts.
+- Certain email service providers may use port 26 as an alternative to port 25. Confirm these providers and adjust the rule to recognize their traffic as benign.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further command and control communication via port 26.
+- Conduct a thorough scan of the isolated system using updated antivirus and anti-malware tools to identify and remove the BadPatch malware or any other malicious software.
+- Review and analyze network logs to identify any other systems that may have communicated with the same command and control server, and isolate those systems as well.
+- Change all passwords and credentials that may have been compromised or accessed by the affected system to prevent unauthorized access.
+- Apply security patches and updates to the affected system and any other vulnerable systems to mitigate exploitation by similar threats.
+- Monitor network traffic for any further suspicious activity on port 26 and other non-standard ports, adjusting firewall rules to block unauthorized SMTP traffic.
+- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further investigation and to ensure comprehensive threat eradication."""
 
 
 [[rule.threat]]

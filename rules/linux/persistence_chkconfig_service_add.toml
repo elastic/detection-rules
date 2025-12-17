@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/07/22"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
 [[transform.osquery]]
@@ -53,7 +53,7 @@ either a start or a kill entry in every runlevel and when the system is rebooted
 providing long-term persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Chkconfig Service Add"
@@ -67,7 +67,7 @@ Malicious actors can leverage services to achieve persistence by creating or mod
 This rule monitors the usage of the `chkconfig` binary to manually add a service for management by `chkconfig`, potentially indicating the creation of a persistence mechanism.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible Investigation Steps
@@ -169,18 +169,22 @@ tags = [
     "Threat: Lightning Framework",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start") and
 ( 
   (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
   (process.args : "*chkconfig" and process.args : "--add")
-) and 
-not process.parent.name in ("rpm", "qualys-scan-util", "qualys-cloud-agent", "update-alternatives") and
-not process.parent.args : ("/var/tmp/rpm*", "/var/lib/waagent/*")
+) and not (
+  process.parent.name in ("rpm", "qualys-scan-util", "qualys-cloud-agent", "update-alternatives") or
+  process.parent.args : ("/var/tmp/rpm*", "/var/lib/waagent/*") or
+  process.args in ("jexec", "sapinit", "httpd", "dbora")
+)
 '''
 
 
@@ -190,11 +194,6 @@ framework = "MITRE ATT&CK"
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
-[[rule.threat.technique.subtechnique]]
-id = "T1037.004"
-name = "RC Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/004/"
-
 
 
 [rule.threat.tactic]

@@ -2,26 +2,25 @@
 creation_date = "2023/07/12"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
-min_stack_version = "8.12.0"
-updated_date = "2024/03/12"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the use of Cmdlets and methods related to remote execution activities using WinRM. Attackers can abuse WinRM
 to perform lateral movement using built-in tools.
 """
 from = "now-119m"
-interval = "60m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Remote Execution Capabilities via WinRM"
 references = [
-  "https://attack.mitre.org/techniques/T1021/006/",
-  "https://github.com/cobbr/SharpSploit/blob/master/SharpSploit/LateralMovement/PowerShellRemoting.cs",
-  "https://github.com/BC-SECURITY/Empire/blob/main/empire/server/modules/powershell/lateral_movement/invoke_psremoting.py"
+    "https://attack.mitre.org/techniques/T1021/006/",
+    "https://github.com/cobbr/SharpSploit/blob/master/SharpSploit/LateralMovement/PowerShellRemoting.cs",
+    "https://github.com/BC-SECURITY/Empire/blob/main/empire/server/modules/powershell/lateral_movement/invoke_psremoting.py",
 ]
 risk_score = 21
 rule_id = "0abf0c5b-62dd-48d2-ac4e-6b43fe3a6e83"
@@ -43,12 +42,18 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Execution", "Data Source: PowerShell Logs", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Data Source: PowerShell Logs",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "query"
-building_block_type = "default"
 
 query = '''
 event.category:process and host.os.type:windows and
@@ -57,7 +62,9 @@ event.category:process and host.os.type:windows and
   ) and
   not user.id : "S-1-5-18" and
   not file.directory : (
-    "C:\\Program Files\\LogicMonitor\\Agent\\tmp"
+    "C:\\Program Files\\LogicMonitor\\Agent\\tmp" or
+    "C:\\Program Files\\WindowsPowerShell\\Modules\\icinga-powershell-framework\\cache" or
+    "C:\\Program Files\\WindowsPowerShell\\Modules\\SmartCardTools\\1.2.2"
   ) and not
   powershell.file.script_block_text : (
     "Export-ModuleMember -Function @('Invoke-Expression''Invoke-Command')" and
@@ -65,27 +72,28 @@ event.category:process and host.os.type:windows and
   )
 '''
 
+
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\allcommands.ps1"
-
+case_insensitive = true
+value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\allcommands.ps1"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.directory"]
-"case_insensitive" = true
-"value" = "?:\\\\Program Files\\\\Microsoft\\\\Exchange Server\\\\*\\\\bin"
-
+case_insensitive = true
+value = "?:\\\\Program Files\\\\Microsoft\\\\Exchange Server\\\\*\\\\bin"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.directory"]
-"case_insensitive" = true
-"value" = "?:\\\\ExchangeServer\\\\bin*"
-
+case_insensitive = true
+value = "?:\\\\ExchangeServer\\\\bin*"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -103,19 +111,17 @@ reference = "https://attack.mitre.org/techniques/T1021/006/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 
 
 [rule.threat.tactic]

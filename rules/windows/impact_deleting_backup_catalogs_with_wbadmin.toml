@@ -1,29 +1,33 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of the wbadmin.exe to delete the backup catalog. Ransomware and other malware may do this to prevent
-system recovery.
+Detects use of wbadmin.exe to delete backup catalogs, system state backups, or other backup data. Ransomware and other
+malware may do this to prevent system recovery.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Deleting Backup Catalogs with Wbadmin"
+name = "Backup Deletion with Wbadmin"
 note = """## Triage and analysis
 
-### Investigating Deleting Backup Catalogs with Wbadmin
+### Investigating Backup Deletion with Wbadmin
 
 Windows Server Backup stores the details about your backups (what volumes are backed up and where the backups are located) in a file called a backup catalog, which ransomware victims can use to recover corrupted backup files. Deleting these files is a common step in threat actor playbooks.
 
@@ -62,14 +66,6 @@ This rule identifies the deletion of the backup catalog using the `wbadmin.exe` 
 """
 risk_score = 21
 rule_id = "581add16-df76-42bb-af8e-c979bfb39a59"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -79,6 +75,11 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -86,7 +87,7 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (process.name : "wbadmin.exe" or ?process.pe.original_file_name == "WBADMIN.EXE") and
-  process.args : "catalog" and process.args : "delete"
+  process.args : ("catalog", "backup", "systemstatebackup") and process.args : "delete"
 '''
 
 

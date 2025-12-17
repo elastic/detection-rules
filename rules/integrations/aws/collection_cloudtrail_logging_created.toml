@@ -2,11 +2,16 @@
 creation_date = "2020/06/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/11/07"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies the creation of an AWS log trail that specifies the settings for delivery of log data."
+description = """
+Detects creation of a new AWS CloudTrail trail via CreateTrail API. While legitimate during onboarding or auditing
+improvements, adversaries can create trails that write to attacker-controlled destinations, limit regions, or otherwise
+subvert monitoring objectives. New trails should be validated for destination ownership, encryption, multi-region
+coverage, and organizational scope.
+"""
 false_positives = [
     """
     Trail creations may be made by a system or network administrator. Verify whether the user identity, user agent,
@@ -14,15 +19,52 @@ false_positives = [
     investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CloudTrail Log Created"
-note = """## Setup
+note = """## Triage and analysis
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS CloudTrail Log Created
+
+AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs API calls and related events, providing visibility into user activity. Adversaries may create new trails to capture sensitive data or cover their tracks. This detection identifies
+`CreateTrail` calls so responders can verify destination ownership, encryption, and scope before accepting the change.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, `user_agent.original`, `source.ip`.
+  - Confirm a related change request exists (onboarding, architecture change).
+- **Validate trail configuration**
+  - In `aws.cloudtrail.request_parameters`, verify:
+    - `S3BucketName`/`CloudWatchLogsLogGroupArn` belong to your org (no external accounts).
+    - `IsMultiRegionTrail=true` and `IncludeGlobalServiceEvents=true` (as per your standard).
+    - `KmsKeyId` is an approved CMK; log file validation enabled.
+- **Correlate activity**
+  - Look for `PutEventSelectors`, `PutInsightSelectors`, `StartLogging` following creation.
+  - Check for prior enumeration: `DescribeTrails`, `ListBuckets`, `GetEventSelectors`.
+
+### False positive analysis
+- **Planned creation**: Onboarding or compliance initiatives often add trails. Validate via ticket and standard template.
+- **Automation**: IaC or control-tower pipelines may create trails on account bootstrap.
+
+### Response and remediation
+- **If unauthorized**
+  - Disable or delete the trail; verify and secure the destination S3/CloudWatch resources.
+  - Review the actor’s recent changes and rotate credentials if compromise is suspected.
+- **Hardening**
+  - Restrict `cloudtrail:CreateTrail` to admin roles.
+  - Use AWS Config / Security Hub controls to enforce multi-region, global events, and validated destinations.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
 references = [
     "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_CreateTrail.html",
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudtrail/create-trail.html",
@@ -34,14 +76,19 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS Cloudtrail",
     "Use Case: Log Auditing",
     "Tactic: Collection",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:CreateTrail and event.outcome:success
+event.dataset: "aws.cloudtrail" 
+    and event.provider: "cloudtrail.amazonaws.com" 
+    and event.action: "CreateTrail" 
+    and event.outcome: "success"
 '''
 
 
@@ -57,4 +104,21 @@ reference = "https://attack.mitre.org/techniques/T1530/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

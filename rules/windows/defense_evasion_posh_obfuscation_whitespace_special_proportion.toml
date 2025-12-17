@@ -1,0 +1,166 @@
+[metadata]
+creation_date = "2025/04/16"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts with an unusually high proportion of whitespace and special characters, often indicative
+of obfuscation. This behavior is commonly associated with techniques such as SecureString encoding, formatting
+obfuscation, or character-level manipulation designed to bypass static analysis and AMSI inspection.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Special Character Overuse"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscation via Special Character Overuse
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell's flexibility to obfuscate scripts, using excessive special characters to evade detection. The detection rule identifies scripts with high special character density, indicating potential obfuscation, by analyzing script length and character patterns, thus aiding in uncovering malicious activities.
+
+### Possible investigation steps
+
+- Review the dedup_space_script_block field to understand the script's structure and identify any suspicious patterns or keywords that might indicate obfuscation techniques.
+- Analyze the replaced_with_fire field to assess the density and distribution of special characters, which can provide insights into the obfuscation methods used.
+- Examine the file.path and host.name fields to determine the origin and context of the script execution, which can help identify if the script was run on a critical system or by a privileged user.
+- Check the user.id and agent.id fields to verify the identity of the user or agent executing the script, which can help assess if the activity aligns with expected behavior or if it might be unauthorized.
+- Correlate the powershell.file.script_block_id with other logs or alerts to identify if similar scripts have been executed elsewhere in the environment, indicating a broader attack pattern.
+
+### False positive analysis
+
+- Scripts with legitimate use of special characters for formatting or encoding may trigger false positives. Review the script's purpose and context to determine if the use of special characters is justified.
+- Automated scripts that heavily rely on string manipulation or dynamic content generation might be flagged. Consider adding exceptions for known scripts or trusted sources to reduce unnecessary alerts.
+- PowerShell scripts used in development or testing environments often contain high special character density. Implement environment-based exclusions to prevent these from being flagged in non-production settings.
+- Scripts utilizing SecureString or other security-related encoding methods may appear obfuscated. Verify the script's origin and purpose, and whitelist these methods if they are part of standard security practices.
+- Regularly update the detection rule to refine the pattern matching and reduce false positives by incorporating feedback from security analysts and system administrators.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent lateral movement and further execution of potentially malicious scripts.
+- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activity.
+- Conduct a thorough review of the script block text and associated metadata to understand the intent and potential impact of the obfuscated script.
+- Remove any unauthorized or malicious scripts from the affected system to prevent re-execution.
+- Restore the system from a known good backup if the script has caused significant changes or damage to the system.
+- Update endpoint protection and intrusion detection systems to recognize and block similar obfuscation techniques in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "6ddb6c33-00ce-4acd-832a-24b251512023"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
+
+// replace repeated spaces used for formatting after a new line with a single space to reduce FPs
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """\n\s+""", "\n ")
+
+// Look for scripts with more than 1000 chars
+| eval Esql.script_block_length = length(Esql.script_block_tmp)
+| where Esql.script_block_length > 1000
+
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| eval Esql.script_block_tmp = replace(
+    Esql.script_block_tmp,
+    """[\s\$\{\}\+\@\=\(\)\^\\\"~\[\]\?\.]""",
+    "🔥"
+)
+
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// Calculate the ratio of special characters to total length
+| eval Esql.script_block_ratio = Esql.script_block_count::double / Esql.script_block_length::double
+
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_count,
+    Esql.script_block_length,
+    Esql.script_block_ratio,
+    Esql.script_block_tmp,
+    powershell.file.*,
+    file.path,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _version,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for scripts with high whitespace and special character ratio
+| where Esql.script_block_ratio > 0.75
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

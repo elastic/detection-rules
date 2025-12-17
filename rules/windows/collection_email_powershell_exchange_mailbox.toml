@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2020/12/15"
-integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,17 @@ mailbox or archive to a .pst file. Adversaries may target user email to collect 
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Exporting Exchange Mailbox via PowerShell"
@@ -62,19 +70,26 @@ Attackers can abuse this functionality in preparation for exfiltrating contents,
 references = [
     "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
     "https://docs.microsoft.com/en-us/powershell/module/exchange/new-mailboxexportrequest?view=exchange-ps",
+    "https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry",
 ]
 risk_score = 47
 rule_id = "6aace640-e631-4870-ba8e-5fdda09325db"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -107,7 +122,6 @@ reference = "https://attack.mitre.org/techniques/T1114/002/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

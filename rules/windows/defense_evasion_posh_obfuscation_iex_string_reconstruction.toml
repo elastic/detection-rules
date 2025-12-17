@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2025/04/16"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts that reconstruct the IEX (Invoke-Expression) command by accessing and indexing the string
+representation of method references. This obfuscation technique uses constructs like ''.IndexOf.ToString() to expose
+method metadata as a string, then extracts specific characters through indexed access and joins them to form IEX,
+bypassing static keyword detection and evading defenses such as AMSI.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Dynamic IEX Reconstruction via Method String Access"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Dynamic IEX Reconstruction via Method String Access
+
+PowerShell's flexibility allows dynamic command execution, which adversaries exploit by obfuscating commands like Invoke-Expression (IEX). They manipulate method strings to reconstruct IEX, evading static detection. The detection rule identifies scripts using this obfuscation by analyzing patterns in method string access, flagging suspicious activity for further investigation.
+
+### Possible investigation steps
+
+- Review the powershell.file.script_block_text field to understand the content and intent of the script that triggered the alert. Look for any suspicious patterns or obfuscation techniques.
+- Examine the file.path field to determine the location of the script on the host system, which can provide context about its origin and potential legitimacy.
+- Check the host.name and user.id fields to identify the machine and user account involved in executing the script, which can help assess whether the activity aligns with expected behavior.
+- Analyze the powershell.file.script_block_id and powershell.sequence fields to trace the execution sequence and correlate it with other PowerShell activities on the host, providing a broader view of the script's execution context.
+- Investigate the agent.id field to verify the endpoint's security posture and ensure that it is up-to-date with the latest security patches and configurations.
+
+### False positive analysis
+
+- Scripts with legitimate use of string manipulation methods like IndexOf or SubString may trigger false positives if they are part of complex PowerShell scripts used in administrative tasks. To manage this, review the context of the script and consider adding exceptions for known safe scripts or users.
+- Automated scripts from trusted software that perform extensive string operations for configuration or data processing might be flagged. Identify these scripts and exclude them by their script block ID or file path to prevent unnecessary alerts.
+- Development environments where PowerShell is used for testing or debugging purposes may generate alerts due to frequent use of string manipulation. Implement exclusions based on host names or user IDs associated with these environments to reduce noise.
+- Security tools or monitoring solutions that use PowerShell for log analysis or system checks might inadvertently match the detection pattern. Verify the source of the script and whitelist these tools by agent ID or specific script characteristics.
+- Regularly review and update the exclusion list to ensure it reflects the current environment and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further execution of potentially malicious scripts and limit lateral movement within the network.
+- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious activity.
+- Review the PowerShell script block text and script block ID from the alert to understand the scope and intent of the obfuscation technique used.
+- Remove any unauthorized or malicious scripts from the affected system to prevent re-execution.
+- Conduct a thorough scan of the isolated host using updated antivirus and anti-malware tools to identify and remove any additional threats.
+- Restore the affected system from a known good backup if the integrity of the system is compromised and cannot be assured.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+"""
+risk_score = 21
+rule_id = "9f432a8b-9588-4550-838e-1f77285580d3"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
+
+// Filter out smaller scripts that are unlikely to implement obfuscation using the patterns we are looking for
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 500
+
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| eval Esql.script_block_tmp = replace(
+    powershell.file.script_block_text,
+    """(?i)['"]['"].(Insert|Normalize|Chars|substring|Remove|LastIndexOfAny|LastIndexOf|IsNormalized|IndexOfAny|IndexOf)[^\[]+\[\d+,\d+,\d+\]""",
+    "🔥"
+)
+
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
+    powershell.file.*,
+    file.path,
+    file.directory,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _version,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for scripts that match the pattern at least once
+| where Esql.script_block_pattern_count >= 1
+
+| where not (
+    file.directory like "C:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\Maester\\\\1.1.0*" or
+    file.directory like "C:\\\\Users\\\\*\\\\Documents\\\\WindowsPowerShell\\\\Modules\\\\Maester\\\\1.1.0*"
+  )
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory is null
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

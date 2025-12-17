@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2024/09/12"
+integration = ["jamf_protect"]
+maturity = "production"
+updated_date = "2025/02/03"
+
+[transform]
+[[transform.investigate]]
+label = "Show events after Privilege Escalation"
+providers = [
+  [
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now"
+relativeTo = "now+30m"
+
+[[transform.investigate]]
+label = "Show events having the same reponsible process"
+providers = [
+  [
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.group_leader.entity_id}}", valueType = "string" }
+  ]
+]
+
+[[transform.investigate]]
+label = "Show events having the same parent process"
+providers = [
+  [
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+
+
+[rule]
+author = ["Thijs Xhaflaire"]
+description = "Identifies users being added to the admin group. This could be an indication of privilege\nescalation activity.\n"
+from = "now-9m"
+index = ["logs-jamf_protect*"]
+language = "eql"
+license = "Elastic License v2"
+name = "User Added to the Admin Group"
+note = """## Triage and analysis
+
+To thoroughly investigate the actions that occurred **after a user was elevated to administrator**, it's essential to conduct a search on the Timeline. This allows you to review and understand the sequence of events that followed the elevation, helping to identify any potentially malicious or unauthorized activities that might have taken place. **Analyzing these actions is crucial for maintaining security and ensuring that the elevation was not exploited for harmful purposes.**
+
+> **Note**:
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+**Consider reviewing these actions:**
+
+- Have persistency items been added?
+- Is any software installed after elevation?
+- Were any additional users created after elevation?
+
+$investigate_0
+$investigate_1
+$investigate_2
+"""
+references = [
+    "https://www.loobins.io/binaries/dscl/",
+    "https://managingosx.wordpress.com/2010/01/14/add-a-user-to-the-admin-group-via-command-line-3-0/",
+]
+risk_score = 21
+rule_id = "04e65517-16e9-4fc4-b7f1-94dc21ecea0d"
+setup = """## Setup
+
+This rule requires data coming in from Jamf Protect.
+
+### Jamf Protect Integration Setup
+Jamf Protect is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events incoming events and send data to the Elastic.
+
+#### Prerequisite Requirements:
+- Fleet is required for Jamf Protect.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Jamf Protect integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Jamf Protect" and select the integration to see more details about it.
+- Click "Add Jamf Protect".
+- Configure the integration name.
+- Click "Save and Continue".
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Jamf Protect",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where host.os.type == "macos" and event.type == "change" and
+  event.action == "od_group_add" and group.name:"admin"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.003"
+name = "Local Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

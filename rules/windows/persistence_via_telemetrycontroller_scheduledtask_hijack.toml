@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/17"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,26 +12,57 @@ integrity level of system.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via TelemetryController Scheduled Task Hijack"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via TelemetryController Scheduled Task Hijack
+
+The Microsoft Compatibility Appraiser, part of Windows telemetry, uses scheduled tasks to assess system compatibility. Adversaries exploit this by hijacking the task to execute malicious code with system-level privileges, ensuring persistence. The detection rule identifies anomalies by monitoring processes initiated by the Appraiser that deviate from expected behavior, flagging potential hijacks for further investigation.
+
+### Possible investigation steps
+
+- Review the process tree to identify the parent process CompatTelRunner.exe and verify if it has spawned any unexpected child processes that match the alert criteria.
+- Examine the command-line arguments of the suspicious process to determine if they include the "-cv*" flag, which may indicate a hijack attempt.
+- Check the execution history of the flagged process to see if it aligns with legitimate system activities or if it appears anomalous.
+- Investigate the user account context under which the suspicious process is running to assess if it has elevated privileges or is associated with unusual user behavior.
+- Correlate the alert with other security logs and telemetry data from sources like Microsoft Defender for Endpoint or Sysmon to identify any related malicious activities or indicators of compromise.
+- Analyze any network connections initiated by the suspicious process to detect potential data exfiltration or communication with known malicious IP addresses.
+- Review recent changes to scheduled tasks on the system to identify unauthorized modifications that could indicate persistence mechanisms.
+
+### False positive analysis
+
+- Legitimate system maintenance tasks may trigger the rule if they involve processes that are not typically associated with the Microsoft Compatibility Appraiser. Users can create exceptions for known maintenance scripts or tools that are verified as safe.
+- Software updates or installations that temporarily use unusual processes under the Appraiser's context might be flagged. Users should monitor and whitelist these processes if they are part of a trusted update or installation routine.
+- Custom scripts or administrative tools that leverage the Appraiser's context for legitimate purposes could be misidentified. Users should document and exclude these scripts from detection if they are part of regular administrative operations.
+- Security tools or monitoring software that interact with the Appraiser process for analysis or logging purposes may cause false positives. Users should ensure these tools are recognized and excluded from the detection rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified by the detection rule that are not part of the expected process list, such as those not matching "conhost.exe", "DeviceCensus.exe", "CompatTelRunner.exe", "DismHost.exe", "rundll32.exe", or "powershell.exe".
+- Review and restore the integrity of the Microsoft Compatibility Appraiser scheduled task by resetting it to its default configuration to ensure it is not executing unauthorized code.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or software.
+- Analyze the system for any unauthorized changes to user accounts or privileges, and revert any modifications to ensure that only legitimate users have access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for the affected system and similar scheduled tasks across the network to detect any future attempts at hijacking or unauthorized modifications."""
 references = ["https://www.trustedsec.com/blog/abusing-windows-telemetry-for-persistence"]
 risk_score = 73
 rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -41,6 +72,12 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

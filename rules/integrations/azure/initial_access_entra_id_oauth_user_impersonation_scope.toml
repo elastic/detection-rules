@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2025/07/03"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies rare occurrences of OAuth workflow for a user principal that is single factor authenticated, with an OAuth
+scope containing user_impersonation for a token issued by Entra ID. Adversaries may use this scope to gain unauthorized
+access to user accounts, particularly when the sign-in session status is unbound, indicating that the session is not
+associated with a specific device or session. This behavior is indicative of potential account compromise or
+unauthorized access attempts. This rule flags when this pattern is detected for a user principal that has not been seen
+in the last 10 days, indicating potential abuse or unusual activity.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID OAuth user_impersonation Scope for Unusual User and Client"
+note = """## Triage and Analysis
+
+### Investigating Entra ID OAuth user_impersonation Scope for Unusual User and Client
+
+Identifies rare occurrences of OAuth workflow for a user principal that is single factor authenticated, with an OAuth scope containing `user_impersonation`, and a token issuer type of `AzureAD`. This rule is designed to detect suspicious
+OAuth user impersonation attempts in Microsoft Entra ID, particularly those involving the `user_impersonation` scope, which is often used by adversaries to gain unauthorized access to user accounts. The rule focuses on sign-in events where
+the sign-in session status is `unbound`, indicating that the session is not associated with a specific device or session, making it more vulnerable to abuse. This behavior is indicative of potential account compromise or
+unauthorized access attempts, especially when the user type is `Member` and the sign-in outcome is `success`. The rule aims to identify these events to facilitate timely investigation and response to potential security incidents. This is a New Terms rule that flags when this pattern is detected for a user principal that has not been seen in the last 10 days, indicating potential abuse or unusual activity.
+
+### Possible investigation steps
+
+- Review the `azure.signinlogs.properties.user_principal_name` field to identify the user principal involved in the OAuth workflow.
+- Check the `azure.signinlogs.properties.authentication_processing_details.Oauth Scope Info` field for the presence of `user_impersonation`. This scope is commonly used in OAuth flows to allow applications to access user resources on behalf of the user.
+- Confirm that the `azure.signinlogs.properties.authentication_requirement` is set to `singleFactorAuthentication`, indicating that the sign-in did not require multi-factor authentication (MFA). This can be a red flag, as MFA is a critical security control that helps prevent unauthorized access.
+- Review the `azure.signinlogs.properties.app_display_name` or `azure.signinlogs.properties.app_id` to identify the application involved in the OAuth workflow. Check if this application is known and trusted, or if it appears suspicious or unauthorized. FOCI applications are commonly abused by adversaries to evade security controls or conditional access policies.
+- Analyze the `azure.signinlogs.properties.client_ip` to determine the source of the sign-in attempt. Look for unusual or unexpected IP addresses, especially those associated with known malicious activity or geographic locations that do not align with the user's typical behavior.
+- Examine the `azure.signinlogs.properties.resource_display_name` or `azure.signinlogs.properties.resource_id` to identify the resource being accessed during the OAuth workflow. This can help determine if the access was legitimate or if it targeted sensitive resources. It may also help pivot to other related events or activities.
+- Use the `azure.signinlogs.properties.session_id` or `azure.signinlogs.properties.correlation_id` to correlate this event with other related sign-in events or activities. This can help identify patterns of suspicious behavior or potential account compromise.
+
+### False positive analysis
+
+- Some legitimate applications may use the `user_impersonation` scope for valid purposes, such as accessing user resources on behalf of the user. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
+- Users may occasionally authenticate using single-factor authentication for specific applications or scenarios, especially in environments where MFA is not enforced or required. If this is expected behavior, consider adjusting the rule or adding exceptions for specific user principals or applications.
+- Some applications may use the `user_impersonation` scope for legitimate purposes, such as accessing user resources in a controlled manner. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
+
+### Response and remediation
+
+- Contact the user to validate the OAuth workflow and assess whether they were targeted or tricked by a malicious actor.
+- If the OAuth workflow is confirmed to be malicious:
+  - Block the user account and reset the password to prevent further unauthorized access.
+  - Revoke active sessions and refresh tokens associated with the user principal.
+  - Review the application involved in the OAuth workflow and determine if it should be blocked or removed from the tenant.
+  - Investigate the source of the sign-in attempt, including the application and IP address, to determine if there are any additional indicators of compromise or ongoing malicious activity.
+  - Monitor the user account and related resources for any further suspicious activity or unauthorized access attempts, and take appropriate actions to mitigate any risks identified.
+- Educate users about the risks associated with OAuth user impersonation and encourage them to use more secure authentication methods, such as OAuth 2.0 or OpenID Connect, whenever possible.
+"""
+references = [
+    "https://github.com/Flangvik/TeamFiltration",
+    "https://www.proofpoint.com/us/blog/threat-insight/attackers-unleash-teamfiltration-account-takeover-campaign",
+]
+risk_score = 47
+rule_id = "9563dace-5822-11f0-b1d3-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: azure.signinlogs and
+    azure.signinlogs.properties.authentication_processing_details: *user_impersonation* and
+    azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication" and
+    azure.signinlogs.properties.token_issuer_type: "AzureAD" and
+    azure.signinlogs.properties.token_protection_status_details.sign_in_session_status: "unbound" and
+    azure.signinlogs.properties.user_type: "Member" and
+    azure.signinlogs.properties.conditional_access_status: "notApplied" and
+    not user_agent.original: Mozilla*PKeyAuth/1.0 and
+    not azure.signinlogs.properties.device_detail.operating_system: (Ios* or Android*) and
+    event.outcome: "success"
+    and not azure.signinlogs.properties.app_id: (
+        "a5f63c0-b750-4f38-a71c-4fc0d58b89e2" or
+        "6bc3b958-689b-49f5-9006-36d165f30e00" or
+        "66a88757-258c-4c72-893c-3e8bed4d6899" or
+        "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe" or
+        "0000000c-0000-0000-c000-000000000000"
+    )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.correlation_id",
+    "azure.signinlogs.category",
+    "azure.signinlogs.identity",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_owner_tenant_id",
+    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.client_credential_type",
+    "azure.signinlogs.properties.conditional_access_status",
+    "azure.signinlogs.properties.device_detail.operating_system",
+    "azure.signinlogs.properties.is_interactive",
+    "azure.signinlogs.properties.session_id",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.user_type",
+    "azure.signinlogs.result_signature",
+    "azure.tenant_id",
+    "source.address",
+    "user.id"
+]
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[[rule.threat.technique]]
+id = "T1656"
+name = "Impersonation"
+reference = "https://attack.mitre.org/techniques/T1656/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.user_principal_name", "azure.signinlogs.properties.app_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

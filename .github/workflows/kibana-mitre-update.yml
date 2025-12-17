@@ -1,0 +1,43 @@
+name: Check MITRE ATT&CK Version Updates Are Synced
+
+on:
+  pull_request:
+    types:
+      - opened
+    paths:
+      - 'detection_rules/etc/attack-v*.json.gz'
+
+jobs:
+  create_issue:
+    runs-on: ubuntu-latest
+    env:
+      KIBANA_ISSUE_NUMBER: 166152  # Define the Kibana issue number as a variable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Get MITRE Attack changed files
+        id: changed-attack-files
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46.0.5
+        with:
+          files: detection_rules/etc/attack-v*.json.gz
+
+      - name: Extract version from file name
+        id: extract_version
+        if: steps.changed-attack-files.outputs.any_changed == 'true'
+        env:
+          ADDED_FILE: ${{ steps.changed-attack-files.outputs.added_files }}
+        run: |
+          VERSION=$(echo $ADDED_FILE[0] | grep -o 'v[^json]*')
+          echo "::set-output name=version::$VERSION"
+      
+      - name: Add Kibana Issue Comment
+        run: |
+            echo "Adding comment to Kibana issue #${KIBANA_ISSUE_NUMBER}"
+            curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
+            https://api.github.com/repos/elastic/kibana/issues/${KIBANA_ISSUE_NUMBER}/comments \
+            -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
+            exit $?

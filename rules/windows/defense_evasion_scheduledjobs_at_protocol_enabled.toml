@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/23"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,21 +12,55 @@ move laterally or persist locally. The AT command has been deprecated since Wind
 exists for backwards compatibility.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Scheduled Tasks AT Command Enabled"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Scheduled Tasks AT Command Enabled
+
+The AT command, a legacy Windows utility, schedules tasks for execution, often used for automation. Despite its deprecation post-Windows 8, it remains for compatibility, posing a security risk. Attackers exploit it to maintain persistence or move laterally. The detection rule monitors registry changes enabling this command, flagging potential misuse by checking specific registry paths and values indicative of enabling the AT command.
+
+### Possible investigation steps
+
+- Review the registry event logs to confirm the change in the registry path "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt" and verify if the value was set to "1" or "0x00000001".
+- Identify the user account and process responsible for the registry change by examining the event logs for associated user and process information.
+- Check for any scheduled tasks created or modified around the time of the registry change to determine if the AT command was used to schedule any tasks.
+- Investigate the system for any signs of lateral movement or persistence mechanisms that may have been established using the AT command.
+- Correlate the event with other security alerts or logs from data sources like Elastic Endgame, Elastic Defend, Sysmon, Microsoft Defender for Endpoint, or SentinelOne to gather additional context and assess the scope of potential malicious activity.
+
+### False positive analysis
+
+- System administrators or IT management tools may enable the AT command for legacy support or compatibility testing. Verify if the change aligns with scheduled maintenance or updates.
+- Some enterprise environments might have legacy applications that rely on the AT command for task scheduling. Confirm with application owners if such dependencies exist and document them.
+- Security software or monitoring tools might trigger registry changes as part of their normal operation. Cross-reference with logs from these tools to ensure the change is benign.
+- If a specific user or system frequently triggers this alert without malicious intent, consider creating an exception for that user or system in your monitoring solution to reduce noise.
+- Regularly review and update the list of exceptions to ensure they remain relevant and do not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or persistence by the attacker.
+- Review the registry changes identified in the alert to confirm unauthorized enabling of the AT command. Revert the registry setting to its secure state by setting the value to "0" or "0x00000000".
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious software or scripts.
+- Investigate user accounts and permissions on the affected system to ensure no unauthorized accounts or privilege escalations have occurred. Reset passwords for any compromised accounts.
+- Monitor network traffic and logs for any signs of data exfiltration or communication with known malicious IP addresses or domains.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for similar registry changes across the network to detect and respond to future attempts promptly."""
 references = ["https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-scheduledjob"]
 risk_score = 47
 rule_id = "9aa0e1f6-52ce-42e1-abb3-09657cee2698"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -37,16 +71,18 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
-  registry.path : (
-    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt",
-    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt"
-  ) and registry.data.strings : ("1", "0x00000001")
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "EnableAt" and
+  registry.data.strings : ("1", "0x00000001")
 '''
 
 

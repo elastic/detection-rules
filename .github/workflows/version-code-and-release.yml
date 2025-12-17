@@ -1,0 +1,100 @@
+name: Version Code Check and Draft Release
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - 'lib/**'
+      - 'hunting/**/*.py'
+      - 'pyproject.toml'
+      - 'Makefile'
+      - 'docs-dev/**'
+      - 'detection_rules/**'
+      - 'tests/**'
+      - '!hunting/**/*.md'
+      - '!hunting/index.md'
+      - '!hunting/**/*.toml'
+      - '!detection_rules/etc/non-ecs-schema.json'
+    types: [opened, reopened, synchronize, labeled, closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  label_check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure PR has Version Bump Label
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const labels = ['major', 'minor', 'patch'];
+            const prLabels = context.payload.pull_request.labels.map(label => label.name);
+            const hasVersionLabel = labels.some(label => prLabels.includes(label));
+            if (!hasVersionLabel) {
+              throw new Error("PR must have one of the following labels: major, minor, or patch.");
+            }
+
+  version_check:
+    if: github.event_name == 'pull_request'
+    needs: label_check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if core pyproject.toml was updated
+        run: |
+          BASE_COMMIT="${{ github.event.pull_request.base.sha }}"
+
+          if ! git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep '^pyproject.toml$'; then
+            echo "Code changes detected in core, but pyproject.toml was not updated."
+            exit 1
+          fi
+
+      - name: Check if lib pyproject.toml files were updated
+        run: |
+          BASE_COMMIT="${{ github.event.pull_request.base.sha }}"
+
+          if git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep -E 'lib/kql/|lib/kibana/'; then
+            if ! git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep -E 'lib/kql/pyproject.toml|lib/kibana/pyproject.toml'; then
+              echo "Changes detected in kql or kibana library, but respective pyproject.toml was not updated."
+              exit 1
+            fi
+          fi
+
+  tag_and_draft_release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set github config
+        run: |
+          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+          git config --global user.name "protectionsmachine"
+
+      - name: Extract version from pyproject.toml and create tag
+        id: extract_version
+        run: |
+          version=$(grep '^version = ' pyproject.toml | cut -d '"' -f2)
+          echo "Detected version: $version"
+          git tag -a "dev-v$version" -m "Release version $version"
+          git push origin "dev-v$version"
+
+      - name: Run Release Drafter
+        uses: release-drafter/release-drafter@b1476f6e6eb133afa41ed8589daba6dc69b4d3f5 # v6.1.0
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

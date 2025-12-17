@@ -2,13 +2,15 @@
 creation_date = "2020/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/10/30"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the creation of a group in AWS Identity and Access Management (IAM). Groups specify permissions for multiple
-users. Any user in a group automatically has the permissions that are assigned to the group.
+users. Any user in a group automatically has the permissions that are assigned to the group. Adversaries who obtain
+credentials with IAM write privileges may create a new group as a foothold for persistence: they can later attach
+admin-level policies to the group and quietly add users or roles to inherit those privileges.
 """
 false_positives = [
     """
@@ -17,15 +19,59 @@ false_positives = [
     investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Group Creation"
-note = """## Setup
+note = """## Triage and analysis
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Group Creation
+
+AWS IAM allows organizations to manage user access and permissions securely. Groups in IAM simplify permission management by allowing multiple users to inherit the same permissions. However, adversaries may exploit this by creating unauthorized groups to gain persistent access. This alert fires on `CreateGroup`. New group creation may indicate attacker staging for persistence, especially if followed by policy attachments or user additions.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**  
+  - Check `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.access_key_id` to determine who performed the group creation.  
+  - Review `source.ip`, `user_agent.original`, `cloud.account.id`, `cloud.region` for unusual network, client, or region usage.
+
+- **Examine the group details**  
+  - From `aws.cloudtrail.response_elements`, extract `groupName` and `path` (e.g., /service/, /dev/).
+  - Look for immediate follow-on changes by the same actor within the next 15–30 minutes:
+    - AttachGroupPolicy (especially AdministratorAccess or broad s3:*, iam:*).
+    - AddUserToGroup (who was added and when?).
+  - Use GetGroup to enumerate current group membership and attached policies during triage.
+
+- **Correlate with broader activity**  
+  - Look for prior suspicious actions by the same user: `AssumeRole`, `CreateAccessKey`, new IAM user/role.  
+  - After group creation, watch for data-access or configuration changes (e.g., S3 policy updates, KMS key policy changes) 
+
+### False positive analysis
+
+- IAM onboarding workflows or DevOps pipelines creating groups for new projects can trigger this alert.  
+- Test or sandbox accounts often create and delete groups routinely, validate account context and approval flows.
+
+### Response and remediation:
+
+- **Containment**: 
+  - If suspicious, disable further changes by the actor (temporarily remove IAM write privileges or deactivate keys).
+  - Place a change freeze on the newly created group (block `AttachGroupPolicy`/`AddUserToGroup` via SCP/permissions boundary until review completes).
+
+- **Investigation and scoping**: 
+  - Use `GetGroup`, `ListAttachedGroupPolicies`, `ListUsersInGroup` to enumerate the group’s state and identify any suspicious policies or members. Investigate any attached policies granting broad privileges. 
+  - Hunt for same-actor `AttachGroupPolicy`/`AddUserToGroup` events across the last 24–48h.
+ 
+- **Recovery and hardening**: 
+  - Delete unauthorized, unused or suspicious groups. remove rogue policies/members.
+  - Restrict who can call `iam:CreateGroup`, `iam:AttachGroupPolicy`, and `iam:AddUserToGroup` (least privilege). 
+
+### Additional information
+[AWS Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)
+"""
 references = [
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/iam/create-group.html",
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateGroup.html",
@@ -40,12 +86,16 @@ tags = [
     "Data Source: AWS IAM",
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:CreateGroup and event.outcome:success
+event.dataset: aws.cloudtrail and 
+    event.provider: iam.amazonaws.com and 
+    event.action: CreateGroup and 
+    event.outcome: success
 '''
 
 
@@ -66,4 +116,21 @@ reference = "https://attack.mitre.org/techniques/T1136/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

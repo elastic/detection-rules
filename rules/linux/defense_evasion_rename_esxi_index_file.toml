@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ The rule monitors for the "rename" event action associated with this specific fi
 malicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Renaming of ESXI index.html File"
@@ -53,6 +53,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -61,6 +62,41 @@ query = '''
 file where host.os.type == "linux" and event.action == "rename" and file.name : "index.html" and
 file.Ext.original.path : "/usr/lib/vmware/*"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Renaming of ESXI index.html File
+
+VMware ESXi hosts use the index.html file within their web interface for management tasks. Adversaries may rename this file to evade detection or to replace it with a malicious version, facilitating unauthorized access or data exfiltration. The detection rule monitors Linux systems for renaming actions targeting this file in the VMware directory, flagging potential defense evasion attempts by correlating file path and event actions.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file path and event action, ensuring the "rename" action occurred on the "index.html" file within the "/usr/lib/vmware/*" directory.
+- Check the timestamp of the rename event to determine when the activity occurred and correlate it with any other suspicious activities or alerts around the same time.
+- Identify the user or process responsible for the rename action by examining the associated user account and process details in the event logs.
+- Investigate the system's recent login history and user activity to identify any unauthorized access or anomalies that could be linked to the rename event.
+- Analyze the renamed file and any new files in the directory for signs of tampering or malicious content, using file integrity monitoring tools or antivirus scans.
+- Review network logs for any unusual outbound connections from the affected host that could indicate data exfiltration or communication with a command and control server.
+- Consider isolating the affected host from the network to prevent further potential malicious activity while the investigation is ongoing.
+
+### False positive analysis
+
+- Routine maintenance or updates on VMware ESXi hosts may involve renaming the index.html file temporarily. Users can create exceptions for known maintenance windows to prevent unnecessary alerts.
+- Automated scripts or backup processes might rename the index.html file as part of their operations. Identify and whitelist these scripts or processes to avoid false positives.
+- System administrators may manually rename the index.html file for legitimate customization or troubleshooting purposes. Document and exclude these actions by specific user accounts or during specific time frames.
+- Security tools or monitoring solutions might trigger renaming actions as part of their scanning or remediation tasks. Verify and exclude these tools from the rule to reduce false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected VMware ESXi host from the network to prevent further unauthorized access or data exfiltration.
+- Verify the integrity of the index.html file by comparing it with a known good version from a trusted source to determine if it has been tampered with or replaced.
+- Restore the original index.html file from a secure backup if it has been altered or replaced, ensuring that the backup is from a time before the suspicious activity was detected.
+- Conduct a thorough review of recent access logs and system changes on the affected host to identify any unauthorized access or modifications that may have occurred.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be compromised.
+- Implement additional monitoring on the affected host and similar systems to detect any further attempts to rename or modify critical files.
+- Review and update access controls and permissions on the VMware ESXi host to ensure that only authorized personnel have the ability to modify critical system files."""
 
 
 [[rule.threat]]
@@ -71,7 +107,7 @@ name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
-name = "Rename System Utilities"
+name = "Rename Legitimate Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
 
 

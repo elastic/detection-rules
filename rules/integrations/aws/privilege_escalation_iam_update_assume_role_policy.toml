@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2020/07/06"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS CloudTrail events where an IAM role's trust policy has been updated by an IAM user or Assumed Role
+identity. The trust policy is a JSON document that defines which principals are allowed to assume the role. An attacker
+may attempt to modify this policy to gain the privileges of the role. This is a New Terms rule, which means it will only
+trigger once for each unique combination of the "cloud.account.id", "user.name" and "target.entity.id" fields, that have
+not been seen making this API request.
+"""
+false_positives = [
+    """
+    Verify whether the user identity should be making changes in your environment. Policy updates from unfamiliar users
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Assume Role Policy Update"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Assume Role Policy Update
+
+An IAM role is an IAM identity that you can create in your account that has specific permissions. An IAM role is similar to an IAM user, in that it is an AWS identity with permission policies that determine what the identity can and cannot do in AWS. However, instead of being uniquely associated with one person, a role is intended to be assumable by anyone who needs it. Also, a role does not have standard long-term credentials such as a password or access keys associated with it. Instead, when you assume a role, it provides you with temporary security credentials for your role session.
+
+The role trust policy is a JSON document in which you define the principals you trust to assume the role. This policy is a required resource-based policy that is attached to a role in IAM. An attacker may attempt to modify this policy by using the `UpdateAssumeRolePolicy` API action to gain the privileges of that role.
+
+#### Possible investigation steps
+
+- Review the `aws.cloudtrail.user_identity.arn` to determine the IAM User that performed the action. 
+- If an AssumedRole identity type performed the action review the `aws.cloudtrail.user_identity.session_context.session_issuer.arn` field to determine which role was used.
+- Review the `target.entity.id` field to confirm the role that was updated.
+- Within the `aws.cloudtrail.request_parameters` field, review the `policyDocument` to understand the changes made to the trust policy.
+- If `aws.cloudtrail.user_identity.access_key_id` is present, investigate the access key used to perform the action as it may be compromised.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Contact the account and resource owners and confirm whether they are aware of this activity.
+- Check if this operation was approved and performed according to the organization's change management policy.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+
+### False positive analysis
+
+- False positives may occur due to the intended usage of the service. Tuning is needed in order to have higher confidence. Consider adding exceptions — preferably with a combination of the user agent and user ID conditions — to cover administrator activities and infrastructure as code tooling.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Use AWS [policy versioning](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-versioning.html) to restore the trust policy to the desired state.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://labs.bishopfox.com/tech-blog/5-privesc-attack-vectors-in-aws"]
+risk_score = 21
+rule_id = "a60326d7-dca7-4fb7-93eb-1ca03a1febbd"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: "UpdateAssumeRolePolicy"
+    and event.outcome: "success"
+    and not source.address: "cloudformation.amazonaws.com"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name", "target.entity.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

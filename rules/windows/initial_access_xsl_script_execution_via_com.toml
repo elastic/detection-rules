@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +25,7 @@ tags = [
     "Tactic: Initial Access",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
@@ -33,7 +34,7 @@ sequence with maxspan=1m
  [library where host.os.type == "windows" and dll.name : "msxml3.dll" and
   process.name : ("winword.exe", "excel.exe", "powerpnt.exe", "mspub.exe")] by process.entity_id
  [process where host.os.type == "windows" and event.action == "start" and
-  process.parent.name : ("winword.exe", "excel.exe", "powerpnt.exe", "mspub.exe") and 
+  process.parent.name : ("winword.exe", "excel.exe", "powerpnt.exe", "mspub.exe") and
   not process.executable :
         ("?:\\Windows\\System32\\WerFault.exe",
          "?:\\Windows\\SysWoW64\\WerFault.exe",
@@ -42,6 +43,41 @@ sequence with maxspan=1m
          "?:\\Program Files\\*.exe",
          "?:\\Program Files (x86)\\*exe")] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote XSL Script Execution via COM
+
+The Microsoft.XMLDOM COM interface allows applications to parse and transform XML documents using XSL scripts. Adversaries exploit this by embedding malicious scripts in Office documents, triggering execution via Office processes like Word or Excel. The detection rule identifies suspicious activity by monitoring for the loading of specific DLLs and the execution of unexpected child processes, indicating potential script execution attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific Office process (e.g., winword.exe, excel.exe) that triggered the alert and note the process entity ID for further investigation.
+- Check the process tree to identify any unexpected child processes spawned by the Office application, focusing on those not matching typical system executables like WerFault.exe or conhost.exe.
+- Investigate the loaded DLLs, specifically msxml3.dll, to confirm its legitimate use and check for any anomalies or unusual patterns in its loading sequence.
+- Analyze the parent and child process relationships to determine if the execution flow aligns with typical user activity or if it suggests malicious behavior.
+- Gather additional context by reviewing recent user activity and document interactions to identify any potential phishing attempts or suspicious document handling that could have led to the alert.
+- Correlate the findings with other security events or alerts in the environment to assess if this activity is part of a broader attack pattern or isolated incident.
+
+### False positive analysis
+
+- Legitimate use of Microsoft Office applications for XML processing can trigger the rule. Users should identify and whitelist known applications or scripts that regularly perform XML transformations using the Microsoft.XMLDOM COM interface.
+- Automated document processing systems that utilize Office applications to handle XML data might cause false positives. Exclude these systems by specifying their process names or executable paths in the detection rule.
+- Software updates or installations that involve Office applications may load the msxml3.dll and start child processes. Temporarily disable the rule during scheduled maintenance or update windows to prevent false alerts.
+- Custom Office add-ins or macros that interact with XML files could be misidentified as threats. Review and approve these add-ins, then adjust the rule to exclude their specific behaviors.
+- Regular business processes that involve document conversion or data extraction using Office tools might be flagged. Document these processes and create exceptions based on their unique characteristics, such as specific file paths or process names.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the malicious script execution.
+- Terminate any suspicious processes identified as child processes of Office applications, such as winword.exe or excel.exe, that are not part of the standard executable paths.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious scripts or files.
+- Review and restore any altered or deleted files from secure backups to ensure data integrity and system functionality.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement application whitelisting to restrict the execution of unauthorized scripts and executables, particularly those not located in standard directories.
+- Enhance monitoring and alerting for similar activities by ensuring that the detection rule is actively deployed and that alerts are configured to notify the appropriate personnel promptly."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic"]
@@ -25,11 +25,47 @@ false_positives = [
     expose one or more node's IPs directly.
     """,
 ]
-index = ["logs-kubernetes.*"]
+index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Exposed Service Created With Type NodePort"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Exposed Service Created With Type NodePort
+
+Kubernetes NodePort services enable external access to cluster pods by opening a port on each worker node. This can be exploited by attackers to bypass network security, intercept traffic, or establish unauthorized communication channels. The detection rule identifies suspicious NodePort service creation or modification by monitoring Kubernetes audit logs for specific actions and authorization decisions, helping to mitigate potential security risks.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the specific service that was created or modified with the type NodePort. Focus on entries where kubernetes.audit.objectRef.resource is "services" and kubernetes.audit.verb is "create", "update", or "patch".
+- Check the kubernetes.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed, ensuring that the service creation or modification was authorized.
+- Identify the user or service account responsible for the action by examining the relevant fields in the audit logs, such as the user identity or service account name.
+- Investigate the context of the NodePort service by reviewing the associated pods and their labels to understand what applications or services are being exposed externally.
+- Assess the network security implications by determining if the NodePort service could potentially bypass existing firewalls or security controls, and evaluate the risk of unauthorized access or data interception.
+- Verify if the NodePort service is necessary for legitimate business purposes or if it was created without proper justification, indicating potential malicious intent.
+
+### False positive analysis
+
+- Routine service updates or deployments may trigger the rule if NodePort services are part of standard operations. To manage this, create exceptions for specific namespaces or service accounts that are known to perform these actions regularly.
+- Development or testing environments often use NodePort services for ease of access. Exclude these environments from the rule by filtering based on labels or annotations that identify non-production clusters.
+- Automated deployment tools or scripts that configure services as NodePort for legitimate reasons can cause false positives. Identify these tools and add their service accounts to an exception list to prevent unnecessary alerts.
+- Internal services that require external access for legitimate business needs might be flagged. Document these services and apply exceptions based on their specific labels or annotations to avoid false alarms.
+- Temporary configurations during incident response or troubleshooting might involve NodePort services. Ensure that these activities are logged and approved, and consider temporary exceptions during the incident resolution period.
+
+### Response and remediation
+
+- Immediately isolate the affected NodePort service by removing or disabling it to prevent further unauthorized access or traffic interception.
+- Review and revoke any unauthorized access or permissions granted to users or service accounts that created or modified the NodePort service.
+- Conduct a thorough audit of network traffic logs to identify any suspicious or unauthorized external connections made through the NodePort service.
+- Implement network segmentation and firewall rules to restrict external access to critical services and ensure that only necessary ports are exposed.
+- Escalate the incident to the security operations team for further investigation and to assess potential impacts on the cluster's security posture.
+- Apply security patches and updates to Kubernetes components and worker nodes to mitigate any known vulnerabilities that could be exploited.
+- Enhance monitoring and alerting mechanisms to detect future unauthorized NodePort service creations or modifications promptly.
+
+## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -40,7 +76,7 @@ references = [
 risk_score = 47
 rule_id = "65f9bccd-510b-40df-8263-334f03174fed"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Persistence"]
+tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Persistence", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

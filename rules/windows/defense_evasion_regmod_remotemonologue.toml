@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2025/04/14"
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
+maturity = "production"
+updated_date = "2025/09/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempt to perform session hijack via COM object registry modification by setting the RunAs value to
+Interactive User.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-windows.sysmon_operational-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential RemoteMonologue Attack"
+note = """## Triage and analysis
+
+### Investigating Potential RemoteMonologue Attack
+
+
+### Possible investigation steps
+
+- Review the registry event logs to confirm the modification of the RunAs value in the specified registry paths, ensuring the change was not part of a legitimate administrative action.
+- Identify the user account and process responsible for the registry modification by examining the event logs for associated user and process information.
+- Check for any recent remote authentication attempts or sessions on the affected host to determine if this activity is associated with lateral movement or not.
+- Investigate the timeline of the registry change to correlate with any other suspicious activities or alerts on the host, such as the execution of unusual processes or network connections.
+
+### False positive analysis
+
+- Software updates or installations that modify COM settings.
+- Automated scripts or management tools that adjust COM configurations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Modify the registry value back to its secure state, ensuring that "RunAs" value is not set to "Interactive User".
+- Conduct a thorough review of recent user activity and system logs to identify any unauthorized access or changes made during the period NLA was disabled.
+- Reset passwords for all accounts that have accessed the affected system to mitigate potential credential compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring on the affected system and similar endpoints to detect any further attempts to disable NLA or other suspicious activities.
+"""
+references = [
+    "https://www.ibm.com/think/x-force/remotemonologue-weaponizing-dcom-ntlm-authentication-coercions#1",
+    "https://github.com/xforcered/RemoteMonologue",
+]
+risk_score = 47
+rule_id = "c18975f5-676c-4091-b626-81e8938aa2ee"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and
+  registry.value == "RunAs" and registry.data.strings : "Interactive User" and
+
+  not 
+  (
+    (
+      process.executable : (
+        "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.*\\MsMpEng.exe",
+        "C:\\Program Files\\Windows Defender\\MsMpEng.exe"
+      ) and
+      registry.path : "*\\SOFTWARE\\Classes\\AppID\\{1111A26D-EF95-4A45-9F55-21E52ADF9887}\\RunAs"
+    ) or
+    (
+      process.executable : (
+        "C:\\Program Files\\TeamViewer\\TeamViewer.exe",
+        "C:\\Program Files (x86)\\TeamViewer\\TeamViewer.exe"
+      ) and
+      registry.path : "*\\SOFTWARE\\Classes\\AppID\\{850A928D-5456-4865-BBE5-42635F1EBCA1}\\RunAs"
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\svchost.exe" and
+      registry.path : "*\\S-1-*Classes\\AppID\\{D3E34B21-9D75-101A-8C3D-00AA001A1652}\\RunAs"
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\SecurityHealthService.exe" and
+      registry.path : (
+        "*\\SOFTWARE\\Classes\\AppID\\{1D278EEF-5C38-4F2A-8C7D-D5C13B662567}\\RunAs",
+        "*\\SOFTWARE\\Classes\\AppID\\{7E55A26D-EF95-4A45-9F55-21E52ADF9878}\\RunAs"
+      )
+    ) or
+    (
+      process.executable : "C:\\Windows\\System32\\SecurityHealthService.exe" and
+      registry.path : (
+        "*\\SOFTWARE\\Classes\\AppID\\{1D278EEF-5C38-4F2A-8C7D-D5C13B662567}\\RunAs",
+        "*\\SOFTWARE\\Classes\\AppID\\{7E55A26D-EF95-4A45-9F55-21E52ADF9878}\\RunAs"
+      )
+    ) or
+    registry.path : (
+      "HKLM\\SOFTWARE\\Microsoft\\Office\\ClickToRun\\VREGISTRY_*",
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Office\\ClickToRun\\VREGISTRY_*"
+    ) or
+    (process.executable : "C:\\windows\\System32\\msiexec.exe" and ?user.id : "S-1-5-18")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2025/02/19"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an excessive number of files are downloaded from OneDrive using OAuth authentication. Adversaries may
+conduct phishing campaigns to steal OAuth tokens and impersonate users. These access tokens can then be used to download
+files from OneDrive.
+"""
+false_positives = [
+    """
+    Legitimate users may download files from OneDrive using OAuth authentication. Ensure that the downloads are
+    authorized and the user is known before taking action.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "M365 OneDrive Excessive File Downloads with OAuth Token"
+note = """## Triage and Analysis
+
+### Investigating M365 OneDrive Excessive File Downloads with OAuth Token
+
+This rule detects an excessive number of files downloaded from OneDrive using OAuth authentication. Threat actors may use OAuth phishing attacks, such as **Device Code Authentication phishing**, to obtain valid access tokens and perform unauthorized data exfiltration. This method allows adversaries to bypass traditional authentication mechanisms, making it a stealthy and effective technique.
+
+This rule leverages ESQL aggregations which limit the field values available in the alert document. To investigate further, it is recommended to identify the original documents ingested.
+
+#### Possible Investigation Steps
+
+- Review the `o365.audit.UserId` field to identify the user who performed the downloads. Check if this user typically downloads large amounts of data from OneDrive.
+- Correlate `o365.audit.UserId` with Entra Sign-In logs to verify the authentication method used and determine if it was expected for this user.
+- Review the authentication method used. If OAuth authentication was used, investigate whether it was expected for this user.
+- Identify the client application used for authentication. Determine if it is a legitimate enterprise-approved app or an unauthorized third-party application.
+- Check the number of unique files downloaded. If a user downloads a high volume of unique files in a short period, it may indicate data exfiltration.
+- Analyze the file types and directories accessed to determine if sensitive or confidential data was involved.
+- Investigate the source IP address and geolocation of the download activity. If it originates from an unusual or anonymized location, further scrutiny is needed.
+- Review other recent activities from the same user, such as file access, sharing, or permission changes, that may indicate further compromise.
+- Check for signs of session persistence using OAuth. If Azure sign-in logs are correlated where `authentication_protocol` or `originalTransferMethod` field shows `deviceCode`, the session was established through device code authentication.
+- Look for multiple authentication attempts from different devices or locations within a short timeframe, which could indicate unauthorized access.
+- Investigate if other OAuth-related anomalies exist, such as consent grants for unfamiliar applications or unexpected refresh token activity.
+- Review the `file.directory` value from the original documents to identify the specific folders or paths where the files were downloaded.
+
+### False Positive Analysis
+
+- Verify if the user regularly downloads large batches of files as part of their job function.
+- Determine if the downloads were triggered by an authorized automated process, such as a data backup or synchronization tool.
+- Confirm if the detected OAuth application is approved for enterprise use and aligns with expected usage patterns.
+
+### Response and Remediation
+
+- If unauthorized activity is confirmed, revoke the OAuth token used and terminate active OneDrive sessions.
+- Reset the affected user's password and require reauthentication to prevent continued unauthorized access.
+- Restrict OAuth app permissions and enforce conditional access policies to limit authentication to trusted devices and applications.
+- Monitor for additional signs of compromise, such as unusual email forwarding rules, external sharing of OneDrive files, or privilege escalation attempts.
+- Educate users on OAuth phishing risks and encourage the use of **Microsoft Defender for Office 365 Safe Links** to mitigate credential-based attacks.
+- Enable continuous monitoring for OAuth authentication anomalies using **Microsoft Entra ID sign-in logs** and security tools.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/",
+]
+risk_score = 47
+rule_id = "0e524fa6-eed3-11ef-82b4-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: SharePoint",
+    "Data Source: OneDrive",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-o365.audit-*
+| where
+    event.dataset == "o365.audit" and
+    event.provider == "OneDrive" and
+    event.action == "FileDownloaded" and
+    o365.audit.AuthenticationType == "OAuth" and
+    event.outcome == "success"
+    and (user.id is not null and o365.audit.ApplicationId is not null)
+| eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
+| where session.id is not null
+| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| stats
+    Esql.file_directory_values = values(file.directory),
+    Esql.file_extension_values = values(file.extension),
+    Esql.application_name_values = values(application.name),
+    Esql.file_name_count_distinct = count_distinct(file.name),
+    Esql.o365_audit_Site_values = values(o365.audit.Site),
+    Esql.o365_audit_SiteUrl_values = values(o365.audit.SiteUrl),
+    Esql.user_domain_values = values(user.domain),
+    Esql.token_id_values = values(token.id),
+    Esql.event_count = count(*)
+by
+    Esql.time_window_date_trunc,
+    user.id,
+    session.id,
+    source.ip,
+    o365.audit.ApplicationId
+| where Esql.file_name_count_distinct >= 25
+| keep
+    Esql.*,
+    user.id,
+    source.ip,
+    o365.audit.ApplicationId,
+    session.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+

@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/28"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve AppInit Registry Value"
 query = """
-SELECT * FROM registry r where (r.key == 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows' or
-r.key == 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows') and r.name ==
+SELECT * FROM registry r where (r.key == 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows'
+or r.key == 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows') and r.name ==
 'AppInit_DLLs'
 """
 
@@ -48,7 +48,15 @@ Attackers who add those DLLs to the registry locations can execute code with ele
 injection, and provide a solid and constant persistence on the machine.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Registry Persistence via AppInit DLL"
@@ -63,7 +71,7 @@ Attackers who add those DLLs to the registry locations can execute code with ele
 This rule identifies modifications on the AppInit registry keys.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -107,27 +115,27 @@ This rule identifies modifications on the AppInit registry keys.
 """
 risk_score = 47
 rule_id = "d0e159cf-73e9-40d1-a9ed-077e3158a855"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
-  registry.path : (
-     "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-     "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-     "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-     "\\REGISTRY\\MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
-  ) and
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "AppInit_Dlls" and
   not process.executable : (
      "?:\\Windows\\System32\\DriverStore\\FileRepository\\*\\Display.NvContainer\\NVDisplay.Container.exe",
      "?:\\Windows\\System32\\msiexec.exe",
@@ -136,8 +144,23 @@ registry where host.os.type == "windows" and
      "?:\\Program Files\\Commvault\\ContentStore*\\Base\\cvd.exe",
      "?:\\Program Files (x86)\\Commvault\\Base\\cvd.exe",
      "?:\\Program Files (x86)\\Commvault\\ContentStore*\\Base\\cvd.exe",
-     "?:\\Program Files\\NVIDIA Corporation\\Display.NvContainer\\NVDisplay.Container.exe"
+     "?:\\Program Files\\NVIDIA Corporation\\Display.NvContainer\\NVDisplay.Container.exe",
+
+     /* Crowdstrike specific condition as it uses NT Object paths */
+     "\\Device\\HarddiskVolume*\\Windows\\System32\\DriverStore\\FileRepository\\*\\Display.NvContainer\\NVDisplay.Container.exe",
+     "\\Device\\HarddiskVolume*\\Windows\\System32\\msiexec.exe",
+     "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\msiexec.exe",
+     "\\Device\\HarddiskVolume*\\Program Files\\Commvault\\Base\\cvd.exe",
+     "\\Device\\HarddiskVolume*\\Program Files\\Commvault\\ContentStore*\\Base\\cvd.exe",
+     "\\Device\\HarddiskVolume*\\Program Files (x86)\\Commvault\\Base\\cvd.exe",
+     "\\Device\\HarddiskVolume*\\Program Files (x86)\\Commvault\\ContentStore*\\Base\\cvd.exe",
+     "\\Device\\HarddiskVolume*\\Program Files\\NVIDIA Corporation\\Display.NvContainer\\NVDisplay.Container.exe"
   )
+  /*
+    Full registry key path omitted due to data source variations:
+    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
+    "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
+  */
 '''
 
 
@@ -158,15 +181,13 @@ reference = "https://attack.mitre.org/techniques/T1546/010/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
+
 
 [rule.threat.tactic]
 id = "TA0005"

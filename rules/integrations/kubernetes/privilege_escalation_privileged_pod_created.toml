@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic"]
@@ -22,11 +22,45 @@ false_positives = [
     trusted container images using the query field "kubernetes.audit.requestObject.spec.container.image"
     """,
 ]
-index = ["logs-kubernetes.*"]
+index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Privileged Pod Created"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Privileged Pod Created
+
+Kubernetes allows for the creation of privileged pods, which can access the host's resources, breaking container isolation. Adversaries may exploit this to escalate privileges, access sensitive data, or establish persistence. The detection rule identifies such events by monitoring audit logs for pod creation with privileged settings, excluding known safe images, to flag potential security threats.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the user or service account responsible for creating the privileged pod by examining the `kubernetes.audit.annotations.authorization_k8s_io/decision` and `kubernetes.audit.verb:create` fields.
+- Investigate the context of the privileged pod creation by checking the `kubernetes.audit.requestObject.spec.containers.image` field to determine if the image used is known or potentially malicious.
+- Assess the necessity and legitimacy of the privileged pod by consulting with the relevant development or operations teams to understand if there was a valid reason for its creation.
+- Examine the `kubernetes.audit.objectRef.resource:pods` field to identify the specific pod and its associated namespace, and verify if it aligns with expected deployment patterns or environments.
+- Check for any subsequent suspicious activities or anomalies in the Kubernetes environment that may indicate further exploitation attempts, such as lateral movement or data exfiltration, following the creation of the privileged pod.
+
+### False positive analysis
+
+- Known safe images like "docker.elastic.co/beats/elastic-agent:8.4.0" are already excluded from triggering alerts. Ensure that any additional internal or third-party images that are verified as safe are added to the exclusion list to prevent unnecessary alerts.
+- Development and testing environments often use privileged pods for legitimate purposes. Consider creating separate rules or exceptions for these environments to avoid false positives while maintaining security in production.
+- Automated deployment tools or scripts might create privileged pods as part of their normal operation. Review these tools and, if they are deemed safe, add their specific actions or images to the exclusion list.
+- Regularly review and update the exclusion list to reflect changes in your environment, such as new safe images or changes in deployment practices, to maintain an accurate detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected node to prevent further exploitation and lateral movement within the cluster. This can be done by cordoning and draining the node to stop new pods from being scheduled and to safely evict existing pods.
+- Terminate the privileged pod to stop any ongoing malicious activity. Ensure that the termination is logged for further analysis.
+- Conduct a thorough review of the audit logs to identify any unauthorized access or actions taken by the privileged pod. Focus on any attempts to access sensitive data or escalate privileges.
+- Reset credentials and access tokens that may have been exposed or compromised due to the privileged pod's access to the host's resources.
+- Patch and update the Kubernetes environment and any affected nodes to address vulnerabilities that may have been exploited to create the privileged pod.
+- Implement network segmentation and firewall rules to limit the communication capabilities of pods, especially those with elevated privileges, to reduce the risk of lateral movement.
+- Escalate the incident to the security operations team for a comprehensive investigation and to assess the need for further security measures or incident response actions.
+
+## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,7 +70,7 @@ references = [
 risk_score = 47
 rule_id = "c7908cac-337a-4f38-b50d-5eeb78bdb531"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation"]
+tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

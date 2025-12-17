@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/23"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +11,53 @@ Identifies the creation of a suspicious ImagePath value. This could be an indica
 stealthily persist or escalate privileges through abnormal service creation.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious ImagePath Service Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious ImagePath Service Creation
+
+Windows services are crucial for running background processes. Adversaries exploit this by creating or modifying services with malicious ImagePath values to gain persistence or escalate privileges. The detection rule monitors registry changes to ImagePath entries, flagging unusual patterns like command shells or named pipes, which are often used in stealthy attacks. This helps identify and mitigate potential threats early.
+
+### Possible investigation steps
+
+- Review the registry event logs to identify the specific ImagePath value that triggered the alert, focusing on entries with command shells or named pipes, such as those containing "%COMSPEC%*" or "*\\\\.\\\\pipe\\\\*".
+- Investigate the associated service name and description in the registry path "HKLM\\\\SYSTEM\\\\ControlSet*\\\\Services\\\\*\\\\ImagePath" to determine if it is a legitimate service or potentially malicious.
+- Check the creation or modification timestamp of the suspicious ImagePath entry to correlate with other system events or user activities around the same time.
+- Analyze the parent process and user account responsible for the registry change to assess if it aligns with expected behavior or if it indicates unauthorized access.
+- Search for related network activity or connections, especially those involving named pipes, to identify any lateral movement or data exfiltration attempts.
+- Cross-reference the alert with threat intelligence sources to determine if the ImagePath value or associated service is linked to known malware or adversary techniques.
+
+### False positive analysis
+
+- Legitimate software updates or installations may modify ImagePath values, triggering alerts. Users can create exceptions for known software update processes to reduce noise.
+- System administrators might intentionally change service configurations for maintenance or optimization. Document and exclude these planned changes to prevent false positives.
+- Some enterprise applications use named pipes for inter-process communication, which could be flagged. Identify and whitelist these applications to avoid unnecessary alerts.
+- Security tools or scripts that automate service management might alter ImagePath values. Ensure these tools are recognized and excluded from monitoring to minimize false alerts.
+- Regularly review and update the list of exceptions to ensure they align with current organizational practices and software environments.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes associated with the identified ImagePath values, such as those involving command shells or named pipes.
+- Remove or disable the malicious service by reverting the ImagePath registry entry to its legitimate state or deleting the service if it is not required.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional threats or malware.
+- Review and restore any modified system files or configurations to their original state to ensure system integrity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for similar registry changes and suspicious service creations to detect and respond to future threats promptly."""
 risk_score = 73
 rule_id = "36a8e048-d888-4f61-a8b9-0f9e2e40f317"
 severity = "high"
@@ -27,17 +70,20 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : (
-    "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath"
-    ) and
- /* add suspicious registry ImagePath values here */
-    registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "ImagePath" and
+  registry.path : "*\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath" and
+  /* add suspicious registry ImagePath values here */
+  registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
 
 

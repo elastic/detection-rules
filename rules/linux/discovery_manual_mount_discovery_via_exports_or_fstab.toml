@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2025/04/25"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects manual mount discovery via the /etc/exports or /etc/fstab file on Linux systems. These files are used
+by NFS (Network File System) to define which directories are shared with remote hosts. Attackers may access this
+file to gather information about shared directories and potential targets for further exploitation.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Manual Mount Discovery via /etc/exports or /etc/fstab"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Manual Mount Discovery via /etc/exports or /etc/fstab
+
+In Linux environments, the `/etc/exports` and `/etc/fstab` files are crucial for managing shared directories and mounting filesystems, respectively. Adversaries may exploit these files to identify shared resources and potential targets for lateral movement. The detection rule identifies suspicious processes accessing these files, using common command-line utilities, to flag potential reconnaissance activities by attackers.
+
+### Possible investigation steps
+
+- Review the process details to identify the user account associated with the suspicious activity, focusing on the process.name and process.command_line fields.
+- Examine the command line arguments in the process.command_line field to determine the specific actions taken and whether they align with legitimate administrative tasks.
+- Check the process start time and correlate it with other system activities to identify any unusual patterns or sequences of events.
+- Investigate the source IP address or hostname if the process was initiated remotely, to assess whether it is a known or trusted entity.
+- Look for any other related alerts or logs around the same timeframe to identify potential lateral movement or further reconnaissance activities.
+- Verify if the accessed directories in /etc/exports or /etc/fstab are critical or sensitive, and assess the potential impact of unauthorized access.
+
+### False positive analysis
+
+- Routine system administration tasks may trigger alerts when administrators use command-line utilities to view or edit /etc/exports or /etc/fstab. To mitigate this, consider excluding processes executed by known administrator accounts or during scheduled maintenance windows.
+- Automated scripts for system monitoring or configuration management might access these files regularly. Identify and whitelist these scripts by their process names or command-line patterns to reduce false positives.
+- Backup operations often involve reading configuration files like /etc/exports or /etc/fstab. Exclude processes associated with backup software or services to prevent unnecessary alerts.
+- Security tools or compliance checks may scan these files as part of their regular operations. Review and whitelist these tools based on their process names or command-line arguments to avoid false positives.
+- Developers or testers might access these files in development environments for testing purposes. Consider excluding processes from development servers or specific user accounts associated with testing activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the attacker.
+- Conduct a thorough review of the `/etc/exports` and `/etc/fstab` files on the affected system to identify any unauthorized changes or suspicious entries.
+- Revoke any unauthorized access to shared directories identified in the `/etc/exports` file and ensure that only trusted hosts have access.
+- Reset credentials and review access permissions for users and services that have access to the affected system to prevent further unauthorized access.
+- Monitor network traffic for any unusual activity originating from the affected system, focusing on connections to external IPs or unexpected internal hosts.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
+- Implement enhanced monitoring and logging for access to critical configuration files like `/etc/exports` and `/etc/fstab` to detect similar threats in the future.
+"""
+risk_score = 21
+rule_id = "bd18f4a3-c4c6-43b9-a1e4-b05e09998110"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.command_line like ("/etc/exports", "/etc/fstab")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/07/06"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -17,21 +17,54 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler File Deletion"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Print Spooler File Deletion
+
+The Print Spooler service in Windows manages print jobs and interactions with printers. Adversaries exploit vulnerabilities in this service to escalate privileges, often deleting print driver files to cover their tracks. The detection rule identifies unusual deletions of these files by processes other than legitimate ones, signaling potential misuse and aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and name of the deleted DLL file within "C:\\Windows\\System32\\spool\\drivers\\x64\\3\\".
+- Examine the process responsible for the deletion by checking the process name and its parent process to determine if it is a known legitimate process or a potentially malicious one.
+- Investigate the timeline of events around the deletion to identify any preceding or subsequent suspicious activities, such as privilege escalation attempts or unauthorized access.
+- Check for any recent vulnerabilities or exploits related to the Print Spooler service that might have been leveraged in this context.
+- Correlate the event with other security logs and alerts from data sources like Sysmon, Microsoft Defender for Endpoint, or SentinelOne to gather additional context and confirm the presence of malicious activity.
+- Assess the affected system for any signs of compromise or persistence mechanisms that may have been established following the deletion event.
+
+### False positive analysis
+
+- System maintenance or updates may trigger legitimate deletions of print driver files. Monitor scheduled maintenance activities and correlate them with detected events to confirm legitimacy.
+- Third-party printer management software might delete or update driver files as part of its normal operation. Identify and whitelist these processes if they are verified as non-threatening.
+- Custom scripts or administrative tools used by IT staff for printer management could inadvertently match the rule's criteria. Review and document these tools, then create exceptions for known safe operations.
+- Automated deployment tools that update or clean up printer drivers across the network might cause false positives. Ensure these tools are recognized and excluded from the detection rule if they are part of routine operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious processes identified as responsible for the deletion of print driver files, ensuring they are not legitimate system processes.
+- Restore the deleted print driver files from a known good backup to ensure the Print Spooler service functions correctly.
+- Conduct a thorough review of user accounts and privileges on the affected system to identify and revoke any unauthorized privilege escalations.
+- Apply the latest security patches and updates to the Print Spooler service and related components to mitigate known vulnerabilities.
+- Monitor the affected system and network for any signs of further suspicious activity, focusing on similar file deletion patterns or privilege escalation attempts.
+- Escalate the incident to the security operations center (SOC) or relevant IT security team for further investigation and to assess the need for broader organizational response measures."""
 references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
 risk_score = 47
 rule_id = "c4818812-d44f-47be-aaef-4cfb2f9cc799"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -42,14 +75,17 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type : "deletion" and
- not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe") and
- file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.dll"
+file where host.os.type == "windows" and event.type == "deletion" and
+  file.extension : "dll" and file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.dll" and
+  not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe")
 '''
 
 

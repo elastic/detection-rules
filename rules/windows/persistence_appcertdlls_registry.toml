@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -13,33 +11,76 @@ Detects attempts to maintain persistence by creating registry keys using AppCert
 process using the common API functions to create processes.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Registry Persistence via AppCert DLL"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Registry Persistence via AppCert DLL
+
+AppCert DLLs are dynamic link libraries that can be configured to load with every process that uses common API functions to create processes on Windows systems. This feature is intended for legitimate use, such as application compatibility. However, adversaries can exploit this by inserting malicious DLLs into the registry path, ensuring their code executes persistently across system reboots. The detection rule identifies changes to specific registry paths associated with AppCert DLLs, flagging potential unauthorized modifications indicative of persistence or privilege escalation attempts. By monitoring these registry changes, security analysts can detect and respond to such threats effectively.
+
+### Possible investigation steps
+
+- Review the specific registry path changes identified in the alert to confirm if they match the paths specified in the query: "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Session Manager\\\\AppCertDLLs\\\\*", "\\\\REGISTRY\\\\MACHINE\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Session Manager\\\\AppCertDLLs\\\\*", or "MACHINE\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Session Manager\\\\AppCertDLLs\\\\*".
+- Check the timestamp of the registry change event to determine when the modification occurred and correlate it with other system activities or logs around the same time.
+- Identify the user account or process responsible for the registry modification by examining the event logs or security logs to determine if it was an authorized change or potentially malicious activity.
+- Investigate the DLL file specified in the registry change for any known malicious signatures or behaviors using threat intelligence sources or antivirus tools.
+- Analyze the system for any additional indicators of compromise or persistence mechanisms, such as unusual scheduled tasks, startup items, or other registry modifications.
+- Review historical data to determine if similar registry changes have occurred in the past, which might indicate a recurring threat or persistent adversary activity.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify the AppCert DLL registry paths as part of their setup process. Users can handle these by creating exceptions for known and trusted software vendors.
+- System administrators might intentionally configure AppCert DLLs for application compatibility purposes. To manage this, maintain a list of approved configurations and exclude these from alerts.
+- Security tools or endpoint protection software might interact with these registry paths during routine scans or updates. Identify and whitelist these tools to prevent unnecessary alerts.
+- Custom enterprise applications may use AppCert DLLs for legitimate process monitoring or enhancement. Collaborate with application developers to document these cases and exclude them from detection.
+- Regular system maintenance scripts or group policies might inadvertently trigger changes in these registry paths. Review and adjust these scripts or policies to minimize false positives, or document and exclude them if they are necessary.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Use endpoint detection and response (EDR) tools to terminate any suspicious processes associated with the malicious AppCert DLLs identified in the registry paths.
+- Remove the unauthorized AppCert DLL entries from the registry paths: HKLM\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\* to eliminate persistence mechanisms.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or remnants.
+- Review and restore any system files or configurations that may have been altered by the malicious DLLs to ensure system integrity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for the specific registry paths and related process creation activities to detect any future unauthorized changes promptly."""
 risk_score = 47
 rule_id = "513f0ffd-b317-4b9c-9494-92ce861f22c7"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
-/* uncomment once stable length(bytes_written_string) > 0 and */
-  registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*",
-    "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
-  )
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : "*\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
 '''
 
 
@@ -60,7 +101,6 @@ reference = "https://attack.mitre.org/techniques/T1546/009/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

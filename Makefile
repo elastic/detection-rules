@@ -2,6 +2,7 @@
 ### detection-rules
 #################
 
+APP_NAME := detection-rules
 VENV := ./env/detection-rules-build
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
@@ -12,7 +13,6 @@ PIP := $(VENV_BIN)/pip
 all: release
 
 $(VENV):
-	python3.12 -m pip install --upgrade pip setuptools
 	python3.12 -m venv $(VENV)
 
 .PHONY: clean
@@ -23,6 +23,13 @@ clean:
 deps: $(VENV)
 	@echo "Installing all dependencies..."
 	$(PIP) install .[dev]
+	$(PIP) install lib/kibana
+	$(PIP) install lib/kql
+
+.PHONY: hunting-deps
+hunting-deps: $(VENV)
+	@echo "Installing all dependencies..."
+	$(PIP) install .[hunting]
 
 .PHONY: pytest
 pytest: $(VENV) deps
@@ -36,24 +43,31 @@ license-check: $(VENV) deps
 .PHONY: lint
 lint: $(VENV) deps
 	@echo "LINTING"
-	$(PYTHON) -m flake8 tests detection_rules --ignore D203,N815 --max-line-length 120
+	$(PYTHON) -m ruff check --exit-non-zero-on-fix
+	$(PYTHON) -m ruff format --check
+	$(PYTHON) -m pyright
 
 .PHONY: test
 test: $(VENV) lint pytest
 
 .PHONY: test-cli
-test-cli: $(VENV)
+test-cli: $(VENV) deps
 	@echo "Executing test_cli script..."
 	@./detection_rules/etc/test_cli.bash
 
 .PHONY: test-remote-cli
-test-remote-cli: $(VENV)
+test-remote-cli: $(VENV) deps
 	@echo "Executing test_remote_cli script..."
 	@./detection_rules/etc/test_remote_cli.bash
 
+.PHONY: test-hunting-cli
+test-hunting-cli: $(VENV) hunting-deps
+	@echo "Executing test_hunting_cli script..."
+	@./detection_rules/etc/test_hunting_cli.bash
+
 .PHONY: release
 release: deps
-	@echo "RELEASE: $(app_name)"
+	@echo "RELEASE: $(APP_NAME)"
 	$(PYTHON) -m detection_rules dev build-release --generate-navigator
 	rm -rf dist
 	mkdir dist

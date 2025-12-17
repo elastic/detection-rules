@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/03/22"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +11,52 @@ Identifies NullSessionPipe registry modifications that specify which pipes can b
 indicative of adversary lateral movement preparation by making the added pipe available to everyone.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "NullSessionPipe Registry Modification"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating NullSessionPipe Registry Modification
+
+The NullSessionPipe registry setting in Windows defines which named pipes can be accessed without authentication, facilitating anonymous connections. Adversaries may exploit this by modifying the registry to enable lateral movement, allowing unauthorized access to network resources. The detection rule monitors changes to this registry path, flagging modifications that introduce new accessible pipes, which could indicate malicious intent.
+
+### Possible investigation steps
+
+- Review the registry event details to confirm the specific named pipes added or modified in the NullSessionPipes registry path. Focus on the registry.data.strings field to identify any new or suspicious entries.
+- Correlate the timestamp of the registry change event with other security events or logs from the same host to identify any concurrent suspicious activities, such as unusual network connections or process executions.
+- Investigate the user account or process responsible for the registry modification by examining the event data for user context or process identifiers. This can help determine if the change was made by an unauthorized user or malicious process.
+- Check for any recent alerts or logs related to lateral movement or unauthorized access attempts on the network, focusing on the host where the registry change was detected.
+- Assess the risk and impact of the modified named pipes by determining if they are commonly used in legitimate operations or if they are known to be exploited by malware or threat actors.
+
+### False positive analysis
+
+- Legitimate administrative tools or scripts may modify the NullSessionPipe registry setting as part of routine network management. Review the source of the change and verify if it aligns with known administrative activities.
+- Some network services or applications might require anonymous access to specific pipes for functionality. Identify these services and document them to differentiate between expected and unexpected modifications.
+- Scheduled tasks or automated deployment scripts could alter the registry setting during updates or installations. Ensure these tasks are documented and verify their legitimacy.
+- Security software or network monitoring tools might adjust the NullSessionPipe settings for scanning purposes. Confirm with your security team if such tools are in use and adjust the detection rule to exclude these known activities.
+- Regularly review and update the list of known exceptions in your detection system to prevent alert fatigue and ensure focus on genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Review the registry changes to identify any unauthorized pipes added to the NullSessionPipes registry key and remove them to restore secure configurations.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to detect and remove any malicious software that may have been introduced.
+- Analyze network logs and system event logs to identify any unauthorized access attempts or successful connections made through the modified pipes, and block any suspicious IP addresses or accounts.
+- Reset credentials for any accounts that may have been compromised or used in conjunction with the unauthorized access to ensure they cannot be reused by adversaries.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been affected.
+- Implement enhanced monitoring and alerting for changes to the NullSessionPipes registry key and similar registry paths to detect and respond to future unauthorized modifications promptly."""
 references = [
     "https://www.welivesecurity.com/2019/05/29/turla-powershell-usage/",
     "https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-access-restrict-anonymous-access-to-named-pipes-and-shares",
@@ -31,16 +73,19 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
-registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes"
-) and length(registry.data.strings) > 0
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "NullSessionPipes" and
+  length(registry.data.strings) > 0 and
+  not registry.data.strings : "(empty)"
 '''
 
 

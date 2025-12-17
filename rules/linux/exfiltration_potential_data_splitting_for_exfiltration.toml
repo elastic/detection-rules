@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2024/11/04"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule looks for the usage of common data splitting utilities with specific arguments that indicate data splitting
+for exfiltration on Linux systems. Data splitting is a technique used by adversaries to split data into smaller parts to
+avoid detection and exfiltrate data.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Data Splitting Detected"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Splitting Detected
+
+Data splitting utilities on Linux, such as `dd` and `split`, are typically used for managing large files by dividing them into smaller, more manageable parts. Adversaries exploit these tools to covertly exfiltrate data by splitting it into inconspicuous segments. The detection rule identifies suspicious use of these utilities by monitoring specific command-line arguments and excluding benign processes, thereby flagging potential exfiltration activities.
+
+### Possible investigation steps
+
+- Review the process details to confirm the use of data splitting utilities like 'dd', 'split', or 'rsplit' with suspicious arguments such as 'bs=*', 'if=*', '-b', or '--bytes*'.
+- Examine the parent process name to ensure it is not a benign process like 'apport' or 'overlayroot', which are excluded in the rule.
+- Investigate the source and destination paths specified in the process arguments to determine if they involve sensitive or unusual locations, excluding paths like '/tmp/nvim*', '/boot/*', or '/dev/urandom'.
+- Check the user account associated with the process to assess if it has a history of legitimate use of these utilities or if it might be compromised.
+- Analyze recent network activity from the host to identify any potential data exfiltration attempts, especially if the process involves external connections.
+- Correlate this alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Processes related to system maintenance or updates, such as those initiated by the 'apport' or 'overlayroot' processes, may trigger false positives. Users can mitigate this by ensuring these parent processes are included in the exclusion list.
+- Backup operations that use 'dd' or 'split' for legitimate data management tasks can be mistaken for exfiltration attempts. Exclude specific backup scripts or processes by adding their unique identifiers or arguments to the exclusion criteria.
+- Development or testing environments where 'dd' or 'split' are used for creating test data or simulating data transfer can generate false alerts. Identify and exclude these environments by specifying their process names or argument patterns.
+- Automated scripts that use 'dd' or 'split' for routine data processing tasks should be reviewed and, if benign, added to the exclusion list to prevent unnecessary alerts.
+- Regular system operations involving '/dev/random', '/dev/urandom', or similar sources should be excluded, as these are common in non-malicious contexts and are already partially covered by the rule's exclusions.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux system from the network to prevent further data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, specifically those involving the `dd`, `split`, or `rsplit` utilities with the flagged arguments.
+- Conduct a thorough review of recent file access and modification logs to identify any unauthorized data handling or exfiltration attempts.
+- Restore any potentially compromised data from secure backups, ensuring that the restored data is free from any malicious alterations.
+- Implement stricter access controls and monitoring on sensitive data directories to prevent unauthorized access and manipulation.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems are affected.
+- Enhance monitoring and alerting for similar suspicious activities by integrating additional threat intelligence sources and refining detection capabilities."""
+risk_score = 21
+rule_id = "e302e6c3-448c-4243-8d9b-d41da70db582"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name == "dd" and process.args like "bs=*" and process.args like "if=*") or
+    (
+      process.name in ("split", "rsplit") and
+      (
+        (process.args == "-b" or process.args like "--bytes*") or
+        (process.args == "-C" or process.args like "--line-bytes*")
+      )
+    )
+  ) and
+  not (
+    process.parent.name in ("apport", "overlayroot", "nessus-agent-module") or
+    process.args like (
+      "if=/tmp/nvim*", "if=/boot/*", "if=/dev/random", "if=/dev/urandom", "/dev/mapper/*",
+      "if=*.iso", "of=/dev/stdout", "if=/dev/zero", "if=/dev/sda", "/proc/sys/kernel/*"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+

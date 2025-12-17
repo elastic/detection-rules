@@ -2,9 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
-min_stack_version = "8.12.0"
-updated_date = "2024/03/12"
+updated_date = "2025/09/03"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +78,14 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: PowerShell Logs", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -100,32 +105,33 @@ event.category:process and host.os.type:windows and
   ) and
   not user.id : "S-1-5-18" and
   not (
-    file.path : C\:\\Program?Files\\WindowsPowerShell\\*Modules*.ps1 and
+    file.path : *WindowsPowerShell\\Modules\\*.ps1 and
     file.name : ("Convert-ExcelRangeToImage.ps1" or "Read-Clipboard.ps1")
   )
 '''
 
+
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\program?files\\\\powershell\\\\?\\\\Modules\\\\*.psd1"
-
+case_insensitive = true
+value = "?:\\\\program?files\\\\powershell\\\\?\\\\Modules\\\\*.psd1"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Windows\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\*.psd1"
-
+case_insensitive = true
+value = "?:\\\\Windows\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\*.psd1"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
-
+case_insensitive = true
+value = "?:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

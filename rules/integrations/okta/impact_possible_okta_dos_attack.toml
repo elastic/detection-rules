@@ -2,9 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
-min_stack_version = "8.10.0"
-updated_date = "2023/10/24"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -16,18 +14,60 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Possible Okta DoS Attack"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Possible Okta DoS Attack
+
+Okta, a leading identity management service, is crucial for managing user access in organizations. Adversaries may exploit Okta by overwhelming it with requests, causing service disruptions. The detection rule identifies potential DoS attacks by monitoring specific Okta system events that indicate rate limit violations, signaling attempts to degrade service availability.
+
+### Possible investigation steps
+
+- Review the specific Okta system events that triggered the alert, focusing on event.action values such as application.integration.rate_limit_exceeded, system.org.rate_limit.warning, system.org.rate_limit.violation, and core.concurrency.org.limit.violation to understand the nature of the rate limit violations.
+- Analyze the frequency and pattern of the triggered events to determine if there is a consistent or unusual spike in requests that could indicate a DoS attack.
+- Identify the source IP addresses or user accounts associated with the excessive requests to determine if they are legitimate users or potential adversaries.
+- Check for any recent changes or updates in the Okta configuration or integrations that might have inadvertently caused an increase in request rates.
+- Correlate the Okta events with other network or application logs to identify any broader patterns or simultaneous attacks on other services that might suggest a coordinated effort.
+
+### False positive analysis
+
+- High-volume legitimate user activity can trigger rate limit warnings. Monitor for patterns of normal usage spikes, such as during company-wide meetings or product launches, and consider setting exceptions for these events.
+- Automated processes or integrations that frequently interact with Okta may cause rate limit violations. Identify these processes and adjust their request rates or set exceptions to prevent false positives.
+- Scheduled batch jobs that access Okta services might exceed rate limits. Review and optimize the scheduling of these jobs to distribute the load more evenly or whitelist them if they are essential and non-disruptive.
+- Third-party applications integrated with Okta could inadvertently cause rate limit issues. Work with vendors to ensure their applications are optimized for Okta's rate limits or create exceptions for trusted applications.
+- Temporary spikes in user activity due to password resets or account provisioning can lead to false positives. Implement monitoring to distinguish between these benign activities and potential threats, and adjust the rule to accommodate expected spikes.
+
+### Response and remediation
+
+- Immediately assess the impact on business operations by checking the availability and performance of Okta services. Coordinate with IT teams to ensure critical services remain operational.
+- Contain the attack by implementing rate limiting or IP blocking for the identified sources of excessive requests. Use network security tools to enforce these restrictions.
+- Notify the security operations center (SOC) and relevant stakeholders about the potential DoS attack to ensure awareness and coordinated response efforts.
+- Review and adjust Okta's rate limit settings to mitigate the risk of future DoS attempts, ensuring they align with the organization's typical usage patterns.
+- Escalate the incident to Okta support for further investigation and assistance in mitigating the attack, providing them with relevant logs and event details.
+- Conduct a post-incident analysis to identify any gaps in the current security posture and update incident response plans accordingly.
+- Enhance monitoring and alerting for similar threats by refining detection rules and ensuring they are tuned to capture early indicators of rate limit violations.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 47
 rule_id = "e6e3ecff-03dd-48ec-acbd-54a04de10c68"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Impact"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

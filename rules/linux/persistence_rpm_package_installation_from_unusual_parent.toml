@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2024/07/10"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to identify the installation of RPM packages by an unusual parent process.
+RPM is a package management system used in Linux systems such as Red Hat, CentOS and Fedora. Attacks may backdoor RPM
+packages to gain initial access or install malicious RPM packages to maintain persistence.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "RPM Package Installed by Unusual Parent Process"
+risk_score = 21
+rule_id = "8cc72fa3-70ae-4ea1-bee2-8e6aaf3c1fcf"
+setup = """## Setup
+This rule requires data coming in from Elastic Defend.
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:rpm and
+process.args:("-i" or "--install")
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RPM Package Installed by Unusual Parent Process
+
+RPM is a package management system crucial for managing software on Linux distributions like Red Hat and CentOS. Adversaries may exploit RPM by installing backdoored or malicious packages to gain persistence or initial access. The detection rule identifies anomalies by flagging RPM installations initiated by atypical parent processes, which could indicate unauthorized or suspicious activity. This helps in early detection of potential threats by monitoring process execution patterns.
+
+### Possible investigation steps
+
+- Review the parent process of the RPM installation to determine if it is a known and legitimate process. Investigate any unusual or unexpected parent processes that initiated the RPM command.
+- Examine the command-line arguments used with the RPM process, specifically looking for the "-i" or "--install" flags, to confirm the installation action and gather more context about the package being installed.
+- Check the timestamp of the event to correlate it with other activities on the system, such as user logins or other process executions, to identify any suspicious patterns or anomalies.
+- Investigate the user account under which the RPM installation was executed to determine if it aligns with expected administrative activities or if it indicates potential unauthorized access.
+- Analyze the network activity around the time of the RPM installation to identify any external connections that could suggest data exfiltration or communication with a command and control server.
+- Review system logs and other security alerts from the same timeframe to identify any additional indicators of compromise or related suspicious activities.
+
+### False positive analysis
+
+- System administrators or automated scripts may frequently install RPM packages as part of routine maintenance or updates. To manage this, create exceptions for known administrative accounts or specific scripts that regularly perform these actions.
+- Some legitimate software deployment tools might use non-standard parent processes to install RPM packages. Identify and whitelist these tools to prevent unnecessary alerts.
+- Development environments might trigger RPM installations through unusual parent processes during testing or software builds. Exclude these environments or specific processes from the rule to reduce false positives.
+- Custom or third-party management tools that are not widely recognized might also cause alerts. Review and whitelist these tools if they are verified as safe and necessary for operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement or further compromise.
+- Terminate any suspicious processes related to the RPM installation that were initiated by unusual parent processes.
+- Conduct a thorough review of the installed RPM packages to identify and remove any unauthorized or malicious software.
+- Restore the system from a known good backup if malicious packages have been confirmed and system integrity is compromised.
+- Update and patch the system to ensure all software is up-to-date, reducing the risk of exploitation through known vulnerabilities.
+- Implement stricter access controls and monitoring on systems to prevent unauthorized RPM installations, focusing on unusual parent processes.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
+
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

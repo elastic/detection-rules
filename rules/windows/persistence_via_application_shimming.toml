@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/01"
 
 [rule]
 author = ["Elastic"]
@@ -13,25 +13,56 @@ code execution in legitimate Windows processes.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Application Shimming via Sdbinst"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Application Shimming via Sdbinst
+
+Application shimming is a Windows feature designed to ensure software compatibility across different OS versions. However, attackers exploit this by using the `sdbinst.exe` tool to execute malicious code under the guise of legitimate processes, achieving persistence. The detection rule identifies suspicious invocations of `sdbinst.exe` by filtering out benign arguments, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the presence of sdbinst.exe with suspicious arguments that do not include the benign flags -m, -bg, or -mm.
+- Investigate the parent process of sdbinst.exe to determine if it is a legitimate and expected process or if it is potentially malicious.
+- Check the timeline of events around the execution of sdbinst.exe to identify any related or preceding suspicious activities, such as unusual file modifications or network connections.
+- Analyze the user account associated with the execution of sdbinst.exe to verify if it is a legitimate user and if there are any signs of account compromise.
+- Examine the system for any newly installed or modified application compatibility databases (.sdb files) that could be associated with the suspicious execution of sdbinst.exe.
+- Correlate the alert with other security tools and logs, such as Microsoft Defender for Endpoint or Sysmon, to gather additional context and confirm the presence of malicious activity.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger sdbinst.exe with arguments that are not typically malicious. Users should verify the source and purpose of the software to determine if it is expected behavior.
+- System administrators might use sdbinst.exe for deploying compatibility fixes across an organization. In such cases, document these activities and create exceptions for known administrative tasks.
+- Some enterprise applications may use sdbinst.exe as part of their normal operation. Identify these applications and exclude their specific command-line arguments from triggering alerts.
+- Scheduled tasks or scripts that include sdbinst.exe for maintenance purposes can be a source of false positives. Review these tasks and scripts, and whitelist them if they are part of routine operations.
+- Regularly review and update the list of exceptions to ensure that only verified and necessary exclusions are maintained, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes associated with `sdbinst.exe` that do not match known legitimate usage patterns.
+- Remove any unauthorized or suspicious application compatibility databases (.sdb files) that may have been installed using `sdbinst.exe`.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or persistence mechanisms.
+- Review and restore any altered system configurations or registry settings to their default or secure state.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for `sdbinst.exe` executions across the network to detect and respond to future attempts at application shimming."""
 risk_score = 21
 rule_id = "fd4a992d-6130-4802-9ff8-829b89ae801f"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -40,6 +71,12 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -48,7 +85,17 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "sdbinst.exe" and
   process.args : "?*" and
   not (process.args : "-m" and process.args : "-bg") and
-  not process.args : "-mm"
+  not process.args : (
+    "-mm",
+    "?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\sysMergeInboxStoreApp.sdb",
+    "\"?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\sysMergeInboxStoreApp.sdb\"",
+    "?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\msiMergeInboxStoreApp.sdb",
+    "\"?:\\Program Files\\WindowsApps\\Microsoft.ApplicationCompatibilityEnhancements_*\\sdb\\msiMergeInboxStoreApp.sdb\"",
+    "?:\\Program Files (x86)\\Citrix\\ICA Client\\CitrixWorkspaceLegacySWDA.sdb",
+    "Citrix Workspace",
+    "C:\\Program Files\\IIS Express\\iisexpressshim.sdb",
+    "C:\\Program Files (x86)\\IIS Express\\iisexpressshim.sdb"
+  )
 '''
 
 

@@ -3,35 +3,83 @@ creation_date = "2020/07/08"
 integration = ["endpoint"]
 maturity = "production"
 promotion = true
-updated_date = "2024/05/21"
+updated_date = "2025/03/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Generates a detection alert each time an Elastic Endpoint Security alert is received. Enabling this rule allows you to
-immediately begin investigating your Endpoint alerts.
+Generates a detection alert each time an Elastic Defend alert is received. Enabling this rule allows you to immediately
+begin investigating your Endpoint alerts.
 """
 enabled = true
-from = "now-10m"
+from = "now-2m"
 index = ["logs-endpoint.alerts-*"]
+interval = "1m"
 language = "kuery"
 license = "Elastic License v2"
-max_signals = 10000
-name = "Endpoint Security"
+max_signals = 1000
+name = "Endpoint Security (Elastic Defend)"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Endpoint Security (Elastic Defend)
+
+Elastic Defend is a robust endpoint security solution that monitors and protects systems by analyzing events and generating alerts for suspicious activities. Adversaries may exploit endpoints by executing unauthorized code or manipulating system processes. The detection rule leverages event data to identify alerts from Elastic Defend, focusing on potential threats while excluding non-relevant modules, thus enabling timely investigation of endpoint anomalies.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific event.kind:alert and event.module: endpoint that triggered the alert, ensuring it is not related to the excluded endgame module.
+- Examine the timeline of events leading up to the alert to identify any unusual or unauthorized activities, such as unexpected process executions or system changes.
+- Correlate the alert with other security events or logs from the same endpoint to gather additional context and determine if there is a pattern of suspicious behavior.
+- Investigate the source and destination of any network connections associated with the alert to identify potential command and control activity or data exfiltration attempts.
+- Check for any recent changes or updates to the endpoint's software or configuration that could explain the alert, ensuring they are legitimate and authorized.
+- Assess the risk score and severity of the alert in conjunction with other alerts from the same endpoint to prioritize the investigation and response efforts.
+
+### False positive analysis
+
+- Alerts triggered by routine software updates can be false positives. Users can create exceptions for known update processes to prevent unnecessary alerts.
+- System maintenance activities, such as scheduled scans or backups, may generate alerts. Exclude these activities by identifying their specific event signatures and adding them to the exception list.
+- Legitimate administrative actions, like remote desktop sessions or script executions by IT staff, might be flagged. Define exceptions for these actions by correlating them with authorized user accounts or IP addresses.
+- Frequent alerts from non-malicious applications that interact with system processes can be excluded by whitelisting these applications based on their hash or path.
+- Network monitoring tools that simulate attack patterns for testing purposes may trigger alerts. Exclude these tools by specifying their known behaviors and IP ranges in the exception settings.
+
+### Response and remediation
+
+- Isolate the affected endpoint immediately to prevent further unauthorized access or lateral movement within the network.
+- Analyze the alert details to identify the specific unauthorized code or process manipulation involved, and terminate any malicious processes identified.
+- Remove any unauthorized code or files from the affected endpoint, ensuring that all traces of the threat are eradicated.
+- Conduct a thorough review of system logs and event data to identify any additional indicators of compromise or related suspicious activities.
+- Update endpoint security configurations and signatures to prevent similar threats from exploiting the same vulnerabilities in the future.
+- Restore the affected endpoint from a known good backup if necessary, ensuring that the system is free from any residual threats.
+- Escalate the incident to the security operations center (SOC) or relevant team for further analysis and to determine if additional systems may be affected."""
 risk_score = 47
 rule_id = "9a1a2dae-0b5f-4c3d-8305-a268d404c306"
 rule_name_override = "message"
 setup = """## Setup
 
-This rule is configured to generate more **Max alerts per run** than the default 1000 alerts per run set for all rules. This is to ensure that it captures as many alerts as possible.
+### Elastic Defend Alerts
+If this rule is disabled, you will not receive alerts for Elastic Defend alerts. This rule is designed to capture all alerts generated by Elastic Defend. For more granular alerting, consider using additional prebuilt-rules that capture specific Elastic Defend alerts.
 
-**IMPORTANT:** The rule's **Max alerts per run** setting can be superseded by the `xpack.alerting.rules.run.alerts.max` Kibana config setting, which determines the maximum alerts generated by _any_ rule in the Kibana alerting framework. For example, if `xpack.alerting.rules.run.alerts.max` is set to 1000, this rule will still generate no more than 1000 alerts even if its own **Max alerts per run** is set higher.
+If this rule is enabled, along with the related rules listed below, you will receive duplicate alerts for the same events. To avoid this, it is recommended to disable this generic rule and enable the more specific rules that capture these alerts separately.
 
-To make sure this rule can generate as many alerts as it's configured in its own **Max alerts per run** setting, increase the `xpack.alerting.rules.run.alerts.max` system setting accordingly.
+Related rules:
+- Behavior - Detected - Elastic Defend (UUID: 0f615fe4-eaa2-11ee-ae33-f661ea17fbce)
+- Behavior - Prevented - Elastic Defend (UUID: eb804972-ea34-11ee-a417-f661ea17fbce)
+- Malicious File - Detected - Elastic Defend (UUID: f2c3caa6-ea34-11ee-a417-f661ea17fbce)
+- Malicious File - Prevented - Elastic Defend (UUID: f87e6122-ea34-11ee-a417-f661ea17fbce)
+- Memory Threat - Detected - Elastic Defend (UUID: 017de1e4-ea35-11ee-a417-f661ea17fbce)
+- Memory Threat - Prevented - Elastic Defend (UUID: 06f3a26c-ea35-11ee-a417-f661ea17fbce)
+- Ransomware - Detected - Elastic Defend (UUID: 0c74cd7e-ea35-11ee-a417-f661ea17fbce)
+- Ransomware - Prevented - Elastic Defend (UUID: 10f3d520-ea35-11ee-a417-f661ea17fbce)
 
-**NOTE:** Changing `xpack.alerting.rules.run.alerts.max` is not possible in Serverless projects."""
+### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
 severity = "medium"
-tags = ["Data Source: Elastic Defend"]
+tags = ["Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

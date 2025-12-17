@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,44 @@ leverage the which command to enumerate the system for useful installed utilitie
 system to escalate privileges or move latteraly across the network.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious which Enumeration"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious which Enumeration
+
+The `which` command in Linux environments is typically used to locate the executable path of a command. Adversaries may exploit this utility to identify installed software that can aid in privilege escalation or lateral movement. The detection rule flags unusual usage patterns, such as excessive arguments, which may indicate malicious enumeration. It filters out benign scenarios, focusing on potential threats by examining process attributes and parent-child relationships.
+
+### Possible investigation steps
+
+- Review the process details to confirm the command line arguments used with the which command, focusing on whether the args_count is unusually high and if the arguments are related to known enumeration or exploitation tools.
+- Examine the parent process of the which command to determine if it is a legitimate process or if it is associated with suspicious activity, especially if it is not one of the excluded parent names or paths.
+- Investigate the user account associated with the process to determine if it is a legitimate user or if there are signs of compromise, such as unusual login times or locations.
+- Check for any other recent alerts or logs related to the same host or user that might indicate a broader attack pattern or ongoing compromise.
+- Assess the network activity from the host to identify any connections to known malicious IP addresses or unusual outbound traffic that could suggest lateral movement or data exfiltration.
+
+### False positive analysis
+
+- Processes initiated by the 'jem' parent process may trigger false positives. To handle this, add 'jem' to the list of exceptions in the rule configuration.
+- Executions within containerized environments, such as those under '/vz/root/' or '/var/lib/docker/', are often benign. Exclude these paths from the rule to reduce noise.
+- The '--tty-only' argument is typically used in legitimate scenarios. Consider adding this argument to the exception list to prevent unnecessary alerts.
+- If the rule is noisy due to common utilities like 'nmap', 'nc', 'gcc', or 'socat' being used with shell interpreters like 'bash' or 'zsh', refine the rule by excluding these combinations.
+- Regularly review and update the list of exceptions based on the evolving environment and usage patterns to maintain an effective balance between detection and false positive reduction.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes associated with the `which` command that have an unusually high number of arguments, as identified by the detection rule.
+- Conduct a thorough review of the system's installed software and utilities to identify any unauthorized or suspicious installations that could be leveraged for privilege escalation.
+- Analyze the process tree and parent-child relationships of the flagged `which` command execution to identify potential malicious scripts or binaries that initiated the command.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
+- Implement enhanced monitoring and logging for the `which` command and similar enumeration tools to detect future misuse.
+- Review and update access controls and permissions to ensure that only authorized users have the ability to execute potentially sensitive commands and utilities."""
 risk_score = 21
 rule_id = "5b18eef4-842c-4b47-970f-f08d24004bde"
 severity = "low"
@@ -26,17 +60,23 @@ tags = [
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "which" and process.args_count >= 10 and not process.parent.name == "jem" and 
-not process.args == "--tty-only"
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start") and
+  process.name == "which" and process.args_count >= 10 and not (
+    process.parent.name == "jem" or
+    process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
+    process.args == "--tty-only"
+  )
 
 /* potential tuning if rule would turn out to be noisy
-and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and 
+and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 */
 '''

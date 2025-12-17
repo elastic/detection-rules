@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2024/08/28"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or rename of the Doas configuration file on a Linux system. Adversaries may create or
+modify the Doas configuration file to elevate privileges and execute commands as other users while attempting to evade
+detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Defense Evasion via Doas"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Defense Evasion via Doas
+
+Doas is a command-line utility on Linux systems that allows users to execute commands as another user, typically with elevated privileges. Adversaries may exploit this by altering the Doas configuration file to gain unauthorized access or escalate privileges, bypassing security measures. The detection rule identifies suspicious activities by monitoring changes to the Doas configuration file, signaling potential misuse aimed at evading defenses.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file path involved is "/etc/doas.conf" and the event type is not "deletion", as specified in the query.
+- Check the timestamp of the alert to determine when the configuration file was created or modified, and correlate this with any known scheduled changes or maintenance activities.
+- Investigate the user account associated with the event to determine if they have legitimate reasons to modify the Doas configuration file, and verify their access permissions.
+- Examine system logs and command history around the time of the alert to identify any suspicious activities or commands executed by the user.
+- Assess the current Doas configuration file for unauthorized changes or entries that could indicate privilege escalation attempts.
+- Cross-reference the alert with other security events or alerts from the same host to identify potential patterns or related activities that could suggest a broader attack.
+
+### False positive analysis
+
+- Routine administrative updates to the Doas configuration file can trigger alerts. To manage this, create exceptions for known maintenance windows or specific user accounts responsible for legitimate updates.
+- Automated configuration management tools may modify the Doas configuration file as part of their normal operation. Identify these tools and exclude their activities from triggering alerts by specifying their process names or user accounts.
+- System backups or restoration processes might involve creating or renaming the Doas configuration file. Exclude these processes by identifying the backup software and adding it to the exception list.
+- Development or testing environments where frequent changes to the Doas configuration file are expected can generate false positives. Consider excluding these environments from monitoring or adjusting the rule to account for their unique activity patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Review and revert any unauthorized changes to the Doas configuration file located at /etc/doas.conf to its last known good state.
+- Conduct a thorough audit of user accounts and permissions on the affected system to identify and remove any unauthorized accounts or privilege escalations.
+- Implement additional monitoring on the affected system to detect any further attempts to modify the Doas configuration file or other critical system files.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat has spread to other systems.
+- Apply patches and updates to the affected system to address any vulnerabilities that may have been exploited by the adversary.
+- Review and enhance access controls and authentication mechanisms to prevent unauthorized privilege escalation attempts in the future."""
+references = ["https://wiki.archlinux.org/title/Doas"]
+risk_score = 21
+rule_id = "26a726d7-126e-4267-b43d-e9a70bfdee1e"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and file.path == "/etc/doas.conf"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/27"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -11,24 +11,59 @@ Identifies attempts to bypass User Account Control (UAC) via DLL side-loading. A
 stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt via Privileged IFileOperation COM Interface"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating UAC Bypass Attempt via Privileged IFileOperation COM Interface
+
+The IFileOperation COM interface is a Windows component used for file operations with elevated privileges. Adversaries exploit this by side-loading malicious DLLs into processes like dllhost.exe, bypassing UAC to gain elevated permissions stealthily. The detection rule identifies such attempts by monitoring changes in specific DLLs loaded into high-integrity processes, filtering out benign system paths to reduce false positives.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is "dllhost.exe" and verify the integrity level of the process to ensure it is running with high or system integrity.
+- Check the file name involved in the alert to see if it matches any of the known malicious DLLs such as "wow64log.dll", "comctl32.dll", "DismCore.dll", "OskSupport.dll", "duser.dll", or "Accessibility.ni.dll".
+- Investigate the file path of the loaded DLL to ensure it does not originate from benign system paths like "C:\\Windows\\SoftwareDistribution\\" or "C:\\Windows\\WinSxS\\".
+- Analyze the parent process of "dllhost.exe" to determine how it was initiated and whether it aligns with expected behavior or indicates potential compromise.
+- Review recent system changes or installations that might have introduced the suspicious DLL, focusing on any unauthorized or unexpected software installations.
+- Correlate the event with other security logs or alerts from data sources such as Elastic Endgame, Elastic Defend, Sysmon, Microsoft Defender for Endpoint, or SentinelOne to identify any related suspicious activities or patterns.
+- Assess the risk and impact of the potential UAC bypass attempt and determine if further containment or remediation actions are necessary.
+
+### False positive analysis
+
+- System updates and installations can trigger false positives due to legitimate changes in DLLs. Exclude paths related to Windows updates and installations, such as C:\\Windows\\SoftwareDistribution\\* and C:\\Windows\\WinSxS\\*.
+- Certain legitimate software may use DLLs like comctl32.dll or duser.dll in a manner that mimics side-loading. Identify and whitelist these applications if they are known and trusted within your environment.
+- Security software or system management tools might perform operations that resemble UAC bypass attempts. Review and exclude these tools if they are verified as safe and necessary for your operations.
+- Regularly review and update the list of known benign DLLs and paths to ensure that new legitimate software does not trigger false positives.
+- Monitor for patterns of repeated false positives from specific processes or paths and consider creating exceptions for these scenarios after thorough validation.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Terminate the dllhost.exe process if it is confirmed to be involved in the UAC bypass attempt to stop any ongoing malicious activity.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious DLLs or associated malware.
+- Review and restore any modified system files or settings to their original state to ensure system integrity.
+- Apply any pending security patches and updates to the operating system and installed software to mitigate known vulnerabilities.
+- Monitor the network for any signs of similar activity or attempts to exploit the IFileOperation COM interface on other systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 references = [
     "https://github.com/hfiref0x/UACME",
     "https://www.elastic.co/security-labs/exploring-windows-uac-bypasses-techniques-and-detection-strategies",
 ]
 risk_score = 73
 rule_id = "5a14d01d-7ac8-4545-914c-b687c2cf66b3"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -39,6 +74,9 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -86,9 +124,9 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 [[rule.threat.technique.subtechnique]]
-id = "T1574.002"
-name = "DLL Side-Loading"
-reference = "https://attack.mitre.org/techniques/T1574/002/"
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
 
 
 

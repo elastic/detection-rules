@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/11"
 
 [transform]
 [[transform.osquery]]
@@ -39,18 +39,18 @@ of these files can occur during an intrusion, or as part of a post-intrusion pro
 footprint.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*", "endgame-*"]
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Process Termination followed by Deletion"
+name = "Deprecated - Process Termination followed by Deletion"
 note = """## Triage and analysis
 
-### Investigating Process Termination followed by Deletion
+### Investigating Deprecated - Process Termination followed by Deletion
 
 This rule identifies an unsigned process termination event quickly followed by the deletion of its executable file. Attackers can delete programs after their execution in an attempt to cover their tracks in a host.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -109,22 +109,38 @@ query = '''
 sequence by host.id with maxspan=5s
    [process where host.os.type == "windows" and event.type == "end" and
     process.code_signature.trusted != true and
-    not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
+    not process.executable like
+             ("C:\\Windows\\SoftwareDistribution\\*.exe",
+              "C:\\Windows\\WinSxS\\*.exe",
+              "?:\\Windows\\Postillion\\Office\\*.exe") and
+    not (
+      process.name : "infinst.exe" and process.parent.name: "dxsetup.exe" and
+      process.parent.code_signature.subject_name == "NVIDIA Corporation" and
+      process.parent.code_signature.status == "trusted"
+    )
    ] by process.executable
-   [file where host.os.type == "windows" and event.type == "deletion" and file.extension : ("exe", "scr", "com") and
-    not process.executable :
+   [file where host.os.type == "windows" and event.type == "deletion" and file.extension in~ ("exe", "scr", "com") and
+    not process.executable like
              ("?:\\Program Files\\*.exe",
               "?:\\Program Files (x86)\\*.exe",
               "?:\\Windows\\System32\\svchost.exe",
-              "?:\\Windows\\System32\\drvinst.exe") and
-    not file.path : (
+              "?:\\Windows\\System32\\drvinst.exe",
+              "?:\\Windows\\Postillion\\Office\\*.exe") and
+    not file.path like (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Windows\\Temp\\*\\DismHost.exe",
           "?:\\$WINDOWS.~BT\\Work\\*\\DismHost.exe",
           "?:\\$WinREAgent\\Scratch\\*\\DismHost.exe",
           "?:\\Windows\\tenable_mw_scan_*.exe",
-          "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe"
+          "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe",
+          "?:\\ProgramData\\chocolatey\\*.exe"
+    ) and
+    not (process.name : "OktaVerifySetup-*.exe" and process.code_signature.subject_name == "Okta, Inc.") and
+    not (
+      process.executable : "?:\\Windows\\SysWOW64\\config\\systemprofile\\Citrix\\UpdaterBinaries\\CitrixReceiver\\*" and
+      process.code_signature.subject_name == "Citrix Systems, Inc." and
+      file.path : "?:\\Windows\\SysWOW64\\config\\systemprofile\\Citrix\\UpdaterBinaries\\CitrixReceiver\\*\\bootstrapperhelper.exe"
     )
    ] by file.path
 '''

@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,42 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS WAF Access Control List Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS WAF Access Control List Deletion
+
+AWS Web Application Firewall (WAF) protects web applications by controlling access based on defined rules. Deleting an Access Control List (ACL) can expose applications to threats by removing these protective rules. Adversaries may exploit this to bypass defenses, facilitating unauthorized access or data exfiltration. The detection rule monitors for successful ACL deletions, signaling potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.action:DeleteWebACL to identify the user or role that initiated the deletion. Check the event.userIdentity field for details.
+- Examine the event.time field to determine when the deletion occurred and correlate it with any other suspicious activities or alerts around the same timeframe.
+- Investigate the event.sourceIPAddress to identify the origin of the request and assess if it aligns with known IP addresses or locations associated with your organization.
+- Check the AWS WAF configuration history to understand the context of the deleted ACL, including its rules and the applications it was protecting.
+- Assess the impact of the ACL deletion by reviewing access logs for the affected applications to identify any unusual or unauthorized access attempts following the deletion.
+- Verify if there are any recent changes in IAM policies or permissions that could have allowed unauthorized users to delete the ACL.
+
+### False positive analysis
+
+- Routine maintenance or updates by authorized personnel may trigger ACL deletions. Verify if the deletion aligns with scheduled maintenance activities and consider excluding these events from alerts.
+- Automated scripts or tools used for infrastructure management might delete and recreate ACLs as part of their normal operation. Identify these scripts and whitelist their actions to prevent unnecessary alerts.
+- Changes in security policies or architecture might necessitate the removal of certain ACLs. Ensure that such changes are documented and approved, and exclude these events from monitoring if they are part of a planned update.
+- Test environments often undergo frequent configuration changes, including ACL deletions. Differentiate between production and test environments and adjust monitoring rules to reduce false positives in non-production settings.
+
+### Response and remediation
+
+- Immediately revoke any access keys or credentials associated with the user or role that performed the ACL deletion to prevent further unauthorized actions.
+- Restore the deleted AWS WAF Access Control List from a backup or recreate it using documented configurations to re-establish protective rules.
+- Conduct a thorough review of recent access logs and CloudTrail events to identify any unauthorized access or data exfiltration attempts that may have occurred following the ACL deletion.
+- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring and alerting for any future attempts to delete or modify AWS WAF ACLs, ensuring rapid detection and response.
+- Review and tighten IAM policies to ensure that only authorized personnel have permissions to delete or modify AWS WAF configurations.
+- Consider enabling AWS Config rules to continuously monitor and alert on changes to critical AWS resources, including WAF ACLs, to prevent similar incidents.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,6 +71,7 @@ tags = [
     "Data Source: Amazon Web Services",
     "Use Case: Network Security Monitoring",
     "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"

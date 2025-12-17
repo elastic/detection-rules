@@ -4,6 +4,7 @@
 # 2.0.
 
 import unittest
+
 import kql
 
 
@@ -51,10 +52,9 @@ class TestKQLtoDSL(unittest.TestCase):
     def test_not_query(self):
         self.validate("not field:value", {"must_not": [{"match": {"field": "value"}}]})
         self.validate("field:(not value)", {"must_not": [{"match": {"field": "value"}}]})
-        self.validate("field:(a and not b)", {
-            "filter": [{"match": {"field": "a"}}],
-            "must_not": [{"match": {"field": "b"}}]
-        })
+        self.validate(
+            "field:(a and not b)", {"filter": [{"match": {"field": "a"}}], "must_not": [{"match": {"field": "b"}}]}
+        )
         self.validate(
             "not field:value and not field2:value2",
             {"must_not": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]},
@@ -74,13 +74,10 @@ class TestKQLtoDSL(unittest.TestCase):
             optimize=False,
         )
 
-        self.validate("not (field:value and field2:value2)",
-                      {
-                          "must_not": [
-                              {"match": {"field": "value"}},
-                              {"match": {"field2": "value2"}}
-                          ]
-                      })
+        self.validate(
+            "not (field:value and field2:value2)",
+            {"must_not": [{"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}}]},
+        )
 
     def test_optimizations(self):
         self.validate(
@@ -120,21 +117,9 @@ class TestKQLtoDSL(unittest.TestCase):
         self.validate(
             "a:(v1 or v2 or v3) and b:(v4 or v5)",
             {
-                "should": [
-                    {"match": {"a": "v1"}},
-                    {"match": {"a": "v2"}},
-                    {"match": {"a": "v3"}}
-                ],
+                "should": [{"match": {"a": "v1"}}, {"match": {"a": "v2"}}, {"match": {"a": "v3"}}],
                 "filter": [
-                    {
-                        "bool": {
-                            "should": [
-                                {"match": {"b": "v4"}},
-                                {"match": {"b": "v5"}}
-                            ],
-                            "minimum_should_match": 1
-                        }
-                    }
+                    {"bool": {"should": [{"match": {"b": "v4"}}, {"match": {"b": "v5"}}], "minimum_should_match": 1}}
                 ],
                 "minimum_should_match": 1,
             },

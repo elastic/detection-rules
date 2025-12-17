@@ -1,0 +1,86 @@
+# Persistence via Docker Container
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies potential persistence mechanisms through malicious Docker containers on Linux systems. Attackers can abuse Docker's capabilities, such as privileged containers, host namespace sharing, or mounting sensitive host paths, to maintain persistence or gain unauthorized access to the host. This hunt focuses on detecting suspicious container creations, modifications, and network connections.
+
+- **UUID:** `b9b4f11f-1db9-491a-ab43-0e69e3f6d5be`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL, SQL]`
+- **Source File:** [Persistence via Docker Container](../queries/persistence_via_malicious_docker_container.toml)
+
+## Query
+
+```sql
+from logs-endpoint.events.network-*
+| keep @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id, process.executable, process.command_line
+| where @timestamp > now() - 7 days
+| where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
+process.executable like "/var/lib/docker/*" and destination.ip IS NOT null and not 
+CIDR_MATCH(
+  destination.ip,
+  // Exclude common destination IP ranges for your environment here
+  "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1", "172.18.0.0/16"
+)
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable, process.command_line, destination.ip
+| where agent_count <= 3
+| sort cc asc
+| limit 100
+```
+
+```sql
+SELECT * FROM docker_containers
+```
+
+```sql
+SELECT * FROM docker_containers
+WHERE privileged = 1
+```
+
+```sql
+SELECT * FROM docker_containers
+WHERE created <= strftime('%s', 'now')
+AND strftime('%s', 'now') - created <= (7 * 86400); -- Created in the last 7 days
+```
+
+```sql
+SELECT * FROM docker_images
+```
+
+```sql
+SELECT * FROM docker_images
+WHERE strftime('%s', 'now') - created <= (7 * 86400); -- Pulled in the last 7 days
+```
+
+```sql
+SELECT 
+    id AS container_id,
+    name AS container_name,
+    source AS host_path,
+    destination AS container_path,
+    rw AS is_read_write
+FROM 
+    docker_container_mounts
+WHERE 
+    source IN ('/var/run/docker.sock', '/', '/etc', '/var/lib/docker');
+    -- Add your own list of additional sources here
+```
+
+## Notes
+
+- Monitors for unusual network connections initiated by Docker containers, focusing on non-local IP addresses to identify potentially malicious activity.
+- Detects Docker containers running in privileged mode, which may indicate a risk of host compromise.
+- Identifies recently created Docker containers and images to highlight potential unauthorized deployments or suspicious additions.
+- Analyzes Docker container mount points to detect access to sensitive host directories, such as /var/run/docker.sock or /etc, which could enable container escape or host-level compromise.
+- Provides OSQuery queries to gather additional context about running containers, their configurations, and associated image metadata for forensic analysis.
+
+## MITRE ATT&CK Techniques
+
+- [T1610](https://attack.mitre.org/techniques/T1610)
+
+## License
+
+- `Elastic License v2`

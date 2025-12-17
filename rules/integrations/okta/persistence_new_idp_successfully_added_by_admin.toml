@@ -2,14 +2,13 @@
 creation_date = "2023/11/06"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
-min_stack_version = "8.10.0"
-updated_date = "2023/11/06"
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation of a new Identity Provider (IdP) by a Super Administrator or Organization Administrator within Okta.
+Detects the creation of a new Identity Provider (IdP) by a Super Administrator or Organization Administrator within
+Okta.
 """
 from = "now-30m"
 index = ["filebeat-*", "logs-okta*"]
@@ -55,12 +54,18 @@ references = [
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
     "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
     "https://unit42.paloaltonetworks.com/muddled-libra/",
-
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 47
 rule_id = "29b53942-7cd4-11ee-b70e-f661ea17fbcd"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Tactic: Persistence", "Data Source: Okta"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Data Source: Okta",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -68,20 +73,22 @@ query = '''
 event.dataset: "okta.system" and event.action: "system.idp.lifecycle.create" and okta.outcome.result: "SUCCESS"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1556.007"
 name = "Hybrid Identity"
 reference = "https://attack.mitre.org/techniques/T1556/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

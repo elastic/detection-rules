@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2024/06/03"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the addition of an executable bit for scripts that are located in directories which are commonly
+abused for persistence. An alert of this rule is an indicator that a persistence mechanism is being set up within your
+environment. Adversaries may create these scripts to execute malicious code at start-up, or at a set interval to gain
+persistence onto the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Executable Bit Set for Potential Persistence Script"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Executable Bit Set for Potential Persistence Script
+
+In Linux environments, scripts with executable permissions can be used to automate tasks, including system start-up processes. Adversaries exploit this by setting executable bits on scripts in directories typically used for persistence, allowing malicious code to run automatically. The detection rule identifies such activities by monitoring for changes in executable permissions in these directories, signaling potential unauthorized persistence attempts.
+
+### Possible investigation steps
+
+- Review the process details to identify the specific script or file that had its executable bit set, focusing on the process.args field to determine the exact file path.
+- Examine the process.parent.executable field to understand the parent process that initiated the permission change, which can provide context on whether the action was part of a legitimate process or potentially malicious activity.
+- Check the user account associated with the process to determine if the action was performed by a legitimate user or a compromised account.
+- Investigate the history of the file in question, including recent modifications and the creation date, to assess if it aligns with known system changes or updates.
+- Analyze the contents of the script or file to identify any suspicious or unauthorized code that could indicate malicious intent.
+- Correlate this event with other recent alerts or logs from the same host to identify patterns or additional indicators of compromise that may suggest a broader persistence mechanism.
+
+### False positive analysis
+
+- System administrators or automated scripts may legitimately change executable permissions in directories like /etc/init.d or /etc/cron* for maintenance or updates. To handle these, create exceptions for known administrative scripts or processes that regularly perform these actions.
+- Software installations or updates might trigger this rule when they modify startup scripts or configuration files. Users can mitigate this by excluding processes originating from trusted package managers or installation paths, such as /var/lib/dpkg.
+- Custom user scripts in home directories, especially in /home/*/.config/autostart, may be flagged if users set them to run at startup. To reduce false positives, maintain a whitelist of user scripts that are known and approved for startup execution.
+- Security tools or monitoring solutions might adjust permissions as part of their operations. Identify these tools and exclude their processes from triggering the rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified in the alert that are associated with unauthorized script execution.
+- Remove or disable the executable permissions on the identified scripts to prevent further unauthorized execution.
+- Conduct a thorough review of the affected directories to identify and remove any additional unauthorized scripts or files.
+- Restore any modified system files or configurations from a known good backup to ensure system integrity.
+- Monitor the system for any signs of re-infection or further unauthorized changes, focusing on the directories and processes highlighted in the alert.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
+risk_score = 21
+rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
+process.args : (
+  // Misc.
+  "/etc/rc.local", "/etc/rc.common", "/etc/rc.d/rc.local", "/etc/init.d/*", "/etc/update-motd.d/*",
+  "/etc/apt/apt.conf.d/*", "/etc/cron*", "/etc/init/*", "/etc/NetworkManager/dispatcher.d/*",
+  "/lib/dracut/modules.d/*", "/usr/lib/dracut/modules.d/*",
+
+  // XDG
+  "/etc/xdg/autostart/*", "/home/*/.config/autostart/*", "/root/.config/autostart/*",
+  "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*", "/home/*/.config/autostart-scripts/*",
+  "/root/.config/autostart-scripts/*", "/etc/xdg/autostart/*", "/usr/share/autostart/*",
+
+  // udev
+  "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*"
+
+) and (
+  (process.name == "chmod" and process.args : ("+x*", "1*", "3*", "5*", "7*")) or
+  (process.name == "install" and process.args : "-m*" and process.args : ("7*", "5*", "3*", "1*"))
+) and not (
+  process.parent.executable : "/var/lib/dpkg/*" or
+  process.command_line in ("chmod 777 /etc/update-motd.d/", "chmod 755 /etc/update-motd.d/")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+[[rule.threat.technique.subtechnique]]
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.013"
+name = "XDG Autostart Entries"
+reference = "https://attack.mitre.org/techniques/T1547/013/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

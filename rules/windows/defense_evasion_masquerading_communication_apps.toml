@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/05/05"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies suspicious instances of communications apps, both unsigned and rename
 conceal malicious activity, bypass security features such as allowlists, or trick users into executing malware.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = ["logs-endpoint.events.process-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as Communication Apps"
@@ -24,6 +24,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -34,7 +37,7 @@ process where host.os.type == "windows" and
   (
     /* Slack */
     (process.name : "slack.exe" and not
-      (process.code_signature.subject_name in (
+      (process.code_signature.subject_name : (
         "Slack Technologies, Inc.",
         "Slack Technologies, LLC"
        ) and process.code_signature.trusted == true)
@@ -42,32 +45,32 @@ process where host.os.type == "windows" and
 
     /* WebEx */
     (process.name : "WebexHost.exe" and not
-      (process.code_signature.subject_name in ("Cisco WebEx LLC", "Cisco Systems, Inc.") and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : ("Cisco WebEx LLC", "Cisco Systems, Inc.") and process.code_signature.trusted == true)
     ) or
 
     /* Teams */
     (process.name : "Teams.exe" and not
-      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
     ) or
 
     /* Discord */
     (process.name : "Discord.exe" and not
-      (process.code_signature.subject_name == "Discord Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Discord Inc." and process.code_signature.trusted == true)
     ) or
 
     /* RocketChat */
     (process.name : "Rocket.Chat.exe" and not
-      (process.code_signature.subject_name == "Rocket.Chat Technologies Corp." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Rocket.Chat Technologies Corp." and process.code_signature.trusted == true)
     ) or
 
     /* Mattermost */
     (process.name : "Mattermost.exe" and not
-      (process.code_signature.subject_name == "Mattermost, Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Mattermost, Inc." and process.code_signature.trusted == true)
     ) or
 
     /* WhatsApp */
     (process.name : "WhatsApp.exe" and not
-      (process.code_signature.subject_name in (
+      (process.code_signature.subject_name : (
         "WhatsApp LLC",
         "WhatsApp, Inc",
         "24803D75-212C-471A-BC57-9EF86AB91435"
@@ -76,20 +79,55 @@ process where host.os.type == "windows" and
 
     /* Zoom */
     (process.name : "Zoom.exe" and not
-      (process.code_signature.subject_name == "Zoom Video Communications, Inc." and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Zoom Video Communications, Inc." and process.code_signature.trusted == true)
     ) or
 
     /* Outlook */
     (process.name : "outlook.exe" and not
-      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
     ) or
 
     /* Thunderbird */
     (process.name : "thunderbird.exe" and not
-      (process.code_signature.subject_name == "Mozilla Corporation" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : "Mozilla Corporation" and process.code_signature.trusted == true)
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as Communication Apps
+
+Communication apps are integral to modern workflows, facilitating seamless interaction. However, adversaries can exploit these apps by masquerading malicious processes as legitimate ones, bypassing security measures and deceiving users. The detection rule identifies suspicious instances by checking for unsigned or improperly signed processes, ensuring they match known trusted signatures. This helps in flagging potential threats that mimic trusted communication tools, aiding in defense evasion detection.
+
+### Possible investigation steps
+
+- Review the process name and code signature details to confirm if the process is indeed masquerading as a legitimate communication app. Check if the process name matches any of the specified apps like slack.exe, WebexHost.exe, etc., and verify the code signature subject name and trust status.
+- Investigate the origin of the executable file by checking its file path and creation date. Determine if it was recently added or modified, which might indicate suspicious activity.
+- Analyze the parent process to understand how the suspicious process was initiated. This can provide insights into whether it was launched by a legitimate application or a potentially malicious script or program.
+- Check for any network connections initiated by the suspicious process. Look for unusual or unauthorized external connections that might suggest data exfiltration or command and control communication.
+- Review recent system logs and security alerts for any related activities or anomalies that coincide with the start of the suspicious process. This can help identify if the process is part of a larger attack pattern.
+- Consult threat intelligence sources to see if there are any known indicators of compromise (IOCs) associated with the process or its hash value, which can help in assessing the threat level.
+
+### False positive analysis
+
+- Legitimate software updates or installations may temporarily result in unsigned or improperly signed processes. Users can create exceptions for known update processes to prevent false positives during these periods.
+- Custom or internally developed communication tools that mimic the names of popular apps might trigger alerts. Ensure these tools are properly signed and add them to an allowlist if they are trusted.
+- Some third-party security or monitoring tools may interact with communication apps in a way that alters their signature status. Verify the legitimacy of these tools and consider excluding them from the rule if they are deemed safe.
+- In environments where communication apps are deployed via non-standard methods, such as portable versions, ensure these versions are signed correctly or add them to an exception list if they are verified as safe.
+- Temporary network issues or system misconfigurations might cause legitimate apps to appear unsigned. Regularly audit and correct any network or system issues to minimize these occurrences.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
+- Terminate any suspicious processes identified by the detection rule that are masquerading as communication apps, ensuring they are not legitimate processes.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious files or software.
+- Review and validate the code signatures of all communication apps on the affected system to ensure they are properly signed by trusted entities.
+- Restore any compromised systems from a known good backup to ensure the integrity of the system and data.
+- Monitor network traffic and system logs for any signs of lateral movement or further attempts to exploit communication apps.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]
@@ -105,7 +143,7 @@ reference = "https://attack.mitre.org/techniques/T1036/001/"
 
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
-name = "Match Legitimate Name or Location"
+name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 

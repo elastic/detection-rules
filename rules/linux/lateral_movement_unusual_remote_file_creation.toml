@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2025/02/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/09/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to detect file creation via a commonly used file
+transfer service while excluding typical remote file creation activity. This behavior is
+often linked to lateral movement, potentially indicating an attacker attempting to move
+within a network.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*", "auditbeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Remote File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Remote File Creation
+
+Remote file creation tools like SCP, FTP, and SFTP are essential for transferring files across networks, often used in legitimate administrative tasks. However, adversaries can exploit these services to move laterally within a network, creating files in unauthorized locations. The detection rule identifies suspicious file creation activities by monitoring specific processes and excluding typical paths, thus highlighting potential lateral movement attempts by attackers.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name (e.g., scp, ftp, sftp) involved in the file creation event.
+- Examine the file path where the file was created to determine if it is an unusual or unauthorized location, considering the exclusion of typical paths like /dev/ptmx, /run/*, or /var/run/*.
+- Check the user account associated with the process to verify if it is a legitimate user or if there are signs of compromised credentials.
+- Investigate the source and destination IP addresses involved in the file transfer to identify any suspicious or unexpected network connections.
+- Analyze recent activity on the host to identify any other unusual or unauthorized actions that may indicate lateral movement or further compromise.
+- Correlate this event with other alerts or logs to determine if it is part of a broader attack pattern or campaign within the network.
+
+### False positive analysis
+
+- Administrative file transfers: Legitimate administrative tasks often involve transferring files using SCP, FTP, or SFTP. To manage this, create exceptions for known administrative accounts or specific IP addresses that regularly perform these tasks.
+- Automated backup processes: Scheduled backups may use tools like rsync or sftp-server to create files remotely. Identify and exclude these processes by specifying the paths or scripts involved in the backup operations.
+- System updates and patches: Some system updates might involve remote file creation in non-standard directories. Monitor update schedules and exclude these activities by correlating them with known update events.
+- Development and testing environments: Developers may use remote file transfer services to deploy or test applications. Establish a baseline of typical development activities and exclude these from alerts by defining specific user accounts or project directories.
+- Third-party integrations: Some third-party applications might require remote file creation as part of their functionality. Document these integrations and exclude their associated processes or file paths from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further lateral movement within the network. This can be done by removing the host from the network or applying network segmentation controls.
+- Terminate any suspicious processes identified in the alert, such as scp, ftp, sftp, vsftpd, sftp-server, or sync, to stop unauthorized file transfers.
+- Conduct a thorough review of the file paths and files created to determine if any sensitive data has been compromised or if any malicious files have been introduced.
+- Restore any unauthorized or malicious file changes from known good backups to ensure system integrity.
+- Update and patch the affected systems to close any vulnerabilities that may have been exploited by the attacker.
+- Implement stricter access controls and authentication mechanisms for remote file transfer services to prevent unauthorized use.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised.
+"""
+risk_score = 21
+rule_id = "ed3fedc3-dd10-45a5-a485-34a8b48cea46"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
+
+#### The following steps should be executed in order to add the Auditbeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
+- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
+- For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:file and host.os.type:linux and event.action:creation and
+process.name:(scp or ftp or sftp or vsftpd or sftp-server or sync) and
+not (
+  file.path:(
+    /dev/ptmx or /run/* or /var/run/* or /home/*/.ansible/*AnsiballZ_*.py or /home/*/.ansible/tmp/ansible-tmp* or
+    /root/.ansible/*AnsiballZ_*.py or /tmp/ansible-chief/ansible-tmp*AnsiballZ_*.py or
+    /tmp/newroot/home/*/.ansible/tmp/ansible-tmp*AnsiballZ_*.py or /tmp/.ansible/tmp/ansible-tmp*AnsiballZ_*.py or
+    /tmp/ansible-tmp-*/AnsiballZ_*.py or /tmp/.ansible/ansible-tmp-*AnsiballZ_*.py
+  ) or
+  file.extension:(filepart or yaml or new or rpm or deb)
+)
+'''
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

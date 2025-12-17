@@ -2,7 +2,7 @@
 creation_date = "2022/05/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic"]
@@ -22,11 +22,46 @@ false_positives = [
     connected to the terminal: kubectl exec -i -t cassandra -- sh
     """,
 ]
-index = ["logs-kubernetes.*"]
-language = "kuery"
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Kubernetes User Exec into Pod"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes User Exec into Pod
+
+Kubernetes allows users to execute commands within a pod using the 'exec' command, facilitating temporary shell sessions for legitimate management tasks. However, adversaries can exploit this to gain unauthorized access, potentially exposing sensitive data. The detection rule identifies such misuse by monitoring audit logs for specific patterns, such as allowed 'exec' actions on pods, indicating possible malicious activity.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the user who executed the 'exec' command by examining the event.dataset field for "kubernetes.audit_logs".
+- Check the kubernetes.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed and determine if the user had legitimate access.
+- Investigate the kubernetes.audit.objectRef.resource and kubernetes.audit.objectRef.subresource fields to verify that the action involved a pod and the 'exec' subresource.
+- Analyze the context of the pod involved, including its purpose and the data it has access to, to assess the potential impact of the unauthorized access.
+- Correlate the event with other logs or alerts to identify any suspicious patterns or repeated unauthorized access attempts by the same user or IP address.
+- Review the user's activity history to determine if there are other instances of unusual or unauthorized access attempts within the Kubernetes environment.
+
+### False positive analysis
+
+- Routine administrative tasks by DevOps teams can trigger the rule when they use 'exec' for legitimate management purposes. To handle this, create exceptions for specific user accounts or roles that are known to perform these tasks regularly.
+- Automated scripts or tools that use 'exec' for monitoring or maintenance can also cause false positives. Identify these scripts and whitelist their associated service accounts or IP addresses.
+- Scheduled jobs or cron tasks that require 'exec' to perform updates or checks within pods may be flagged. Exclude these by setting up time-based exceptions for known maintenance windows.
+- Development environments where frequent testing and debugging occur using 'exec' can lead to alerts. Implement environment-specific exclusions to reduce noise from non-production clusters.
+
+### Response and remediation
+
+- Immediately isolate the affected pod to prevent further unauthorized access or data exposure. This can be done by applying network policies or temporarily scaling down the pod.
+- Review the audit logs to identify the user or service account responsible for the 'exec' command and assess whether the access was legitimate or unauthorized.
+- Revoke or adjust permissions for the identified user or service account to prevent further unauthorized 'exec' actions. Ensure that only necessary permissions are granted following the principle of least privilege.
+- Conduct a thorough investigation of the pod's environment to identify any potential data exposure or tampering. Check for unauthorized changes to configurations, secrets, or data within the pod.
+- If unauthorized access is confirmed, rotate any exposed secrets or credentials that the pod had access to, and update any affected systems or services.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or pods have been compromised.
+- Enhance monitoring and alerting for similar 'exec' actions in the future by ensuring that audit logs are continuously reviewed and that alerts are configured to notify the security team of any suspicious activity.
+
+## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,29 +71,24 @@ references = [
 risk_score = 47
 rule_id = "14de811c-d60f-11ec-9fd7-f661ea17fbce"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution"]
+tags = ["Data Source: Kubernetes", "Tactic: Execution", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "eql"
 query = '''
-event.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.verb:"create"
-  and kubernetes.audit.objectRef.resource:"pods"
-  and kubernetes.audit.objectRef.subresource:"exec"
+any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and
+kubernetes.audit.verb in ("get", "create") and kubernetes.audit.objectRef.subresource == "exec" and
+kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

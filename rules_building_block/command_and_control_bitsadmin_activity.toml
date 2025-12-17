@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/21"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,13 @@ Windows Background Intelligent Transfer Service (BITS) is a low-bandwidth, async
 Adversaries may abuse BITS to persist, download, execute, and even clean up after running malicious code.
 """
 from = "now-119m"
-index = ["logs-endpoint.events.process-*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 interval = "60m"
 language = "eql"
 license = "Elastic License v2"
@@ -27,6 +33,9 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Rule Type: BBR",
+    "Data Source: Sysmon",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

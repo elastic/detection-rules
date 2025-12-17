@@ -1,0 +1,132 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2025/04/16"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies PowerShell scripts with an abnormally high proportion of non-alphanumeric characters, often resulting from
+encoding, string mangling, or dynamic code generation.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via High Special Character Proportion"
+risk_score = 21
+rule_id = "f9753455-8d55-4ad8-b70a-e07b6f18deea"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
+
+// Filter out smaller scripts that are unlikely to implement obfuscation using the patterns we are looking for
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 1000
+
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+// Excludes spaces, #, = and - as they are heavily used in scripts for formatting
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """[^0-9A-Za-z\s#=-]""", "🔥")
+
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_pattern_count = Esql.script_block_length - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// Calculate the ratio of special characters to total length
+| eval Esql.script_block_ratio = Esql.script_block_pattern_count::double / Esql.script_block_length::double
+
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_ratio,
+    Esql.script_block_tmp,
+    powershell.file.*,
+    file.path,
+    file.directory,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _version,
+    _index,
+    host.name,
+    agent.id,
+    user.id
+
+// Filter for scripts with high special character ratio
+| where Esql.script_block_ratio > 0.30
+
+// Exclude Noisy Patterns
+| where not file.directory like "C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+  // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
+  or file.directory IS NULL
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

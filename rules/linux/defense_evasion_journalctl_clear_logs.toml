@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2025/10/01"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for attempts to clear logs using the "journalctl" command on Linux systems. Adversaries may use this
+technique to cover their tracks by deleting or truncating log files, making it harder for defenders to investigate their
+activities. The rule looks for the execution of "journalctl" with arguments that indicate log clearing actions, such as
+"--vacuum-time", "--vacuum-size", or "--vacuum-files".
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Attempt to Clear Logs via Journalctl"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Clear Logs via Journalctl
+
+This detection flags attempts to purge systemd journal logs by invoking journalctl with vacuum options, which attackers use to erase evidence and impede investigations. A common pattern is a compromised user escalating to root and immediately running sudo journalctl --vacuum-time=1s or --vacuum-size=1M, sometimes via a script or cron job, to rapidly truncate the journal across all boots and hide prior execution traces.
+
+### Possible investigation steps
+
+- Enrich with user/UID, effective privileges, parent and command-line, session/TTY, and origin (SSH IP or local), and determine if execution came from a scheduled job (cron/systemd timer) or a script.
+- Quantify destructiveness by extracting the exact vacuum parameter value(s) and immediately checking journal state (journalctl --disk-usage and --list-boots) and /var/log/journal size/mtime to see how much history was removed.
+- Inspect configuration and persistence paths for intentional log suppression, including recent changes in /etc/systemd/journald.conf (Storage=volatile, SystemMaxUse, SystemMaxFileSize, MaxRetentionSec) and any new systemd units or scripts invoking journalctl vacuum.
+- Correlate the vacuum timestamp with preceding activity to identify what might be concealed (privilege escalation, new accounts, sudoers edits, suspicious binaries), using auditd/EDR telemetry and shell history to rebuild the timeline.
+- Verify remote log forwarding and SIEM ingestion for this host, compare gaps around the vacuum time, and recover pre-vacuum events from central storage to assess impact and intent.
+
+### False positive analysis
+
+- A sysadmin or maintenance script ran journalctl --vacuum-time or --vacuum-size to reclaim space on a host under log disk pressure, which should correlate with low-free-space alerts, approved retention policy, and a scheduled systemd timer or cron job.
+- OS provisioning or image-preparation steps vacuumed the journal with journalctl --vacuum-files to sanitize logs before snapshotting, typically a one-time root action occurring near installation and matching documented build procedures.
+
+### Response and remediation
+
+- Immediately kill any active journalctl vacuum invocation (e.g., pkill -x journalctl), lock or remove sudo for the initiating user, and network-quarantine the host to prevent further tampering.
+- Remove persistence by disabling systemd units/timers and cron jobs that call "journalctl --vacuum-*", inspecting /etc/systemd/system/* for ExecStart=journalctl vacuum and /etc/crontab, /etc/cron.*, and user crontabs, then deleting the offending scripts.
+- Recover logging by setting Storage=persistent and policy-compliant SystemMaxUse/SystemMaxFileSize/MaxRetentionSec in /etc/systemd/journald.conf, restarting systemd-journald, and backfilling missing events from central log archives.
+- Harden by enabling remote forwarding (ForwardToSyslog=yes and rsyslog/syslog-ng to SIEM), adding auditd rules to alert on "journalctl --vacuum-*", and tightening sudoers to require MFA and record command I/O for journalctl on critical hosts.
+- Preserve evidence by archiving remaining /var/log/journal entries, journald.conf and its mtime, modified unit files under /etc/systemd/system, and shell/auth logs, and capture a disk snapshot before making further changes.
+- Escalate to incident response if root executed "journalctl --vacuum-time/size/files" outside a documented maintenance window, if Storage=volatile was set or retention reduced below policy, or if the same actor performed vacuums on multiple hosts within 24 hours.
+"""
+risk_score = 21
+rule_id = "09073bf4-a8ea-4bce-9fd5-2bb56b4d31f4"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "journalctl" and process.args like ("--vacuum-time=*", "--vacuum-size=*", "--vacuum-files=*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.002"
+name = "Clear Linux or Mac System Logs"
+reference = "https://attack.mitre.org/techniques/T1070/002/"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

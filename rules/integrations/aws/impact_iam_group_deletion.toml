@@ -2,30 +2,66 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/10/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of a specified AWS Identity and Access Management (IAM) resource group. Deleting a resource
-group does not delete resources that are members of the group; it only deletes the group structure.
+Detects when an IAM group is deleted using the DeleteGroup API call. Deletion of an IAM group may represent a malicious
+attempt to remove audit trails, disrupt operations, or hide adversary activity (for example after using the group
+briefly for privileged access). This can be an indicator of impact or cleanup in an attack lifecycle.
 """
 false_positives = [
     """
-    A resource group may be deleted by a system administrator. Verify whether the user identity, user agent, and/or
-    hostname should be making changes in your environment. Resource group deletions by unfamiliar users or hosts should
-    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Legitimate group deletion during decommissioning of projects, clean-up of service accounts, or identity lifecycle
+    changes may trigger this alert. Verify whether the user identity, user agent, and/or hostname should be making
+    changes in your environment. Resource group deletions by unfamiliar users or hosts should be investigated. If known
+    behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Group Deletion
+
+Attackers sometimes remove groups to erase evidence, disrupt operations, or prevent users from receiving needed permissions (Impact). Deletion can also follow malicious cleanup after attaching policies and using the group briefly. This alert fires on `DeleteGroup` API call. Consider intentional disruption or covering tracks, particularly if the group was privileged or recently modified.
+
+### Possible investigation steps
+
+- **Identify the actor and environment**  
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.access_key_id`.  
+  - Check `source.ip`, `user_agent.original`, `cloud.account.id`, `cloud.region` for atypical activity.
+
+- **Determine what was lost**
+  - From `aws.cloudtrail.request_parameters`, capture `groupName`.  
+  - Use history or logs to identify existing members and attached policies prior to deletion (ex: `GetGroup`, `ListAttachedGroupPolicies`).  
+  - Determine if the group contained privileged roles/policies that could have been weaponized.
+
+- **Correlate with related activity**
+  - Look in the prior 1–24h for `DetachGroupPolicy`, `RemoveUserFromGroup`, `DeleteGroupPolicy`, which often precede deletion in adversary cleanup workflows.  
+  - After deletion, monitor for creation of new similarly-named groups, or re-attachment of policies to other groups/roles.
+
+### False positive analysis
+
+- Projects & services that are being decommissioned often require group deletion. Confirm through internal inventory and change control.  
+- Sandbox or dev accounts frequently create and delete groups; ensure the environment context is understood.
+
+### Response and remediation
+
+- **Containment**: If deletion was unauthorized, restrict the actor’s IAM privileges and block further configuration changes.  
+- **Investigation and scoping**: Recover details of the deleted group (members, policies) from logs or AWS Config, and determine the impact of the deletion (which users lost membership, service account disruption).  
+- **Recovery and hardening**: Recreate the group if necessary, restore intended policies and memberships, enforce change-control for group deletions, restrict `iam:DeleteGroup` privileges, and create alerts for destructive IAM operations.
+
+### Additional information
+[AWS Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)
+"""
 references = [
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/iam/delete-group.html",
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteGroup.html",
@@ -39,12 +75,16 @@ tags = [
     "Data Source: Amazon Web Services",
     "Data Source: AWS IAM",
     "Tactic: Impact",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:DeleteGroup and event.outcome:success
+event.dataset: aws.cloudtrail and 
+    event.provider: iam.amazonaws.com and 
+    event.action: DeleteGroup and 
+    event.outcome: success
 '''
 
 
@@ -60,4 +100,20 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 

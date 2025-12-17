@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -17,15 +17,55 @@ index = ["logs-github.audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "GitHub Protected Branch Settings Changed"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Protected Branch Settings Changed
+
+GitHub's protected branch settings are crucial for maintaining code integrity by enforcing rules like requiring reviews before merging. Adversaries may alter these settings to bypass security measures, facilitating unauthorized code changes. The detection rule monitors audit logs for changes in branch protection, flagging potential defense evasion attempts for further investigation.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to identify the specific changes made to the protected branch settings, focusing on entries where event.dataset is "github.audit" and github.category is "protected_branch".
+- Determine the user account responsible for the changes by examining the audit log details, and verify if the account has a legitimate reason to modify branch protection settings.
+- Check the timing of the changes to see if they coincide with any other suspicious activities or known incidents within the organization.
+- Investigate the context of the change by reviewing recent pull requests or commits to the affected branch to assess if the changes align with ongoing development activities.
+- Communicate with the repository owner or relevant team members to confirm if the changes were authorized and necessary for current project requirements.
+- Evaluate the impact of the changes on the repository's security posture and consider reverting the changes if they were unauthorized or pose a security risk.
+
+### False positive analysis
+
+- Routine updates by trusted team members may trigger alerts. To manage this, create exceptions for specific users or teams who regularly update branch protection settings as part of their role.
+- Automated tools or scripts that modify branch settings for legitimate reasons can cause false positives. Identify these tools and whitelist their activities in the monitoring system.
+- Scheduled maintenance or policy updates might lead to expected changes in branch protection settings. Document these events and adjust the detection rule to ignore changes during these periods.
+- Changes made by administrators during onboarding or offboarding processes can be mistaken for unauthorized activity. Ensure these processes are well-documented and communicated to the security team to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revert any unauthorized changes to the protected branch settings to restore the original security posture.
+- Conduct a review of recent commits and merges to the affected branch to identify any unauthorized code changes that may have occurred during the period of altered settings.
+- Temporarily restrict access to the repository for users who made unauthorized changes until a full investigation is completed.
+- Notify the security team and relevant stakeholders about the incident for further analysis and to determine if additional security measures are needed.
+- Implement additional monitoring on the affected repository to detect any further unauthorized changes or suspicious activities.
+- Review and update access controls and permissions for the repository to ensure that only authorized personnel can modify branch protection settings.
+- Document the incident, including the timeline of events and actions taken, to improve future response efforts and update incident response plans."""
 risk_score = 47
 rule_id = "07639887-da3a-4fbf-9532-8ce748ff8c50"
 severity = "medium"
-tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Github"]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-configuration where event.dataset == "github.audit" 
+configuration where event.dataset == "github.audit"
   and github.category == "protected_branch" and event.type == "change"
 '''
 

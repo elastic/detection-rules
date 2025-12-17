@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2024/08/23"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects Linux Access Control List (ACL) modification via the setfacl command.\n"
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Access Control List Modification via setfacl"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Access Control List Modification via setfacl
+
+Access Control Lists (ACLs) in Linux enhance file permission management by allowing more granular access control. The `setfacl` command modifies these ACLs, potentially altering who can access or modify files. Adversaries may exploit `setfacl` to stealthily change permissions, evading detection and maintaining persistence. The detection rule identifies suspicious `setfacl` executions, excluding benign patterns, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of the setfacl command, focusing on the process.name and event.type fields to ensure the alert is valid.
+- Examine the process.command_line to understand the specific ACL modifications attempted and identify any unusual or unauthorized changes.
+- Investigate the user account associated with the process execution to determine if the action aligns with their typical behavior or role.
+- Check the process's parent process to identify how the setfacl command was initiated and assess if it was part of a legitimate workflow or a potential compromise.
+- Correlate the event with other security logs or alerts from the same host to identify any related suspicious activities or patterns that might indicate a broader attack.
+
+### False positive analysis
+
+- Routine system maintenance tasks may trigger the rule if they involve legitimate use of setfacl. To manage this, identify and document regular maintenance scripts or processes that use setfacl and create exceptions for these specific command lines.
+- Backup operations that restore ACLs using setfacl can be mistaken for suspicious activity. Exclude these by adding exceptions for command lines that match known backup procedures, such as those using the --restore option.
+- Automated log management tools might use setfacl to manage permissions on log directories like /var/log/journal/. To prevent false positives, exclude these specific directory paths from triggering the rule.
+- Custom applications or services that require dynamic permission changes using setfacl could be flagged. Review these applications and, if deemed safe, add their specific command patterns to the exception list to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or changes.
+- Review the process execution logs to identify any unauthorized users or processes that executed the `setfacl` command.
+- Revert any unauthorized ACL changes by restoring the original file permissions from a known good backup or configuration.
+- Conduct a thorough scan of the system for any additional signs of compromise, such as unauthorized user accounts or unexpected processes.
+- Update and patch the system to address any vulnerabilities that may have been exploited to gain access.
+- Implement stricter access controls and monitoring on critical systems to detect and prevent unauthorized ACL modifications in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected."""
+references = [
+    "https://www.uptycs.com/blog/threat-research-report-team/evasive-techniques-used-by-malicious-linux-shell-scripts",
+]
+risk_score = 21
+rule_id = "999565a2-fc52-4d72-91e4-ba6712c0377e"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "setfacl" and not (
+  process.command_line == "/bin/setfacl --restore=-" or
+  process.args == "/var/log/journal/" or
+  process.parent.name in ("stats.pl", "perl", "find") or
+  process.parent.command_line like~ "/bin/sh -c *ansible*"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+[[rule.threat.technique.subtechnique]]
+id = "T1222.002"
+name = "Linux and Mac File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

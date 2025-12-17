@@ -1,10 +1,41 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [transform]
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
 query = "SELECT * FROM dns_cache"
@@ -29,37 +60,6 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-[[transform.investigate]]
-label = "Alerts associated with the user in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-    [
-        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
-    ]
-]
-
-[[transform.investigate]]
-label = "Alerts associated with the host in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-    [
-        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"},
-    ]
-]
-
-[[transform.investigate]]
-label = "Investigate the Subject Process Network Events"
-providers = [
-    [
-        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
-        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
-    ]
-]
-
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,17 @@ Identifies the desktopimgdownldr utility being used to download a remote file. A
 download arbitrary files as an alternative to certutil.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via Desktopimgdownldr Utility"
@@ -81,8 +91,8 @@ Attackers commonly transfer tooling or malware from external systems into a comp
 The `Desktopimgdownldr.exe` utility is used to to configure lockscreen/desktop image, and can be abused with the `lockscreenurl` argument to download remote files and tools, this rule looks for this behavior.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -133,14 +143,6 @@ The `Desktopimgdownldr.exe` utility is used to to configure lockscreen/desktop i
 references = ["https://labs.sentinelone.com/living-off-windows-land-a-new-native-file-downldr/"]
 risk_score = 47
 rule_id = "15c0b7a7-9c34-4869-b25b-fa6518414899"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -149,7 +151,12 @@ tags = [
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

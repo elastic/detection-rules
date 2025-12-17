@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/11"
 
 [rule]
 author = ["Elastic"]
@@ -15,24 +15,59 @@ index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Downloaded URL Files"
-risk_score = 21
+risk_score = 47
 rule_id = "cd82e3d6-1346-4afd-8f22-38388bbf34cb"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
-    "Rule Type: BBR",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and file.extension == "url"
-   and file.Ext.windows.zone_identifier > 1 and not process.name : "explorer.exe"
+   and file.Ext.windows.zone_identifier == 3 
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Downloaded URL Files
+
+URL shortcut files, typically used for quick access to web resources, can be exploited by attackers in phishing schemes to execute malicious content. These files, when downloaded from non-local sources, may bypass traditional security measures. The detection rule identifies such files by monitoring their creation events on Windows systems, focusing on those not initiated by standard processes like Explorer, and flags them based on their network origin, aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the file creation event details to confirm the file extension is ".url" and verify the zone identifier is greater than 1, indicating a non-local source.
+- Investigate the process that created the .url file, ensuring it was not initiated by "explorer.exe" and identify the actual process responsible for the creation.
+- Check the network origin of the downloaded .url file to determine if it is from a known malicious domain or IP address.
+- Analyze the contents of the .url file to identify the target URL and assess its reputation and potential risk.
+- Correlate the event with other security alerts or logs from the same host to identify any additional suspicious activities or patterns.
+- Contact the user associated with the alert to verify if they intentionally downloaded the file and gather any additional context regarding their actions.
+
+### False positive analysis
+
+- Corporate applications that generate .url files for legitimate purposes may trigger alerts. Identify these applications and create exceptions for their processes to prevent unnecessary alerts.
+- Automated scripts or system management tools that download .url files as part of routine operations can be mistaken for threats. Review these tools and whitelist their activities if they are verified as safe.
+- User-initiated downloads from trusted internal web portals might be flagged. Educate users on safe downloading practices and consider excluding specific trusted domains from monitoring.
+- Security software updates or patches that include .url files could be misidentified. Verify the source of these updates and adjust the rule to exclude known safe update processes.
+- Collaboration platforms that share .url files for internal use may cause false positives. Evaluate the platform's behavior and exclude its processes if they are deemed secure.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of any potential malicious activity.
+- Terminate any suspicious processes that are not initiated by standard processes like Explorer, especially those related to the creation of .url files.
+- Delete the identified .url files from the system to remove the immediate threat.
+- Conduct a full antivirus and anti-malware scan on the affected system to identify and remove any additional threats.
+- Review and analyze the network logs to identify any other systems that may have downloaded similar .url files and apply the same containment measures.
+- Escalate the incident to the security operations team for further investigation and to determine if there is a broader campaign targeting the organization.
+- Update security policies and endpoint protection configurations to block the download and execution of .url files from untrusted sources in the future."""
 
 
 [[rule.threat]]

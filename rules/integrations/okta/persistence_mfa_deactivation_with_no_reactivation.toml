@@ -2,9 +2,7 @@
 creation_date = "2020/05/20"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
-min_stack_version = "8.10.0"
-updated_date = "2023/12/16"
+updated_date = "2025/09/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-12h"
-index = ["filebeat-*", "logs-okta.system*"]
+index = ["logs-okta.system*"]
 interval = "6h"
 language = "eql"
 license = "Elastic License v2"
@@ -35,11 +33,12 @@ This rule fires when an Okta user account has MFA deactivated and no subsequent 
 
 #### Possible investigation steps:
 
-- Identify the actor related to the alert by reviewing `okta.actor.alternate_id` field in the alert. This should give the username of the account being targeted.
-- Review `okta.target` or `user.target.full_name` fields to determine if deactivation was performed by a se parate user.
-- Using the `okta.actor.alternate_id` field, search  for MFA re-activation events where `okta.event_type` is `user.mfa.factor.activate`.
-- Review events where `okta.event_type` is `user.authenticate*` to determine if the user account had suspicious login activity.
+- Identify the entity related to the alert by reviewing `okta.target.alternate_id`, `okta.target.id` or `user.target.full_name` fields. This should give the username of the account being targeted. Verify if MFA is deactivated for the target entity.
+- Using the `okta.target.alternate_id` field, search for MFA re-activation events where `okta.event_type` is `user.mfa.factor.activate`. Note if MFA re-activation attempts were made against the target.
+- Identify the actor performing the deactivation by reviewing `okta.actor.alternate_id`, `okta.actor.id` or `user.full_name` fields. This should give the username of the account performing the action. Determine if deactivation was performed by a separate user.
+- Review events where `okta.event_type` is `user.authenticate*` to determine if the actor or target accounts had suspicious login activity.
     - Geolocation details found in `client.geo*` related fields may be useful in determining if the login activity was suspicious for this user.
+- Examine related administrative activity by the actor for privilege misuse or suspicious changes.
 
 #### False positive steps:
 
@@ -54,23 +53,32 @@ This rule fires when an Okta user account has MFA deactivated and no subsequent 
 - Investigate the source of the attack. If a specific machine or network is compromised, additional steps may need to be taken to address the issue.
 - Encourage users to use complex, unique passwords and consider implementing multi-factor authentication.
 - Check if the compromised account was used to access or alter any sensitive data, applications or systems.
+- Review the client user-agent to determine if it's a known custom application that can be whitelisted.
 """
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 21
 rule_id = "cd89602e-9db0-48e3-9391-ae3bf241acd8"
 setup = "The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.\n"
 severity = "low"
-tags = ["Tactic: Persistence", "Use Case: Identity and Access Audit", "Data Source: Okta", "Domain: Cloud"]
+tags = [
+    "Tactic: Persistence",
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Domain: Cloud",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 
 query = '''
-sequence by okta.actor.id with maxspan=12h
-    [any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.deactivate"
-        and okta.outcome.result == "SUCCESS" and not okta.client.user_agent.raw_user_agent like "SFDC-Callout*"]
+sequence by okta.target.id with maxspan=12h
+    [any where event.dataset == "okta.system" and okta.event_type in ("user.mfa.factor.deactivate", "user.mfa.factor.reset_all")
+        and okta.outcome.reason != "User reset SECURITY_QUESTION factor" and okta.outcome.result == "SUCCESS"]
     ![any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.activate"]
 '''
 

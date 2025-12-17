@@ -2,7 +2,7 @@
 creation_date = "2021/01/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ browser.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Modification of Safari Settings via Defaults Command"
 references = ["https://objectivebythesea.com/v2/talks/OBTS_v2_Zohar.pdf"]
@@ -51,23 +51,51 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:start and
-  process.name:defaults and process.args:
-    (com.apple.Safari and write and not
-      (
-      UniversalSearchEnabled or
-      SuppressSearchSuggestions or
-      WebKitTabToLinksPreferenceKey or
-      ShowFullURLInSmartSearchField or
-      com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks
-      )
-    )
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+  process.name == "defaults" and process.args like~ ("com.apple.Safari", "write") and 
+  not process.args like~ ("UniversalSearchEnabled", "SuppressSearchSuggestions", "WebKitTabToLinksPreferenceKey", 
+                          "ShowFullURLInSmartSearchField", "com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of Safari Settings via Defaults Command
+
+The 'defaults' command in macOS is a utility that allows users to read, write, and manage macOS application preferences, including Safari settings. Adversaries may exploit this command to alter Safari configurations, potentially enabling harmful features like JavaScript from Apple Events, which can facilitate browser hijacking. The detection rule monitors for suspicious 'defaults' command usage targeting Safari settings, excluding benign preference changes, to identify potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the use of the 'defaults' command with arguments targeting Safari settings, specifically looking for any suspicious or unauthorized changes.
+- Check the user account associated with the process execution to determine if the action was performed by a legitimate user or an unauthorized entity.
+- Investigate the system's recent activity logs to identify any other unusual or suspicious behavior around the time the 'defaults' command was executed.
+- Examine the Safari settings before and after the change to assess the impact and identify any potentially harmful configurations, such as enabling JavaScript from Apple Events.
+- Correlate the event with other security alerts or incidents to determine if this action is part of a broader attack or compromise attempt.
+
+### False positive analysis
+
+- Changes to Safari settings for legitimate user preferences can trigger alerts, such as enabling or disabling search suggestions. Users can create exceptions for these specific settings by excluding them from the detection rule.
+- System administrators may use the defaults command to configure Safari settings across multiple devices for compliance or user experience improvements. These actions can be whitelisted by identifying the specific process arguments used in these administrative tasks.
+- Automated scripts or management tools that adjust Safari settings as part of routine maintenance or updates may cause false positives. Users should identify these scripts and exclude their specific process arguments from the detection rule.
+- Developers testing Safari configurations might frequently change settings using the defaults command. Excluding known developer machines or user accounts from the rule can help reduce false positives.
+- Educational or training environments where users are instructed to modify Safari settings for learning purposes can lead to alerts. Identifying and excluding these environments or sessions can mitigate unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS device from the network to prevent further malicious activity or data exfiltration.
+- Terminate any suspicious processes related to the 'defaults' command that are currently running on the affected device.
+- Revert any unauthorized changes made to Safari settings by restoring them to their default or previously known safe state.
+- Conduct a thorough scan of the affected device using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware or malicious scripts.
+- Review and update the device's security settings to prevent unauthorized changes, including disabling unnecessary Apple Events and restricting the use of the 'defaults' command to authorized personnel only.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other devices in the network are affected.
+- Implement enhanced monitoring and alerting for similar 'defaults' command usage across the network to detect and respond to future attempts promptly."""
 
 
 [[rule.threat]]

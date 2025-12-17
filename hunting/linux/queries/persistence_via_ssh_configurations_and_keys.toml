@@ -1,0 +1,86 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt identifies potential SSH persistence mechanisms on Linux systems using OSQuery. It monitors SSH keys, authorized_keys files, SSH configuration files, and SSH file information to detect unauthorized access or persistence techniques. The hunt lists detailed information for further analysis and investigation.
+"""
+integration = ["endpoint"]
+uuid = "aa759db0-4499-42f2-9f2f-be3e00fdebfa"
+name = "Persistence via SSH Configurations and/or Keys"
+language = ["ES|QL", "SQL"]
+license = "Elastic License v2"
+notes = [
+    "Monitors SSH keys, authorized_keys files, and SSH configuration files using OSQuery to detect potential unauthorized access or persistence techniques.",
+    "Monitor for interactive processes by unusual users to detect potential unauthorized access or persistence techniques.",
+    "Lists detailed information about SSH files, including paths, owners, and permissions.",
+    "Requires additional data analysis and investigation into results to identify malicious or unauthorized SSH configurations and keys."
+]
+mitre = ["T1098.004", "T1563.001"]
+
+query = [
+'''
+SELECT * FROM user_ssh_keys
+''',
+'''
+SELECT authorized_keys.*
+FROM users
+JOIN authorized_keys
+USING(uid)
+''',
+'''
+SELECT * FROM ssh_configs
+''',
+'''
+SELECT
+    f.filename,
+    f.path,
+    u.username AS file_owner,
+    g.groupname AS group_owner,
+    datetime(f.atime, 'unixepoch') AS file_last_access_time,
+    datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+    datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+    datetime(f.btime, 'unixepoch') AS file_created_time,
+    f.size AS size_bytes
+FROM
+    file f
+LEFT JOIN
+    users u ON f.uid = u.uid
+LEFT JOIN
+    groups g ON f.gid = g.gid
+WHERE
+    f.path LIKE "/root/.ssh/%"
+    OR f.path LIKE "/home/%/.ssh/%"
+    OR f.path LIKE "/etc/ssh/%"
+    OR f.path LIKE "/etc/ssh/sshd_config.d/%"
+    OR f.path LIKE "/usr/sbin/.ssh/%"
+    OR f.path LIKE "/bin/.ssh/%"
+    OR f.path LIKE "/usr/games/.ssh/%"
+    OR f.path LIKE "/var/cache/man/.ssh/%"
+    OR f.path LIKE "/var/mail/.ssh/%"
+    OR f.path LIKE "/var/spool/news/.ssh/%"
+    OR f.path LIKE "/var/spool/lpd/.ssh/%"
+    OR f.path LIKE "/var/backups/.ssh/%"
+    OR f.path LIKE "/var/list/.ssh/%"
+    OR f.path LIKE "/run/ircd/.ssh/%"
+    OR f.path LIKE "/var/lib/gnats/.ssh/%"
+    OR f.path LIKE "/nonexistent/.ssh/%"
+    OR f.path LIKE "/run/systemd/.ssh/%"
+    OR f.path LIKE "/var/cache/pollinate/.ssh/%"
+    OR f.path LIKE "/run/sshd/.ssh/%"
+    OR f.path LIKE "/home/syslog/.ssh/%"
+    OR f.path LIKE "/run/uuidd/.ssh/%"
+    OR f.path LIKE "/var/lib/tpm/.ssh/%"
+    OR f.path LIKE "/var/lib/landscape/.ssh/%"
+    OR f.path LIKE "/var/lib/usbmux/.ssh/%"
+    OR f.path LIKE "/var/snap/lxd/common/lxd/.ssh/%";
+''',
+'''
+from logs-endpoint.events.process-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == "true"
+| stats cc = count(), host_count = count_distinct(host.name) by user.name
+// Alter this threshold to make sense for your environment
+| where cc <= 50 and host_count <= 3
+| sort cc asc
+| limit 100
+'''
+]

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -12,25 +12,57 @@ activity.
 """
 from = "now-9m"
 index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Copy to a Hidden Share"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote File Copy to a Hidden Share
+
+In Windows environments, hidden network shares are often used for legitimate administrative tasks, allowing file transfers without user visibility. However, adversaries can exploit these shares for lateral movement or data exfiltration. The detection rule identifies suspicious file copy attempts using common command-line tools like cmd.exe and powershell.exe, focusing on hidden share patterns to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process details to identify the specific command-line tool used (cmd.exe, powershell.exe, xcopy.exe, or robocopy.exe) and examine the arguments to understand the nature of the file copy operation.
+- Investigate the source and destination of the file copy by analyzing the network share path in the process arguments, focusing on the hidden share pattern (e.g., \\\\*\\\\*$).
+- Check the user account associated with the process to determine if it has legitimate access to the hidden share and assess if the activity aligns with the user's typical behavior.
+- Correlate the event with other logs or alerts from the same host or user to identify any additional suspicious activities, such as unusual login attempts or privilege escalation.
+- Examine the historical activity of the involved host to identify any previous instances of similar file copy attempts or other indicators of lateral movement.
+- Consult threat intelligence sources to determine if the detected pattern or tools are associated with known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Administrative tasks using hidden shares can trigger alerts. Regularly review and document legitimate administrative activities that involve file transfers to hidden shares.
+- Backup operations often use hidden shares for data storage. Identify and exclude backup processes by specifying known backup software and their typical command-line arguments.
+- Software deployment tools may utilize hidden shares for distributing updates. Create exceptions for recognized deployment tools by listing their process names and associated arguments.
+- IT maintenance scripts might copy files to hidden shares for system updates. Maintain a list of approved maintenance scripts and exclude them from triggering alerts.
+- User-initiated file transfers for legitimate purposes can be mistaken for threats. Educate users on proper file transfer methods and monitor for unusual patterns that deviate from documented procedures.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Terminate any suspicious processes identified in the alert, such as cmd.exe, powershell.exe, xcopy.exe, or robocopy.exe, that are involved in the file copy attempt.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise or unauthorized access.
+- Change credentials for any accounts that were used in the suspicious activity to prevent further unauthorized access.
+- Review and restrict permissions on network shares, especially hidden shares, to ensure only authorized users have access.
+- Monitor network traffic for any further suspicious activity related to hidden shares and lateral movement attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
+references = ["https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language"]
 risk_score = 47
 rule_id = "fa01341d-6662-426b-9d0c-6d81e33c8a9d"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -39,17 +71,20 @@ tags = [
     "Tactic: Lateral Movement",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (
-    process.name : ("cmd.exe", "powershell.exe", "xcopy.exe") and
-    process.args : ("copy*", "move*", "cp", "mv") or
-    process.name : "robocopy.exe"
-  ) and process.args : "*\\\\*\\*$*"
+process where host.os.type == "windows" and event.type == "start" and user.id != "S-1-5-18" and
+  process.name : ("cmd.exe", "powershell.exe") and
+  process.command_line : "*\\\\*\\*$*" and process.command_line : ("* copy*", "* move*", "* cp *", "* mv *")
 '''
 
 

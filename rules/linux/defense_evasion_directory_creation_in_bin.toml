@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2024/11/01"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the creation of directories in the /bin directory. The /bin directory contains essential binary
+files that are required for the system to function properly. The creation of directories in this location could be an
+attempt to hide malicious files or executables, as these /bin directories usually just contain binaries.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Directory Creation in /bin directory"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Directory Creation in /bin directory
+
+The /bin directory is crucial for Linux systems, housing essential binaries for system operations. Adversaries may exploit this by creating directories here to conceal malicious files, leveraging the directory's trusted status. The detection rule identifies suspicious directory creation by monitoring 'mkdir' executions in critical binary paths, excluding legitimate system operations, thus flagging potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of 'mkdir' in the specified critical binary paths such as /bin, /usr/bin, /usr/local/bin, /sbin, /usr/sbin, and /usr/local/sbin.
+- Check the parent process of the 'mkdir' command to determine if it was initiated by a legitimate system process or a potentially malicious one.
+- Investigate the user account associated with the 'mkdir' process to assess if it has the necessary permissions and if the activity aligns with the user's typical behavior.
+- Examine the system logs around the time of the directory creation for any other suspicious activities or anomalies that might indicate a broader attack.
+- Verify if any files or executables have been placed in the newly created directory and assess their legitimacy and potential threat level.
+- Cross-reference the event with threat intelligence sources to identify if the activity matches any known malicious patterns or indicators of compromise.
+
+### False positive analysis
+
+- System updates or package installations may trigger directory creation in the /bin directory as part of legitimate operations. Users can mitigate this by creating exceptions for known package management processes like apt, yum, or rpm.
+- Custom scripts or administrative tasks that require creating directories in the /bin directory for temporary storage or testing purposes can also lead to false positives. Users should document and exclude these specific scripts or tasks from the detection rule.
+- Automated deployment tools or configuration management systems such as Ansible, Puppet, or Chef might create directories in the /bin directory as part of their setup routines. Users should identify these tools and add them to the exclusion list to prevent unnecessary alerts.
+- Development or testing environments where developers have permissions to create directories in the /bin directory for application testing can result in false positives. Users should differentiate between production and non-production environments and apply the rule accordingly.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement or data exfiltration by the adversary.
+- Terminate any suspicious processes related to the directory creation in the /bin directory to halt any ongoing malicious activity.
+- Conduct a thorough review of the newly created directories and files within the /bin directory to identify and remove any malicious binaries or scripts.
+- Restore any altered or deleted legitimate binaries from a known good backup to ensure system integrity and functionality.
+- Implement file integrity monitoring on critical system directories, including /bin, to detect unauthorized changes in real-time.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Review and update access controls and permissions for the /bin directory to restrict unauthorized directory creation and enhance security posture."""
+risk_score = 21
+rule_id = "3302835b-0049-4004-a325-660b1fba1f67"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "start", "ProcessRollup2", "exec_event") and process.name == "mkdir" and
+  process.args like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*") and
+not process.args in ("/bin/mkdir", "/usr/bin/mkdir", "/usr/local/bin/mkdir")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

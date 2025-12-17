@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2025/02/28"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a Windows Defender Application Control (WDAC) policy file by an unusual process. Adversaries
+may use a secially crafted WDAC policy to restrict the execution of security products.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "WDAC Policy File by an Unusual Process"
+note = """## Triage and analysis
+
+### Investigating WDAC Policy File by an Unusual Process
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+  - Verify if any other anti-forensics behaviors were observed.
+- Investigate the event logs prior to the action for suspicious behaviors that an attacker may be trying to cover up.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Re-enable affected logging components, services, and security monitoring.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://github.com/logangoins/Krueger/tree/main",
+    "https://beierle.win/2024-12-20-Weaponizing-WDAC-Killing-the-Dreams-of-EDR/",
+]
+risk_score = 73
+rule_id = "3aaf37f3-05a1-40a5-bb6e-e380c4f92c52"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.action != "deletion" and
+  file.extension : ("p7b", "cip") and
+  file.path : (
+    "?:\\Windows\\System32\\CodeIntegrity\\*.p7b",
+    "?:\\Windows\\System32\\CodeIntegrity\\CiPolicies\\Active\\*.cip",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\CodeIntegrity\\*.p7b",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\CodeIntegrity\\CiPolicies\\Active\\*.cip"
+  ) and
+  not process.executable : (
+    "C:\\Windows\\System32\\poqexec.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\poqexec.exe"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

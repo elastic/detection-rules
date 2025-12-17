@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2025/06/19"
+integration = ["endpoint", "auditd_manager", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule detects the execution of kubectl commands that are commonly used for workload and cluster
+discovery in Kubernetes environments. It looks for process events where kubectl is executed with
+arguments that query cluster information, such as namespaces, nodes, pods, deployments, and other
+resources. In environments where kubectl is not expected to be used, this could indicate potential
+reconnaissance activity by an adversary.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Kubectl Workload and Cluster Discovery"
+risk_score = 21
+rule_id = "74e5241e-c1a1-4e70-844e-84ee3d73eb7d"
+severity = "low"
+tags = [
+  "Domain: Container",
+  "Domain: Endpoint",
+  "Domain: Kubernetes",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Rule Type: BBR",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
+process.name == "kubectl" and (
+  (process.args in ("cluster-info", "api-resources", "api-versions", "version")) or
+  (process.args in ("get", "describe") and process.args in (
+    "namespaces", "nodes", "pods", "pod", "deployments", "deployment",
+    "replicasets", "statefulsets", "daemonsets", "services", "service",
+    "ingress", "ingresses", "endpoints", "configmaps", "events", "svc",
+    "roles", "rolebindings", "clusterroles", "clusterrolebindings"
+    )
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

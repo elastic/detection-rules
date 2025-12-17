@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2025/04/14"
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry modification to force the system to fall back to NTLMv1 for authentication. This modification is
+possible with local administrator privileges and is commonly referred to as a `NetNTLMv1 downgrade attack`.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-windows.sysmon_operational-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential NetNTLMv1 Downgrade Attack"
+note = """## Triage and analysis
+
+### Investigating Potential NetNTLMv1 Downgrade Attack
+
+
+### Possible investigation steps
+
+- Review the registry event logs to confirm the modification of the LmCompatibilityLevel value in the specified registry paths, ensuring the change was not part of a legitimate administrative action.
+- Identify the user account and process responsible for the registry modification by examining the event logs for associated user and process information.
+- Check for any recent remote authentication attempts or sessions on the affected host to determine if unauthorized access was achieved.
+- Investigate the timeline of the registry change to correlate with any other suspicious activities or alerts on the host, such as the execution of unusual processes or network connections.
+- Evaluate the security posture of the affected system, including patch levels and existing security controls, to identify potential vulnerabilities that could have been exploited.
+
+### False positive analysis
+
+- Administrative changes to LmCompatibilityLevel settings can trigger false positives when IT personnel intentionally modify registry settings for legitimate purposes. To handle this, create exceptions for known administrative activities by documenting and excluding these specific registry changes from alerts.
+- Software updates or installations that modify NTLM settings might be flagged as false positives. To mitigate this, maintain a list of trusted software and their expected registry changes, and configure the detection system to ignore these during update windows.
+- Automated scripts or management tools that adjust NTLM configurations for compliance or performance reasons can also cause false positives. Identify these tools and their expected behavior, then set up exclusions for their registry modifications to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Re-enable NTLMv2 on the affected system by modifying the registry value back to its secure state.
+- Conduct a thorough review of recent user activity and system logs to identify any unauthorized access or changes made during the period NLA was disabled.
+- Reset passwords for all accounts that have accessed the affected system to mitigate potential credential compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring on the affected system and similar endpoints to detect any further attempts to disable NLA or other suspicious activities.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level",
+]
+risk_score = 47
+rule_id = "4d169db7-0323-4157-9ad3-ea5ece9019c9"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and
+ registry.value == "LmCompatibilityLevel" and registry.data.strings in ("2", "1", "0", "0x00000002", "0x00000001", "0x00000000")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.010"
+name = "Downgrade Attack"
+reference = "https://attack.mitre.org/techniques/T1562/010/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

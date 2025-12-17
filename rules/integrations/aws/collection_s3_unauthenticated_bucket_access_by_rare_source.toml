@@ -1,0 +1,186 @@
+[metadata]
+creation_date = "2024/12/17"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS CloudTrail events where an unauthenticated source is attempting to access an S3 bucket. This activity may
+indicate a misconfigured S3 bucket policy that allows public access to the bucket, potentially exposing sensitive data
+to unauthorized users. Adversaries can specify --no-sign-request in the AWS CLI to retrieve objects from an S3 bucket
+without authentication. This is a New Terms rule, which means it will trigger for each unique combination of the source.address and targeted bucket name that has not been seen making this API request.
+"""
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 Unauthenticated Bucket Access by Rare Source"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS S3 Unauthenticated Bucket Access by Rare Source
+
+This rule detects requests to an AWS S3 bucket by an unauthenticated source, which could indicate a misconfigured bucket policy allowing public access. Adversaries can exploit this misconfiguration by using tools or AWS CLI options like `--no-sign-request` to access bucket contents.
+
+The rule triggers when an unauthenticated IP address retrieves an object, and that IP has not been seen in the last 7 days.
+
+### Possible Investigation Steps
+
+1. **Identify the Source of the Request**:
+    - Review the `source.address` field to determine the IP address of the request source.
+    - Check `source.geo` fields for geographic details of the originating IP address.
+    - Analyze the `user_agent.original` field to identify the client or tool used (e.g., `Python Requests`, `aws-cli`, browser).
+
+2. **Review the Accessed Bucket and Object**:
+    - Analyze the `aws.cloudtrail.resources.arn` field to identify the S3 bucket and object being accessed.
+    - Inspect `aws.cloudtrail.request_parameters` for bucket name and object key to determine which file was retrieved.
+    - Review the `even.action` field to identify which API call was made (e.g., `GetObject`, `ListObjects`, `PutObject`, `ListBucket`).
+
+3. **Validate the Source IP and Context**:
+    - Determine if the IP address (`source.address`) has any prior activity in your environment.
+    - Correlate the IP with threat intelligence or blocklist databases to check for malicious indicators.
+    - Review CloudTrail logs for other activities originating from the same IP.
+
+4. **Analyze the S3 Bucket Configuration**:
+    - Review the S3 bucket's Access Control List (ACL) and bucket policy to check for misconfigurations allowing public or unauthenticated access.
+    - Look for overly permissive settings, such as `Principal: *` or `Effect: Allow` rules that expose the bucket.
+
+5. **Investigate Additional Activity**:
+    - Check if there are subsequent actions, such as:
+        - **Additional `GetObject` API calls**: Indicating further data exfiltration.
+        - **ListObjects requests**: Attempting to enumerate the bucket's contents.
+    - Correlate events within the same timeframe to identify related suspicious activity.
+
+6. **Assess the Data Exposed**:
+    - Identify the retrieved object(s) and analyze their content to assess potential data exposure.
+    - Determine if the file contains sensitive information, such as credentials, intellectual property, or PII.
+
+### False Positive Analysis
+
+- **Public Buckets by Design**: Some S3 buckets may intentionally allow public access. Verify with the bucket owner if the access was expected.
+- **Automated Tools**: Security scanners or legitimate services may generate `GetObject` events to validate bucket configurations.
+
+### Response and Remediation
+
+1. **Immediate Action**:
+    - Restrict or remove public access to the affected S3 bucket.
+    - Update the bucket policy to ensure access is restricted to trusted principals.
+    - Enable **S3 Block Public Access** settings to prevent unintended public access.
+
+2. **Monitoring and Detection**:
+    - Enable detailed logging and monitoring for all S3 bucket activities.
+    - Configure real-time alerts for unauthenticated `GetObject` or `ListObjects` events on sensitive S3 buckets.
+
+3. **Security Audits**:
+    - Regularly audit S3 bucket policies and ACLs to ensure they adhere to AWS security best practices.
+    - Use AWS tools like **Trusted Advisor** or **Access Analyzer** to identify and address misconfigurations.
+
+4. **Investigate for Data Exfiltration**:
+    - Analyze historical CloudTrail logs to determine if other sensitive files were accessed or exfiltrated.
+    - Assess the scope of the exposure and initiate further response if sensitive data was compromised.
+
+### Additional Resources
+
+- [AWS Documentation: S3 Bucket Policy Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html)
+- [AWS S3 Block Public Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
+]
+risk_score = 47
+rule_id = "59bf26c2-bcbe-11ef-a215-f661ea17fbce"
+setup = "S3 data events must be enabled in CloudTrail to capture the GetObject, PutObject, ListObjects, and DeleteObject actions. Ensure that the AWS CloudTrail service is configured to log data events for the S3 bucket you'd like to monitor."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon S3",
+    "Use Case: Asset Visibility",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "s3.amazonaws.com"
+    and event.action: (
+        "GetObject" or
+        "PutObject" or
+        "ListObjects" or
+        "DeleteObject" or
+        "ListBucket")
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: ("AWSAccount" or "Unknown")
+    and cloud.account.id: "anonymous"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1619"
+name = "Cloud Storage Object Discovery"
+reference = "https://attack.mitre.org/techniques/T1619/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "tls.client.server_name",
+    "aws.cloudtrail.resources.arn",    
+    "aws.cloudtrail.resources.type", 
+    "aws.cloudtrail.resources.account_id", 
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.address", "tls.client.server_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

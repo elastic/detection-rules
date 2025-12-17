@@ -1,6 +1,6 @@
 [project]
 name = "detection_rules"
-version = "0.1.0"
+version = "1.5.23"
 description = "Detection Rules is the home for rules used by Elastic Security. This repository is used for the development, maintenance, testing, validation, and release of rules for Elastic Security’s Detection Engine."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,30 +19,44 @@ classifiers = [
   "Topic :: Utilities"
 ]
 dependencies = [
-  	"Click~=8.1.7",
-	"elasticsearch~=8.12.1",
-	"eql==0.9.19",
-	"jsl==0.2.4",
-	"jsonschema>=4.21.1",
-	"marko==2.0.3",
-	"marshmallow-dataclass[union]~=8.6.0",
-	"marshmallow-jsonschema~=0.13.0",
-	"marshmallow-union~=0.1.15",
-	"marshmallow~=3.21.1",
-	"pywin32 ; platform_system=='Windows'",
-	"pytoml==0.1.21",
-	"PyYAML~=6.0.1",
-	"requests~=2.31.0",
-	"toml==0.10.2",
-	"typing-inspect==0.9.0",
-	"typing-extensions==4.10.0",
-	"XlsxWriter~=3.2.0",
-	"semver==3.0.2",
-	"detection-rules-kql @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql",
-	"detection-rules-kibana @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana"
+  "Click~=8.3.0",
+  "elasticsearch~=8.12.1",
+  "eql==0.9.19",
+  "jsl==0.2.4",
+  "jsonschema>=4.21.1",
+  "marko==2.2.1",
+  "marshmallow-dataclass==8.7.1",
+  "marshmallow-jsonschema~=0.13.0",
+  "marshmallow-union~=0.1.15",
+  "marshmallow~=3.26.1",
+  "pywin32 ; platform_system=='Windows'",
+  # FIXME: pytoml is outdated and should not be used
+  "pytoml==0.1.21",
+  "PyYAML~=6.0.1",
+  "requests~=2.31.0",
+  "toml==0.10.2",
+  "typing-inspect==0.9.0",
+  "typing-extensions>=4.12",
+  "XlsxWriter~=3.2.0",
+  "semver==3.0.4",
+  "PyGithub==2.8.1",
+  "detection-rules-kql @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql",
+  "detection-rules-kibana @ git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana",
+  "setuptools==78.1.1"
 ]
 [project.optional-dependencies]
-dev = ["pep8-naming==0.13.0", "PyGithub==2.2.0", "flake8==7.0.0", "pyflakes==3.2.0", "pytest>=8.1.1", "nodeenv==1.8.0", "pre-commit==3.6.2"]
+dev = [
+  "pep8-naming==0.15.1",
+  "flake8==7.3.0",
+  "pyflakes==3.4.0",
+  "pytest>=8.1.1",
+  "nodeenv==1.9.1",
+  "pre-commit==3.8.0",
+  "ruff>=0.11",
+  "pyright>=1.1",
+]
+
+hunting = ["tabulate==0.9.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/elastic/detection-rules"
@@ -50,15 +64,133 @@ dev = ["pep8-naming==0.13.0", "PyGithub==2.2.0", "flake8==7.0.0", "pyflakes==3.2
 "Research" = "https://www.elastic.co/security-labs"
 "Elastic" = "https://www.elastic.co"
 
-[tool.setuptools]
-package-data = {"kql" = ["*.g"]}
-packages = ["detection_rules", "rta"]
-
-[tool.pytest.ini_options]
-filterwarnings = [
-	"ignore::DeprecationWarning"
-]
-
 [build-system]
 requires = ["setuptools", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-data = {"kql" = ["*.g"]}
+packages = ["detection_rules", "hunting"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore::DeprecationWarning"
+]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+include = [
+  "pyproject.toml",
+  "detection_rules/**/*.py",
+  "hunting/**/*.py",
+  "tests/**/*.py",
+]
+show-fixes = true
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "UP",  # pyupgrade
+    "B",  # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "YTT",  # flake8-2020
+    "ANN",  # flake8-annotations
+    "ASYNC",  # flake8-async
+    "S",  # flake8-bandit
+    "BLE",  # flake8-blind-except
+    "B",  # flake8-bugbear
+    "A",  # flake8-builtins
+    "COM",  # flake8-commas
+    "C4",  # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T10",  # flake8-debugger
+    "DJ",  # flake8-django
+    "EM",  # flake8-errmsg
+    "EXE",  # flake8-executable
+    "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "G",  # flake8-logging-format
+    "INP",  # flake8-no-pep420
+    "PIE",  # flake8-pie
+    "PYI",  # flake8-pyi
+    "PT",  # flake8-pytest-style
+    "Q",  # flake8-quotes
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SLOT",  # flake8-slots
+    "TID",  # flake8-tidy-imports
+    "TCH",  # flake8-type-checking
+    "INT",  # flake8-gettext
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "TD",  # flake8-todos
+    "FIX",  # flake8-fixme
+    "ERA",  # eradicate
+    "PGH",  # pygrep-hooks
+    "PL",  # Pylint
+    "TRY",  # tryceratops
+    "FLY",  # flynt
+    "PERF",  # Perflint
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "ANN401", # any-type
+    "EM101",  # raw-string-in-exception
+    "EM102",  # f-string-in-exception
+    "PT009",  # pytest-unittest-assertion
+    "TRY003", # raise-vanilla-args
+
+    "N815",   # mixed-case-variable-in-class-scope
+
+    "PLC0415", # import-outside-top-level, erratic behavior
+    "S603",    # subprocess-without-shell-equals-true, prone to false positives
+
+    "COM812", # missing-trailing-comma, might cause issues with ruff formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "ANN001",  # missing-type-function-argument
+    "ANN002",  # missing-type-args
+    "ANN003",  # missing-type-kwargs
+    "ANN101",  # missing-type-self
+    "ANN102",  # missing-type-cls
+    "ANN201",  # missing-return-type-undocumented-public-function
+    "ANN202",  # missing-return-type-private-function
+    "ANN205",  # missing-return-type-static-method
+    "ARG001",  # unused-function-argument
+    "ANN206",  # missing-return-type-class-method
+    "PLR2004", # magic-value-comparison
+    "SIM300",  # yoda-conditions
+    "S101",    # assert
+    "PT009",   # pytest-unittest-assertion
+    "PT012",   # pytest-raises-with-multiple-statements
+    "PT027",   # pytest-unittest-raises-assertion
+    "FIX001",  # line-contains-fixme
+    "FIX002",  # line-contains-todo
+
+    # FIXME: the long static strings should be moved to the resource files
+    "E501",  # line-too-long
+
+    # FIXME: we should avoid TODOs in the code as much as possible
+    "TD002",  # missing-todo-author
+    "TD003",  # missing-todo-link
+]
+
+[tool.pyright]
+include = [
+  "detection_rules/",
+  "hunting/",
+]
+exclude = [
+  "tests/",
+]
+reportMissingTypeStubs = true
+reportUnusedCallResult = "error"
+typeCheckingMode = "strict"

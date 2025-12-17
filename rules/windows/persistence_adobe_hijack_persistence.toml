@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/08/28"
 
 [transform]
 [[transform.osquery]]
@@ -36,7 +34,15 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Detects writing executable files that will be automatically launched by Adobe on launch."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Adobe Hijack Persistence"
@@ -47,7 +53,7 @@ note = """## Triage and analysis
 Attackers can replace the `RdrCEF.exe` executable with their own to maintain their access, which will be launched whenever Adobe Acrobat Reader is executed.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -92,29 +98,44 @@ Attackers can replace the `RdrCEF.exe` executable with their own to maintain the
 references = ["https://twitter.com/pabraeken/status/997997818362155008"]
 risk_score = 21
 rule_id = "2bf78aa2-9c56-48de-b139-f169bf99cf86"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and
-  file.path : ("?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
-               "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe") and
-  not process.name : "msiexec.exe"
+  file.path : (
+    "?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+    "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+    "\\Device\\HarddiskVolume*\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe"
+  ) and
+  not process.name : ("msiexec.exe", "AdobeARM.exe")
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
@@ -123,11 +144,6 @@ reference = "https://attack.mitre.org/techniques/T1574/"
 id = "T1574.010"
 name = "Services File Permissions Weakness"
 reference = "https://attack.mitre.org/techniques/T1574/010/"
-
-[[rule.threat.technique]]
-id = "T1554"
-name = "Compromise Host Software Binary"
-reference = "https://attack.mitre.org/techniques/T1554/"
 
 
 

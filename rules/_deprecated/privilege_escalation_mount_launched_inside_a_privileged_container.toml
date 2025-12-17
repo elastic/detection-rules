@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2023/10/26"
+integration = ["cloud_defend"]
+deprecation_date = "2025/03/14"
+maturity = "deprecated"
+updated_date = "2025/03/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of the mount utility from inside a privileged container. The mount command is used to make a
+device or file system accessible to the system, and then to connect its root directory to a specified mount point on the
+local file system. When launched inside a privileged container--a container deployed with all the capabilities of the
+host machine-- an attacker can access sensitive host level files which could be used for further privilege escalation
+and container escapes to the host machine. Any usage of mount inside a running privileged container should be further
+investigated.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Deprecated - Mount Launched Inside a Privileged Container"
+references = [
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
+]
+risk_score = 21
+rule_id = "41f7da9e-4e9f-4a81-9b58-40d725d83bc0"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.module == "cloud_defend" and  event.type== "start" and
+(process.name== "mount" or process.args== "mount") and container.security_context.privileged == true
+'''
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - Mount Launched Inside a Privileged Container
+
+In containerized environments, the `mount` utility is crucial for attaching file systems to the system's directory tree. When executed within a privileged container, which has extensive host capabilities, it can be exploited by adversaries to access sensitive host files, potentially leading to privilege escalation or container escapes. The detection rule identifies such misuse by monitoring the execution of `mount` in privileged containers, flagging potential security threats for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm that the process name or arguments include "mount" and that the container's security context is marked as privileged.
+- Identify the container involved in the alert by examining the container ID or name, and gather information about its purpose and the applications it runs.
+- Check the container's deployment configuration to verify if it was intentionally set as privileged and assess whether this level of privilege is necessary for its function.
+- Investigate the user or process that initiated the mount command within the container to determine if it aligns with expected behavior or if it indicates potential malicious activity.
+- Examine the mounted file systems and directories to identify any sensitive host files that may have been accessed or exposed.
+- Review logs and historical data for any previous suspicious activities associated with the same container or user to identify patterns or repeated attempts at privilege escalation.
+
+### False positive analysis
+
+- Routine maintenance tasks within privileged containers may trigger the rule. Exclude known maintenance scripts or processes by adding them to an exception list based on their unique identifiers or command patterns.
+- Backup operations that require mounting file systems might be flagged. Identify and exclude these operations by specifying the backup process names or arguments in the rule exceptions.
+- Development or testing environments often use privileged containers for convenience. If these environments are known and controlled, consider excluding them by container IDs or labels to reduce noise.
+- Automated deployment tools that use mount commands in privileged containers can be mistaken for threats. Review and whitelist these tools by their process names or specific arguments to prevent false alerts.
+- Certain monitoring or logging solutions may use mount operations for data collection. Verify these solutions and exclude their processes if they are legitimate and necessary for system operations.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further access to sensitive host files. This can be done by stopping the container or disconnecting it from the network.
+- Review and revoke any unnecessary privileges from the container's security context to prevent similar incidents. Ensure that containers run with the least privileges necessary.
+- Conduct a thorough analysis of the container's file system and logs to identify any unauthorized access or modifications to host files.
+- If unauthorized access is confirmed, perform a comprehensive audit of the host system to check for any signs of compromise or privilege escalation attempts.
+- Patch and update the container image and host system to address any vulnerabilities that may have been exploited.
+- Implement stricter access controls and monitoring for privileged containers, ensuring that only trusted users and processes can execute sensitive commands like `mount`.
+- Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures or incident response actions."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

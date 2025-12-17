@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "okta"]
+maturity = "production"
+updated_date = "2025/07/02"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified an unusual spike in Okta group lifecycle change events, indicating potential
+privileged access activity. Adversaries may be altering group structures to escalate privileges, maintain persistence,
+or facilitate lateral movement within an organization’s identity management system.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_spike_in_group_lifecycle_changes"
+name = "Spike in Group Lifecycle Change Events"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Group Lifecycle Change Events
+
+In identity management systems like Okta, group lifecycle changes are crucial for managing user access and permissions. Adversaries may exploit these changes to escalate privileges or maintain unauthorized access. The detection rule leverages machine learning to identify unusual spikes in these events, signaling potential misuse. By focusing on privilege escalation tactics, it helps security analysts pinpoint and investigate suspicious activities.
+
+### Possible investigation steps
+
+- Review the specific group lifecycle change events that triggered the alert to identify which groups were altered and the nature of the changes.
+- Examine the user accounts associated with the changes to determine if they have a history of suspicious activity or if they have recently been granted elevated privileges.
+- Check the timestamps of the group changes to see if they coincide with other unusual activities or known attack patterns within the organization.
+- Investigate any recent access requests or approvals related to the affected groups to ensure they were legitimate and authorized.
+- Correlate the group changes with other security alerts or logs to identify potential lateral movement or privilege escalation attempts by adversaries.
+- Assess the current membership of the affected groups to ensure no unauthorized users have been added or legitimate users removed.
+
+### False positive analysis
+
+- Routine administrative changes in group memberships can trigger false positives. Security teams should identify and whitelist these regular activities to prevent unnecessary alerts.
+- Automated processes or scripts that modify group structures for legitimate reasons may cause spikes. Exclude these known processes by creating exceptions in the detection rule.
+- Large-scale onboarding or offboarding events can lead to a temporary increase in group lifecycle changes. Coordinate with HR or relevant departments to anticipate these events and adjust monitoring thresholds accordingly.
+- Changes due to system integrations or updates might be misinterpreted as suspicious. Document and exclude these events by maintaining an updated list of integration activities.
+- Regular audits or compliance checks that involve group modifications should be recognized and filtered out to avoid false alarms.
+
+### Response and remediation
+
+- Immediately isolate affected user accounts and groups to prevent further unauthorized access or privilege escalation. This can be done by temporarily disabling accounts or removing them from critical groups.
+- Conduct a thorough review of recent group lifecycle changes to identify unauthorized modifications. Revert any unauthorized changes to restore the original group structures and permissions.
+- Implement additional monitoring on the affected accounts and groups to detect any further suspicious activities. This includes setting up alerts for any new group changes or access attempts.
+- Escalate the incident to the security operations team for a deeper investigation into potential lateral movement or persistence mechanisms used by the adversary.
+- Review and update access controls and group management policies to ensure they align with the principle of least privilege, minimizing the risk of privilege escalation.
+- Coordinate with the IT and security teams to apply patches or updates to any vulnerabilities identified during the investigation that may have been exploited for privilege escalation.
+- Document the incident, including all actions taken, and conduct a post-incident review to identify lessons learned and improve future response strategies."""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad",
+]
+risk_score = 21
+rule_id = "aa28f01d-bc93-4c8f-bc01-6f67f2a0a833"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

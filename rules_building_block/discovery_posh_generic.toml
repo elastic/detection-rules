@@ -2,20 +2,18 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
-min_stack_version = "8.12.0"
-updated_date = "2024/04/05"
-
+updated_date = "2025/07/02"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the use of Cmdlets and methods related to discovery activities. Attackers can use these to perform various
 situational awareness related activities, like enumerating users, shares, sessions, domain trusts, groups, etc.
 """
 from = "now-119m"
-interval = "60m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Discovery Capabilities"
@@ -40,10 +38,17 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 ```
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Tactic: Discovery", "Data Source: PowerShell Logs", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Discovery",
+    "Data Source: PowerShell Logs",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "query"
-building_block_type = "default"
 
 query = '''
 event.category:process and host.os.type:windows and
@@ -63,7 +68,7 @@ event.category:process and host.os.type:windows and
       ("Get-WmiObject" or "gwmi" or "Get-CimInstance" or
        "gcim" or "Management.ManagementObjectSearcher" or
        "System.Management.ManagementClass" or
-       "[WmiClass]" or "[WMI]") and
+       "[WmiClass]") and
       (
         "AntiVirusProduct" or "CIM_BIOSElement" or "CIM_ComputerSystem" or "CIM_Product" or "CIM_DiskDrive" or
         "CIM_LogicalDisk" or "CIM_NetworkAdapter" or "CIM_StorageVolume" or "CIM_OperatingSystem" or
@@ -136,89 +141,103 @@ event.category:process and host.os.type:windows and
       "Microsoft.PowerShell.Core\Export-ModuleMember" and
       "Microsoft.PowerShell.Cmdletization.Cim.CimCmdletAdapter"
     ) or
-    "CmdletsToExport=@(\"Add-Content\","
+    "CmdletsToExport=@(\"Add-Content\"," or
+    ("cmdletization" and "cdxml-Help.xml")
   ) and
   not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
 
-[[rule.filters]]
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Program Files\\\\Microsoft Azure AD Sync\\\\Extensions\\\\AADConnector.psm1"
+case_insensitive = true
+value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "*ServiceNow MID Server*\\\\agent\\\\scripts\\\\PowerShell\\\\*.psm1"
+case_insensitive = true
+value = "?:\\\\Program Files\\\\Microsoft Azure AD Sync\\\\Extensions\\\\AADConnector.psm1"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Windows\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1"
+case_insensitive = true
+value = "*ServiceNow MID Server*\\\\agent\\\\scripts\\\\PowerShell\\\\*.psm1"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Windows\\\\TEMP\\\\SDIAG*"
+case_insensitive = true
+value = "?:\\\\Windows\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Temp\\\\SDIAG*"
+case_insensitive = true
+value = "?:\\\\Windows\\\\TEMP\\\\SDIAG*"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG*"
+case_insensitive = true
+value = "?:\\\\Temp\\\\SDIAG*"
 
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Monitoring Host Temporary Files*"
+case_insensitive = true
+value = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Monitoring Host Temporary Files*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1007"
+name = "System Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1007/"
 
 [[rule.threat.technique]]
-id = "T1087"
-name = "Account Discovery"
-reference = "https://attack.mitre.org/techniques/T1087/"
-[[rule.threat.technique.subtechnique]]
-id = "T1087.001"
-name = "Local Account"
-reference = "https://attack.mitre.org/techniques/T1087/001/"
-[[rule.threat.technique.subtechnique]]
-id = "T1087.002"
-name = "Domain Account"
-reference = "https://attack.mitre.org/techniques/T1087/002/"
-
+id = "T1012"
+name = "Query Registry"
+reference = "https://attack.mitre.org/techniques/T1012/"
 
 [[rule.threat.technique]]
-id = "T1482"
-name = "Domain Trust Discovery"
-reference = "https://attack.mitre.org/techniques/T1482/"
+id = "T1049"
+name = "System Network Connections Discovery"
+reference = "https://attack.mitre.org/techniques/T1049/"
+
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
 
 [[rule.threat.technique]]
 id = "T1082"
@@ -231,9 +250,19 @@ name = "File and Directory Discovery"
 reference = "https://attack.mitre.org/techniques/T1083/"
 
 [[rule.threat.technique]]
-id = "T1615"
-name = "Group Policy Discovery"
-reference = "https://attack.mitre.org/techniques/T1615/"
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1087/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
 
 [[rule.threat.technique]]
 id = "T1135"
@@ -246,45 +275,30 @@ name = "Password Policy Discovery"
 reference = "https://attack.mitre.org/techniques/T1201/"
 
 [[rule.threat.technique]]
-id = "T1057"
-name = "Process Discovery"
-reference = "https://attack.mitre.org/techniques/T1057/"
+id = "T1482"
+name = "Domain Trust Discovery"
+reference = "https://attack.mitre.org/techniques/T1482/"
 
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1518.001"
 name = "Security Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/001/"
 
-[[rule.threat.technique]]
-id = "T1012"
-name = "Query Registry"
-reference = "https://attack.mitre.org/techniques/T1012/"
 
 [[rule.threat.technique]]
-id = "T1082"
-name = "System Information Discovery"
-reference = "https://attack.mitre.org/techniques/T1082/"
+id = "T1615"
+name = "Group Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1615/"
 
-[[rule.threat.technique]]
-id = "T1049"
-name = "System Network Connections Discovery"
-reference = "https://attack.mitre.org/techniques/T1049/"
-
-[[rule.threat.technique]]
-id = "T1007"
-name = "System Service Discovery"
-reference = "https://attack.mitre.org/techniques/T1007/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

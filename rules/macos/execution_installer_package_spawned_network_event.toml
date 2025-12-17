@@ -2,7 +2,7 @@
 creation_date = "2021/02/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/04/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,10 +20,10 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "MacOS Installer Package Spawns Network Event"
+name = "Suspicious Installer Package Spawns Network Event"
 references = [
     "https://redcanary.com/blog/clipping-silver-sparrows-wings",
     "https://posts.specterops.io/introducing-mystikal-4fbd2f7ae520",
@@ -64,14 +64,50 @@ tags = [
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=15s
-[process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] by process.entity_id
-[network where host.os.type == "macos" and event.type == "start" and process.name : ("curl", "osascript", "wget", "python", "java", "ruby", "node")] by process.parent.entity_id
+sequence by host.id, process.entity_id with maxspan=15s
+[process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name like~ ("installer", "package_script_service") and ((process.name in ("bash", "sh", "zsh") and process.args == "-c") or (process.name like~ ("python*", "osascript", "tclsh*", "curl", "nscurl")))]
+[network where host.os.type == "macos" and event.type == "start"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Installer Package Spawns Network Event
+
+MacOS installer packages, often with a .pkg extension, are used to distribute software. Adversaries exploit this by embedding scripts to execute additional commands or download malicious payloads. The detection rule identifies suspicious behavior by monitoring for installer packages spawning shell processes followed by network activity, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the process details to identify the parent process name and entity ID, focusing on processes like "installer" or "package_script_service" that initiated the suspicious activity.
+- Examine the child process that was spawned, such as "bash", "sh", or "python", to determine the commands executed and assess if they align with typical installation behavior or appear malicious.
+- Investigate the network activity associated with the suspicious process, particularly looking at processes like "curl" or "wget", to identify any external connections made and the destination IP addresses or domains.
+- Check the timestamp and sequence of events to confirm if the network activity closely followed the process execution, indicating a potential download or data exfiltration attempt.
+- Analyze any downloaded files or payloads for malicious content using threat intelligence tools or sandbox environments to determine their intent and potential impact.
+- Correlate the findings with known threat actor tactics or campaigns, leveraging threat intelligence sources to assess if the activity matches any known patterns or indicators of compromise.
+
+### False positive analysis
+
+- Legitimate software installations may trigger this rule if they use scripts to configure network settings or download updates. Users can create exceptions for known safe software by whitelisting specific installer package names or hashes.
+- System administrators often use scripts to automate software deployment and updates, which might involve network activity. To reduce false positives, exclude processes initiated by trusted administrative tools or scripts.
+- Development environments on macOS might execute scripts that connect to the internet for dependencies or updates. Users can mitigate this by excluding processes associated with known development tools or environments.
+- Some security tools or monitoring software may use scripts to perform network checks or updates. Identify and exclude these processes if they are verified as non-threatening.
+- Frequent updates from trusted software vendors might trigger this rule. Users should maintain an updated list of trusted vendors and exclude their processes from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected MacOS system from the network immediately to prevent further malicious activity or data exfiltration.
+- Terminate any suspicious processes identified in the alert, such as those initiated by the installer package, to halt ongoing malicious actions.
+- Conduct a thorough review of the installed applications and remove any unauthorized or suspicious software, especially those with a .pkg extension.
+- Restore the system from a known good backup if available, ensuring that the backup predates the installation of the malicious package.
+- Update and patch the MacOS system and all installed applications to the latest versions to mitigate vulnerabilities that could be exploited by similar threats.
+- Monitor network traffic for any signs of command and control communication or data exfiltration attempts, using the indicators identified in the alert.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
 
 
 [[rule.threat]]

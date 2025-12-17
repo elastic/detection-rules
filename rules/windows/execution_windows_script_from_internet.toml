@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2025/01/31"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/23"
+min_stack_version = "9.0.0"
+min_stack_comments = "The fields file.origin_referrer_url and file.origin_url were introduced in ECS as of version 9.0.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a Windows script downloaded from the internet followed by the execution of a scripting utility.
+Adversaries may use Windows script files for initial access and execution.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution of a Downloaded Windows Script"
+risk_score = 47
+rule_id = "79543b00-28a5-4461-81ac-644c4dc4012f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id, user.id with maxspan=3m
+[file where host.os.type == "windows" and event.action == "creation" and user.id != "S-1-5-18" and
+  process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and
+  file.extension in~ ("js", "jse", "vbs", "vbe", "wsh", "hta", "cmd", "bat") and
+  (file.origin_url != null or file.origin_referrer_url != null)]
+[process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name : ("chrome.exe", "msedge.exe", "brave.exe", "firefox.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and 
+ process.args_count >= 2 and
+ (
+  process.name in~ ("wscript.exe", "mshta.exe") or
+  (process.name : "cmd.exe" and process.command_line : ("*.cmd*", "*.bat*"))
+  )]
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution of a downloaded windows script
+
+Windows scripts, often used for legitimate automation tasks, can be exploited by adversaries to execute malicious code. Attackers may download scripts via browsers or file utilities, then execute them using scripting tools like wscript or mshta. The detection rule identifies such threats by monitoring script creation from internet sources and subsequent execution, focusing on unusual parent-child process relationships and script attributes.
+
+### Possible investigation steps
+
+- Review the file creation event to identify the specific script file that was downloaded, noting its name, path, and extension to understand the potential threat.
+- Examine the origin URL or referrer URL of the downloaded script to determine the source and assess its legitimacy or potential malicious intent.
+- Investigate the parent process, such as chrome.exe or explorer.exe, to understand how the script was downloaded and whether it aligns with typical user behavior.
+- Analyze the execution event of the scripting utility (wscript.exe or mshta.exe) to identify the command-line arguments used, which may provide insight into the script's intended actions.
+- Check the user account associated with the script execution to determine if the activity is expected for that user or if it indicates a compromised account.
+- Correlate the timing of the script creation and execution events to see if they fall within a suspicious timeframe, such as outside of normal working hours.
+- Look for any additional related alerts or logs on the host that might indicate further malicious activity or lateral movement following the script execution.
+
+### False positive analysis
+
+- Legitimate script automation tools may trigger this rule if they download and execute scripts from the internet. Users can create exceptions for known safe tools by excluding specific file paths or process names.
+- Software updates or installations that download scripts as part of their process might be flagged. To handle this, users can whitelist specific origin URLs or referrer URLs associated with trusted software vendors.
+- Internal scripts distributed via corporate intranet sites could be misidentified as threats. Users should consider excluding scripts with known internal origin URLs or specific user IDs associated with IT operations.
+- Browser extensions or plugins that automate tasks using scripts may cause false positives. Users can exclude these by identifying and excluding the specific browser process names or file extensions involved.
+- Frequent use of file utilities like winrar or 7zFM for legitimate script handling can be excluded by specifying trusted file paths or user IDs that regularly perform these actions.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further execution of potentially malicious scripts and lateral movement.
+- Terminate any suspicious processes identified in the alert, such as wscript.exe or mshta.exe, to stop the execution of the downloaded script.
+- Quarantine the downloaded script file and any associated files to prevent further execution and facilitate forensic analysis.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or remnants.
+- Review and analyze the origin URL and referrer URL of the downloaded script to identify potential malicious websites or compromised sources, and block these URLs at the network level.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement application whitelisting to restrict the execution of unauthorized scripts and scripting utilities, reducing the risk of similar threats in the future."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

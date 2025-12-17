@@ -1,9 +1,9 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2023/07/13"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,11 +14,11 @@ enumerate processes to identify installed applications and security solutions.
 """
 from = "now-9m"
 index = [
+    "endgame-*",
     "logs-endpoint.events.process-*",
     "logs-system.security*",
-    "winlogbeat-*",
     "logs-windows.*",
-    "endgame-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -34,6 +34,7 @@ tags = [
     "Rule Type: BBR",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -41,6 +42,7 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and process.parent.executable != null and
+process where host.os.type == "windows" and event.type == "start" and process.args != null and
   (
    process.name :("PsList.exe", "qprocess.exe") or
 

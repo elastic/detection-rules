@@ -1,9 +1,8 @@
 [metadata]
 creation_date = "2024/05/02"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2024/05/02"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
-min_stack_version = "8.13.0"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -18,11 +17,43 @@ interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Bedrock Detected Multiple Attempts to use Denied Models by a Single User"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Detected Multiple Attempts to use Denied Models by a Single User
+
+Amazon Bedrock is AWS’s managed service that enables developers to build and scale generative AI applications using large foundation models (FMs) from top providers.
+
+Bedrock offers a variety of pretrained models from Amazon (such as the Titan series), as well as models from providers like Anthropic, Meta, Cohere, and AI21 Labs.
+
+#### Possible investigation steps
+
+- Identify the user account that attempted to use denied models.
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Consider the time of day. If the user is a human (not a program or script), did the activity take place during a normal time of day?
+- Examine the account's attempts to access Amazon Bedrock models in the last 24 hours.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking Amazon Bedrock model access, prompts generated, and responses to the prompts by the account in the last 24 hours.
+
+### False positive analysis
+
+- Verify the user account that attempted to use denied models, is a legitimate misunderstanding by users or overly strict policies.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Identify if the attacker is moving laterally and compromising other Amazon Bedrock Services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Review the permissions assigned to the implicated user group or role behind these requests to ensure they are authorized and expected to access bedrock and ensure that the least privilege principle is being followed.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
     "https://atlas.mitre.org/techniques/AML.T0015",
     "https://atlas.mitre.org/techniques/AML.T0034",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
 risk_score = 73
 rule_id = "17261da3-a6d0-463c-aac8-ea1718afcd20"
@@ -47,8 +78,34 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
+
+// Filter for access denied errors from GenAI responses
 | where gen_ai.response.error_code == "AccessDeniedException"
-| stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
-| where total_denials > 3
-| sort total_denials desc
+
+// keep ECS and response fields
+| keep
+  user.id,
+  gen_ai.request.model.id,
+  cloud.account.id,
+  gen_ai.response.error_code
+
+// count total denials per user/model/account
+| stats
+    Esql.ml_response_access_denied_count = count(*)
+  by
+    user.id,
+    gen_ai.request.model.id,
+    cloud.account.id
+
+// Filter for users with repeated denials
+| where Esql.ml_response_access_denied_count > 3
+
+// sort by volume of denials
+| sort Esql.ml_response_access_denied_count desc
 '''
+
+
+
+[rule.investigation_fields]
+field_names = ["user.id", "cloud.account.id", "gen_ai.request.model.id", "total_denials"]
+

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "system", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [transform]
 [[transform.osquery]]
@@ -38,11 +38,14 @@ defenses.
 """
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -58,7 +61,7 @@ Attackers may try to unload minifilters to avoid protections such as malware det
 This rule identifies the attempt to unload a minifilter using the `fltmc.exe` command-line utility, a tool used to manage and query the filter drivers loaded on Windows systems.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -110,6 +113,10 @@ tags = [
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -117,18 +124,14 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "fltMC.exe" and process.args : "unload" and
-  not
-  (
-    (
-      process.executable : "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\DCFAService64.exe" and
-      process.args : ("DFMFilter", "DRMFilter")
-    ) or
-    (
-      process.executable : "?:\\Windows\\SysWOW64\\msiexec.exe" and
-      process.args : ("BrFilter_*", "BrCow_*") and
-      user.id : "S-1-5-18"
-    )
-  )
+  not process.parent.executable : 
+                   ("?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\DCFAService64.exe", 
+                    "?:\\Windows\\SysWOW64\\msiexec.exe", 
+                    "?:\\Program Files\\Bitdefender\\Endpoint Security\\installer\\installer.exe", 
+                    "?:\\Program Files\\Bitdefender\\Endpoint Security\\EPSecurityService.exe", 
+                    "?:\\Program Files\\Bitdefender\\Bitdefender Security\\productcfg.exe", 
+                    "?:\\Program Files\\Bitdefender\\Bitdefender Security\\bdservicehost.exe", 
+                    "?:\\Program Files\\Bitdefender\\EndpointSetupInformation\\{*}\\Installer.exe")
 '''
 
 

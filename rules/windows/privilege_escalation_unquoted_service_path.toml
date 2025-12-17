@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/07/13"
-integration = ["endpoint"]
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,53 @@ higher-level directory within the path of an unquoted service executable, Window
 from its defined path variable instead of the benign one in a deeper directory, thus leading to code execution.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Exploitation of an Unquoted Service Path Vulnerability"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Exploitation of an Unquoted Service Path Vulnerability
+
+Unquoted service paths in Windows can be exploited by adversaries to escalate privileges. When a service path lacks quotes, Windows may execute a malicious executable placed in a higher-level directory. The detection rule identifies suspicious processes starting from common unquoted paths, signaling potential exploitation attempts. This helps in early detection and mitigation of privilege escalation threats.
+
+### Possible investigation steps
+
+- Review the process executable path to confirm if it matches the patterns specified in the query, such as "?:\\\\Program.exe" or executables within "C:\\\\Program Files (x86)\\\\" or "C:\\\\Program Files\\\\".
+- Check the parent process of the suspicious executable to determine how it was initiated and assess if it aligns with expected behavior.
+- Investigate the file creation and modification timestamps of the suspicious executable to identify any recent changes that could indicate malicious activity.
+- Analyze the user account associated with the process start event to determine if it has the necessary privileges and if the activity is consistent with the user's typical behavior.
+- Examine the system's event logs for any related activities or anomalies around the time the suspicious process was started, such as other process executions or file modifications.
+- Cross-reference the executable's hash with known threat intelligence databases to identify if it is associated with any known malware or suspicious activity.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule if they temporarily create executables in common unquoted paths. Users can create exceptions for known software update processes to prevent unnecessary alerts.
+- System administrators might use scripts or tools that inadvertently place executables in unquoted paths for legitimate purposes. Identifying and documenting these tools can help in setting up exclusions.
+- Some enterprise applications may have legitimate executables in unquoted paths due to legacy configurations. Review and verify these applications, then configure exceptions for them to avoid false positives.
+- Regularly scheduled tasks or maintenance scripts that run from unquoted paths can be mistaken for malicious activity. Ensure these tasks are documented and excluded from the rule if they are verified as safe.
+- Security tools or monitoring software might simulate or test unquoted path vulnerabilities as part of their operations. Confirm these activities with the security team and exclude them if they are part of routine security assessments.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Terminate any suspicious processes identified by the detection rule, specifically those matching the unquoted service path pattern.
+- Conduct a thorough review of the service configurations on the affected system to identify and correct any unquoted service paths. Ensure all service paths are properly quoted to prevent future exploitation.
+- Remove any unauthorized executables found in higher-level directories that could be used to exploit the unquoted service path vulnerability.
+- Restore the affected system from a known good backup if malicious activity is confirmed and system integrity is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for similar suspicious activities across the network to detect and respond to future attempts promptly."""
 risk_score = 21
 rule_id = "12de29d4-bbb0-4eef-b687-857e8a163870"
 severity = "low"
@@ -25,14 +68,21 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and 
+process where host.os.type == "windows" and event.type == "start" and
   (
-    process.executable : "?:\\Program.exe" or 
+    process.executable : "?:\\Program.exe" or
     process.executable regex """(C:\\Program Files \(x86\)\\|C:\\Program Files\\)\w+.exe"""
   )
 '''

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/07/07"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/09/12"
 
 [rule]
 author = ["Elastic"]
@@ -10,11 +10,15 @@ description = "Identifies use of the Set-MpPreference PowerShell command to disa
 false_positives = ["Planned Windows Defender configuration changes."]
 from = "now-9m"
 index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -58,17 +62,11 @@ This rule monitors the execution of commands that can tamper the Windows Defende
 """
 references = [
     "https://docs.microsoft.com/en-us/powershell/module/defender/set-mppreference?view=windowsserver2019-ps",
+    "https://www.elastic.co/security-labs/operation-bleeding-bear",
+    "https://www.elastic.co/security-labs/invisible-miners-unveiling-ghostengine",
 ]
 risk_score = 47
 rule_id = "c8cccb06-faf2-4cd5-886e-2c9636cfcb87"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -79,6 +77,11 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -87,7 +90,7 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (
     process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or
-    ?process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")
+    ?process.pe.original_file_name in ("PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE")
   ) and
   process.args : "Set-MpPreference" and process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
 '''

@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2025/02/25"
+integration = ["azure_openai"]
+maturity = "production"
+updated_date = "2025/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects patterns indicative of Denial-of-Service (DoS) attacks on machine learning (ML) models, focusing on unusually
+high volume and frequency of requests or patterns of requests that are known to cause performance degradation or service
+disruption, such as large input sizes or rapid API calls.
+"""
+false_positives = ["Unexpected system errors", "Legitimate spikes in usage due to business processes"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Denial of Azure OpenAI ML Service"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Denial of Azure OpenAI ML Service
+
+Azure OpenAI ML services enable scalable deployment of machine learning models, crucial for AI-driven applications. Adversaries may exploit these services by overwhelming them with excessive or malformed requests, leading to service degradation or outages. The detection rule identifies such threats by monitoring for high-frequency, large-size requests, which are indicative of potential denial-of-service attacks.
+
+### Possible investigation steps
+
+- Review the logs for the specific time window identified by the target_time_window field to understand the context and volume of requests.
+- Identify the specific Azure resource involved using the azure.resource.name field to determine if the service is critical or sensitive.
+- Examine the cloud.account.id field to ascertain if the requests are originating from a known or trusted account, or if they are potentially malicious.
+- Analyze the request patterns, focusing on the avg_request_size and count fields, to determine if the requests are consistent with normal usage or indicative of a potential attack.
+- Check for any recent changes or updates to the Azure OpenAI ML service configuration or deployment that might have affected its performance or security posture.
+- Correlate the findings with other security logs or alerts to identify any related suspicious activities or broader attack patterns.
+
+### False positive analysis
+
+- High-volume legitimate usage patterns can trigger false positives, such as during scheduled batch processing or data analysis tasks. Users can mitigate this by setting exceptions for known time windows or specific resource names associated with these activities.
+- Large input sizes from legitimate applications, like those processing extensive datasets or complex queries, may be misidentified as threats. Users should identify and whitelist these applications by their resource names or account IDs.
+- Testing and development environments often generate high-frequency requests as part of load testing or performance tuning. Users can exclude these environments by filtering out specific resource names or account IDs associated with non-production activities.
+- Automated scripts or integrations that interact with the Azure OpenAI ML service at high frequencies for valid business processes might be flagged. Users should document and exclude these scripts by identifying their unique request patterns or resource identifiers.
+
+### Response and remediation
+
+- Immediately throttle or block the IP addresses or accounts responsible for the high-frequency, large-size requests to prevent further service degradation.
+- Notify the Azure OpenAI service administrators and relevant stakeholders about the detected potential denial-of-service attack for awareness and further action.
+- Review and adjust rate limiting and request size policies on the Azure OpenAI ML service to mitigate the impact of similar attacks in the future.
+- Conduct a post-incident analysis to identify any vulnerabilities or misconfigurations that allowed the attack to occur and address them promptly.
+- Escalate the incident to the security operations team for further investigation and to determine if the attack is part of a larger threat campaign.
+- Implement additional monitoring and alerting for unusual patterns of requests, focusing on high volume and frequency, to enhance early detection of similar threats.
+- Coordinate with the cloud provider's support team to ensure any necessary infrastructure adjustments or protections are in place to prevent recurrence.
+"""
+references = [
+    "https://genai.owasp.org/llmrisk/llm04-model-denial-of-service",
+    "https://atlas.mitre.org/techniques/AML.T0029",
+]
+risk_score = 47
+rule_id = "b0450411-46e5-46d2-9b35-8b5dd9ba763e"
+setup = """## Setup
+
+For more information on streaming events, see the Azure OpenAI documentation:
+
+https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
+"""
+severity = "medium"
+tags = [
+    "Domain: LLM",
+    "Data Source: Azure OpenAI",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Denial of Service",
+    "Mitre Atlas: T0029",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_openai.logs-*
+| eval
+    Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| where azure.open_ai.operation_name == "ChatCompletions_Create"
+| keep
+    azure.open_ai.properties.request_length,
+    azure.resource.name,
+    cloud.account.id,
+    Esql.time_window_date_trunc
+| stats
+    Esql.event_count = count(*),
+    Esql.azure_open_ai_properties_request_length_avg = avg(azure.open_ai.properties.request_length)
+  by
+    Esql.time_window_date_trunc,
+    azure.resource.name
+| where
+    Esql.event_count >= 10 and
+    Esql.azure_open_ai_properties_request_length_avg >= 5000
+| sort Esql.event_count desc
+'''
+

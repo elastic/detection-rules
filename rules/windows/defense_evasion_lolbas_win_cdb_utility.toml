@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2024/07/24"
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary can use the Windows command line debugging utility cdb.exe to execute commands or shellcode. This rule
+looks for those instances and where the cdb.exe binary is outside of the normal WindowsKit installation paths.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via Windows Command Debugging Utility"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution via Windows Command Debugging Utility
+
+The Windows command line debugging utility, cdb.exe, is a legitimate tool used for debugging applications. However, adversaries can exploit it to execute unauthorized commands or shellcode, bypassing security measures. The detection rule identifies suspicious use of cdb.exe by monitoring its execution outside standard installation paths and specific command-line arguments, indicating potential misuse for defense evasion.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the presence of cdb.exe running from non-standard paths, as specified in the query.
+- Examine the command-line arguments used with cdb.exe, particularly looking for "-cf", "-c", or "-pd", to understand the potential actions or scripts being executed.
+- Investigate the parent process of cdb.exe to determine how it was launched and identify any associated suspicious activity or processes.
+- Check the user account associated with the cdb.exe execution to assess if it aligns with expected behavior or if it indicates potential compromise.
+- Analyze recent system logs and security alerts for any related or preceding suspicious activities that might correlate with the execution of cdb.exe.
+- Review network activity from the host to identify any unusual outbound connections that could suggest data exfiltration or command-and-control communication.
+
+### False positive analysis
+
+- Legitimate debugging activities by developers or IT staff using cdb.exe outside standard paths can trigger alerts. To manage this, create exceptions for known user accounts or specific machines frequently used for development.
+- Automated testing environments may execute cdb.exe with command-line arguments for legitimate purposes. Identify these environments and exclude their processes from triggering alerts.
+- Software installations or updates might temporarily use cdb.exe in non-standard paths. Monitor installation logs and exclude these specific instances if they are verified as part of legitimate software deployment.
+- Security tools or scripts that leverage cdb.exe for monitoring or analysis can be mistaken for malicious activity. Document these tools and add them to the exclusion list to prevent false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or execution of malicious commands.
+- Terminate any suspicious instances of cdb.exe running outside the standard installation paths to halt potential malicious activity.
+- Conduct a forensic analysis of the affected system to identify any unauthorized changes or additional malicious payloads that may have been executed.
+- Restore the system from a known good backup if any unauthorized changes or malware are detected, ensuring that the backup is clean and uncompromised.
+- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Implement application whitelisting to prevent unauthorized execution of cdb.exe from non-standard paths.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign."""
+references = ["https://lolbas-project.github.io/lolbas/OtherMSBinaries/Cdb/"]
+risk_score = 47
+rule_id = "bdfaddc4-4438-48b4-bc43-9f5cf8151c46"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (?process.pe.original_file_name == "CDB.Exe" or process.name : "cdb.exe") and
+  process.args : ("-cf", "-c", "-pd") and
+  not process.executable : (
+        "?:\\Program Files (x86)\\*\\cdb.exe",
+        "?:\\Program Files\\*\\cdb.exe",
+
+        /* Crowdstrike specific exclusion as it uses NT Object paths */
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\*\\cdb.exe",
+        "\\Device\\HarddiskVolume*\\Program Files\\*\\cdb.exe"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

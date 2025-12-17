@@ -1,0 +1,187 @@
+[metadata]
+creation_date = "2025/06/02"
+integration = ["azure"]
+maturity = "production"
+promotion = true
+updated_date = "2025/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies user risk detection events via Microsofts Entra ID Protection service. Entra ID Protection detects user risk
+activity such as anonymized IP addresses, unlikely travel, password spray, and more.
+"""
+false_positives = [
+    """
+    Users accessing their accounts from anonymized IP addresses, such as VPNs or Tor, may trigger this rule. If this is
+    expected behavior in your environment, consider adjusting the rule or adding exceptions for specific users or IP
+    ranges.
+    """,
+    """
+    Users who frequently travel or access their accounts from different geographic locations may trigger this rule due
+    to the unlikely travel detection mechanism. If this is expected behavior, consider adjusting the rule or adding
+    exceptions for specific users.
+    """,
+    """
+    Users who have recently changed their passwords may trigger this rule due to the password spray detection mechanism.
+    If this is expected behavior, consider adjusting the rule or adding exceptions for specific users.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.identity_protection-*"]
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "Entra ID Protection - Risk Detection - User Risk"
+note = """## Triage and analysis
+
+This rule detects user risk detection events via Microsoft Entra ID Protection. It identifies various risk event types such as anonymized IP addresses, unlikely travel, password spray, and more. These events can indicate potential malicious activity or compromised accounts.
+
+### Possible investigation steps
+
+- Review the `azure.identityprotection.properties.risk_event_type` field to understand the specific risk event type detected.
+- Check the `azure.identityprotection.properties.risk_level` field to determine the severity of the risk event.
+- Check the `azure.identityprotection.properties.risk_detail` field for additional context on the risk event.
+- Review the `azure.correlation_id` field to correlate this event with other related events in your environment.
+- Review the `azure.identityprotection.properties.additional_info` field for any additional information provided by Entra ID Protection.
+- Review the `azure.identityprotection.properties.detection_timing_type` field to understand when the risk event was detected. Offline detections may indicate a delayed response to a potential threat while real-time detections indicate immediate risk assessment.
+- Check the `azure.identityprotection.properties.user_principal_name` field to identify the user account associated with the risk event. This can help determine if the account is compromised or if the risk event is expected behavior for that user. Triage the user account with other events from Entra ID audit or sign-in logs to identify any suspicious activity or patterns.
+
+### False positive analysis
+
+- Users accessing their accounts from anonymized IP addresses, such as VPNs or Tor, may trigger this rule. If this is expected behavior in your environment, consider adjusting the rule or adding exceptions for specific users or IP ranges.
+- Users who frequently travel or access their accounts from different geographic locations may trigger this rule due to the unlikely travel detection mechanism. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users.
+- Users who have recently changed their passwords may trigger this rule due to the password spray detection mechanism. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users.
+
+### Response and remediation
+- Investigate the user account associated with the risk event to determine if it has been compromised or if the risk event is expected behavior.
+- If the risk event indicates a compromised account, take appropriate actions such as resetting the password, enabling multi-factor authentication, or disabling the account temporarily.
+- Review authentication material such as primary refresh tokens (PRTs) or OAuth tokens to ensure they have not been compromised. If necessary, revoke these tokens to prevent further access.
+- Implement sign-in risk policies in Entra ID Protection to automatically respond to risk events, such as requiring multi-factor authentication or blocking sign-ins from risky locations.
+- Ensure multi-factor authentication is enabled for all user accounts to provide an additional layer of security against compromised accounts.
+- Consider using high risk detections and conditional access evaluations to enforce stricter security measures for accounts or enable access revocation.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/id-protection/concept-identity-protection-risks#risk-types-and-detection",
+    "https://www.microsoft.com/en-us/security/blog/2025/05/27/new-russia-affiliated-actor-void-blizzard-targets-critical-sectors-for-espionage/",
+]
+risk_score = 73
+rule_id = "4b1ee53e-3fdc-11f0-8c24-f661ea17fbcd"
+setup = """#### Required Microsoft Entra ID Protection Logs
+To use this rule, ensure that Microsoft Entra ID Protection logs are being collected and streamed into the Elastic Stack via the Azure integration.
+
+### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Use Case: Risk Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "azure.identity_protection" and
+    event.action: "User Risk Detection" and
+    azure.identityprotection.properties.activity: "user"
+'''
+
+
+[[rule.severity_mapping]]
+field = "azure.identityprotection.properties.risk_level"
+operator = "equals"
+severity = "high"
+value = "high"
+
+[[rule.severity_mapping]]
+field = "azure.identityprotection.properties.risk_level"
+operator = "equals"
+severity = "medium"
+value = "medium"
+
+[[rule.severity_mapping]]
+field = "azure.identityprotection.properties.risk_level"
+operator = "equals"
+severity = "low"
+value = "low"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+[[rule.threat.technique.subtechnique]]
+id = "T1110.003"
+name = "Password Spraying"
+reference = "https://attack.mitre.org/techniques/T1110/003/"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.identityprotection.properties.risk_event_type",
+    "azure.identityprotection.properties.risk_level",
+    "azure.identityprotection.properties.risk_detail",
+    "azure.identityprotection.properties.user_principal_name",
+    "azure.identityprotection.properties.user_display_name",
+    "azure.identityprotection.properties.risk_state",
+    "azure.identityprotection.properties.risk_type",
+    "azure.identityprotection.properties.risk_reasons",
+    "azure.identityprotection.properties.ip_address",
+    "azure.identityprotection.properties.location",
+    "azure.identityprotection.properties.detection_timing_type",
+]
+

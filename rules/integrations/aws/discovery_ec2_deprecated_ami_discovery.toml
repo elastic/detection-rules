@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2024/12/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user has queried for deprecated Amazon Machine Images (AMIs) in AWS. This may indicate an adversary looking for outdated AMIs that may be vulnerable to exploitation. While deprecated AMIs are not inherently malicious or indicative of a breach, they may be more susceptible to vulnerabilities and should be investigated for potential security risks.
+"""
+false_positives = [
+    "Legitimate use of deprecated AMIs for testing or development purposes.",
+    "Automated tools or scripts that query for deprecated AMIs as part of a security assessment.",
+    "Misconfigured applications or services that rely on deprecated AMIs for compatibility reasons.",
+    "Administrators or developers who are unaware of the deprecation status of AMIs they are using.",
+]
+from = "now-6m"
+interval = "5m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Deprecated AMI Discovery"
+note = """## Triage and analysis
+
+## Investigating AWS EC2 Deprecated AMI Discovery
+
+This rule detects when a user queries AWS for deprecated Amazon Machine Images (AMIs). While deprecated AMIs are not inherently malicious, their use can introduce vulnerabilities or misconfigurations. Adversaries may exploit deprecated AMIs in search of outdated or unpatched systems. Investigating these queries can help identify potential risks or misconfigurations.
+
+### Possible Investigation Steps
+
+1. **Identify the User Performing the Query**:
+   - Review the `aws.cloudtrail.user_identity.arn` field to determine the AWS user or role making the request.
+   - Check `aws.cloudtrail.user_identity.type` and `aws.cloudtrail.user_identity.access_key_id` to verify the type of access (e.g., IAM user, role, or federated identity).
+
+2. **Analyze the Source of the Request**:
+   - Review the `source.ip` field to determine the IP address of the source making the request.
+   - Check `source.geo` for the geographic location of the IP address.
+   - Analyze the `user_agent.original` field to determine the client or tool used (e.g., AWS CLI, SDK).
+
+3. **Validate the Query Context**:
+   - Inspect the `aws.cloudtrail.request_parameters` field 
+   - Determine if the request is part of legitimate activity, such as:
+     - Security assessments or vulnerability scans.
+     - Maintenance or testing of legacy systems.
+   - Check if the query aligns with recent changes in the AWS environment, such as new configurations or services.
+
+4. **Correlate with Other Events**:
+   - Investigate additional AWS API calls from the same user or IP address for signs of reconnaissance or exploitation.
+   - Review logs for related actions, such as launching instances from deprecated AMIs (`RunInstances` API call).
+
+5. **Assess Security Risks**:
+   - Evaluate the use of deprecated AMIs within your environment and their associated vulnerabilities.
+   - Ensure that deprecated AMIs are not being used in production environments or systems exposed to external threats.
+
+### False Positive Analysis
+
+- **Legitimate Use**: Users may query for deprecated AMIs for testing or compatibility purposes.
+- **Automated Tools**: Security or compliance tools might query deprecated AMIs as part of regular assessments.
+- **Misconfigured Services**: Legacy systems may rely on deprecated AMIs for compatibility, leading to legitimate queries.
+
+### Response and Remediation
+
+1. **Immediate Actions**:
+   - Verify the intent of the user querying for deprecated AMIs.
+   - Restrict IAM permissions to prevent unauthorized access to deprecated AMIs.
+
+2. **Mitigation Steps**:
+   - Identify and replace deprecated AMIs in use with supported and updated AMIs.
+   - Update AWS IAM policies to minimize permissions for querying or using deprecated AMIs.
+
+3. **Enhance Monitoring**:
+   - Enable alerts for future queries involving deprecated AMIs or other unusual API activity.
+   - Monitor CloudTrail logs for additional reconnaissance or suspicious behavior.
+
+4. **Security Audits**:
+   - Conduct a review of all AMIs in use across your environment to identify outdated or deprecated images.
+   - Remove any deprecated AMIs from production environments and restrict their usage to isolated testing.
+
+5. **Add Rule Exceptions**:
+   - Create exceptions for legitimate use cases or automated tools that query for deprecated AMIs.
+   - Document and communicate the exceptions to relevant teams to avoid future alerts.
+
+### Additional Resources
+
+- [AWS Documentation: AMI Lifecycle Management](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html)
+- [AWS Documentation: Deprecated AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-deprecate.html)
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
+]
+risk_score = 21
+rule_id = "264c641e-c202-11ef-993e-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS EC2",
+    "Resources: Investigation Guide",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: "DescribeImages"
+    and event.outcome: "success"
+    and aws.cloudtrail.flattened.request_parameters.includeDeprecated: "true"
+'''
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

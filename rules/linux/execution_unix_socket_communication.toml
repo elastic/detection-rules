@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2023/09/04"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for inter-process communication via Unix sockets. Adversaries may attempt to communicate with local
+Unix sockets to enumerate application details, find vulnerabilities/configuration mistakes and potentially escalate
+privileges or set up malicious communication channels via Unix sockets for inter-process communication to attempt to
+evade detection.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Unix Socket Connection"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unix Socket Connection
+
+Unix sockets facilitate efficient inter-process communication (IPC) on the same host, crucial for system operations. However, adversaries can exploit them to probe applications, identify weaknesses, or establish covert channels. The detection rule identifies suspicious use of tools like netcat and socat with specific arguments, signaling potential misuse of Unix sockets for unauthorized communication or privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of netcat or socat with the specified arguments, focusing on the process name and arguments fields to verify the suspicious activity.
+- Investigate the source and destination of the Unix socket connection by examining the process.args field to determine if the connection is legitimate or potentially malicious.
+- Check the user context under which the process was executed to assess if there is any indication of privilege escalation attempts.
+- Correlate the event with other logs or alerts from the same host to identify any patterns or additional suspicious activities that might indicate a broader attack.
+- Examine the process lineage to understand the parent process and any child processes spawned, which might provide insights into how the suspicious process was initiated.
+- Verify if the process is part of any known legitimate application or service by cross-referencing with system documentation or application inventories.
+
+### False positive analysis
+
+- Legitimate administrative tasks using netcat or socat for system maintenance or monitoring can trigger alerts. To manage this, identify and whitelist specific scripts or commands used regularly by system administrators.
+- Automated backup or monitoring tools that use Unix sockets for communication may be flagged. Review these tools and add them to an exception list if they are verified as safe and necessary for operations.
+- Certain applications may use Unix sockets for legitimate inter-process communication, such as database services or web servers. Monitor these applications and exclude their typical behavior from the rule to prevent unnecessary alerts.
+- Development environments where developers frequently use netcat or socat for testing purposes can generate false positives. Establish a policy to differentiate between development and production environments and apply exceptions accordingly.
+- System services like libvirt, which are known to use Unix sockets, should be excluded from the rule as indicated by the exception for /var/run/libvirt/libvirt-sock. Regularly update this list to include other known benign services.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent potential lateral movement or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, specifically those involving netcat or socat with the flagged arguments.
+- Conduct a thorough review of the affected system's logs to identify any unauthorized access or data manipulation that may have occurred.
+- Reset credentials and review permissions for any accounts that may have been compromised or used in the attack.
+- Apply patches or configuration changes to address any vulnerabilities or misconfigurations identified during the investigation.
+- Monitor the affected system and network for any signs of recurring suspicious activity, focusing on Unix socket connections.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems may be affected."""
+risk_score = 21
+rule_id = "41284ba3-ed1a-4598-bfba-a97f75d9aba2"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ (
+  (process.name in ("nc", "ncat", "netcat", "nc.openbsd") and
+   process.args == "-U" and process.args : ("/usr/local/*", "/run/*", "/var/run/*")) or
+  (process.name == "socat" and
+   process.args == "-" and process.args : ("UNIX-CLIENT:/usr/local/*", "UNIX-CLIENT:/run/*", "UNIX-CLIENT:/var/run/*")) or
+  (process.name == "curl" and process.args : ("--unix-socket", "--abstract-unix-socket"))
+) and
+not (
+  process.args == "/var/run/libvirt/libvirt-sock" or
+  process.parent.name in ("bundle", "ruby", "haproxystatus.sh")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
+reference = "https://attack.mitre.org/techniques/T1559/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

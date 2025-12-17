@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2025/08/19"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Mshta.exe spawning a suspicious child process. This may indicate adversarial activity, as Mshta is often
+leveraged by adversaries to execute malicious scripts and evade detection.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Microsoft HTML Application Child Process"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Microsoft HTML Application Child Process
+
+Mshta.exe is a legitimate Windows utility used to execute Microsoft HTML Application (HTA) files. Adversaries exploit it to run malicious scripts, leveraging its trusted status to bypass security measures. The detection rule identifies suspicious network activity by Mshta.exe, excluding known benign processes, to flag potential threats. This approach helps in identifying unauthorized network connections indicative of malicious intent.
+
+### Possible investigation steps
+
+- Review the process tree to understand the parent-child relationship of mshta.exe, focusing on any unusual or unexpected parent processes that are not excluded by the rule, such as Microsoft.ConfigurationManagement.exe or known benign executables.
+- Analyze the command-line arguments used by mshta.exe to identify any suspicious or unexpected scripts being executed, especially those not matching the excluded ADSelfService_Enroll.hta.
+- Examine the network connections initiated by mshta.exe, including destination IP addresses, domains, and ports, to identify any connections to known malicious or suspicious endpoints.
+- Check for any related alerts or logs from the same host around the time of the mshta.exe activity to identify potential lateral movement or additional malicious behavior.
+- Investigate the user account associated with the mshta.exe process to determine if it has been compromised or is exhibiting unusual activity patterns.
+
+### False positive analysis
+
+- Mshta.exe may be triggered by legitimate software updates or installations, such as those from Microsoft Configuration Management. To handle this, add exceptions for processes with parent names like Microsoft.ConfigurationManagement.exe.
+- Certain applications like Amazon Assistant and TeamViewer may use Mshta.exe for legitimate purposes. Exclude these by specifying their executable paths, such as C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe and C:\\TeamViewer\\TeamViewer.exe.
+- Custom scripts or internal tools that utilize HTA files for automation might cause false positives. Identify these scripts and exclude them by their specific arguments, such as ADSelfService_Enroll.hta.
+- Regularly review and update the list of exceptions to ensure that only verified benign activities are excluded, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate the mshta.exe process if it is confirmed to be making unauthorized network connections.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious scripts or files.
+- Review and analyze the process tree and network connections associated with mshta.exe to identify any additional compromised processes or systems.
+- Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated.
+- Implement application whitelisting to prevent unauthorized execution of mshta.exe and similar system binaries.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
+references = [
+    "https://lolbas-project.github.io/lolbas/Binaries/Mshta/",
+]
+risk_score = 73
+rule_id = "48e60a73-08e8-42aa-8f51-4ed92c64dbea"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name : "mshta.exe" and
+ (
+  process.name : ("cmd.exe", "powershell.exe", "certutil.exe", "bitsadmin.exe", "curl.exe", "msiexec.exe", "schtasks.exe", "reg.exe", "wscript.exe", "rundll32.exe") or
+  process.executable : ("C:\\Users\\*\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\*.exe")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

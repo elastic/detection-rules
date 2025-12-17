@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/03/02"
-integration = ["windows", "system"]
+integration = ["windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/28"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -11,7 +11,16 @@ Identifies the use of Windows Work Folders to execute a potentially masqueraded 
 directory. Misuse of Windows Work Folders could indicate malicious activity.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Signed Proxy Execution via MS Work Folders"
@@ -53,14 +62,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "ad0d2742-9a49-11ec-8d6b-acde48001122"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -69,14 +70,26 @@ tags = [
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start"
-    and process.name : "control.exe" and process.parent.name : "WorkFolders.exe"
-    and not process.executable : ("?:\\Windows\\System32\\control.exe", "?:\\Windows\\SysWOW64\\control.exe")
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "control.exe" and process.parent.name : "WorkFolders.exe" and
+  not process.executable : (
+    "?:\\Windows\\System32\\control.exe",
+    "?:\\Windows\\SysWOW64\\control.exe",
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\control.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\control.exe"
+  )
 '''
 
 

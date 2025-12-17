@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2024/07/15"
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of a potentially malicious process from a Git hook. Git hooks are scripts that Git
+executes before or after events such as: commit, push, and receive. An attacker can abuse Git hooks to execute arbitrary
+commands on the system and establish persistence.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*", "logs-crowdstrike.fdr*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Git Hook Command Execution"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Git Hook Command Execution
+
+Git hooks are scripts that automate tasks by executing before or after Git events like commits or pushes. While useful for developers, adversaries can exploit them to run malicious commands, gaining persistence or evading defenses. The detection rule identifies suspicious processes initiated by Git hooks, focusing on shell executions, to flag potential abuse on Linux systems.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific Git hook script path and the suspicious process name that was executed, as indicated by the process.args and process.name fields.
+- Examine the process tree to understand the parent-child relationship, focusing on the process.parent.name and process.entity_id fields, to determine how the suspicious process was initiated.
+- Check the Git repository's history and recent changes to the .git/hooks directory to identify any unauthorized modifications or additions to the hook scripts.
+- Investigate the user account associated with the process execution to determine if the activity aligns with their typical behavior or if it indicates potential compromise.
+- Analyze the command-line arguments and environment variables of the suspicious process to gather more context on the nature of the executed command.
+- Correlate this event with other security alerts or logs from the same host.id to identify any patterns or additional indicators of compromise.
+- If possible, isolate the affected system and conduct a deeper forensic analysis to uncover any further malicious activity or persistence mechanisms.
+
+### False positive analysis
+
+- Developers using Git hooks for legitimate automation tasks may trigger this rule. To manage this, identify and document common scripts used in your development environment and create exceptions for these known benign processes.
+- Continuous integration and deployment (CI/CD) systems often utilize Git hooks to automate workflows. Review the processes initiated by these systems and exclude them from detection if they are verified as non-malicious.
+- Custom scripts executed via Git hooks for project-specific tasks can also cause false positives. Collaborate with development teams to catalog these scripts and adjust the detection rule to exclude them.
+- Frequent updates or changes in Git repositories might lead to repeated triggering of the rule. Monitor these activities and, if consistent and verified as safe, consider adding them to an allowlist to reduce noise.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified as being executed from Git hooks, especially those involving shell executions.
+- Conduct a thorough review of the .git/hooks directory on the affected system to identify and remove any unauthorized or malicious scripts.
+- Restore any modified or deleted files from a known good backup to ensure system integrity.
+- Implement monitoring for any future modifications to the .git/hooks directory to detect unauthorized changes promptly.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Review and update access controls and permissions for Git repositories to limit the ability to modify hooks to trusted users only."""
+references = [
+    "https://swisskyrepo.github.io/InternalAllTheThings/redteam/persistence/linux-persistence/#backdooring-git",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
+risk_score = 47
+rule_id = "dc61f382-dc0c-4cc0-a845-069f2a071704"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Tactic: Execution",
+  "Tactic: Defense Evasion",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=3s
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and
+   process.parent.name == "git" and process.args : ".git/hooks/*" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  ] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and
+   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

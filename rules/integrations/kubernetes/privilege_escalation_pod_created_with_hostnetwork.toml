@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/06/18"
 
 [rule]
 author = ["Elastic"]
@@ -21,11 +21,45 @@ false_positives = [
     "kubernetes.audit.requestObject.spec.container.image"
     """,
 ]
-index = ["logs-kubernetes.*"]
+index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Pod Created With HostNetwork"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Pod Created With HostNetwork
+
+Kubernetes allows pods to connect to the host's network namespace using HostNetwork, granting them direct access to the node's network interfaces. This capability can be exploited by attackers to monitor or intercept network traffic, potentially bypassing network policies. The detection rule identifies suspicious pod creation or modification events with HostNetwork enabled, excluding known benign images, to flag potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the source of the pod creation or modification event, focusing on the user or service account associated with the action.
+- Examine the pod's configuration details, especially the containers' images, to determine if any unauthorized or suspicious images are being used, excluding known benign images like "docker.elastic.co/beats/elastic-agent:8.4.0".
+- Investigate the network activity of the node where the pod is running to identify any unusual traffic patterns or potential data exfiltration attempts.
+- Check the Kubernetes RBAC (Role-Based Access Control) settings to ensure that the user or service account has appropriate permissions and is not overly privileged.
+- Assess the necessity of using HostNetwork for the pod in question and determine if it can be reconfigured to operate without this setting to reduce potential security risks.
+
+### False positive analysis
+
+- Pods used for monitoring or logging may require HostNetwork access to gather network data across nodes. Users can exclude these by adding their specific container images to the exception list in the detection rule.
+- Certain system-level services or infrastructure components might need HostNetwork for legitimate reasons, such as network plugins or ingress controllers. Identify these services and update the rule to exclude their specific images or namespaces.
+- Development or testing environments might frequently create pods with HostNetwork for debugging purposes. Consider creating a separate rule or environment-specific exceptions to avoid alert fatigue in these scenarios.
+- Pods that are part of a known and trusted deployment process, which require HostNetwork for valid operational reasons, should be documented and excluded from the rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected pod by cordoning the node to prevent new pods from being scheduled and draining existing pods to other nodes, except the suspicious one.
+- Terminate the suspicious pod to stop any potential malicious activity and prevent further network access.
+- Review and revoke any unnecessary permissions or roles associated with the service account used by the pod to limit privilege escalation opportunities.
+- Conduct a thorough audit of network policies to ensure they are correctly configured to prevent unauthorized access to the host network.
+- Escalate the incident to the security operations team for further investigation and to determine if any data was accessed or exfiltrated.
+- Implement additional monitoring and alerting for any future pod creations with HostNetwork enabled to quickly detect similar threats.
+- Review and update Kubernetes RBAC policies to enforce the principle of least privilege, ensuring only trusted entities can create pods with HostNetwork enabled.
+
+## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,7 +70,7 @@ references = [
 risk_score = 47
 rule_id = "12cbf709-69e8-4055-94f9-24314385c27e"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation"]
+tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

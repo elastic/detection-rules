@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2024/09/09"
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/09/11"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe."
+from = "now-9m"
+index = [
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Command and Scripting Interpreter via Windows Scripts"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Command and Scripting Interpreter via Windows Scripts
+
+PowerShell, a powerful scripting language in Windows, is often targeted by adversaries for executing malicious scripts. Attackers exploit Windows Script Host processes like cscript or wscript to launch PowerShell with obfuscated commands, evading detection. The detection rule identifies such suspicious activity by monitoring PowerShell executions with specific patterns and parent processes, while filtering out known legitimate use cases to reduce false positives.
+
+### Possible investigation steps
+
+- Review the process command line and arguments to identify any obfuscation patterns or suspicious commands, such as Base64 encoding or web requests, that match the query's suspicious patterns.
+- Examine the parent process details, specifically focusing on wscript.exe, cscript.exe, or mshta.exe, to determine if the PowerShell execution was initiated by a legitimate script or a potentially malicious one.
+- Check the process execution context, including the user account and host, to assess if the activity aligns with expected behavior for that user or system.
+- Investigate any network connections or file downloads initiated by the PowerShell process, especially those involving external IP addresses or domains, to identify potential data exfiltration or further malicious activity.
+- Correlate the alert with other security events or logs from the same host or user to identify any preceding or subsequent suspicious activities that could indicate a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate PowerShell commands using non-shortened execution flags may trigger false positives. To manage this, exclude processes with arguments like "-EncodedCommand", "Import-Module*", and "-NonInteractive" unless they are associated with suspicious activity.
+- Third-party installation scripts, such as those related to Microsoft System Center or WebLogic, can cause false positives. Exclude these by filtering out specific parent process arguments or command lines, such as "Microsoft.SystemCenter.ICMPProbe.WithConsecutiveSamples.vbs" and "WEBLOGIC_ARGS_CURRENT_1.DATA".
+- Routine administrative tasks, like gathering network information, may be flagged. Exclude known scripts like "gatherNetworkInfo.vbs" from detection to prevent unnecessary alerts.
+- Exclude specific user scripts or tools that are known to be safe, such as those located in user directories like "C:\\Users\\Prestige\\AppData\\Local\\Temp\\Rar$*\\KMS_VL_ALL_AIO.cmd" if they are verified as non-malicious.
+- Regularly review and update exclusion lists to ensure they reflect current legitimate activities and do not inadvertently allow new threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious execution.
+- Conduct a thorough review of the affected system's PowerShell execution logs to identify any additional malicious scripts or commands that may have been executed.
+- Remove any malicious scripts or files identified during the investigation from the system to prevent re-execution.
+- Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious activity.
+- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
+risk_score = 73
+rule_id = "2d62889e-e758-4c5e-b57e-c735914ee32a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.command_line != null and
+  (
+    process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe", "cmd.exe") or
+    ?process.pe.original_file_name : ("powershell.exe", "pwsh.dll", "powershell_ise.exe", "Cmd.Exe")
+  ) and
+  process.parent.name : ("wscript.exe", "mshta.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

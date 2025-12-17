@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/12/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -11,20 +11,55 @@ Identifies processes running from an Alternate Data Stream. This is uncommon for
 by adversaries to hide malware.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Process Execution Path - Alternate Data Stream"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Execution Path - Alternate Data Stream
+
+Alternate Data Streams (ADS) in Windows allow files to contain multiple data streams, which can be exploited by adversaries to conceal malicious code. This technique is often used for defense evasion, as it hides malware within legitimate files. The detection rule identifies processes initiated from ADS by monitoring specific execution patterns, such as unique argument structures, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process details, including the process name and path, to determine if it is a known legitimate application or potentially malicious.
+- Examine the process arguments, specifically looking for the pattern "?:\\\\*:*", to understand the context of the execution and identify any suspicious or unusual characteristics.
+- Check the parent process of the flagged process to assess if it was initiated by a legitimate or expected source.
+- Investigate the user account associated with the process execution to determine if the activity aligns with the user's typical behavior or if it appears anomalous.
+- Correlate the event with other security logs or alerts from data sources like Sysmon, Microsoft Defender for Endpoint, or Crowdstrike to gather additional context and identify any related suspicious activities.
+- Search for any known indicators of compromise (IOCs) related to the process or file path in threat intelligence databases to assess if the activity is associated with known threats.
+
+### False positive analysis
+
+- Legitimate software installations or updates may use alternate data streams to execute processes. Users can create exceptions for known software update paths to prevent unnecessary alerts.
+- Some backup or file synchronization tools might utilize alternate data streams for metadata storage. Identify these tools and exclude their execution paths from the detection rule.
+- Certain system administration scripts or tools may leverage alternate data streams for legitimate purposes. Review and whitelist these scripts if they are verified as non-threatening.
+- Developers might use alternate data streams during software development for testing purposes. Ensure development environments are accounted for in the exception list to avoid false positives.
+- Security tools themselves may use alternate data streams for scanning or monitoring activities. Verify and exclude these tools from the detection rule to reduce noise.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware.
+- Terminate any suspicious processes identified as running from an Alternate Data Stream to halt malicious activity.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any hidden malware.
+- Examine the file system for any additional Alternate Data Streams and remove or quarantine any suspicious files.
+- Restore any affected files or systems from known good backups to ensure system integrity.
+- Monitor the network for any unusual outbound traffic from the affected system that may indicate data exfiltration attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised."""
 risk_score = 47
 rule_id = "4bd1c1af-79d4-4d37-9efa-6e0240640242"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -34,13 +69,23 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.args : "?:\\*:*" and process.args_count == 1
+  process.args : "?:\\*:*" and
+  (
+    process.args_count == 1 and
+
+    /* Excludes bug where a missing closing quote sets args_count to 1 despite extra args */
+    not process.command_line regex~ """\".*\.exe[^\"].*"""
+  )
 '''
 
 

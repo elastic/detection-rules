@@ -2,7 +2,7 @@
 creation_date = "2022/02/22"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -20,8 +20,8 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Account Configured with Never-Expiring Password"
 note = """## Triage and analysis
@@ -70,13 +70,26 @@ tags = [
     "Data Source: Active Directory",
     "Resources: Investigation Guide",
     "Use Case: Active Directory Monitoring",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.action:"modified-user-account" and winlog.api:"wineventlog" and event.code:"4738" and
-  message:"'Don't Expire Password' - Enabled" and not user.id:"S-1-5-18"
+any where host.os.type == "windows" and
+(
+  (
+    event.code == "4738" and winlog.event_data.NewUACList == "USER_DONT_EXPIRE_PASSWORD" and not user.id == "S-1-5-18"
+  ) or
+  (
+    event.code == "5136" and winlog.event_data.AttributeLDAPDisplayName == "userAccountControl" and
+    winlog.event_data.AttributeValue in ("66048", "66080") and winlog.event_data.OperationType == "%%14674" and
+    not (
+      winlog.event_data.SubjectUserName : "*svc*" or
+      winlog.event_data.ObjectDN : "*Service*"
+    )
+  )
+)
 '''
 
 

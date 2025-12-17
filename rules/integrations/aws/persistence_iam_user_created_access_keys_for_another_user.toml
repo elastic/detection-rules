@@ -1,0 +1,218 @@
+[metadata]
+creation_date = "2024/06/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by creating a
+new set of credentials for an existing user. This rule looks for use of the IAM `CreateAccessKey` API operation to
+create new programmatic access keys for another IAM user.
+"""
+false_positives = [
+    """
+    While this can be normal behavior, it should be investigated to ensure validity. Verify whether the user identity
+    should be using the IAM `CreateAccessKey` for the targeted user.
+    """,
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM User Created Access Keys For Another User"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+
+### Investigating AWS IAM User Created Access Keys For Another User
+
+AWS IAM access keys are long-term credentials that grant programmatic access to AWS resources. The `iam:CreateAccessKey` permission allows an IAM principal to generate new access keys for an existing IAM user.  
+While this operation can be legitimate (for example, credential rotation), it can also be abused to establish persistence or privilege escalation if one user creates keys for another account without authorization.
+
+This rule identifies `CreateAccessKey` API calls where the calling user (`aws.cloudtrail.user_identity.arn`) differs from the target user (`aws.cloudtrail.request_parameters.userName`), indicating one IAM identity creating credentials for another.
+
+#### Possible investigation steps
+
+- **Confirm both user identities and intent.**  
+  Identify the calling user (who performed `CreateAccessKey`) and the target user (whose access key was created). Contact both account owners or application teams to confirm if this operation was expected.
+
+- **Review CloudTrail event details.**  
+  Check the following fields directly in the alert or corresponding CloudTrail record:  
+  - `source.ip` — does it align with expected corporate ranges or known admin automation?  
+  - `user_agent.original` — AWS Console, CLI, SDK, or custom client? Unexpected user agents (for example, non-SDK scripts) may indicate manual or unauthorized use.  
+  - `source.geo` fields — verify the location details are expected for the identity.
+
+- **Correlate with related IAM activity.**  
+  In CloudTrail, search for subsequent or nearby events such as:  
+  - `AttachUserPolicy`, `AttachGroupPolicy`, `UpdateAssumeRolePolicy`, or `CreateUser`.  
+  These can indicate privilege escalation or lateral movement.  
+  Also review whether the same principal recently performed `CreateAccessKey` for multiple users or repeated this action across accounts.
+
+- **Inspect the new access key’s usage.**  
+  Search for the newly created key ID (`aws.cloudtrail.response_elements.accessKey.accessKeyId`) in CloudTrail events following creation. Determine if it was used from unusual IP addresses, geographies, or services.  
+
+- **Assess the risk of credential compromise.**  
+  If you suspect malicious behavior, consider the following indicators:  
+  - A non-admin user invoking `CreateAccessKey` for another user.  
+  - Creation outside of normal automation pipelines.  
+  - Use of the new key from a different IP or AWS account soon after creation.
+
+- **Scope related activity.**  
+  Review all activity from the calling user in the past 24–48 hours, focusing on `iam:*` API calls and resource creation events.  
+  Correlate any S3, EC2, or KMS access attempts made using the new key to identify potential impact or data exposure.
+
+### False positive analysis
+
+- **Expected credential rotation.**  
+  Some environments delegate credential rotation responsibilities to centralized automation or specific admin roles. Confirm if the calling user is authorized for such actions.  
+- **Administrative workflows.**  
+  Account provisioning systems may legitimately create keys on behalf of users. Check for standard tags, automation tools, or user agents that indicate managed operations.  
+- **Service-linked roles or external IAM automation.**  
+  Some AWS services create or rotate credentials automatically. Validate if the caller is a service-linked role or an automation IAM role used by a known deployment process.
+
+### Response and remediation
+
+> AWS IR playbooks classify unauthorized credential creation as a **Priority-1 incident** because it may allow persistence or privilege escalation.  
+> The following steps scale for organizations with or without a dedicated IR team.
+
+**1. Immediate containment**
+- Deactivate or delete the access key from the target IAM user immediately using the AWS Console, CLI, or API (`DeleteAccessKey`).  
+- Rotate or reset credentials for both the calling and target users to eliminate possible compromise.  
+- Restrict risky principals. Temporarily deny `iam:CreateAccessKey` and `iam:UpdateAccessKey` permissions for non-administrative roles while scoping the incident.  
+- Enable or confirm MFA on both accounts involved, if not already enforced.
+
+**2. Evidence preservation**
+- Export all related `CreateAccessKey`, `DeleteAccessKey`, and `UpdateAccessKey` events within ±30 minutes of the alert to an evidence bucket.  
+- Preserve CloudTrail, GuardDuty, and AWS Config data for the same period.  
+- Record key event details: caller ARN, target user, `accessKeyId`, `source.ip`, `userAgent`, and timestamps.
+
+**3. Scoping and investigation**
+- Search CloudTrail for usage of the new access key ID after creation. Identify any API activity or data access tied to it.  
+- Review IAM policy changes, group modifications, or new role assumptions around the same time.  
+- Determine if any additional credentials or trust policy changes were made by the same actor.  
+- Check for GuardDuty findings referencing anomalous credential usage or suspicious API behavior.
+
+**4. Recovery and hardening**
+- Remove or disable any unauthorized keys and re-enable only verified credentials.  
+- Implement least-privilege IAM policies to limit which users can perform `CreateAccessKey`.  
+- Monitor for future `CreateAccessKey` events where `userIdentity.arn != request_parameters.userName`.  
+- Ensure Cloudtrail, GuardDuty and Security Hub are active across all regions.  
+- Educate administrative users on secure key rotation processes and the risk of cross-user key creation.  
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/):** Reference “Credential Compromise” and “IAM Misuse” procedures for containment and recovery.  
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/):** See “Identity Access Review” and “Unauthorized Access Key Creation” for example response flows.  
+- **AWS Documentation:** [Best practices for managing access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).  
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).  
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/#iamcreateaccesskey",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-iam-persistence",
+    "https://permiso.io/blog/lucr-3-scattered-spider-getting-saas-y-in-the-cloud",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
+]
+risk_score = 47
+rule_id = "696015ef-718e-40ff-ac4a-cc2ba88dbeeb"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where event.dataset == "aws.cloudtrail"
+    and event.provider == "iam.amazonaws.com"
+    and event.action == "CreateAccessKey"
+    and event.outcome == "success"
+    and user.name != user.target.name
+| keep
+    @timestamp,
+    cloud.account.id,
+    cloud.region,
+    event.provider,
+    event.action,
+    event.outcome,
+    event.dataset,
+    user.name,
+    source.address,
+    source.ip,
+    user.target.name,
+    user_agent.original,
+    aws.cloudtrail.request_parameters,
+    aws.cloudtrail.response_elements,
+    aws.cloudtrail.user_identity.arn,
+    aws.cloudtrail.user_identity.type,
+    aws.cloudtrail.user_identity.access_key_id,
+    source.geo.*,
+    _id,
+    _version,
+    _index
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.target.name",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "cloud.account.id",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

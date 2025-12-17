@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2021/12/04"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-min_stack_version = "8.13.0"
-updated_date = "2024/06/11"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,10 +12,53 @@ that runs after a job finishes transferring data or after a job enters a specifi
 system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via BITS Job Notify Cmdline"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via BITS Job Notify Cmdline
+
+Background Intelligent Transfer Service (BITS) is a Windows service that facilitates asynchronous, prioritized, and throttled transfer of files between machines. Adversaries exploit BITS by using the SetNotifyCmdLine method to execute malicious programs post-transfer, achieving persistence. The detection rule identifies suspicious processes initiated by BITS, excluding known legitimate executables, to flag potential abuse.
+
+### Possible investigation steps
+
+- Review the process details to confirm the parent process is "svchost.exe" with arguments containing "BITS" to ensure the alert is not a false positive.
+- Examine the process executable path to verify it is not one of the known legitimate executables listed in the exclusion criteria.
+- Investigate the command line arguments of the suspicious process to identify any potentially malicious or unusual commands being executed.
+- Check the file hash and signature of the suspicious executable to determine if it is known malware or a legitimate application.
+- Analyze the network activity associated with the process to identify any suspicious connections or data transfers that may indicate malicious behavior.
+- Review the system's event logs for any additional context or related events that could provide insight into the persistence mechanism or the adversary's actions.
+- Assess the affected system for any other signs of compromise or persistence mechanisms that may have been employed by the adversary.
+
+### False positive analysis
+
+- Legitimate system processes or updates may occasionally trigger the rule if they are not included in the exclusion list. Regularly review and update the exclusion list to include any new legitimate executables that are identified.
+- Some third-party software may use BITS for legitimate purposes, such as software updates or data synchronization. Identify these applications and consider adding their executables to the exclusion list to prevent false positives.
+- Scheduled tasks or scripts that utilize BITS for file transfers might be flagged. Verify the legitimacy of these tasks and, if deemed safe, exclude their associated executables from the detection rule.
+- In environments where custom scripts or administrative tools are used, ensure that these are documented and, if necessary, excluded from the rule to avoid unnecessary alerts.
+- Monitor the frequency and context of alerts to identify patterns that may indicate benign activity. Use this information to refine the rule and reduce false positives without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified as being initiated by BITS that are not part of the known legitimate executables list.
+- Conduct a thorough review of the BITS job configurations on the affected system to identify and remove any unauthorized or suspicious jobs.
+- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
+- Update and run a full antivirus and anti-malware scan on the affected system to ensure no additional threats are present.
+- Review and enhance endpoint protection policies to prevent unauthorized use of BITS for persistence, ensuring that only trusted applications can create or modify BITS jobs.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 references = [
     "https://pentestlab.blog/2019/10/30/persistence-bits-jobs/",
     "https://docs.microsoft.com/en-us/windows/win32/api/bits1_5/nf-bits1_5-ibackgroundcopyjob2-setnotifycmdline",
@@ -26,16 +67,19 @@ references = [
 ]
 risk_score = 47
 rule_id = "c3b915e0-22f3-4bf7-991d-b643513c722f"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

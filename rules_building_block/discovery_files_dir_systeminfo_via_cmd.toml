@@ -1,9 +1,9 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2022/11/01"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,13 @@ Identifies the execution of discovery commands to enumerate system information, 
 Command Shell.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.process-*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "logs-windows.*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "System Information Discovery via Windows Command Shell"
@@ -46,14 +52,6 @@ This rule identifies commands to enumerate system information, files, and folder
 """
 risk_score = 21
 rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -64,6 +62,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Rule Type: BBR",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -71,7 +71,17 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
-  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
+  not process.parent.executable : (
+    "?:\\Program Files\\*",
+    "?:\\Program Files (x86)\\*",
+    "?:\\PROGRA~1\\*",
+    "?:\\TeamCity\\jre\\bin\\java.exe"
+  ) and
+  not process.args : (
+    "*\\db\\rabbit@*", "*/db/rabbit@*",
+    "*rabbitmq/db/*", "*RabbitMQ\\db*"
+  ) and
+  not process.parent.args : "*C:\\Program Files (x86)\\Tanium\\Tanium Client\\TPython\\TPython.bat*"
 '''
 
 

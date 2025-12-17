@@ -1,0 +1,36 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt identifies low volume external network connections initiated by GTFOBins on Linux systems. GTFOBins are Unix binaries that can be exploited by attackers to bypass local security restrictions. The hunt focuses on network connections made by these binaries, excluding common internal IP ranges, to detect potentially malicious activity.
+"""
+integration = ["endpoint"]
+uuid = "783d6091-b98d-45a8-a880-a07f112a8aa2"
+name = "Low Volume GTFOBins External Network Connections"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "Monitors for external network connections initiated by known GTFOBins such as bash, curl, nc, wget, and others.",
+    "Excludes common internal IP ranges to minimize false positives.",
+    "Counts the occurrences of these connections by process name and limits to those seen infrequently (five or fewer connections).",
+    "This can help identify potentially malicious activity involving the exploitation of GTFOBins."
+]
+mitre = ["T1219", "T1071.001"]
+
+query = [
+'''
+from logs-endpoint.events.network-*
+| where @timestamp > now() - 7 day
+| where host.os.type == "linux" and event.type == "start" and process.name in (
+  "ab", "aria2c", "bash", "cpan", "curl", "easy_install", "finger", "ftp",
+  "gdb", "gimp", "irb", "jjs", "jrunscript", "julia", "ksh", "lua", "lwp-download",
+  "nc", "nmap", "node", "openssl", "php", "pip", "python", "ruby", "rview", "rvim",
+  "scp", "sftp", "smbclient", "socat", "ssh", "tar", "tftp", "view", "vim", "vimdiff",
+  "wget", "whois", "yum"
+) and
+destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+| keep process.name, destination.port, destination.ip, user.name, host.name
+| stats cc = count(*) by destination.port, process.name
+| where cc <= 5
+| sort cc asc, destination.port
+'''
+]
