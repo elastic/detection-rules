@@ -8,13 +8,12 @@ updated_date = "2025/12/17"
 author = ["Elastic"]
 description = """
 Detects potentially suspicious OAuth authorization activity in Microsoft Entra ID where first-party Microsoft
-applications from the FOCI (Family of Client IDs) group are used to request access to Microsoft Graph or legacy Azure AD
-resources. This rule uses split detection logic: (1) Developer tools like Azure CLI, Visual Studio Code, and Azure
-PowerShell accessing either Microsoft Graph or legacy AAD are flagged, as these are commonly abused in phishing
-campaigns like ConsentFix. (2) Any FOCI family application accessing legacy Windows Azure Active Directory
-(00000002-0000-0000-c000-000000000000) is flagged, as this deprecated resource is rarely accessed legitimately and
-attackers use it for stealth. First-party apps are trusted by default in all tenants, allowed to request permissions
-without admin approval, and cannot be deleted or blocked - making them ideal for OAuth phishing attacks.
+applications from the FOCI (Family of Client IDs) group request access to Microsoft Graph or legacy Azure AD resources.
+Developer tools like Azure CLI, Visual Studio Code, and Azure PowerShell accessing these resources are flagged, as they
+are commonly abused in phishing campaigns like ConsentFix. Additionally, any FOCI family application accessing the
+deprecated Windows Azure Active Directory resource is flagged since this API is rarely used legitimately and attackers
+target it for stealth. First-party apps are trusted by default in all tenants and cannot be blocked, making them ideal
+for OAuth phishing attacks.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.signinlogs-*"]
