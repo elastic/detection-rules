@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -94,7 +94,14 @@ type = "eql"
 
 query = '''
 process where ((problemchild.prediction == 1 and problemchild.prediction_probability > 0.98) or
-blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
+blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*") and
+process.parent.executable != null and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+not process.parent.name : ("cmd.exe", "powershell.exe", "Perplexity.exe", "vmtoolsd.exe", "Code.exe", "explorer.exe", "git.exe") and
+not (process.name : "msedgewebview2.exe" and process.parent.name : "msedgewebview2.exe") and
+not (process.name : "opera.exe" and process.parent.name : "opera.exe") and
+not (process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
+     process.name : ("UCPDMgr.exe", "sdbinst.exe", "gpupdate.exe", "rundll32.exe", "taskhostw.exe", "taskeng.exe", "rdpclip.exe", "firefox.exe", "w3wp.exe")) and
+not process.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe")
 '''
 
 
