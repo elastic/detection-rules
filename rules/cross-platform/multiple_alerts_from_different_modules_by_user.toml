@@ -27,8 +27,8 @@ from .alerts-security.*  metadata _id
 
 // any alerts excluding low severity and the noisy ones
 | where kibana.alert.rule.name is not null and user.name is not null and kibana.alert.risk_score > 21 and
-        not kibana.alert.rule.name in ("Threat Intel IP Address Indicator Match", "Threat Intel Indicator Match", "Agent Spoofing - Mismatched Agent ID") and
-        not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+        not kibana.alert.rule.type in ("threat_match", "machine_learning") and 
+        not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")
 
 // group alerts by user.name and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
@@ -39,15 +39,15 @@ from .alerts-security.*  metadata _id
         Esql.rule_name_values = VALUES(kibana.alert.rule.name),
         Esql.message_values = VALUES(message),
         Esql.event_category_values = VALUES(event.category),
+        Esql.event_action_values = VALUES(event.action),
         Esql.source_ip_values = VALUES(source.ip),
         Esql.destination_ip_values = VALUES(destination.ip),
         Esql.host_id_values = VALUES(host.id),
         Esql.agent_id_values = VALUES(agent.id),
-        Esql.user_id_values = VALUES(user.id),
-        Esql.rule_severity_values = VALUES(kibana.alert.risk_score) by user.name
+        Esql.rule_severity_values = VALUES(kibana.alert.risk_score) by user.name, user.id
 
 // filter for alerts from same destination.ip reported by different integrations with unique categories and with different severity levels
-| where Esql.event_module_distinct_count >= 2 and Esql.event_category_distinct_count >= 2 and Esql.rule_severity_distinct_count >= 2
+| where Esql.event_module_distinct_count >= 2 and Esql.event_category_distinct_count >= 2 and (Esql.rule_risk_score_distinct_count >= 2 or Esql.rule_severity_values == 73)
 | keep user.name, Esql.*
 '''
 note = """## Triage and analysis
