@@ -12,7 +12,7 @@ developer. Attackers may trick users into downloading malicious executables that
 via malicious ads, forum posts, and tutorials, effectively gaining initial access.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "endgame-*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as Business App Installer"
@@ -37,9 +37,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and
+process where host.os.type == "windows" and 
   event.type == "start" and process.executable : "?:\\Users\\*\\Downloads\\*" and
-  not process.code_signature.status : ("errorCode_endpoint*", "errorUntrustedRoot", "errorChaining") and
+  not process.code_signature.status like ("errorCode_endpoint*", "errorUntrustedRoot", "errorChaining") and process.hash.sha256 != null and 
   (
     /* Slack */
     (process.name : "*slack*.exe" and not
