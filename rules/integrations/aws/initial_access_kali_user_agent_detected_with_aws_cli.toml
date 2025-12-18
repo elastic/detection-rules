@@ -26,9 +26,6 @@ license = "Elastic License v2"
 name = "AWS CLI with Kali Linux Fingerprint Identified"
 note = """## Triage and Analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS CLI with Kali Linux Fingerprint Identified
 
 AWS CloudTrail captures the user agent string for API requests, which can provide insight into the operating system and tooling used. The presence of `distrib#kali` strongly suggests the AWS CLI was executed from a Kali Linux environment. Kali is widely used for penetration testing, red teaming, and adversarial operations, making its appearance in AWS API telemetry noteworthy, especially when associated with sensitive actions or unexpected identities.
@@ -37,18 +34,8 @@ This detection focuses on successful AWS CLI activity and should be evaluated in
 
 ### Possible investigation steps
 
-- **Identify the User** 
-  - Check `user.name`, `user.arn`, and `aws.cloudtrail.user_identity.*` to determine which IAM identity was used.
-- **Review Access Pattern** 
-  - Correlate API calls from this user agent with sensitive actions such as `PutObject`, `CreateUser`, `AttachUserPolicy`, etc.
-- **Investigate Source IP** 
-  - Examine whether the request originated from an expected network or a suspicious VPN or cloud provider address.
-- **Check for Initial Access** 
-  - Look for session tokens being issued (e.g., `GetSessionToken`) or reused (`AssumeRole`) prior to this event.
-
-
 **Identify the actor**
-- Review `user.name` and `aws.cloudtrail.user_identity.arn` to determine which IAM
+- Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine which IAM
   principal was used.
 - Check whether this principal normally interacts with AWS via CLI tooling and whether Kali Linux usage is expected.
 
