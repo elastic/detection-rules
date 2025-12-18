@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2025/12/05"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a GitHub Actions workflow attempts to create or modify workflow files in a protected branch but is blocked
+due to insufficient permissions. This behavior is indicative of a supply chain attack where a malicious package or
+compromised CI/CD pipeline attempts to inject persistent backdoor workflows into a repository.
+"""
+false_positives = [
+    """
+    Legitimate CI/CD automation that requires workflow file modifications may trigger this alert if not properly
+    configured with the necessary permissions. Review the workflow configuration and ensure the GITHUB_TOKEN or PAT has
+    the required 'workflows' permission if the modification is intentional.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Actions Workflow Modification Blocked"
+note = """## Triage and analysis
+
+### Investigating GitHub Actions Workflow Modification Blocked
+
+This rule detects attempts to push workflow files to a GitHub repository from within a GitHub Actions workflow that are blocked by GitHub's security controls. This is a key indicator of supply chain attacks where malicious code attempts to establish persistence by injecting backdoor workflows.
+
+### Possible investigation steps
+
+- Review the `github.repo` field to identify which repository was targeted.
+- Examine the `github.actor_id` to determine if the action was triggered by a bot (`github-actions[bot]`) or a user account (PAT-based).
+- Check recent workflow runs in the repository for suspicious activity, especially in jobs that run `npm install` or other package manager commands.
+- Review the repository's dependencies for recently added or updated packages that may contain malicious preinstall/postinstall hooks.
+- Examine the `github.reasons.message` field for details on which workflow file was being created or modified.
+- Search for other repositories in the organization that may have the same malicious dependency.
+- Review GitHub audit logs for successful workflow file modifications that may have occurred before protections were enabled.
+
+### False positive analysis
+
+- Legitimate automation tools that manage workflow files may trigger this alert. Verify if the repository uses tools like Dependabot, Renovate, or custom automation that modifies workflows.
+- CI/CD pipelines that intentionally update workflow files should use a PAT with the 'workflows' scope and be documented.
+
+### Response and remediation
+
+- If this is a confirmed attack attempt, immediately audit all dependencies in the affected repository.
+- Remove any suspicious packages and regenerate lock files.
+- Rotate any secrets that may have been exposed during the CI run.
+- Review and revoke any PATs that may have been compromised.
+- Enable branch protection rules requiring pull request reviews for workflow file changes.
+- Consider implementing CODEOWNERS for `.github/workflows/` directory.
+- Search for indicators of compromise such as unexpected workflow files (e.g., `discussion_*.yaml`, `formatter_*.yml`).
+"""
+references = ["https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack"]
+risk_score = 47
+rule_id = "e8b37f18-4804-4819-8602-4aba1169c9f4"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+    data_stream.dataset == "github.audit" and
+    event.action == "protected_branch.rejected_ref_update" and
+    github.category == "protected_branch" and
+    github.reasons.code == "workflow_updates" and
+    match(github.reasons.message::STRING, "refusing to allow a GitHub App to create or update workflow")
+| keep *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
