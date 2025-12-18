@@ -998,7 +998,7 @@ class ESQLRuleData(QueryRuleData):
             )
 
         # Ensure that keep clause includes metadata fields on non-aggregate queries
-        aggregate_pattern = re.compile(r"\bstats\b.*\bby\b", re.IGNORECASE | re.DOTALL)
+        aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
             keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
             if "*" not in keep_fields:
