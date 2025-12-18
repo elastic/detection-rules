@@ -2,7 +2,7 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -119,12 +119,15 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     user.id
 
 // Filter for scripts with high numeric character ratio
-| where Esql.script_block_ratio > 0.30
+| where Esql.script_block_ratio > 0.35
 
 // Exclude Windows Defender Noisy Patterns
 | where not (
     file.directory == "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads" or
-    file.directory like "C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection*"
+    file.directory like (
+        "C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection*",
+        "C:\\\\Program Files\\\\SentinelOne\\\\Sentinel Agent*"
+    )
   )
   // ESQL requires this condition, otherwise it only returns matches where file.directory exists.
   or file.directory is null
