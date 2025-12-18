@@ -1007,7 +1007,7 @@ class ESQLRuleData(QueryRuleData):
                     raise EsqlSemanticError(
                         f"Rule: {data['name']} contains a keep clause without"
                         f" metadata fields '_id', '_version', and '_index' ->"
-                        f" Add '_id', _version', '_index' to the keep command."
+                        f" Add '_id', '_version', '_index' to the keep command."
                     )
 
 
