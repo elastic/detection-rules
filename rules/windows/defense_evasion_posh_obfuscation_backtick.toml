@@ -2,7 +2,7 @@
 creation_date = "2025/04/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -111,13 +111,14 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     powershell.sequence,
     powershell.total,
     _id,
+    _version,
     _index,
     host.name,
     agent.id,
     user.id
 
-// Filter for scripts that match the pattern at least 10 times
-| where Esql.script_block_pattern_count >= 10
+// Filter for scripts that match the pattern at least 20 times
+| where Esql.script_block_pattern_count >= 20
 
 | where file.name not like "TSS_*.psm1"
   // ESQL requires this condition, otherwise it only returns matches where file.name exists.
