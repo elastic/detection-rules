@@ -23,7 +23,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID OAuth PRT Issuance to Non-Managed Device Detected
 
-This rule identifies a sequence where a Microsoft Entra ID user signs in using a refresh token issued to the Microsoft Authentication Broker (MAB), followed by a sign-in using a Primary Refresh Token (PRT) from the same device. This behavior is uncommon for normal user activity and strongly suggests adversarial behavior, particularly when paired with OAuth phishing and device registration tools like ROADtx. The use of PRT shortly after a refresh token sign-in typically indicates the attacker has obtained device trust and is now using the PRT to impersonate a fully compliant user+device pair.
+This rule identifies a sequence where a Microsoft Entra ID authenticates using a refresh token issued to the Microsoft Authentication Broker (MAB), followed by an authentication using a Primary Refresh Token (PRT) from the same unmanaged device. This behavior is uncommon for normal user activity and strongly suggests adversarial behavior, particularly when paired with OAuth phishing and device registration tools like ROADtx. The use of PRT shortly after a refresh token sign-in typically indicates the attacker has registered a virtual device and is now using the PRT to impersonate a registered user+device pair. The device in question is still marked as unmanaged, indicating it is not compliant with organizational policies and managed by Intune or other MDM solutions.
 
 ### Possible investigation steps
 - Identify the user principal and device from `azure.signinlogs.properties.user_principal_name` and `azure.signinlogs.properties.device_detail.device_id`.
