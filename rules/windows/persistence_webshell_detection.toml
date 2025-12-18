@@ -2,7 +2,7 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2025/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -118,7 +118,19 @@ host.os.type:windows and event.category:process and event.type:start and process
       "cmd.exe /s /c \"echo '%os%'\"" or
       *.\\install\\awk.exe*
     ) or
-    process.args : (\(git or (*artisan* and *queue\:work*) or *rmdir* or "mode CON" or ver or ls or mode or dir)
+    process.args : (\(git or (*artisan* and *queue\:work*) or *rmdir* or "mode CON" or ver or ls or mode or dir) or
+
+    (process.name:cmd.exe and process.parent.args : "c:\\\\xampp\\\\htdocs\\\\open-audit\\\\index.php") or
+
+    (process.name:cmd.exe and process.args:("/V:ON" and "--header-html")) or
+
+    (process.parent.args:"WebCession" and process.args:E\:\\Data\\CLM\\cession\\*.bat) or
+
+    (process.parent.executable :"D:\\AiDKlinik\\php\\php-cgi.exe" and process.args:D\:\\AiDKlinik\\web*) or
+
+    (process.parent.args :"E:/wamp64/bin/apache/apache2.4.62.1" and process.args:node*) or
+
+    (process.parent.name:"php.exe" and process.name:"cmd.exe" and process.args:("/V:ON" and "/E:ON"))
   )
 '''
 
@@ -138,12 +150,6 @@ negate = true
 case_insensitive = true
 value = "*?:\\\\Program Files (x86)\\\\*"
 
-[[rule.filters]]
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*?:\\\\Program Files (x86)\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
