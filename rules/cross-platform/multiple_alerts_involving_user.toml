@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -18,9 +18,8 @@ false_positives = [
     """,
 ]
 from = "now-24h"
-index = [".alerts-security.*"]
 interval = "1h"
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Multiple Alerts Involving a User"
 risk_score = 73
@@ -28,10 +27,17 @@ rule_id = "0d160033-fab7-4e72-85a3-3a9d80c8bff7"
 severity = "high"
 tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-signal.rule.name:* and user.name:* and not user.id:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
+from .alerts-security.* METADATA _id, _version, _index
+| where signal.rule.name is not null and user.name is not null and not user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+| stats
+    Esql.distinct_rule_count = COUNT_DISTINCT(signal.rule.rule_id),
+    Esql.values_rules = VALUES(signal.rule.name)
+  by user.name
+| where Esql.distinct_rule_count >= 5
+| keep user.name, Esql.*, _id, _index, _version
 '''
 note = """## Triage and analysis
 
@@ -69,14 +75,3 @@ In security environments, monitoring user activity is crucial as adversaries oft
 - Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
 - Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
 - Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
-
-
-
-[rule.threshold]
-field = ["user.name"]
-value = 1
-[[rule.threshold.cardinality]]
-field = "signal.rule.rule_id"
-value = 5
-
-
