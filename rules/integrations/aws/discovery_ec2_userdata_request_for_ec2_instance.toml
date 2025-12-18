@@ -2,7 +2,7 @@
 creation_date = "2024/04/14"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2025/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,6 @@ gather sensitive data from the instance such as hardcoded credentials or to iden
 a New Terms rule that identifies the first time an IAM user or role requests the user data for a specific EC2 instance.
 """
 from = "now-6m"
-interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -91,7 +90,10 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.flattened.request_parameters.attribute: "userData"
     and not aws.cloudtrail.user_identity.invoked_by: (
         "AWS Internal" or
-        "cloudformation.amazonaws.com"
+        "cloudformation.amazonaws.com" or 
+        "aidevops.amazonaws.com" or 
+        "elasticmapreduce.amazonaws.com" or 
+        "aiops.amazonaws.com"
     )
 '''
 
@@ -147,6 +149,6 @@ field = "new_terms_fields"
 value = ["cloud.account.id", "user.name", "aws.cloudtrail.flattened.request_parameters.instanceId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
 
 

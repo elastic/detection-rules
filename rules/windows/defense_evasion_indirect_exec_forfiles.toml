@@ -2,7 +2,7 @@
 creation_date = "2025/02/03"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -72,8 +72,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
- (process.name : "forfiles.exe" or ?process.pe.original_file_name == "forfiles.exe") and process.args : ("/c", "-c")
+process where host.os.type == "windows" and event.type == "start" and user.id != "S-1-5-18" and
+ (process.name : "forfiles.exe" or ?process.pe.original_file_name == "forfiles.exe") and process.args : ("/c", "-c") and
+ not process.args : ("-d", "/d", "cmd /c copy @file*", "cmd /c DEL /Q /F @*", "cmd /c del @*", "D:\\*")
 '''
 
 

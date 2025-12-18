@@ -2,7 +2,7 @@
 creation_date = "2025/11/28"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/11/28"
+updated_date = "2025/12/09"
 
 [rule]
 author = ["Elastic"]
@@ -46,6 +46,7 @@ Adversaries who gain the ability to modify or trigger workflows in a linked GitH
 references = [
     "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
     "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack"
 ]
 risk_score = 47
 rule_id = "40c34c8a-b0bc-43bc-83aa-d2b76bf129e1"
@@ -61,7 +62,13 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset:"github.audit" and event.category:"configuration" and event.action:"enterprise.register_self_hosted_runner"
+event.dataset:"github.audit" and
+    event.category:"configuration" and
+    event.action: (
+        "repo.register_self_hosted_runner" or
+        "org.register_self_hosted_runner" or
+        "enterprise.register_self_hosted_runner"
+    )
 '''
 
 [[rule.threat]]
