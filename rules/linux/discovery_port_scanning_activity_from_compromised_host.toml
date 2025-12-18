@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/29"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -94,7 +94,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-endpoint.events.network-*
+from logs-endpoint.events.network-* metadata _id, _index, _version
+| mv_expand event.action
 | where
     @timestamp > now() - 1h and
     host.os.type == "linux" and
@@ -104,15 +105,14 @@ from logs-endpoint.events.network-*
     destination.port < 32768 and
     not (
       cidr_match(destination.ip, "127.0.0.0/8", "::1", "FE80::/10", "FF00::/8") or
+      process.name in ("java", "node") or
+      process.name like "python*" or
       process.executable in (
-        "/opt/dbtk/bin/jsvc", "/usr/lib/dotnet/dotnet", "/usr/share/elasticsearch/jdk/bin/java", "/usr/sbin/haproxy",
-        "/usr/bin/java", "/opt/kaspersky/kesl/libexec/kesl", "/usr/bin/dotnet", "/opt/java/openjdk/bin/java"
+        "/opt/dbtk/bin/jsvc", "/usr/lib/dotnet/dotnet", "/usr/sbin/haproxy", "/opt/kaspersky/kesl/libexec/kesl",
+        "/usr/bin/dotnet", "/usr/sap/SAPBusinessOne/EDS/bin/EDFBackend", "/usr/local/bin/longhorn-instance-manager"
       ) or
       process.executable like "/var/opt/kaspersky/kesl/*kesl" or
-      process.executable like "/usr/lib/jvm/*/java" or
       process.executable like "/opt/google/chrome*" or
-      process.executable like "/var/lib/docker/*/java" or
-      process.executable like "/usr/lib64/jvm/*/java" or
       process.executable like "/snap/*" or
       process.executable like "/home/*/.local/share/JetBrains/*"
     )
