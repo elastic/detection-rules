@@ -988,7 +988,7 @@ class ESQLRuleData(QueryRuleData):
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
             )
 
-        # Enforce KEEP command for ESQL rules
+        # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
         # Match | followed by optional whitespace/newlines and then 'keep'
         keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
         keep_match = keep_pattern.search(query_lower)
@@ -1000,10 +1000,10 @@ class ESQLRuleData(QueryRuleData):
         # Ensure that keep clause includes metadata fields on non-aggregate queries
         aggregate_pattern = re.compile(r"\bstats\b.*\bby\b", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
-            keep_fields = keep_match.group(1)
-            if keep_fields != "*":
+            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            if "*" not in keep_fields:
                 required_metadata = {"_id", "_version", "_index"}
-                if not required_metadata.issubset(set(map(str.strip, keep_fields.split(",")))):
+                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
                     raise EsqlSemanticError(
                         f"Rule: {data['name']} contains a keep clause without"
                         f" metadata fields '_id', '_version', and '_index' ->"
