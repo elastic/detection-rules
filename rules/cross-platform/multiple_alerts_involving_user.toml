@@ -17,7 +17,7 @@ false_positives = [
     activity, or an upcoming incident.
     """,
 ]
-from = "now-24h"
+from = "now-4h"
 interval = "1h"
 language = "esql"
 license = "Elastic License v2"
@@ -31,12 +31,14 @@ type = "esql"
 
 query = '''
 from .alerts-security.*
-| where signal.rule.name is not null and user.name is not null and not user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+| where signal.rule.name is not null and user.name is not null and
+    // Exclude known system accounts
+    not user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")
 | stats
     Esql.distinct_rule_count = COUNT_DISTINCT(signal.rule.rule_id),
     Esql.values_rules = VALUES(signal.rule.name)
-  by user.name
-| where Esql.distinct_rule_count >= 5
+  by user.name, user.id
+| where Esql.distinct_rule_count >= 6
 | keep user.name, Esql.*
 '''
 note = """## Triage and analysis
