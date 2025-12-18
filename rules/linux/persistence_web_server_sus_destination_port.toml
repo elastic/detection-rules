@@ -94,17 +94,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
-     user.name in (
-      "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
-     ) or
-     user.id in ("99", "33", "498", "48")
-   ) and (
-   process.name in (
-    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "node", "mongrel_rails", "java", "gunicorn",
-    "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
-    "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
+  process.name like (
+    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "php-fpm*", "mongrel_rails", "haproxy",
+    "gunicorn", "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "uvicorn",
+    "tornado", "hypercorn", "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs"
   ) or
-    process.name like ("php-*", "python*", "ruby*", "perl*")
+  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd") or
+  user.id in ("54321", "33", "498", "48") or
+  (process.name == "java" and process.working_directory like "/u0?/*")
 ) and
 network.direction == "egress" and destination.ip != null and
 not destination.port in (80, 443, 8080, 8443, 8000, 8888, 3128, 3306, 5432, 8220, 8082) and
