@@ -2,7 +2,7 @@
 creation_date = "2025/10/01"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/06"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,7 @@ This detection flags attempts to purge systemd journal logs by invoking journalc
 - Preserve evidence by archiving remaining /var/log/journal entries, journald.conf and its mtime, modified unit files under /etc/systemd/system, and shell/auth logs, and capture a disk snapshot before making further changes.
 - Escalate to incident response if root executed "journalctl --vacuum-time/size/files" outside a documented maintenance window, if Storage=volatile was set or retention reduced below policy, or if the same actor performed vacuums on multiple hosts within 24 hours.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "09073bf4-a8ea-4bce-9fd5-2bb56b4d31f4"
 setup = """## Setup
 
@@ -82,7 +82,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -100,7 +100,8 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "journalctl" and process.args like ("--vacuum-time=*", "--vacuum-size=*", "--vacuum-files=*")
+process.name == "journalctl" and process.args like ("--vacuum-time=*", "--vacuum-size=*", "--vacuum-files=*") and
+not process.parent.args == "/etc/cron.daily/clean-journal-logs"
 '''
 
 [[rule.threat]]

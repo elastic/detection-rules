@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -79,10 +79,16 @@ process.args:(
   ) and (
     /*/.* or /dev/shm/* or /home/* or /root/* or /tmp/* or /var/tmp/*
   ) and
-  not (/usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs*)
+  not (
+    /usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs* or /var/tmp/portage/* or
+    usr/lib/python3/dist-packages/* or /var/tmp/pamac-build*
+  )
+) and
+not process.parent.executable:("/usr/sbin/weak-modules" or "/sbin/weak-modules" or /usr/bin/make or /bin/make) and
+not process.parent.args:(
+  "/usr/sbin/weak-modules" or /var/tmp/rpm-tmp* or /usr/share/initramfs-tools/hooks/ntfs_3g or "/usr/bin/qemu-aarch64-static"
 )
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -108,8 +114,8 @@ framework = "MITRE ATT&CK"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.parent.name"]
+value = ["agent.id", "process.parent.name"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-5d"
