@@ -30,14 +30,14 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from .alerts-security.* METADATA _id, _version, _index
+from .alerts-security.*
 | where signal.rule.name is not null and user.name is not null and not user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 | stats
     Esql.distinct_rule_count = COUNT_DISTINCT(signal.rule.rule_id),
     Esql.values_rules = VALUES(signal.rule.name)
   by user.name
 | where Esql.distinct_rule_count >= 5
-| keep user.name, Esql.*, _id, _index, _version
+| keep user.name, Esql.*
 '''
 note = """## Triage and analysis
 
