@@ -27,7 +27,7 @@ from .alerts-security.*  metadata _id
 
 // any alerts excluding low severity and the noisy ones
 | where kibana.alert.rule.name is not null and source.ip is not null and kibana.alert.risk_score > 21 and
-        not kibana.alert.rule.name in ("Threat Intel IP Address Indicator Match", "Threat Intel Indicator Match", "Agent Spoofing - Mismatched Agent ID")
+        not kibana.alert.rule.type in ("threat_match", "machine_learning")
 
 // group alerts by source.ip and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
@@ -45,7 +45,7 @@ from .alerts-security.*  metadata _id
         Esql.rule_severity_values = VALUES(kibana.alert.risk_score) by source.ip
 
 // filter for alerts from same source.ip reported by different integrations with unique categories and with different severity levels
-| where Esql.event_module_distinct_count >= 2 and Esql.event_category_distinct_count >= 2 and Esql.rule_severity_distinct_count >= 2
+| where Esql.event_module_distinct_count >= 2 and Esql.event_category_distinct_count >= 2 and (Esql.rule_risk_score_distinct_count >= 2 or Esql.rule_severity_values == 73)
 | keep source.ip, Esql.*
 '''
 note = """## Triage and analysis
