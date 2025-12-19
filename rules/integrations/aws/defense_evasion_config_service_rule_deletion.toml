@@ -2,86 +2,117 @@
 creation_date = "2020/06/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/12"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies attempts to delete an AWS Config Service resource. An adversary may tamper with Config services in order to
-reduce visibility into the security posture of an account and / or its workload instances.
+Identifies attempts to delete AWS Config resources. AWS Config provides continuous visibility into resource
+configuration changes and compliance posture across an account. Deleting Config components can significantly reduce
+security visibility and auditability. Adversaries may delete or disable Config resources to evade detection, hide prior
+activity, or weaken governance controls before or after other malicious actions.
 """
 false_positives = [
     """
-    Privileged IAM users with security responsibilities may be expected to make changes to the Config service in order
-    to align with local security policies and requirements. Automation, orchestration, and security tools may also make
-    changes to the Config service, where they are used to automate setup or configuration of AWS accounts. Other kinds
-    of user or service contexts do not commonly make changes to this service.
+    Deletion of AWS Config resources may occur during legitimate account restructuring, environment teardown, or changes
+    to compliance tooling. Centralized security teams or approved automation may also delete and recreate Config
+    components as part of controlled workflows. Confirm that the action aligns with approved change management and was
+    performed by an expected principal.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Config Resource Deletion"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS Config Resource Deletion
 
-AWS Config provides a detailed view of the configuration of AWS resources in your AWS account. This includes how the resources are related to one another and how they were configured in the past so that you can see how the configurations and relationships change over time.
+AWS Config records configuration changes, relationships, and compliance status for AWS resources over time.
+Deleting Config components such as recorders, delivery channels, rules, or conformance packs disrupts
+security monitoring, compliance enforcement, and forensic visibility. This behavior is uncommon outside of
+planned infrastructure changes and should be treated as high-risk when unexpected. This rule detects successful deletion of AWS Config resources.
 
-This rule looks for the deletion of AWS Config resources using various API actions. Attackers can do this to cover their tracks and impact security monitoring that relies on these sources.
+### Possible investigation steps
 
-#### Possible investigation steps
+**Identify the actor**
+- Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine who initiated the deletion.
+- Confirm whether this principal typically manages AWS Config or centralized security tooling.
+- Check `user_agent.original` to determine whether the action was performed via console, CLI, SDK, or automation.
 
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Identify the AWS resource that was involved and its criticality, ownership, and role in the environment. Also investigate if the resource is security-related.
-- Investigate other alerts associated with the user account during the past 48 hours.
-- Contact the account and resource owners and confirm whether they are aware of this activity.
-- Check if this operation was approved and performed according to the organization's change management policy.
-- Considering the source IP address and geolocation of the user who issued the command:
-    - Do they look normal for the calling user?
-    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
-    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+**Determine what was deleted**
+- Inspect `event.action` and `aws.cloudtrail.request_parameters` to identify which Config component was removed
+  (e.g., configuration recorder, delivery channel, rule, aggregator, or conformance pack).
+- Assess whether the deleted resource was account-scoped or organization-wide. Used for compliance reporting, guardrails, or security monitoring.
+- Identify the affected regions and accounts using `cloud.region` and `cloud.account.id`.
+
+**Reconstruct timing and intent**
+- Use `@timestamp` to correlate the deletion with:
+  - IAM changes (role updates, policy modifications, STS activity).
+  - Other monitoring disruptions (CloudTrail, GuardDuty, Security Hub).
+  - Destructive or high-impact actions occurring shortly before or after.
+- Compare the timing against approved maintenance windows or infrastructure changes.
+
+**Correlate with broader activity**
+- Pivot in CloudTrail on the same principal or access key to identify:
+  - Additional attempts to disable logging or security controls.
+  - Resource deletions or configuration weakening across services.
+- Evaluate whether the deletion appears isolated or part of a broader evasion sequence.
+
+**Validate intent with stakeholders**
+- Confirm with security, cloud platform, or compliance teams whether the deletion was planned and approved.
+- Verify whether replacement Config resources were created shortly after, or whether monitoring remains disabled.
 
 ### False positive analysis
 
-- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and IP address conditions.
+- **Planned environment changes**
+  - Non-production account teardown, environment consolidation, or compliance tool migrations may involve
+    deletion of Config resources.
+
+- **Authorized security automation**
+  - Approved automation or security tooling may delete and recreate Config components during setup or remediation.
+  - Tune exceptions carefully using specific principals or automation roles rather than broad exclusions.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
-- Consider enabling multi-factor authentication for users.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
-- Take the actions needed to return affected systems, data, or services to their normal operational levels.
-- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- **Contain and restore visibility**
+  - If unauthorized, immediately re-enable AWS Config components, including recorders and delivery channels.
+  - Validate that historical configuration data and compliance reporting resume as expected.
 
-## Setup
+- **Investigate scope and impact**
+  - Determine how long Config visibility was impaired and what activity may have occurred during that window.
+  - Review other monitoring gaps (e.g., CloudTrail or GuardDuty changes) for coordinated evasion.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- **Credential and access review**
+  - Rotate or disable credentials associated with the deleting principal if compromise is suspected.
+  - Review IAM permissions to ensure only a minimal, well-defined set of roles can manage AWS Config.
+
+- **Hardening and prevention**
+  - Use SCPs or IAM conditions to restrict deletion of Config resources in production and security accounts.
+  - Implement AWS Config rules or Security Hub controls to alert when Config is disabled or degraded.
+  - Document and formalize change procedures for governance tooling.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
+"""
 references = [
     "https://docs.aws.amazon.com/config/latest/developerguide/how-does-config-work.html",
     "https://docs.aws.amazon.com/config/latest/APIReference/API_Operations.html",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "7024e2a0-315d-4334-bb1a-552d604f27bc"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS Config",
     "Resources: Investigation Guide",
     "Tactic: Defense Evasion",
 ]
@@ -89,10 +120,13 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and
-    event.action:(DeleteConfigRule or DeleteOrganizationConfigRule or DeleteConfigurationAggregator or
+event.dataset: aws.cloudtrail 
+    and event.provider: config.amazonaws.com 
+    and event.outcome: success
+    and event.action: (DeleteConfigRule or DeleteOrganizationConfigRule or DeleteConfigurationAggregator or
     DeleteConfigurationRecorder or DeleteConformancePack or DeleteOrganizationConformancePack or
     DeleteDeliveryChannel or DeleteRemediationConfiguration or DeleteRetentionConfiguration)
+    and not aws.cloudtrail.user_identity.invoked_by: (securityhub.amazonaws.com or fms.amazonaws.com or controltower.amazonaws.com or config-conforms.amazonaws.com)
 '''
 
 
@@ -107,6 +141,11 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
 
 
 [rule.threat.tactic]
@@ -114,3 +153,18 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
