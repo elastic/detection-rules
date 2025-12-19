@@ -2,7 +2,7 @@
 creation_date = "2023/09/21"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential SSH-IT SSH Worm Downloaded"
+name = "Potential THC Tool Downloaded"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -57,7 +57,7 @@ SSH-IT is an autonomous worm that exploits SSH connections to propagate across n
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Update firewall and intrusion detection/prevention system (IDS/IPS) rules to block the known malicious URLs and monitor for any future attempts to access them."""
 references = ["https://www.thc.org/ssh-it/"]
-risk_score = 47
+risk_score = 73
 rule_id = "2ddc468e-b39b-4f5b-9825-f3dcb0e998ea"
 setup = """## Setup
 
@@ -85,7 +85,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -100,42 +100,38 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
  process.name in ("curl", "wget") and process.args : (
-  "https://thc.org/ssh-it/x", "http://nossl.segfault.net/ssh-it-deploy.sh", "https://gsocket.io/x",
-  "https://thc.org/ssh-it/bs", "http://nossl.segfault.net/bs"
+  "https://github.com/hackerschoice/*", "https://thc.org/*", "http://nossl.segfault.net/*", "https://gsocket.io/*"
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.004"
 name = "SSH"
 reference = "https://attack.mitre.org/techniques/T1021/004/"
 
-
 [[rule.threat.technique]]
 id = "T1563"
 name = "Remote Service Session Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1563.001"
 name = "SSH Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
