@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -9,18 +9,9 @@ description = """
 This rule uses alert data to determine when multiple different alerts involving the same user are triggered. Analysts
 can use this to prioritize triage and response, as these users are more likely to be compromised.
 """
-false_positives = [
-    """
-    False positives can occur with Generic built-in accounts, such as Administrator, admin, etc. if they are widespread
-    used in your environment. As a best practice, they shouldn't be used in day-to-day tasks, as it prevents the ability
-    to quickly identify and contact the account owner to find out if an alert is a planned activity, regular business
-    activity, or an upcoming incident.
-    """,
-]
-from = "now-24h"
-index = [".alerts-security.*"]
+from = "now-4h"
 interval = "1h"
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Multiple Alerts Involving a User"
 risk_score = 73
@@ -28,10 +19,36 @@ rule_id = "0d160033-fab7-4e72-85a3-3a9d80c8bff7"
 severity = "high"
 tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-signal.rule.name:* and user.name:* and not user.id:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
+from .alerts-security.*
+| where kibana.alert.rule.name is not null and user.id is not null and
+  // Exclude low severity alerts
+  kibana.alert.risk_score > 21
+| stats
+    Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name), 
+    Esql.rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
+    Esql.host_id_distinct_count = COUNT_DISTINCT(host.id),
+    Esql.risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
+    Esql.event_dataset_distinct_count = COUNT_DISTINCT(event.dataset),
+    Esql.rule_name_values = VALUES(kibana.alert.rule.name), 
+    Esql.risk_score_values = VALUES(kibana.alert.risk_score), 
+    Esql.event_dataset_values = VALUES(event.dataset), 
+    Esql.event_module_values = VALUES(event.module), 
+    Esql.process_command_line = VALUES(process.command_line), 
+    Esql.host_id_values = VALUES(host.id), 
+    Esql.source_ip_values = VALUES(source.ip), 
+    Esql.destination_ip_values = VALUES(destination.ip) by user.id
+
+| where Esql.rule_name_distinct_count >= 4 AND Esql.rule_id_distinct_count >= 2 and
+  // Exclude known system accounts with matches in more than one host
+  not (
+    (length(TO_STRING(user.id)) <= 4 or user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")) and
+    (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
+  )
+
+| keep user.id, Esql.*
 '''
 note = """## Triage and analysis
 
@@ -69,14 +86,3 @@ In security environments, monitoring user activity is crucial as adversaries oft
 - Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
 - Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
 - Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
-
-
-
-[rule.threshold]
-field = ["user.name"]
-value = 1
-[[rule.threshold.cardinality]]
-field = "signal.rule.rule_id"
-value = 5
-
-
