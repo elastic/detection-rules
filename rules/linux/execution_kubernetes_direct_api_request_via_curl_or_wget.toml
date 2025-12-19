@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/06/23"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -14,10 +14,12 @@ config maps, and other sensitive data, without using the official Kubernetes cli
 """
 from = "now-9m"
 index = [
+    "audiatbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -94,17 +96,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Discovery",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "executed", "process_started") and
+event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
 process.name in ("curl", "wget") and process.args like~ (
   "*http*//*/apis/authorization.k8s.io/*",
   "*http*//*/apis/rbac.authorization.k8s.io/*",

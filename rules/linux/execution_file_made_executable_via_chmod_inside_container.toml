@@ -2,20 +2,20 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/12"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when chmod or chown are used to add the execute permission to a file inside a container. Modifying file
-permissions to make a file executable could indicate malicious activity, as an attacker may attempt to run unauthorized
-or malicious code inside the container.
+This rule detects when chmod or chown are used to add the execute permission to a file in a world-writeable directory,
+and inside of a container. Modifying file permissions to make a file executable could indicate malicious activity, as
+an attacker may attempt to run unauthorized or malicious code inside the container.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "File Made Executable via Chmod Inside A Container"
+name = "Suspicious File Made Executable via Chmod Inside A Container"
 risk_score = 21
 rule_id = "30d94e59-e5c7-4828-bc4f-f5809ad1ffe1"
 setup = """## Setup
@@ -59,7 +59,8 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.entry_leader.entry_meta.type == "container" and process.name in ("chmod", "chown") and
-process.args in ("4755", "755", "000", "777", "444", "-x", "+x")
+process.args in ("4755", "755", "000", "777", "444", "+x") and
+process.args like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*")
 '''
 note = """## Triage and analysis
 
