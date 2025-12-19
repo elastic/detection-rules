@@ -2,7 +2,7 @@
 creation_date = "2025/09/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2025/12/09"
 
 [rule]
 author = ["Elastic"]
@@ -93,12 +93,14 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
   azure.auditlogs.operation_name != "Set directory feature on tenant"
   and azure.auditlogs.properties.initiated_by.user.userPrincipalName rlike ".+@[A-Za-z0-9.]+\\.[A-Za-z]{2,}"
 | keep
-    _id,
     @timestamp,
     azure.*,
     client.*,
     event.*,
-    source.*
+    source.*,
+    _id,
+    _version,
+    _index
 '''
 
 
