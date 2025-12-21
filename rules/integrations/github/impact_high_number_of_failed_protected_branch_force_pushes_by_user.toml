@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2025/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of failed force push attempts to protected branches by a single user within a short
+time frame. Adversaries may attempt multiple force pushes to overwrite commit history on protected branches,
+potentially leading to data loss or disruption of development workflows.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Several Failed Protected Branch Force Pushes by User"
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://trigger.dev/blog/shai-hulud-postmortem",
+    "https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem",
+]
+risk_score = 47
+rule_id = "8bd1c36a-2c4f-4801-a43d-ba696c13ffc2"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-github.audit* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and
+  github.category == "protected_branch" and
+  event.action == "protected_branch.rejected_ref_update"
+| stats
+  Esql.document_count = COUNT(*),
+  Esql.github_org_values = values(github.org),
+  Esql.github_repo_values = values(github.repo),
+  Esql.github_branch_values = values(github.branch),
+  Esql.github_reasons_code_values = values(github.reasons.code),
+  Esql.github_reasons_message_value = values(github.reasons.message),
+  Esql.user_name_values = values(user.name),
+  Esql.agent_id_values = values(agent.id),
+  Esql.event_dataset_values = values(event.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  by user.name
+
+| keep Esql.*
+
+| where
+  Esql.document_count >= 5
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
