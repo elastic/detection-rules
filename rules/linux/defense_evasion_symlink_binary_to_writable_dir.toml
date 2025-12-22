@@ -70,7 +70,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.parent.executable:* and
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and
+process.parent.executable:(* and not (/bin/make or /sbin/weak-modules or /usr/bin/make or /usr/sbin/weak-modules)) and
 (process.name:ln or process.name:busybox and process.args:ln or process.name:cp and process.args:--symbolic-link) and
 process.args:(
   (
@@ -79,15 +80,12 @@ process.args:(
   ) and (
     /*/.* or /dev/shm/* or /home/* or /root/* or /tmp/* or /var/tmp/*
   ) and
-  not (
-    /usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs* or /var/tmp/portage/* or
-    usr/lib/python3/dist-packages/* or /var/tmp/pamac-build*
-  )
-) and
-not process.parent.executable:("/usr/sbin/weak-modules" or "/sbin/weak-modules" or /usr/bin/make or /bin/make) and
-not process.parent.args:(
-  "/usr/sbin/weak-modules" or /var/tmp/rpm-tmp* or /usr/share/initramfs-tools/hooks/ntfs_3g or "/usr/bin/qemu-aarch64-static"
-)
+    not (
+      /usr/bin/coreutils or /tmp/mkinitcpio* or /var/tmp/dracut* or /var/tmp/mkinitramfs* or /var/tmp/pamac-build* or
+      /var/tmp/portage/* or usr/lib/python3/dist-packages/*
+    )
+) and not
+process.parent.args:(/usr/bin/qemu-aarch64-static or /usr/sbin/weak-modules or /usr/share/initramfs-tools/hooks/ntfs_3g or /var/tmp/rpm-tmp*)
 '''
 [[rule.threat]]
 framework = "MITRE ATT&CK"
