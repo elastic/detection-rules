@@ -2,7 +2,7 @@
 creation_date = "2020/04/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ language = "eql"
 license = "Elastic License v2"
 max_signals = 33
 name = "Creation of Hidden Files and Directories via CommandLine"
-risk_score = 47
+risk_score = 21
 rule_id = "b9666521-4742-49ce-9ddc-b8e84c35acae"
 setup = """## Setup
 
@@ -65,7 +65,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 #### Custom Ingest Pipeline
 For versions <8.2, you need to add a custom ingest pipeline to populate `event.ingested` with @timestamp for non-elastic-agent indexes, like auditbeats/filebeat/winlogbeat etc. For more details to add a custom ingest pipeline refer to the [guide](https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -80,9 +80,10 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
 process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
-not process.name in (
-  "ls", "find", "grep", "git", "jq", "basename", "check_snmp", "snmpget", "snmpwalk", "cc1plus", "snap",
-  "command-not-found", "sqlite", "apk", "fgrep", "locate", "objdump"
+process.name like (
+  "touch", "tee", "cp", "mv", "install", "dd", "vi", "vim", "nano", "truncate", "sed", "awk", "curl", "wget",
+  "ftp", "scp", "rsync", "sftp", "tar", "unzip", "gunzip", "7z", "bzip2", "xz", "python*", "php*", "perl*",
+  "ruby*", "node*", "java", "printf", "echo", "cat", ".*"
 )
 '''
 note = """## Triage and analysis

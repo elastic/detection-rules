@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -109,43 +109,31 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "deletion" and
-  file.path :
-    (
-    "/var/run/utmp",
-    "/var/log/wtmp",
-    "/var/log/btmp",
-    "/var/log/lastlog",
-    "/var/log/faillog",
-    "/var/log/syslog",
-    "/var/log/messages",
-    "/var/log/secure",
-    "/var/log/auth.log",
-    "/var/log/boot.log",
-    "/var/log/kern.log",
-    "/var/log/dmesg"
-    ) and
-    not process.name in ("gzip", "executor", "dockerd")
+file where host.os.type == "linux" and event.type == "deletion" and file.path in (
+  "/var/run/utmp", "/var/log/wtmp", "/var/log/btmp", "/var/log/lastlog", "/var/log/faillog",
+  "/var/log/syslog", "/var/log/messages", "/var/log/secure", "/var/log/auth.log", "/var/log/boot.log",
+  "/var/log/kern.log", "/var/log/dmesg"
+) and not (
+  process.name in ("gzip", "executor", "dockerd") or
+  (process.executable in ("/usr/bin/podman", "/dev/fd/3") and file.name == "lastlog")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.002"
 name = "Clear Linux or Mac System Logs"
 reference = "https://attack.mitre.org/techniques/T1070/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

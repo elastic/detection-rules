@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,7 @@ LD_PRELOAD and LD_LIBRARY_PATH are environment variables in Linux that influence
 - Implement stricter access controls and monitoring on the affected system to prevent unauthorized changes to environment variables.
 - Update and enhance detection rules to include additional indicators of compromise related to LD_PRELOAD and LD_LIBRARY_PATH misuse, ensuring future attempts are identified promptly.
 """
-risk_score = 21
+risk_score = 73
 rule_id = "65613f5e-0d48-4b55-ad61-2fb9567cb1ad"
 setup = """## Setup
 
@@ -78,7 +78,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
@@ -98,9 +98,16 @@ process.parent.name:(* and not (
   nxrunner or nxserver or perl or rear or sapcontrol or setsid or spoold or sshd or steam or su or sudo or titanagent or
   vls_agent or zabbix_agentd
 )) and
+not process.parent.executable:(
+  /tmp/CVU_19_resource*/exectask or /u01/app/oracle/*oracle/CVU_19_oracle*/exectask or "/opt/ds_agent/ds_agent" or
+  "/opt/McAfee/agent/scripts/ma" or "/usr/local/bin/AppProtection/BootTimeChecker" or "/usr/bin/gmake" or "./runc" or
+  "/usr/openv/db/bin/nbdb_unload"
+) and
+not process.parent.args:"/opt/McAfee/agent/scripts/ma" and
 process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
 process.args:-c and process.command_line:(*LD_LIBRARY_PATH=* or *LD_PRELOAD=*)
 '''
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -161,4 +168,4 @@ value = ["process.parent.name", "process.command_line", "host.id"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
