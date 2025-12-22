@@ -2,7 +2,7 @@
 creation_date = "2021/01/06"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -73,7 +73,6 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
-
 [rule]
 author = ["Elastic"]
 description = """
@@ -84,16 +83,16 @@ from = "now-9m"
 index = ["auditbeat-*", "endgame-*", "logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Persistence via KDE AutoStart Script or Desktop File Modification"
+name = "KDE AutoStart Script or Desktop File Creation"
 note = """## Triage and analysis
 
-### Investigating Persistence via KDE AutoStart Script or Desktop File Modification
+### Investigating KDE AutoStart Script or Desktop File Creation
 
 K Desktop Environment (KDE) is a popular graphical desktop environment for Linux systems. It supports AutoStart scripts and desktop files that execute automatically upon user logon.
 
 Adversaries may exploit this feature to maintain persistence on a compromised system by creating or modifying these files.
 
-The detection rule 'Persistence via KDE AutoStart Script or Desktop File Modification' is designed to identify such activities by monitoring file events on Linux systems. It specifically targets the creation or modification of files with extensions ".sh" or ".desktop" in various AutoStart directories. By detecting these events, the rule helps security analysts identify potential abuse of KDE AutoStart functionality by malicious actors.
+The detection rule 'KDE AutoStart Script or Desktop File Creation' is designed to identify such activities by monitoring file events on Linux systems. It specifically targets the creation or modification of files with extensions ".sh" or ".desktop" in various AutoStart directories. By detecting these events, the rule helps security analysts identify potential abuse of KDE AutoStart functionality by malicious actors.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -208,39 +207,43 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type != "deletion" and
-  file.extension in ("sh", "desktop") and
-  file.path :
-    (
-      "/home/*/.config/autostart/*", "/root/.config/autostart/*",
-      "/home/*/.kde/Autostart/*", "/root/.kde/Autostart/*",
-      "/home/*/.kde4/Autostart/*", "/root/.kde4/Autostart/*",
-      "/home/*/.kde/share/autostart/*", "/root/.kde/share/autostart/*",
-      "/home/*/.kde4/share/autostart/*", "/root/.kde4/share/autostart/*",
-      "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*",
-      "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
-      "/etc/xdg/autostart/*", "/usr/share/autostart/*"
-    ) and
-    not process.name in (
-      "yum", "dpkg", "install", "dnf", "teams", "yum-cron", "dnf-automatic", "docker", "dockerd", "rpm", "pacman",
-      "podman", "nautilus", "remmina", "cinnamon-settings.py", "executor", "xfce4-clipman", "jetbrains-toolbox",
-      "ansible-admin", "apk"
-    )
+file where host.os.type == "linux" and event.type == "creation" and process.executable != null and
+file.extension in ("sh", "desktop") and
+file.path like (
+  "/home/*/.config/autostart/*", "/root/.config/autostart/*",
+  "/home/*/.kde/Autostart/*", "/root/.kde/Autostart/*",
+  "/home/*/.kde4/Autostart/*", "/root/.kde4/Autostart/*",
+  "/home/*/.kde/share/autostart/*", "/root/.kde/share/autostart/*",
+  "/home/*/.kde4/share/autostart/*", "/root/.kde4/share/autostart/*",
+  "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*",
+  "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
+  "/etc/xdg/autostart/*", "/usr/share/autostart/*"
+) and
+not (
+  process.name in (
+    "yum", "dpkg", "install", "dnf", "teams", "yum-cron", "dnf-automatic", "docker", "dockerd", "rpm", "pacman",
+    "podman", "nautilus", "remmina", "cinnamon-settings.py", "executor", "xfce4-clipman", "jetbrains-toolbox",
+    "ansible-admin", "apk"
+  ) or
+  process.executable in (
+    "/usr/bin/dnf5", "/usr/libexec/xdg-desktop-portal", "/usr/sbin/mkhomedir_helper", "/sbin/mkhomedir_helper",
+    "/usr/bin/crio", "/usr/sbin/useradd", "/usr/bin/nextcloud", "/usr/bin/sealert", "/opt/google/chrome/chrome",
+    "/usr/bin/pamac-daemon", "/usr/sbin/sshd", "/usr/sbin/gdm", "/usr/libexec/platform-python"
+  ) or
+  process.executable like "/home/*/.MathWorks/*/glnxa64/mlcpostinstall"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

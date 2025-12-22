@@ -2,7 +2,7 @@
 creation_date = "2024/06/03"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -92,16 +92,20 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name == "setcap" and not (
   process.parent.executable == null or
-  process.parent.executable : ("/var/lib/dpkg/*", "/var/lib/docker/*", "/tmp/newroot/*", "/var/tmp/newroot/*") or
-  process.parent.name in ("jem", "vzctl")
+  process.parent.executable like (
+    "/var/lib/dpkg/*", "/var/lib/docker/*", "/tmp/newroot/*", "/var/tmp/newroot/*", "/usr/bin/cmake",
+    "/opt/zscaler/bin/zpa-connector"
+  ) or
+  process.parent.name in ("jem", "vzctl") or
+  process.parent.args like "/var/lib/dpkg/info/*" or
+  process.working_directory in ("/opt/dynatrace/oneagent", "/opt/sophos-spl/plugins/av/sbin") or
+  process.parent.command_line in ("/bin/bash /entrypoint.sh telegraf", "/bin/sh /usr/local/bin/docker-entrypoint.sh server")
 )
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -110,6 +114,7 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -117,4 +122,3 @@ framework = "MITRE ATT&CK"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

@@ -1,24 +1,20 @@
 [metadata]
 creation_date = "2025/01/16"
-integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the process of copying or moving files from or to the `/boot` directory on Linux systems. The `/boot`
+This rule detects the process of copying or moving files from or to the "/boot" directory on Linux systems. The "/boot"
 directory contains files that are essential for the system to boot, such as the kernel and initramfs images. Attackers
-may copy or move files to the `/boot` directory to modify the boot process, which can be leveraged to maintain access to
+may copy or move files to the "/boot" directory to modify the boot process, which can be leveraged to maintain access to
 the system.
 """
 from = "now-9m"
 index = [
     "logs-endpoint.events.process*",
-    "endgame-*",
-    "auditbeat-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-crowdstrike.fdr*",
     "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
@@ -86,29 +82,48 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Auditd Manager",
-    "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
 process.name in ("cp", "mv") and process.parent.executable != null and process.args like~ "/boot/*" and not (
   process.parent.name in ("update-initramfs", "dracut", "grub-mkconfig", "shim-install", "sudo", "activate-theme", "update-grub-gfxpayload", "grub-pc.postinst") or
   process.parent.executable like~ ("/usr/lib/kernel/install.d/*", "/tmp/newroot/*", "/var/lib/dpkg/info/*") or
-  process.parent.args like~ ("/usr/bin/mkinitcpio", "/var/tmp/rpm-tmp.*")
+  process.parent.args like~ ("/usr/bin/mkinitcpio", "/var/tmp/rpm-tmp.*", "/var/lib/dpkg/info/*") or
+  process.parent.executable in (
+    "/var/lib/aws-replication-agent/migration_scripts/suse_to_aws.bash", "/usr/sbin/flash-kernel", "/usr/sbin/weak-modules",
+    "/etc/cron.hourly/check_mau", "/usr/bin/update-microcode-initrd", "/bin/run-parts", "/usr/sbin/mkinitramfs", "/usr/sbin/grub2-mkconfig",
+    "/usr/bin/supermin5", "/sbin/weak-modules", "/usr/sbin/nv-update-initrd", "/usr/libexec/platform-python", "/bin/kernel-install",
+    "/usr/bin/oracle-database-preinstall-19c-verify", "/usr/libexec/grubby/prune_debug"
+  ) or
+  process.command_line == "/bin/cp /usr/local/ASR/Vx/scripts/vCon//Configuration.info /boot/" or
+  ?process.working_directory in ("/var/lib/aws-replication-agent", "/opt/sentinelone/bin", "/tmp/MobilityAgentAutoUpgrade/package") or
+  (
+    process.name == "cp" and
+    process.parent.args in (
+      "/etc/kernel/postrm.d/zz-proxmox-boot", "/etc/kernel/postinst.d/zz-proxmox-boot", "/usr/lib/kernel/install.d/20-grub.install",
+      "/usr/bin/dracut", "/bin/dracut", "/usr/sbin/shim-install", "/sbin/dracut", "/opt/McAfee/ens/esp/scripts/modversion-check.sh",
+      "//opt/McAfee/ens/esp/scripts//modversion-check.sh", "/usr/sbin/update-grub-legacy-ec2", "/usr/bin/foreman-generate-bootloaders",
+      "/usr/share/grub2/themes/SLE/activate-theme", "/usr/sbin/dracut", "/usr/sbin/flash-kernel", "/usr/lib/kernel/install.d/20-grubby.install"
+    ) 
+  ) or
+  (process.name == "mv" and process.args == "-f" and process.parent.args == "/usr/sbin/update-initramfs") or
+  (
+    process.name == "mv" and
+    process.parent.args in (
+      "/usr/sbin/flash-kernel", "/usr/bin/update-microcode-initrd", "/usr/sbin/update-grub-gfxpayload",
+      "/usr/sbin/weak-modules", "/usr/bin/dracut"
+  )
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1542"
 name = "Pre-OS Boot"
@@ -124,28 +139,29 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -153,4 +169,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

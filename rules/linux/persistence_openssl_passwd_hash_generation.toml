@@ -2,13 +2,13 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the usage of the `openssl` binary to generate password hashes on Linux systems. The `openssl` command
-is a cryptographic utility that can be used to generate password hashes. Attackers may use `openssl` to generate
+This rule detects the usage of the "openssl" binary to generate password hashes on Linux systems. The "openssl" command
+is a cryptographic utility that can be used to generate password hashes. Attackers may use "openssl" to generate
 password hashes for new user accounts or to change the password of existing accounts, which can be leveraged to maintain
 persistence on a Linux system.
 """
@@ -59,7 +59,7 @@ OpenSSL is a robust cryptographic toolkit used for secure communications and dat
 - Implement additional monitoring on the affected system to detect any further unauthorized use of OpenSSL or similar tools, focusing on process execution and command-line arguments.
 - Escalate the incident to the security operations team for a comprehensive investigation to determine the root cause and scope of the breach, and to assess potential impacts on other systems.
 - Review and update access controls and authentication mechanisms to enhance security and prevent similar incidents in the future, ensuring that only authorized users can perform sensitive operations."""
-risk_score = 21
+risk_score = 47
 rule_id = "f4b857b3-faef-430d-b420-90be48647f00"
 setup = """## Setup
 
@@ -86,7 +86,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -101,29 +101,26 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and process.name == "openssl"
-and process.args == "passwd"
+and process.args == "passwd" and ?process.args_count >= 4 and not process.args in ("-help" or "--help" or "-h")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
