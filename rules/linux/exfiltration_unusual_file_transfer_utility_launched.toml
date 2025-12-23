@@ -93,7 +93,6 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 from logs-endpoint.events.process-* metadata _id, _index, _version
-| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, agent.id, host.name, process.parent.name, event.dataset, data_stream.namespace
 | mv_expand event.action 
 | where
     host.os.type == "linux" and
@@ -129,6 +128,24 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
           process.parent.executable like "/root/*"
         )
     )
+
+| keep
+    @timestamp,
+    _id,
+    _index,
+    _version,
+    host.os.type,
+    event.type,
+    event.action,
+    process.name,
+    process.parent.name,
+    process.parent.executable,
+    process.executable,
+    agent.id,
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
@@ -138,11 +155,11 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     Esql.data_stream_namespace_values = values(data_stream.namespace)
 
   by process.executable, process.parent.executable
+
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 5
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
