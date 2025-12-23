@@ -2,7 +2,7 @@
 creation_date = "2023/03/21"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -34,10 +34,10 @@ query = "SELECT * FROM crontab"
 [rule]
 author = ["Elastic"]
 description = """
-Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications, services, scripts
+Files that are placed in the "/etc/init.d/" directory in Unix can be used to start custom applications, services, scripts
 or commands during start-up. Init.d has been mostly replaced in favor of Systemd. However, the "systemd-sysv-generator"
 can convert init.d files to service unit files that run at boot. Adversaries may add or alter files located in the
-/etc/init.d/ directory to execute malicious code upon boot in order to gain persistence on the system.
+"/etc/init.d/" directory to execute malicious code upon boot in order to gain persistence on the system.
 """
 from = "now-9m"
 index = ["endgame-*", "logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*"]
@@ -152,43 +152,47 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
-and file.path : "/etc/init.d/*" and not (
+and file.path like "/etc/init.d/*" and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
     "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
     "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
-    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
-    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client", "./envbuilder/bin/envbuilder",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/usr/bin/pamac-daemon", "/opt/puppetlabs/puppet/bin/ruby",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "./usr/bin/podman", "/usr/lib/systemd/systemd",
+    "/usr/bin/buildah", "/dev/.buildkit_qemu_emulator", "/usr/lib/nvidia/post-install", "/usr/bin/dnf5", "/usr/sbin/yum-cron"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove", "dpkg-new") or
+  ?file.Ext.original.name like "*.dpkg-new" or
   file.path like ("/etc/init.d/*beat*", "/etc/init.d/elastic-agent*") or
-  process.executable like ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/opt/puppetlabs/puppet/bin/ruby") or
+  process.executable like (
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/var/lib/docker/overlay2/*/dockerd ",
+    "/var/lib/containers/storage/overlay/*/dockerd"
+  ) or
   process.name in ("docker-init", "jumpcloud-agent", "crio") or
   process.executable == null or
   process.name in ("executor", "univention-config-registry", "install", "dockerd-entrypoint.sh", "platform-python*", "ssm-agent-worker") or
   (process.name == "ln" and file.path : "/etc/init.d/rc*.d/*") or
   (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") or
+  (process.name == "cp" and file.path == "/etc/init.d/unified-monitoring-agent") or
+  (process.name == "./vmware-install.pl" and file.path == "/etc/init.d/vmware-tools")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

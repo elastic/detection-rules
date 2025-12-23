@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/06/03"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -15,54 +15,6 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Loadable Kernel Module Configuration File Creation"
-risk_score = 21
-rule_id = "6e2355cc-c60a-4d92-a80c-e54a45ad2400"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and process.executable != null and
-file.path like (
-  "/etc/modules", "/etc/modprobe.d/*", "/run/modprobe.d/*", "/usr/local/lib/modprobe.d/*", "/usr/lib/modprobe.d/*",
-  "/lib/modprobe.d/*", "/etc/modules-load.d/*", "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*",
-  "/usr/lib/modules-load.d/*"
-) and not (
-  process.executable in (
-    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
-    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
-    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
-    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
-    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
-    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
-    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/local/bin/dockerd", "/opt/elasticbeanstalk/bin/platform-engine",
-    "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/opt/imunify360/venv/bin/python3",
-    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor", "/usr/bin/prime-select"
-  ) or
-  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
-  process.executable like (
-    "/nix/store/*", "/var/lib/dpkg/info/kmod.postinst", "/tmp/vmis.*", "/snap/*", "/dev/fd/*",
-    "/usr/libexec/platform-python*"
-  ) or
-  process.executable == null or
-  process.name in (
-    "crond", "executor", "puppet", "droplet-agent.postinst", "cf-agent", "schedd", "imunify-notifier", "perl",
-    "jumpcloud-agent", "crio", "dnf_install", "utild"
-  ) or
-  (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -99,6 +51,58 @@ Loadable Kernel Modules (LKMs) are components that can be dynamically loaded int
 - Review system logs and the history of executed commands to identify the initial vector of compromise and any other affected systems.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
 - Implement additional monitoring and alerting for similar suspicious activities to enhance detection and response capabilities for future incidents."""
+risk_score = 47
+rule_id = "6e2355cc-c60a-4d92-a80c-e54a45ad2400"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action == "creation" and process.executable != null and
+file.path like (
+  "/etc/modules", "/etc/modprobe.d/*", "/run/modprobe.d/*", "/usr/local/lib/modprobe.d/*", "/usr/lib/modprobe.d/*",
+  "/lib/modprobe.d/*", "/etc/modules-load.d/*", "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*",
+  "/usr/lib/modules-load.d/*"
+) and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/local/bin/dockerd", "/opt/elasticbeanstalk/bin/platform-engine",
+    "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/opt/imunify360/venv/bin/python3",
+    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor", "/usr/bin/prime-select",
+    "/usr/lib/dracut/dracut-install", "/usr/bin/dnf5", "./usr/bin/podman", "/usr/libexec/packagekitd", "/usr/bin/buildah",
+    "./usr/lib/snapd/snap-update-ns", "/usr/lib/snapd/snapd", "/usr/local/bin/podman", "/usr/sbin/yum-cron",
+    "./usr/bin/qemu-aarch64-static", "/.envbuilder/bin/envbuilder"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable like (
+    "/nix/store/*", "/var/lib/dpkg/info/kmod.postinst", "/tmp/vmis.*", "/snap/*", "/dev/fd/*",
+    "/usr/libexec/platform-python*", "./snap/snapd/*/snap-update-ns"
+  ) or
+  process.executable == null or
+  process.name in (
+    "crond", "executor", "puppet", "droplet-agent.postinst", "cf-agent", "schedd", "imunify-notifier", "perl",
+    "jumpcloud-agent", "crio", "dnf_install", "utild", "dockerd"
+  ) or
+  process.name like "python*" or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

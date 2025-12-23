@@ -2,7 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -24,11 +24,10 @@ SELECT * FROM file WHERE (path = '/run/systemd/generator/multi-user.target.wants
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors the creation/alteration of the rc.local/rc.common file. The /etc/rc.local file is used to start
+This rule monitors the creation of the rc.local/rc.common files. The "/etc/rc.local" file is used to start
 custom applications, services, scripts or commands during start-up. The rc.local file has mostly been replaced by
 Systemd. However, through the "systemd-rc-local-generator", rc.local files can be converted to services that run at
 boot. Adversaries may alter rc.local/rc.common to execute malicious code at start-up, and gain persistence onto the
@@ -104,7 +103,7 @@ references = [
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
     "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "0f4d35e4-925e-4959-ab24-911be207ee6f"
 setup = """## Setup
 
@@ -131,7 +130,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -142,9 +141,8 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file where host.os.type == "linux" and event.action == "creation" and
 file.path in ("/etc/rc.local", "/etc/rc.common") and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -168,22 +166,20 @@ file.path in ("/etc/rc.local", "/etc/rc.common") and not (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

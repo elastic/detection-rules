@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,7 @@ The APT package manager is a vital tool for managing software on Debian-based Li
 - Monitor the affected host and network for any signs of re-infection or further suspicious activity, focusing on the execution of shell scripts and unauthorized network connections.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised."""
 references = ["https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms"]
-risk_score = 47
+risk_score = 21
 rule_id = "ad959eeb-2b7b-4722-ba08-a45f6622f005"
 setup = """## Setup
 
@@ -82,7 +82,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
@@ -96,7 +96,6 @@ tags = [
   "Data Source: Crowdstrike",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and
@@ -104,16 +103,39 @@ sequence by host.id with maxspan=5s
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
    ) and not process.executable == "/usr/lib/venv-salt-minion/bin/python.original"
   ] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and process.name : (
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and process.name like (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*",
      "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk"
-   )
+   ) and not (
+     ?process.parent.executable like (
+       "/run/k3s/containerd*", "/tmp/newroot/*", "/usr/share/debconf/frontend", "/var/tmp/buildah*", "./merged/*",
+       "./*/vz/root/*", "/usr/bin/adequate" 
+      ) or
+     process.executable like ("/usr/lib/venv-salt-minion/bin/python.original", "./merged/var/lib/containers/*") or
+     process.command_line in (
+       "python3 /usr/sbin/omv-mkaptidx", "python3 /usr/local/bin/abr-upgrade --upgrade",
+       "sh -c apt-get indextargets -o Dir::State::lists=/var/lib/apt/lists/ --format='$(FILENAME)' 'Created-By: Packages'",
+       "/usr/bin/perl /usr/sbin/dpkg-preconfigure --apt", "/bin/sh -e /usr/lib/update-notifier/update-motd-updates-available",
+       "/usr/bin/python3 /usr/lib/cnf-update-db", "/usr/bin/python3 /usr/bin/apt-listchanges --apt",
+       "/usr/bin/perl -w /usr/sbin/dpkg-preconfigure --apt", "/bin/sh /usr/lib/needrestart/apt-pinvoke",
+       "/bin/sh /usr/bin/kali-check-apt-sources", "/bin/sh /usr/lib/needrestart/apt-pinvoke -m u",
+       "/usr/bin/perl /usr/sbin/needrestart",  "/usr/bin/perl -w /usr/bin/apt-show-versions -i",
+       "/usr/bin/perl -w /usr/bin/apt-show-versions -i", "/usr/bin/perl -w /bin/apt-show-versions -i",
+       "/usr/bin/perl /bin/adequate --help",  "/usr/bin/perl /usr/sbin/needrestart -m u", 
+       "/usr/bin/perl -w /usr/share/debconf/frontend /usr/sbin/needrestart",
+       "/usr/bin/python3 /sbin/katello-tracer-upload",
+       "/usr/bin/python3 /usr/bin/package-profile-upload"
+     ) or
+     ?process.parent.command_line like ("sh -c if [ -x*", "sh -c -- if [ -x*") or
+     process.args in ("/usr/sbin/needrestart", "/usr/lib/needrestart/apt-pinvoke", "/usr/share/proxmox-ve/pve-apt-hook", "/usr/bin/dpkg-source") or
+     ?process.parent.args == "/usr/share/debconf/frontend"
+    )
   ] by process.parent.entity_id
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -123,39 +145,40 @@ reference = "https://attack.mitre.org/techniques/T1543/"
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1546.016"
 name = "Installer Packages"
 reference = "https://attack.mitre.org/techniques/T1546/016/"
-
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -163,4 +186,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

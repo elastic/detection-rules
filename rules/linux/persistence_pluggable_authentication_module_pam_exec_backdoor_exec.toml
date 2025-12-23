@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -79,13 +79,27 @@ query = '''
 sequence by process.entity_id with maxspan=3s
   [process where host.os.type == "linux" and event.type == "change" and event.action == "session_id_change" and process.name in ("ssh", "sshd")]
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name in ("ssh", "sshd") and
-   process.args_count == 2 and (
-     process.name like ("perl*", "python*", "php*", "ruby*", "lua*") or
+   process.args_count == 2 and process.args like (
+     "sh", "dash", "bash", "zsh",
+     "perl*", "python*", "php*", "ruby*", "lua*",
+
+     "/bin/sh", "/bin/dash", "/bin/bash", "/bin/zsh",
+     "/bin/perl*", "/bin/python*", "/bin/php*", "/bin/ruby*", "/bin/lua*",
+
+     "/usr/bin/sh", "/usr/bin/dash", "/usr/bin/bash", "/usr/bin/zsh",
+     "/usr/bin/perl*", "/usr/bin/python*", "/usr/bin/php*", "/usr/bin/ruby*", "/usr/bin/lua*",
+
+     "/usr/local/bin/sh", "/usr/local/bin/dash", "/usr/local/bin/bash", "/usr/local/bin/zsh",
+     "/usr/local/bin/perl*", "/usr/local/bin/python*", "/usr/local/bin/php*", "/usr/local/bin/ruby*", "/usr/local/bin/lua*"
+   ) and (
+     process.name like ".*" or
      process.executable like (
-       "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/boot/*", "/sys/*", "/lost+found/*", "/media/*", "/proc/*",
-       "/var/backups/*", "/var/log/*", "/var/mail/*", "/var/spool/*") or
-     process.name like ".*"
-   )]
+       "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/boot/*", "/sys/*", "/lost+found/*", "/media/*", "/proc/*", "/bin/*", "/usr/bin/*",
+       "/sbin/*", "/usr/sbin/*", "/lib/*", "/lib64/*", "/usr/lib/*", "/usr/lib64/*", "/opt/*", "/var/lib/*", "/run/*", "/var/backups/*",
+       "/var/log/*", "/var/mail/*", "/var/spool/*"
+     )
+   )
+  ]
 '''
 
 [[rule.threat]]
