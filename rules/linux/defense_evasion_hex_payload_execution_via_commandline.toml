@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike"]
+integration = ["auditd_manager", "crowdstrike", "endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,14 @@ This rule detects when a process executes a command line containing hexadecimal 
 hexadecimal encoding to obfuscate their payload and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Hex Payload Execution via Command-Line"
@@ -83,17 +90,22 @@ tags = [
   "Use Case: Threat Detection",
   "Tactic: Defense Evasion",
   "Tactic: Execution",
+  "Data Source: Auditd Manager",
   "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
+  "Data Source: Elastic Endgame",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 ?process.parent.executable != null and
 process.command_line : "*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*" and
-length(process.command_line) > 50
+length(process.command_line) > 50 and
+not process.name in ("snap", "printf", "sed")
 '''
 
 [[rule.threat]]

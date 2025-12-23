@@ -2,7 +2,7 @@
 creation_date = "2024/08/28"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,7 @@ Auditd is a critical Linux service responsible for system auditing and logging, 
 - Apply any necessary security patches or updates to the affected system to address vulnerabilities that may have been exploited by the adversary.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected.
 - Implement enhanced monitoring and alerting for similar activities across the network to detect and respond to future attempts to disable critical security services."""
-risk_score = 21
+risk_score = 47
 rule_id = "6a058ed6-4e9f-49f3-8f8e-f32165ae7ebf"
 setup = """## Setup
 
@@ -81,7 +81,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -95,33 +95,31 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and (
   (process.name == "service" and process.args == "stop") or
   (process.name == "chkconfig" and process.args == "off") or
-  (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
+  (process.name == "update-rc.d" and process.args in ("remove", "disable")) or
+  (process.name == "systemctl" and process.args in ("disable", "stop", "kill", "mask"))
 ) and
 process.args in ("auditd", "auditd.service") and 
-not process.parent.name == "auditd.prerm"
+not ?process.parent.name == "auditd.prerm"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

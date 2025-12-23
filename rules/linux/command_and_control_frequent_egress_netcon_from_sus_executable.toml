@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/02"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -92,9 +92,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-endpoint.events.network-*
+from logs-endpoint.events.network-* metadata _id, _index, _version
+| mv_expand event.action 
 | where
-    @timestamp > now() - 1h and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "connection_attempted" and
@@ -127,6 +127,9 @@ from logs-endpoint.events.network-*
     )
 | keep
     @timestamp,
+    _id,
+    _index,
+    _version,
     host.os.type,
     event.type,
     event.action,
@@ -134,18 +137,22 @@ from logs-endpoint.events.network-*
     process.executable,
     destination.ip,
     agent.id,
-    host.name
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
-    Esql.agent_id_values = values(agent.id)
+    Esql.agent_id_values = values(agent.id),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
     by process.executable
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count > 15
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
