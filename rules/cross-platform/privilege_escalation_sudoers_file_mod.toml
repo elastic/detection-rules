@@ -2,7 +2,7 @@
 creation_date = "2020/04/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/14"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -14,35 +14,13 @@ from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Sudoers File Modification"
-references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
-risk_score = 47
-rule_id = "931e25a5-0f5e-4ae0-ba0d-9e94eff7e3a4"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-file where host.os.type in ("linux", "macos") and event.type in ("creation", "change") and
-file.path like ("/etc/sudoers*", "/private/etc/sudoers*") and not (
-  process.name in ("dpkg", "platform-python", "puppet", "yum", "dnf") or
-  process.executable in ("/opt/chef/embedded/bin/ruby", "/opt/puppetlabs/puppet/bin/ruby", "/usr/bin/dockerd")
-)
-'''
+name = "Sudoers File Activity"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Sudoers File Modification
+### Investigating Sudoers File Activity
 
 The sudoers file is crucial in Unix-like systems, defining user permissions for executing commands with elevated privileges. Adversaries may exploit this by altering the file to gain unauthorized access or escalate privileges. The detection rule identifies suspicious changes to the sudoers file, excluding legitimate processes, to flag potential privilege escalation attempts.
 
@@ -71,6 +49,35 @@ The sudoers file is crucial in Unix-like systems, defining user permissions for 
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems have been affected.
 - Implement additional monitoring on the affected system and similar systems to detect any further attempts to modify the sudoers file or other privilege escalation activities.
 - Review and update security policies and configurations to prevent similar incidents, ensuring that only authorized processes can modify the sudoers file."""
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
+risk_score = 47
+rule_id = "931e25a5-0f5e-4ae0-ba0d-9e94eff7e3a4"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type in ("linux", "macos") and event.type in ("creation", "change") and
+file.path like ("/etc/sudoers*", "/private/etc/sudoers*") and not (
+  process.name like ("dpkg", "platform-python*", "puppet", "yum", "dnf", "python*") or
+  process.executable in (
+    "/opt/chef/embedded/bin/ruby", "/opt/puppetlabs/puppet/bin/ruby", "/usr/bin/dockerd",
+    "/usr/bin/podman", "/opt/teleport/system/bin/teleport", "/usr/sbin/dockerd",
+    "/usr/local/bin/dockerd", "/usr/local/bin/teleport", "./usr/bin/podman", "/dev/fd/5",
+    "/usr/bin/rpm", "/usr/bin/microdnf", "/opt/morpheus-node/embedded/bin/chef-client",
+    "/opt/puppetlabs/puppet/bin/ruby", "/usr/bin/salt-minion"
+  ) or
+  process.executable like ("./snap/snapd/*/usr/lib/snapd/snap-update-ns", "/opt/teleport/*/bin/teleport",)
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
