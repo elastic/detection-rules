@@ -103,25 +103,8 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 from logs-endpoint.events.process-* metadata _id, _index, _version
-| keep
-    @timestamp,
-    host.os.type,
-    event.type,
-    event.action,
-    process.parent.name,
-    user.name,
-    user.id,
-    process.working_directory,
-    process.parent.working_directory,
-    process.name,
-    process.executable,
-    process.command_line,
-    process.parent.executable,
-    agent.id,
-    host.name
 | mv_expand event.action
 | where
-    @timestamp > now() - 1 hours and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "exec" and (
@@ -146,17 +129,43 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
         process.parent.executable like "/vscode/vscode-server/*" or
         process.parent.executable == "/usr/bin/xfce4-terminal"
     )
+
+| keep
+    @timestamp,
+    _id,
+    _index,
+    _version,
+    host.os.type,
+    event.type,
+    event.action,
+    process.parent.name,
+    user.name,
+    user.id,
+    process.working_directory,
+    process.parent.working_directory,
+    process.name,
+    process.executable,
+    process.command_line,
+    process.parent.executable,
+    agent.id,
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
-    Esql.agent_id_values = values(agent.id)
+    Esql.agent_id_values = values(agent.id),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+
   by process.command_line, process.working_directory, process.parent.executable
+
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 5
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
