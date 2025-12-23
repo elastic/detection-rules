@@ -2,40 +2,20 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a UID change event via `nsenter`. The `nsenter` command is used to enter a namespace, which is a
-way to isolate processes and resources. Attackers can use `nsenter` to escape from a container to the host, which can
+This rule identifies a UID change event via "nsenter". The "nsenter" command is used to enter a namespace, which is a
+way to isolate processes and resources. Attackers can use "nsenter" to escape from a container to the host, which can
 lead to privilege escalation and lateral movement.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Docker Escape via Nsenter"
-references = ["https://www.cyberark.com/resources/threat-research-blog/the-route-to-root-container-escape-using-kernel-exploitation"]
-risk_score = 47
-rule_id = "5f3ab3ce-7b41-4168-a06a-68d2af8ebc88"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-process where host.os.type == "linux" and event.type == "change" and event.action == "uid_change" and
-process.entry_leader.entry_meta.type == "container" and process.args == "nsenter" and
-process.args in ("-t", "--target") and process.args_count >= 4
-'''
+name = "Potential Docker Escape via Nsenter"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -71,6 +51,27 @@ Docker containers use namespaces to isolate processes, ensuring they operate ind
 - Implement stricter namespace and capability restrictions for containers to minimize the risk of privilege escalation. Consider using security tools like AppArmor or SELinux to enforce these restrictions.
 - Monitor for any further suspicious activity on the host system and other containers, focusing on similar UID change events or unauthorized use of `nsenter`.
 - Escalate the incident to the security operations team for a comprehensive investigation and to assess the potential impact on the broader network and systems."""
+references = ["https://www.cyberark.com/resources/threat-research-blog/the-route-to-root-container-escape-using-kernel-exploitation"]
+risk_score = 47
+rule_id = "5f3ab3ce-7b41-4168-a06a-68d2af8ebc88"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "change" and event.action == "uid_change" and
+process.entry_leader.entry_meta.type == "container" and process.args == "nsenter" and
+process.args in ("-t", "--target") and process.args_count >= 4 and
+not process.parent.args == "/opt/teleport/system/bin/teleport"
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
