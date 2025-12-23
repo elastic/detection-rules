@@ -95,7 +95,6 @@ query = '''
 from logs-endpoint.events.network-* metadata _id, _index, _version
 | mv_expand event.action 
 | where
-    @timestamp > now() - 1h and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "connection_attempted" and
@@ -128,6 +127,9 @@ from logs-endpoint.events.network-* metadata _id, _index, _version
     )
 | keep
     @timestamp,
+    _id,
+    _index,
+    _version,
     host.os.type,
     event.type,
     event.action,
@@ -135,7 +137,10 @@ from logs-endpoint.events.network-* metadata _id, _index, _version
     process.executable,
     destination.ip,
     agent.id,
-    host.name
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
@@ -148,7 +153,6 @@ from logs-endpoint.events.network-* metadata _id, _index, _version
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count > 15
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
