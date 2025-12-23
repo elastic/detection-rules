@@ -133,18 +133,23 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     )
 | keep
     @timestamp,
+    _id,
+    _index,
+    _version,
     host.os.type,
     event.type,
     event.action,
     process.name,
     process.args,
     process.command_line,
+    process.parent.name,
+    process.parent.command_line,
     agent.id,
-    host.name
+    host.name,
+    event.dataset,
+    data_stream.namespace
 | stats
     Esql.event_count = count(),
-    Esql.process_name_values = values(process.name),
-    Esql.process_command_line_values = values(process.command_line),
     Esql.process_parent_name_values = values(process.parent.name),
     Esql.process_parent_command_line_values = values(process.parent.command_line),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
@@ -157,7 +162,6 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 15
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
