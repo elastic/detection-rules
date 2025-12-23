@@ -2,12 +2,12 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of an unusual SSHD child process through the usage of the `new_terms` rule type.
+This rule detects the creation of an unusual SSHD child process through the usage of the "new_terms" rule type.
 Attackers may abuse SSH to maintain persistence on a compromised system, or to establish a backdoor for remote access,
 potentially resulting in an unusual SSHD child process being created.
 """
@@ -16,29 +16,6 @@ index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual SSHD Child Process"
-references = ["https://hadess.io/the-art-of-linux-persistence/"]
-risk_score = 47
-rule_id = "4c3c6c47-e38f-4944-be27-5c80be973bd7"
-severity = "medium"
-tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Persistence",
-  "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:(exec or ProcessRollup2) and
-process.parent.name:(ssh or sshd) and process.args_count:2 and
-not (
-  process.command_line:(-bash or -zsh or -sh) or
-  process.name:(ractrans or exectask or tty or tput or ferny-askpass or id or ip)
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -72,6 +49,30 @@ Secure Shell (SSH) is a protocol used to securely access remote systems. Adversa
 - Implement additional monitoring on the affected system and related network segments to detect any further suspicious activities or attempts to re-establish persistence.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems may be affected.
 - Review and update firewall rules and access controls to restrict SSH access to only trusted IP addresses and users, reducing the attack surface for future incidents."""
+references = ["https://hadess.io/the-art-of-linux-persistence/"]
+risk_score = 21
+rule_id = "4c3c6c47-e38f-4944-be27-5c80be973bd7"
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:(exec or ProcessRollup2) and
+process.parent.name:sshd and process.args_count:2 and process.parent.args:"-D" and
+not (
+  process.command_line:(-bash or -zsh or -sh) or
+  process.name:(ractrans or exectask or tty or tput or ferny-askpass or id or ip) or
+  process.executable:/var/tmp/foreman-ssh-cmd*/script
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -133,4 +134,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
