@@ -2,7 +2,7 @@
 creation_date = "2025/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -16,55 +16,6 @@ index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Seeking Activity"
-references = ["https://www.elastic.co/security-labs/declawing-pumakit"]
-risk_score = 21
-rule_id = "3c9f7901-01d8-465d-8dc0-5d46671035fa"
-setup = """## Setup
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-(process.parent.args like "/boot/*" or process.args like "/boot/*") and (
-  (process.name == "tail" and (process.args like "-c*" or process.args == "--bytes")) or
-  (process.name == "cmp" and process.args == "-i") or
-  (process.name in ("hexdump", "xxd") and process.args == "-s") or
-  (process.name == "dd" and process.args like "seek*")
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -99,6 +50,64 @@ Kernel seeking involves probing the Linux kernel for symbols and functions, ofte
 - Update the Linux kernel and all related packages to the latest versions to patch any known vulnerabilities that could be exploited.
 - Implement enhanced monitoring and alerting for similar activities, focusing on the execution of the specified utilities with kernel-related arguments.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected."""
+references = ["https://www.elastic.co/security-labs/declawing-pumakit"]
+risk_score = 47
+rule_id = "3c9f7901-01d8-465d-8dc0-5d46671035fa"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+(process.parent.args like "/boot/*" or process.args like "/boot/*") and (
+  (process.name == "tail" and (process.args like "-c*" or process.args == "--bytes")) or
+  (process.name == "cmp" and process.args == "-i") or
+  (process.name in ("hexdump", "xxd") and process.args == "-s") or
+  (process.name == "dd" and process.args like "seek*")
+) and process.parent.executable != null and
+not (
+  process.parent.executable in (
+    "/usr/lib/needrestart/vmlinuz-get-version", "/bin/dracut", "/sbin/dracut", "/usr/sbin/dracut"
+  ) or
+  process.parent.args in (
+    "/usr/bin/dracut", "/usr/lib/needrestart/vmlinuz-get-version", "/sbin/dracut", "/bin/dracut",
+    "/usr/sbin/dracut", "/usr/bin/spectre-meltdown-checker", "/usr/lib/module-init-tools/lsinitrd-quick"
+  )
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

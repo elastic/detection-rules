@@ -2,7 +2,7 @@
 creation_date = "2024/01/09"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Enumeration"
-risk_score = 21
+risk_score = 47
 rule_id = "5c351f54-4187-4ad8-abc8-29b0cfbef8b1"
 setup = """## Setup
 
@@ -43,7 +43,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -56,7 +56,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "ProcessRollup2") and
@@ -98,17 +97,15 @@ In Linux environments, the `getcap` command is used to list file capabilities, w
 - Implement monitoring for similar `getcap` command executions across the environment to detect and respond to future attempts promptly.
 - Review and update access controls and user permissions to ensure that only authorized users have the necessary privileges to execute potentially sensitive commands like `getcap`."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

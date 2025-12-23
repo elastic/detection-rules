@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/25"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,12 @@ file to gather information about shared directories and potential targets for fu
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -57,7 +59,7 @@ In Linux environments, the `/etc/exports` and `/etc/fstab` files are crucial for
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
 - Implement enhanced monitoring and logging for access to critical configuration files like `/etc/exports` and `/etc/fstab` to detect similar threats in the future.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "bd18f4a3-c4c6-43b9-a1e4-b05e09998110"
 setup = """## Setup
 
@@ -84,7 +86,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -94,13 +96,16 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.command_line like ("/etc/exports", "/etc/fstab")
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep", "awk") and
+process.command_line like ("/etc/exports", "/etc/fstab")
 '''
 
 [[rule.threat]]

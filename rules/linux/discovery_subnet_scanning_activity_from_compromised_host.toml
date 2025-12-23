@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/02"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,7 @@ Subnet scanning is a reconnaissance method used by attackers to map network topo
 - Monitor network traffic closely for any signs of continued scanning or other suspicious activities from other hosts, indicating potential further compromise.
 - Escalate the incident to the security operations center (SOC) or incident response team for a comprehensive investigation and to determine if additional hosts are affected.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "860f2a03-a1cf-48d6-a674-c6d62ae608a1"
 setup = """## Setup
 
@@ -81,7 +81,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -93,34 +93,52 @@ tags = [
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-endpoint.events.network-*
-| keep @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id, host.name
+from logs-endpoint.events.network-* metadata _id, _index, _version
+| mv_expand event.action
 | where
-    @timestamp > now() - 1 hours and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "connection_attempted" and
     not (
-      process.executable in ("/usr/local/bin/prometheus", "/app/extra/chrome") or
+      process.executable in ("/usr/local/bin/prometheus", "/app/extra/chrome", "/usr/lib/virtualbox/VBoxHeadless", "/usr/bin/prometheus") or
       process.executable like "/usr/local/prometheus/*/prometheus" or
       process.executable like "/usr/share/elastic-agent/*" or
       process.executable like "/var/lib/docker/overlay*connectord" or
       process.executable like "/opt/rumble/bin/rumble-agent*" or
       process.executable like "/opt/gitlab/*" or
-      process.executable like "/opt/google/chrome/chrome*"
+      process.executable like "/opt/google/chrome/chrome*" or
+      process.executable like "/snap/firefox/*/firefox" or
+      process.executable like "/var/lib/docker/overlay2/*/qbittorrent-nox"
     )
+| keep
+    @timestamp,
+    _id,
+    _index,
+    _version,
+    host.os.type,
+    event.type,
+    event.action,
+    process.executable,
+    destination.ip,
+    agent.id,
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.destination_ip_count_distinct = count_distinct(destination.ip),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
-    Esql.agent_id_values = values(agent.id)
+    Esql.agent_id_values = values(agent.id),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
   by process.executable
+
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.destination_ip_count_distinct > 250
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]
