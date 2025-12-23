@@ -2,7 +2,7 @@
 creation_date = "2022/05/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -68,12 +68,16 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-user.id == "0" and process.executable : ("/dev/shm/*", "/run/shm/*", "/var/run/*", "/var/lock/*") and
-not process.executable : ("/var/run/docker/*", "/var/run/utsns/*", "/var/run/s6/*", "/var/run/cloudera-scm-agent/*",
-"/var/run/argo/argoexec") and not process.parent.command_line : "/usr/bin/runc init"
+user.id == "0" and process.executable like ("/dev/shm/*", "/run/shm/*", "/var/run/*", "/var/lock/*") and
+not (
+  process.executable : (
+    "/var/run/docker/*", "/var/run/utsns/*", "/var/run/s6/*", "/var/run/cloudera-scm-agent/*",
+    "/var/run/argo/argoexec", "/dev/shm/*.*/sandfly"
+  ) or
+  process.parent.command_line == "/usr/bin/runc init"
+)
 '''
 note = """## Triage and analysis
 
@@ -112,17 +116,15 @@ Shared memory directories in Linux, such as /dev/shm and /run/shm, are designed 
 - Implement enhanced monitoring and alerting for any future execution of binaries from shared memory directories, ensuring that legitimate processes are whitelisted appropriately.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
