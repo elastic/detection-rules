@@ -2,7 +2,7 @@
 creation_date = "2025/09/30"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/30"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,7 @@ This rule flags child processes started by vmtoolsd or its version-checking scri
 - Prevent recurrence by deploying the vendor fix for CVE-2025-41244 across all Linux VMs, pinning or replacing the open-vm-tools serviceDiscovery scripts with versions that use absolute paths, and adding EDR allowlists/blocks so vmtoolsd cannot launch binaries from writable paths.
 """
 references = ["https://blog.nviso.eu/2025/09/29/you-name-it-vmware-elevates-it-cve-2025-41244/"]
-risk_score = 47
+risk_score = 21
 rule_id = "c5da2519-160c-4cc9-bf69-b0223e99d0db"
 setup = """## Setup
 
@@ -85,7 +85,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -112,6 +112,25 @@ event.action in ("exec", "exec_event", "start", "executed", "process_started", "
     process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
     ?process.parent.args like ("/*/open-vm-tools/serviceDiscovery/scripts/get-versions.sh")
   )
+) and not (
+  process.executable == null or
+  ?process.parent.args == "--version" or
+  process.args like (
+    "/etc/vmware-tools/resume-vm-default",
+    "/etc/vmware-tools/suspend-vm-default",
+    "/sbin/shutdown",
+    "/sbin/shutdown*",
+    "/etc/vmware-tools/poweroff-vm-default",
+    "/etc/vmware-tools/poweroff-vm-default",
+    "/bin/touch",
+    "/tmp/vmware-administrator_*",
+    "/tmp/vmware-root_*",
+    "/etc/vmware-tools/scripts/vmware/network",
+    "/etc/vmware-tools/poweron-vm-default"
+  ) or
+  process.executable == "/usr/sbin/unix_chkpwd" or
+  ?process.working_directory like ("/var/opt/ds_agent", "/tmp/vmware-root_*/tmpvmware*") or
+  process.command_line like ("*/usr/bin/lsb_release*", "*/bin/touch*", "*/tmp/vmware-root_*")
 )
 '''
 

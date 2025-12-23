@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -105,25 +105,27 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event", "start") and
-process.executable: "/usr/bin/unshare" and
-not process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") and
-not process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java")
+process.executable: "/usr/bin/unshare" and not (
+  process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
+  process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java") or
+  process.parent.args like (
+    "/etc/kernel/postinst.d/zz-proxmox-boot", "/opt/openssh/sbin/sshd", "/usr/sbin/sshd",
+    "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

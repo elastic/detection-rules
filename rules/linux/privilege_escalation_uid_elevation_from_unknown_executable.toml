@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/27"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -16,65 +16,6 @@ index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "UID Elevation from Previously Unknown Executable"
-risk_score = 47
-rule_id = "7787362c-90ff-4b1a-b313-8808b1020e64"
-setup = """## Setup
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
-the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click Add integrations.
-- In the query bar, search for Elastic Defend and select the integration to see more details about it.
-- Click Add Elastic Defend.
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click Save and Continue.
-- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-host.os.type:"linux" and event.category:"process" and event.action:"uid_change" and event.type:"change" and user.id:"0"
-and process.parent.name:("bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish") and not (
-  process.executable:(
-    /bin/* or /usr/bin/* or /sbin/* or /usr/sbin/* or /snap/* or /tmp/newroot/* or /var/lib/docker/* or /usr/local/* or
-    /opt/psa/admin/* or /usr/lib/snapd/snap-confine or /opt/dynatrace/* or /opt/microsoft/* or
-    /var/lib/snapd/snap/bin/node or /opt/gitlab/embedded/sbin/logrotate or /etc/apt/universal-hooks/* or
-    /opt/puppetlabs/puppet/bin/puppet or /opt/cisco/* or /run/k3s/containerd/* or /usr/lib/postfix/sbin/master or
-    /usr/libexec/postfix/local or /var/lib/snapd/snap/bin/postgresql* or /opt/puppetlabs/puppet/bin/ruby
-  ) or
-  process.name:(
-    "bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish" or "sudo" or "su" or "apt" or "apt-get" or
-    "aptitude" or "squid" or "snap" or "fusermount" or "pkexec" or "umount" or "master" or "omsbaseline" or "dzdo" or
-    "sandfly" or "logrotate" or "nix-installer" 
-  ) or
-  process.args:/usr/bin/python*
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -111,6 +52,65 @@ In Linux environments, UID elevation is a process where a user's permissions are
 - Restore the system from a known good backup if any rootkits or persistent threats are detected that cannot be easily removed.
 - Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems."""
+risk_score = 73
+rule_id = "7787362c-90ff-4b1a-b313-8808b1020e64"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click Add integrations.
+- In the query bar, search for Elastic Defend and select the integration to see more details about it.
+- Click Add Elastic Defend.
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click Save and Continue.
+- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:"linux" and event.category:"process" and event.action:"uid_change" and event.type:"change" and user.id:"0"
+and process.parent.name:("bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish") and not (
+  process.executable:(
+    /bin/* or /usr/bin/* or /sbin/* or /usr/sbin/* or /snap/* or /tmp/newroot/* or /var/lib/docker/* or /usr/local/* or
+    /opt/psa/admin/* or /usr/lib/snapd/snap-confine or /opt/dynatrace/* or /opt/microsoft/* or
+    /var/lib/snapd/snap/bin/node or /opt/gitlab/embedded/sbin/logrotate or /etc/apt/universal-hooks/* or
+    /opt/puppetlabs/puppet/bin/puppet or /opt/cisco/* or /run/k3s/containerd/* or /usr/lib/postfix/sbin/master or
+    /usr/libexec/postfix/local or /var/lib/snapd/snap/bin/postgresql* or /opt/puppetlabs/puppet/bin/ruby
+  ) or
+  process.name:(
+    "bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish" or "sudo" or "su" or "apt" or "apt-get" or
+    "aptitude" or "squid" or "snap" or "fusermount" or "pkexec" or "umount" or "master" or "omsbaseline" or "dzdo" or
+    "sandfly" or "logrotate" or "nix-installer" or "sapstartsrv" or "microk8s" or "vrns_watchdog" or "sdbgloballistener" or
+    "clean_user_php_sessions" or "nsca_wrapper"
+  ) or
+  process.args:/usr/bin/python*
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -149,4 +149,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
