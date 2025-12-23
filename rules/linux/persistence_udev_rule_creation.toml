@@ -95,9 +95,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file where host.os.type == "linux" and event.action == "creation" and
 process.executable != null and file.extension == "rules" and
-file.path : (
+file.path like (
   "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*", "/usr/local/lib/udev/rules.d/*"
 ) and not (
   process.executable in (
@@ -113,14 +113,14 @@ file.path : (
     "/kaniko/executor", "/usr/local/bin/defender", "/usr/bin/dnf5", "/opt/kaniko/executor", "/lib/netplan/generate",
   ) or
   file.Ext.original.extension == "dpkg-new" or
-  process.executable : (
+  process.executable like (
     "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/*", "/usr/libexec/*",
      "/var/lib/docker/overlay2/*/dockerd", "/var/lib/containers/storage/overlay*/dockerd"
   ) or
   process.name in (
     "systemd", "netplan", "apt-get", "vmware-config-tools.pl", "systemd-hwdb", "ssm-agent-worker", "crio", "cloud-init", "convert2rhel" 
   ) or
-  process.name like (python* or perl*) or
+  process.name like ("python*", "perl*") or
   (process.name == "sed" and file.name : "sed*")
 )
 '''
