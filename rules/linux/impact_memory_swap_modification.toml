@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,7 @@ Memory swap in Linux systems manages RAM by moving inactive pages to disk, freei
 - Implement monitoring for any further unauthorized changes to swap settings or related processes to detect and respond to similar threats promptly.
 - Escalate the incident to the security operations team for a detailed forensic analysis to understand the scope and origin of the attack.
 - Update system and security patches to close any vulnerabilities that may have been exploited by the adversary."""
-risk_score = 21
+risk_score = 47
 rule_id = "5e4023e7-6357-4061-ae1c-9df33e78c674"
 setup = """## Setup
 
@@ -80,7 +80,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
@@ -95,7 +95,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 ?process.parent.executable != null and
@@ -108,37 +107,39 @@ process.name in ("swapon", "swapoff") or (
     )
   )
 ) and
-not process.parent.name in ("lynis", "systemd", "end-zram-swapping", "SyxsenseResponder", "tuned", "platform-python", "timeout")
+not (
+  process.parent.name in ("lynis", "systemd", "end-zram-swapping", "SyxsenseResponder", "tuned", "platform-python", "timeout") or
+  ?process.parent.executable in ("/opt/puppetlabs/puppet/bin/ruby", "/u01/app/grid/perl/bin/perl")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1496"
 name = "Resource Hijacking"
 reference = "https://attack.mitre.org/techniques/T1496/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

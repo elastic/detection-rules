@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,7 @@ Data splitting utilities on Linux, such as `dd` and `split`, are typically used 
 - Implement stricter access controls and monitoring on sensitive data directories to prevent unauthorized access and manipulation.
 - Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems are affected.
 - Enhance monitoring and alerting for similar suspicious activities by integrating additional threat intelligence sources and refining detection capabilities."""
-risk_score = 21
+risk_score = 47
 rule_id = "e302e6c3-448c-4243-8d9b-d41da70db582"
 setup = """## Setup
 
@@ -83,7 +83,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -97,7 +97,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
@@ -116,7 +115,8 @@ process where host.os.type == "linux" and event.type == "start" and
     process.args like (
       "if=/tmp/nvim*", "if=/boot/*", "if=/dev/random", "if=/dev/urandom", "/dev/mapper/*",
       "if=*.iso", "of=/dev/stdout", "if=/dev/zero", "if=/dev/sda", "/proc/sys/kernel/*"
-    )
+    ) or
+    ?process.parent.args in ("/etc/init.d/apport", "/usr/bin/spectre-meltdown-checker")
   )
 '''
 
@@ -128,4 +128,3 @@ framework = "MITRE ATT&CK"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-
