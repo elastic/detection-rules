@@ -2,7 +2,7 @@
 creation_date = "2020/04/12"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2024/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,10 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules" and
-not process.name:(python* or chef-client)
+not (
+  process.name:(python* or chef-client) or
+  process.executable:(/opt/eset/*/esets_eia or /opt/Elastic/Agent/* or "/opt/jfrog/artifactory/app/metadata/bin/jf-metadata")
+)
 '''
 
 [[rule.threat]]
@@ -78,4 +81,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"

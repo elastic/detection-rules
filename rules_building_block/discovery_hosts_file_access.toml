@@ -2,13 +2,13 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/12/23"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies the use of built-in tools to read the contents of \\etc\\hosts on a local machine. Attackers may use this data
+Identifies the use of built-in tools to read the contents of "/etc/hosts" on a local machine. Attackers may use this data
 to discover remote machines in an environment that may be used for Lateral Movement from the current system.
 """
 from = "now-119m"
@@ -33,23 +33,21 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
-process.name in ("vi", "nano", "cat", "more", "less") and process.args == "/etc/hosts"
+process.name in ("vi", "nano", "cat", "more", "less", "vim", "vim.basic", "emacs") and process.args == "/etc/hosts" and
+not ?process.working_directory in ("/opt/SolarWinds/Agent/bin/Plugins/SCM", "/opt/cohesityagent/software/crux/bin")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
 reference = "https://attack.mitre.org/techniques/T1018/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
