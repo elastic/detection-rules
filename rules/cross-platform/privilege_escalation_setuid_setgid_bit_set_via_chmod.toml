@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -19,37 +19,6 @@ language = "eql"
 license = "Elastic License v2"
 max_signals = 33
 name = "SUID/SGID Bit Set"
-references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
-risk_score = 21
-rule_id = "8a1b0278-0f9a-487d-96bd-d4833298e87a"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}")) or
-  (process.name == "install" and process.args : "-m" and
-  (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}"))
-) and not (
-  process.parent.executable : (
-    "/usr/NX/*", "/var/lib/docker/*", "/var/lib/dpkg/info*", "/tmp/newroot/*",
-    "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service"
-  ) or
-  process.args : (
-    "/run/*", "/var/run/*", "/usr/bin/keybase-redirector", "/usr/local/share/fonts", "/usr/bin/ssh-agent"
-  )
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -84,25 +53,57 @@ The SUID/SGID bits in Unix-like systems allow files to execute with the privileg
 - Implement additional monitoring on the affected system to detect any further attempts to exploit SUID/SGID bits, focusing on the specific commands and arguments identified in the detection query.
 - Escalate the incident to the security operations team for a deeper investigation into potential lateral movement or persistence mechanisms that may have been established by the adversary.
 - Apply patches and updates to the affected system and any vulnerable applications to mitigate known vulnerabilities that could be exploited in conjunction with SUID/SGID bit abuse."""
-
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
+risk_score = 21
+rule_id = "8a1b0278-0f9a-487d-96bd-d4833298e87a"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}")) or
+  (process.name == "install" and process.args : "-m" and
+  (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}"))
+) and not (
+  process.parent.executable : (
+    "/usr/NX/*", "/var/lib/docker/*", "/var/lib/dpkg/info*", "/tmp/newroot/*", "/usr/bin/find", "/opt/commvault/Base/Galaxy",
+    "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service",
+    "/opt/metallic/Base/Galaxy"
+  ) or
+  process.args : (
+    "/run/*", "/var/run/*", "/usr/bin/keybase-redirector", "/usr/local/share/fonts", "/usr/bin/ssh-agent"
+  ) or
+  process.parent.args like ("/var/lib/dpkg/info/*", "/var/tmp/rpm-tmp*", "/usr/NX/*")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -110,4 +111,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
