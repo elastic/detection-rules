@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/01/07"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint"]
 maturity = "production"
 updated_date = "2025/12/24"
 
@@ -13,10 +13,7 @@ variables and system limits. Adversaries may use this command to gather informat
 of open files, and other system limits, to aid in further exploration and exploitation of the system.
 """
 from = "now-119m"
-index = [
-  "logs-endpoint.events.process*",
-  "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.process*"]
 interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
@@ -32,16 +29,15 @@ tags = [
   "Tactic: Discovery",
   "Rule Type: BBR",
   "Data Source: Elastic Defend",
-  "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:(exec or start) and process.name:getconf and not (
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and process.name:getconf and not (
   process.parent.executable:(
     "/usr/bin/google_guest_agent_manager" or "/opt/commvault/Base64/cvlaunchd" or /usr/local/manageengine/uems_agent/bin/*
   ) or
-  ?process.working_directory:(
+  process.working_directory:(
     "/opt/oracle/mgmt_agent/agent_inst/bin" or "/var/lib/oracle-cloud-agent/plugins/oci-managementagent/polaris" or
     "/opt/commvault/Base/cvlaunchd" or "/opt/simpana" or "/opt/commvault" or "/opt/ITSPlatform/agentcore" or
     "/u01/app/oracle/EMBase/agent_inst/sysman/emd" or "/opt/abacus/lib"
