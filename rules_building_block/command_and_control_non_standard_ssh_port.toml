@@ -6,6 +6,7 @@ updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies potentially malicious processes communicating via a port paring typically not associated with SSH. For
 example, SSH over port 2200 or port 2222 as opposed to the traditional port 22. Adversaries may make changes to the
@@ -19,50 +20,18 @@ false_positives = [
     legitimate ssh activities.
     """,
 ]
-from = "now-9m"
+from = "now-119m"
 index = ["logs-endpoint.events.*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - Potential Non-Standard Port SSH connection"
-references = ["https://attack.mitre.org/techniques/T1571/"]
-risk_score = 21
-rule_id = "bc8ca7e0-92fd-4b7c-b11e-ee0266b8d9c9"
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "OS: macOS",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-type = "eql"
-query = '''
-sequence by process.entity_id with maxspan=1m
-  [process where event.action == "exec" and process.name in ("ssh", "sshd") and not process.parent.name in (
-   "rsync", "pyznap", "git", "ansible-playbook", "scp", "pgbackrest", "git-lfs", "expect", "Sourcetree", "ssh-copy-id",
-   "run"
-   )
-  ]
-  [network where process.name:"ssh" and event.action in ("connection_attempted", "connection_accepted") and
-   destination.port != 22 and network.transport == "tcp" and not (
-     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
-       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
-       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
-       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
-       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
-       "FF00::/8"
-     )
-   )
-  ]
-'''
+name = "Potential Non-Standard Port SSH connection"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - Potential Non-Standard Port SSH connection
+### Investigating Potential Non-Standard Port SSH connection
 
 SSH is a protocol used for secure remote access and management of systems. Typically, it operates over port 22. However, adversaries may exploit non-standard ports to evade detection and bypass network filters. The detection rule identifies unusual SSH activity by monitoring processes and network connections on ports other than 22, excluding common benign use cases, to flag potential threats.
 
@@ -91,6 +60,40 @@ SSH is a protocol used for secure remote access and management of systems. Typic
 - Implement network-level controls to block SSH traffic on non-standard ports unless explicitly required and documented for legitimate use cases.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Enhance monitoring and alerting for SSH connections on non-standard ports across the network to improve early detection of similar threats in the future."""
+references = ["https://attack.mitre.org/techniques/T1571/"]
+risk_score = 21
+rule_id = "bc8ca7e0-92fd-4b7c-b11e-ee0266b8d9c9"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "OS: macOS",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=1m
+  [process where event.action == "exec" and process.name in ("ssh", "sshd") and not process.parent.name in (
+   "rsync", "pyznap", "git", "ansible-playbook", "scp", "pgbackrest", "git-lfs", "expect", "Sourcetree", "ssh-copy-id",
+   "run"
+   )
+  ]
+  [network where process.name:"ssh" and event.action in ("connection_attempted", "connection_accepted") and
+   destination.port != 22 and network.transport == "tcp" and not (
+     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+       "FF00::/8"
+     )
+   )
+  ]
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
