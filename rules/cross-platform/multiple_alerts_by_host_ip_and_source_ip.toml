@@ -25,11 +25,12 @@ type = "esql"
 query = '''
 from .alerts-security.*
 
-// any alerts excluding low severity, threat_match and machine_learning rules
+// any alerts excluding deprecated, low severity and threat_match rules
 | where kibana.alert.rule.name is not null and kibana.alert.risk_score > 21 and
-        not kibana.alert.rule.type in ("threat_match", "machine_learning")
+        not kibana.alert.rule.type != "threat_match" and
+        not kibana.alert.rule.name like "Deprecated - *"
 
-//
+// alerts with existing source.ip or host.ip
 | eval alert_source_ip = CASE(source.ip is not null, source.ip, null),
        alert_host_ip = CASE(host.ip is not null and source.ip is null, host.ip, null)
 
@@ -39,7 +40,6 @@ from .alerts-security.*
 | stats Esql.alerts_count = COUNT(*),
         Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
         Esql.host_id_distinct_count = COUNT_DISTINCT(host.id),
-        Esql.message_values_distinct_count = COUNT_DISTINCT(message),
         Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.event_module_values = VALUES(event.module),
         Esql.message_values = VALUES(message),
@@ -65,7 +65,7 @@ note = """## Triage and analysis
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Alerts From Multiple Integrations by User Name
+### Investigating Suspected Lateral Movement from Compromised Host
 
 The detection rule uses alert data to determine when multiple alerts from different integrations involving the same user.name are triggered.
 
