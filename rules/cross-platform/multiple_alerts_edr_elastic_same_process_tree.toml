@@ -55,24 +55,21 @@ note = """## Triage and analysis
 
 ### Investigating Multiple Elastic Defend Alerts from a Single Process Tree
 
-Endpoint security technologies monitor and analyze activities on devices to detect malicious behavior. Adversaries exploit these systems by deploying malware that triggers specific signatures across multiple hosts, indicating a coordinated attack. The detection rule identifies such threats by analyzing alert data for specific malware signatures across several hosts, flagging potential widespread infections for prioritized investigation.
+Detects multiple Elastic Defend EDR alerts originating from the same process tree, indicating coordinated malicious activity.
 
 ### Possible investigation steps
 
-- Review the alert details to identify the specific host involved and the different ATT&CK tactics that triggered the alerts.
-- Examine the timeline of the alerts to understand the sequence of events and determine if there is a pattern or progression in the tactics used.
+- Review the alert details to identify the specific host involved and the different alerts that triggered.
+- Examine the timeline of the alerts to understand the sequence of events and determine the root cause.
 - Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
-- Investigate any known vulnerabilities or misconfigurations on the host that could have been exploited by the adversary.
 - Check for any indicators of compromise (IOCs) associated with the alerts, such as suspicious IP addresses, domains, or file hashes, and search for these across the network.
 - Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
 
 ### False positive analysis
 
-- Alerts from routine administrative tasks may trigger multiple tactics. Review and exclude known benign activities such as scheduled software updates or system maintenance.
-- Security tools running on the host might generate alerts across different tactics. Identify and exclude alerts from trusted security applications to reduce noise.
+- Security tools running on the host might generate multiple alerts from same process tree.
 - Automated scripts or batch processes can mimic adversarial behavior. Analyze and whitelist these processes if they are verified as non-threatening.
 - Frequent alerts from development or testing environments can be misleading. Consider excluding these environments from the rule or applying a different risk score.
-- User behavior anomalies, such as accessing multiple systems or applications, might trigger alerts. Implement user behavior baselines to differentiate between normal and suspicious activities.
 
 ### Response and remediation
 
