@@ -48,6 +48,7 @@ from .alerts-security.*
         Esql.event_category_values = VALUES(event.category),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.process_cmdline_values = VALUES(process.command_line),
+        Esql.file_path_values = VALUES(file.path),
         Esql.host_id_values = VALUES(host.id),
         Esql.host_ip_values = VALUES(host.ip),
         Esql.destination_ip_values = VALUES(destination.ip),
@@ -58,7 +59,7 @@ from .alerts-security.*
 // filter for different alerts from multiple hosts and where the host.ip of one alert matches the source.ip of the other alert
 | eval concat_ip_values = MV_CONCAT(TO_STRING(Esql.host_ip_values), ",")
 | eval host_ip_equal_to_source_ip =LOCATE(concat_ip_values, TO_STRING(Esql.source_ip))
-| where Esql.rule_name_distinct_count >= 2 and Esql.host_id_distinct_count >= 2 and host_ip_equal_to_source_ip > 0 and SRC_IP is not null and Esql.alerts_count <= 50
+| where Esql.rule_name_distinct_count >= 2 and Esql.host_id_distinct_count >= 2 and host_ip_equal_to_source_ip > 0 and SRC_IP is not null and Esql.alerts_count <= 100
 | KEEP Esql.*
 '''
 note = """## Triage and analysis
