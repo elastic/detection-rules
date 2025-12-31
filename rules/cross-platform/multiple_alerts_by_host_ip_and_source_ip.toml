@@ -27,7 +27,7 @@ from .alerts-security.*
 
 // any alerts excluding deprecated, low severity and threat_match rules
 | where kibana.alert.rule.name is not null and kibana.alert.risk_score > 21 and
-        not kibana.alert.rule.type != "threat_match" and
+        kibana.alert.rule.type != "threat_match" and
         not kibana.alert.rule.name like "Deprecated - *"
 
 // alerts with existing source.ip or host.ip
@@ -45,12 +45,13 @@ from .alerts-security.*
         Esql.message_values = VALUES(message),
         Esql.rule_name = VALUES(kibana.alert.rule.name),
         Esql.event_action_values = VALUES(event.action),
-        Esql.event_action_values = VALUES(event.category),
+        Esql.event_category_values = VALUES(event.category),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.process_cmdline_values = VALUES(process.command_line),
         Esql.host_id_values = VALUES(host.id),
         Esql.host_ip_values = VALUES(host.ip),
         Esql.destination_ip_values = VALUES(destination.ip),
+        Esql.user_name_values = VALUES(user.name),
         SRC_IP = VALUES(source.ip)
         by Esql.source_ip
 
