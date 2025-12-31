@@ -39,13 +39,29 @@ from logs-endpoint.alerts-*
         Esql.process_id_distinct_count = COUNT_DISTINCT(process.entity_id),
         Esql.message_values = VALUES(message),
         Esql.user_name_values = VALUES(user.name),
-        Esql.process_command_line_values = VALUES(process.command_line) by process.Ext.ancestry, agent.id
+        Esql.threat_tactic_name_values = VALUES(threat.tactic.name),
+        Esql.threat_technique_name_values = VALUES(threat.technique.name),
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.process_parent_executable_values = values(process.parent.executable),
+        Esql.file_path_values = VALUES(file.path),
+        Esql.file_hash_sha256_values = VALUES(file.hash.sha256),
+        Esql.process_hash_sha256_values = VALUES(process.hash.sha256),
+        Esql.dns_question_name_values = VALUES(dns.question.name) by process.Ext.ancestry, agent.id
 
 // filter for at least 3 unique process IDs and 2 or more alert types or rule names.
 | where Esql.process_id_distinct_count >= 3 and (Esql.rule_name_distinct_count >= 2 or Esql.event_code_distinct_count >= 2)
 
 // keep unique values
-| stats Esql.alert_names = values(Esql.message_values), Esql.alerts_process_cmdline_values = VALUES(Esql.process_command_line_values), Esql.alerts_user_names = VALUES(Esql.user_name_values) by agent.id
+| stats Esql.alert_names = values(Esql.message_values),
+        Esql.alerts_process_cmdline_values = VALUES(Esql.process_command_line_values),
+        Esql.alerts_user_names = VALUES(Esql.user_name_values),
+        Esql.alerts_mitre_tactics = values(Esql.threat_tactic_name_values),
+        Esql.alerts_mitre_techniques = VALUES(Esql.threat_technique_name_values),
+        Esql.alerts_process_parent_executable = values(Esql.process_parent_executable_values),
+        Esql.alerts_file_paths = VALUES(Esql.file_path_values),
+        Esql.alerts_file_hash_sha256 = VALUES(Esql.file_hash_sha256_values),
+        Esql.alerts_process_hash_sha256 = VALUES(Esql.process_hash_sha256_values),
+        Esql.alerts_dns_question_names = VALUES(Esql.dns_question_name_values) by agent.id
 | keep Esql.*, agent.id
 '''
 note = """## Triage and analysis
