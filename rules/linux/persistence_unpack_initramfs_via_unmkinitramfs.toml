@@ -2,14 +2,14 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the unpacking of an initramfs image using the `unmkinitramfs` command on Linux systems. The
-`unmkinitramfs` command is used to extract the contents of an initramfs image, which is used to boot the system.
-Attackers may use `unmkinitramfs` to unpack an initramfs image and modify its contents to include malicious code or
+This rule detects the unpacking of an initramfs image using the "unmkinitramfs" command on Linux systems. The
+"unmkinitramfs" command is used to extract the contents of an initramfs image, which is used to boot the system.
+Attackers may use "unmkinitramfs" to unpack an initramfs image and modify its contents to include malicious code or
 backdoors, allowing them to maintain persistence on the system.
 """
 from = "now-9m"
@@ -95,16 +95,18 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and
-process.name == "unmkinitramfs"
+process.name == "unmkinitramfs" and not (
+  ?process.parent.executable == "/usr/bin/lsinitramfs" or
+  ?process.working_directory == "/usr/local/nutanix/ngt/python/bin"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1542"
 name = "Pre-OS Boot"
@@ -120,28 +122,29 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -149,4 +152,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

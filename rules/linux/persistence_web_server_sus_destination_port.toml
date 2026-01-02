@@ -2,7 +2,7 @@
 creation_date = "2025/03/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -95,18 +95,17 @@ type = "eql"
 query = '''
 network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
   process.name like (
-    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "php-fpm*", "mongrel_rails", "haproxy",
-    "gunicorn", "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "uvicorn",
-    "tornado", "hypercorn", "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel",
-    "php-cgi", "php-fcgi", "php-cgi.cagefs"
+    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "mongrel_rails", "gunicorn",
+    "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
+    "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel", "php-fpm*", "php-cgi",
+    "php-fcgi", "php-cgi.cagefs", "catalina.sh", "hiawatha", "lswsctrl"
   ) or
-  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd") or
-  user.id in ("54321", "33", "498", "48") or
+  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9") or
+  user.id in ("33", "498", "48") or
   (process.name == "java" and process.working_directory like "/u0?/*")
 ) and
 network.direction == "egress" and destination.ip != null and
 not destination.port in (80, 443, 8080, 8443, 8000, 8888, 3128, 3306, 5432, 8220, 8082) and
-
 not cidrmatch(destination.ip, "127.0.0.0/8", "::1","FE80::/10", "FF00::/8", "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
 "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
 "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4")

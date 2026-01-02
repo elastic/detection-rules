@@ -2,7 +2,7 @@
 creation_date = "2025/12/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/11"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,7 @@ event.category:process and host.os.type:linux and event.type:start and event.act
     "apache" or "nginx" or "apache2" or "httpd" or "lighttpd" or "caddy" or "mongrel_rails" or "haproxy" or
     "gunicorn" or "uwsgi" or "openresty" or "cherokee" or "h2o" or "resin" or "puma" or "unicorn" or "traefik" or "uvicorn" or
     "tornado" or "hypercorn" or "daphne" or "twistd" or "yaws" or "webfsd" or "httpd.worker" or "flask" or "rails" or "mongrel" or
-    php-fpm* or "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "java" or "node"
+    php-fpm* or "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "java" or "node" or "catalina.sh" or "hiawatha" or "lswsctrl"
   ) or
   user.name:("apache" or "www-data" or "httpd" or "nginx" or "lighttpd" or "tomcat" or "tomcat8" or "tomcat9") or
   user.id:("33" or "498" or "48" or "54321")
@@ -89,8 +89,8 @@ not (
   (process.parent.name:node and process.parent.executable:(/home/*/.vscode-server/* or /users/*/.vscode-server/* or /bin/node or /usr/bin/node or /usr/local/bin/node or /opt/plesk/node/*/bin/node)) or
   process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/dbhome_* or /u0*/app/oracle/product/*/db_* or /var/www/*edoc*) or
   process.parent.executable:/tmp/* or
-  process.args:/usr/local/bin/wkhtmltopdf* or
-  process.parent.name:php
+  process.args:(/usr/local/bin/wkhtmltopdf* or /usr/bin/rsvg-convert*) or
+  process.command_line:*/opt/sc/bin/showvulns*
 )
 '''
 
@@ -149,4 +149,4 @@ value = ["process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
