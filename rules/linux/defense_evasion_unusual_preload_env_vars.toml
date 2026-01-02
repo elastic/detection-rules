@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +69,11 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:exec and process.env_vars:*
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and process.env_vars:* and
+not (
+  process.parent.executable:(/snap/* or "/opt/infraonagent/infraonwindowsagent" or "/worker/Capa/capa") or
+  process.parent.name:"cmk-update-agent"
+)
 '''
 note = """## Triage and analysis
 
@@ -149,4 +153,4 @@ value = ["process.env_vars"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"

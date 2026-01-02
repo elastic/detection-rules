@@ -2,15 +2,16 @@
 creation_date = "2025/01/09"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages Auditd data to detect the use of the `prctl` syscall to potentially hide a process
-by changing its name. The `prctl` syscall is used to control various process attributes. Attackers can use
-this syscall to change the name of a process to a hidden directory or file, making it harder to detect. The query
-looks for the `prctl` syscall with the `PR_SET_NAME` argument set to `f` (PR_SET_NAME is used to set the name of a process).
+This rule leverages Auditd data to detect the use of the "prctl" syscall to potentially hide a process
+by changing its name. The "prctl" syscall is used to control various process attributes. Attackers can use
+this syscall to change the name of a process to a hidden directory or file, making it harder to detect. The
+query looks for the "prctl" syscall with the "PR_SET_NAME" argument set to "f" (PR_SET_NAME is used to set
+the name of a process).
 """
 from = "now-9m"
 index = ["logs-auditd_manager.auditd-*", "auditbeat-*"]
@@ -22,7 +23,7 @@ references = [
     "https://haxrob.net/hiding-in-plain-sight-part-2/",
     "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "fef62ecf-0260-4b71-848b-a8624b304828"
 setup = """## Setup
 
@@ -48,7 +49,7 @@ However, if more advanced configuration is required to detect specific behavior,
 - For this detection rule the following additional audit rules are required to be added to the integration:
   -- "-a exit,always -F arch=b64 -S prctl -k prctl_detection"
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Data Source: Auditd Manager",
     "Domain: Endpoint",
@@ -64,7 +65,8 @@ process where host.os.type == "linux" and auditd.data.syscall == "prctl" and aud
 process.executable like (
   "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/var/run/*", "/etc/update-motd.d/*",
   "/tmp/*", "/var/log/*", "/var/tmp/*", "/home/*", "/run/shm/*", "/run/*", "./*"
-)
+) and
+not process.executable like ("/home/*/.vscode-server/*", "/tmp/VeeamAgent*", "/home/*/.xmonad/xmonad*linux*")
 '''
 note = """## Triage and analysis
 

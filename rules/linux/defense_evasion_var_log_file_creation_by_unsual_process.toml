@@ -2,7 +2,7 @@
 creation_date = "2025/03/11"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,7 @@ In Linux environments, the `/var/log` directory is crucial for storing system lo
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems are compromised.
 - Update and enhance monitoring rules to detect similar suspicious activities in the future, focusing on process execution from insecure locations and unauthorized file creation in critical directories.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "ddf26e25-3e30-42b2-92db-bde8eb82ad67"
 setup = """## Setup
 
@@ -78,7 +78,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -93,48 +93,49 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 event.category:file and host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and
 (process.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or ./* or /boot/*) or process.name:.*) and
-file.path:/var/log/* and not file.extension:*
+file.path:/var/log/* and not file.extension:* and
+not process.executable:("./usr/bin/podman" or "./install" or /tmp/vmis.*/install/vmware-installer/vmis-launcher or /tmp/ubuntu-release-upgrader-*)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -146,8 +147,7 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["file.path", "process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
-
-
+value = "now-5d"
