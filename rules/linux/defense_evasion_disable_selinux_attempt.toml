@@ -2,7 +2,7 @@
 creation_date = "2020/04/22"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,7 @@ SELinux is a critical security feature in Linux environments, enforcing access c
 - Scan the affected system for malware or unauthorized software installations using a trusted antivirus or endpoint detection and response (EDR) tool.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
 - Implement additional monitoring and alerting for similar SELinux-related events to enhance detection capabilities and prevent recurrence."""
-risk_score = 47
+risk_score = 73
 rule_id = "eb9eb8ba-a983-41d9-9c93-a1c05112ca5e"
 setup = """## Setup
 
@@ -96,7 +96,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -111,29 +111,26 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
- process.name == "setenforce" and process.args == "0"
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "setenforce" and process.args == "0"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

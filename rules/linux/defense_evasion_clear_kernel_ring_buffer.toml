@@ -2,13 +2,14 @@
 creation_date = "2023/10/24"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
 description = """
 Monitors for the deletion of the kernel ring buffer events through dmesg. Attackers may clear kernel ring buffer events
-to evade detection after installing a Linux kernel module (LKM).
+to evade detection after installing a Linux kernel module (LKM). This activity is commonly observed by intrusions that
+leverage kernel-level rootkits to maintain persistence on a compromised host.
 """
 from = "now-9m"
 index = [
@@ -55,7 +56,7 @@ The kernel ring buffer logs system messages, crucial for diagnosing issues. Adve
 - Implement enhanced monitoring and logging for the affected system to detect any future attempts to clear the kernel ring buffer or similar evasion tactics.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures to prevent recurrence."""
-risk_score = 21
+risk_score = 73
 rule_id = "2724808c-ba5d-48b2-86d2-0002103df753"
 setup = """## Setup
 
@@ -82,7 +83,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -97,38 +98,36 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
- and process.name == "dmesg" and process.args in ("-c", "--clear")
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "dmesg" and process.args in ("-c", "--clear")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.002"
 name = "Clear Linux or Mac System Logs"
 reference = "https://attack.mitre.org/techniques/T1070/002/"
 
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
