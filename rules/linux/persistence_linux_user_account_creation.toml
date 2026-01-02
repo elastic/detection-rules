@@ -2,7 +2,7 @@
 creation_date = "2023/02/13"
 integration = ["system"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -21,10 +21,11 @@ query = "SELECT * FROM groups WHERE groupname = {{group.name}}"
 label = "Osquery - Retrieve Running Processes by User"
 query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
 
-
 [rule]
 author = ["Elastic"]
-description = "Identifies attempts to create new users. Attackers may add new users to establish persistence on a system.\n"
+description = """
+Identifies attempts to create new users. Attackers may add new users to establish persistence on a system.
+"""
 from = "now-9m"
 index = ["filebeat-*", "logs-system.auth-*"]
 language = "eql"
@@ -109,28 +110,24 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-iam where host.os.type == "linux" and (event.type == "user" and event.type == "creation") and
-process.name in ("useradd", "adduser") and user.name != null
+iam where host.os.type == "linux" and event.type == "user" and event.type == "creation" and event.outcome == "success"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

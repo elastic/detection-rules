@@ -2,7 +2,7 @@
 creation_date = "2024/06/26"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -98,9 +98,8 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "creation" and file.path : "*.git/hooks/*" and
+file where host.os.type == "linux" and event.type == "creation" and file.path like "*.git/hooks/*" and
 file.extension == null and process.executable != null and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -110,18 +109,21 @@ file.extension == null and process.executable != null and not (
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/usr/bin/pamac-daemon", "/bin/pamac-daemon",
-    "/usr/local/bin/dockerd", "/sbin/dockerd"
+    "/usr/local/bin/dockerd", "/sbin/dockerd", "/usr/bin/fuse-overlayfs", "/usr/local/bin/gitlab-runner",
+    "/usr/bin/coreutils", "/usr/bin/nautilus"
   ) or
-  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*") or
+  process.executable like (
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/run/k3s/containerd/io.containerd.runtime.v2.task/k8s.io/*/r10k"
+  ) or
   process.name in ("git", "dirname", "tar", "gitea", "git-lfs") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -132,28 +134,29 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -161,4 +164,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

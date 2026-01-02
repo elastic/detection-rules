@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -76,7 +76,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.name like "pam_*.so" and not file.path like (
   "/lib/security/*",
@@ -86,37 +85,40 @@ file where host.os.type == "linux" and event.type == "creation" and file.name li
   "/usr/lib64/security/*",
   "/usr/lib/x86_64-linux-gnu/security/*"
 ) and not (
-  process.name in ("dockerd", "containerd", "steam", "buildkitd", "unsquashfs", "pacman") or
+  process.name in ("dockerd", "containerd", "steam", "buildkitd", "unsquashfs", "pacman", "executor") or
   file.path like (
     "/build/rootImage/nix/store/*", "/home/*/.local/share/containers/*", "/nix/store/*", "/var/lib/containerd/*",
-    "/var/snap/*", "/usr/share/nix/nix/store/*", "/tmp/cura/squashfs-root/*", "/home/*/docker/*", "/tmp/containerd*"
+    "/var/snap/*", "/usr/share/nix/nix/store/*", "/tmp/cura/squashfs-root/*", "/home/*/docker/*", "/tmp/containerd*",
+    "/var/lib/rancher/*/agent/containerd/*", "/var/lib/lxc/*", "/var/lib/containers/storage/*", "/var/lib/checkpoint*",
+    "/var/lib/docker/overlay2/*", "/srv/docker/*", "/podman/storage/*", "/opt/jail/driver-jail*", "/build/tmp/work/iot*",
+    "/tmp/containers-root/*", "/cce-14/*", "/cce-usr/*", "/var/tmp/portage/*", "/media/*", "/data/var/lib/docker/overlay2/*",
+    "/home/*/.cache/bazel/*", "/home/*/.cache/umu/*/SteamLinuxRuntime*"
   )
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
 
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-

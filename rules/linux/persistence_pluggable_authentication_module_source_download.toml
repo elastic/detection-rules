@@ -2,12 +2,12 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the usage of `curl` or `wget` to download the source code of a Pluggable Authentication Module (PAM)
+This rule detects the usage of "curl" or "wget" to download the source code of a Pluggable Authentication Module (PAM)
 shared object file. Attackers may download the source code of a PAM shared object file to create a backdoor in the
 authentication process.
 """
@@ -19,33 +19,6 @@ index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Pluggable Authentication Module (PAM) Source Download"
-references = [
-    "https://github.com/zephrax/linux-pam-backdoor",
-    "https://github.com/eurialo/pambd",
-    "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
-    "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
-]
-risk_score = 21
-rule_id = "53ef31ea-1f8a-493b-9614-df23d8277232"
-severity = "low"
-tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Credential Access",
-  "Tactic: Persistence",
-  "Data Source: Elastic Defend",
-  "Data Source: Elastic Endgame",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "ProcessRollup2") and
-process.name in ("curl", "wget") and
-process.args like~ "https://github.com/linux-pam/linux-pam/releases/download/v*/Linux-PAM-*.tar.xz"
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -80,6 +53,33 @@ Pluggable Authentication Modules (PAM) are integral to Linux systems, managing a
 - Implement stricter access controls and monitoring on systems handling PAM configurations to prevent unauthorized downloads or modifications in the future.
 - Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network.
 - Update detection mechanisms to monitor for similar download attempts and unauthorized modifications to critical authentication components."""
+references = [
+    "https://github.com/zephrax/linux-pam-backdoor",
+    "https://github.com/eurialo/pambd",
+    "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
+    "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
+]
+risk_score = 47
+rule_id = "53ef31ea-1f8a-493b-9614-df23d8277232"
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Credential Access",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "ProcessRollup2") and
+process.name in ("curl", "wget") and
+process.args like~ "https://github.com/linux-pam/linux-pam/releases/download/v*/Linux-PAM-*.tar.xz"
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

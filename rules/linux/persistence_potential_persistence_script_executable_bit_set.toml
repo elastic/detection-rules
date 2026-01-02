@@ -2,7 +2,7 @@
 creation_date = "2024/06/03"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,7 @@ references = [
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
     "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
 setup = """## Setup
 
@@ -84,7 +84,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -97,7 +97,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.args : (
@@ -123,42 +122,40 @@ process.args : (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
 
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
 
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.013"
 name = "XDG Autostart Entries"
 reference = "https://attack.mitre.org/techniques/T1547/013/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
