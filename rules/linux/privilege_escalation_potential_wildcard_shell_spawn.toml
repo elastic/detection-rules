@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -93,44 +93,45 @@ tags = [
   "Data Source: Crowdstrike",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and (
     (process.name == "tar" and process.args : "--checkpoint=*" and process.args : "--checkpoint-action=*") or
     (process.name == "rsync" and process.args : "-e*") or
     (process.name == "zip" and process.args == "--unzip-command")
-   ) and not process.executable : "/tmp/newroot/*"
-  ]  by process.entity_id
+   ) and not (
+     process.executable like "/tmp/newroot/*" or
+     process.working_directory like ("/home/*/.steam/*", "/home/*/steam/*", "/home/*/.local/share/Steam")
+   )
+  ] by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "ProcessRollup2") and
      process.parent.name : ("tar", "rsync", "zip") and
      process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
   ] by process.parent.entity_id
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

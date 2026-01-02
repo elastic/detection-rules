@@ -2,7 +2,7 @@
 creation_date = "2025/10/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/11"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,7 @@ references = [
     "https://gtfobins.github.io/#+suid",
     "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "341c6e18-9ef1-437e-bf18-b513f3ae2130"
 setup = """## Setup
 
@@ -80,7 +80,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -115,7 +115,11 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   "/usr/bin/pkexec", "/usr/libexec/pkexec", "/usr/lib/polkit-1/pkexec",
   "/usr/lib/polkit-1/polkit-agent-helper-1", "/usr/libexec/polkit-agent-helper-1",
   "/usr/lib/snapd/snap-confine"
-) and process.parent.args_count == 1 
+) and process.parent.args_count == 1 and
+not process.parent.executable in (
+  "/usr/libexec/oracle-cloud-agent/plugins/unifiedmonitoring/unifiedmonitoring", "/usr/libexec/oracle-cloud-agent/agent",
+  "/usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1", "/usr/libexec/xfce-polkit", "/usr/bin/dolphin"
+)
 '''
 
 [[rule.threat]]

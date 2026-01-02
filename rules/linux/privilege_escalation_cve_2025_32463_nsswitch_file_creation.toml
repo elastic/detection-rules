@@ -2,7 +2,7 @@
 creation_date = "2025/10/01"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/01"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -105,8 +105,9 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.path like "/*/etc/nsswitch.conf" and
 process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-not (
-  process.name == "dash" and file.path like ("/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*")
+not file.path like (
+  "/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*", "/var/tmp/dracut.*", "/tmp/user/0/mkinitramfs_*",
+  "/var/lib/aws-replication-agent/.tmp/mkinitramfs_*"
 )
 '''
 
