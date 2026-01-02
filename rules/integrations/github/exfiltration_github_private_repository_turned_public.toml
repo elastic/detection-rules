@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a private GitHub repository is changed to public visibility. Adversaries may change repository
+visibility to public in order to exfiltrate sensitive code or data, potentially indicating a compromise or
+unauthorized access.
+"""
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Private Repository Turned Public"
+risk_score = 21
+rule_id = "8c707e4c-bd20-4ff4-bda5-4dc3b34ce298"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Impact",
+    "Data Source: Github",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+configuration where event.dataset == "github.audit" and github.operation_type == "modify" and github.category == "repo" and
+event.action == "repo.access" and github.previous_visibility == "private" and github.visibility == "public"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
