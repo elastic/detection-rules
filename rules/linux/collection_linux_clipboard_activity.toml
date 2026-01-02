@@ -1,18 +1,23 @@
 [metadata]
 creation_date = "2023/07/27"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the usage of the most common clipboard utilities on unix systems by an uncommon process group
-leader. Adversaries may collect data stored in the clipboard from users copying information within or between
-applications.
+This rule monitors for the usage of the most common clipboard utilities on unix systems by an uncommon process parent.
+Adversaries may collect data stored in the clipboard from users copying information within or between applications.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = [
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+          "auditbeat-*",
+          "logs-auditd_manager.auditd-*",
+        ]
 language = "kuery"
 license = "Elastic License v2"
 name = "Linux Clipboard Activity Detected"
@@ -27,13 +32,14 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:process and host.os.type:"linux" and event.type:"start" and
-event.action:("exec" or "exec_event" or "executed" or "process_started") and
+event.action:("exec" or "exec_event" or "executed" or "process_started" or "start") and
 process.name:("xclip" or "xsel" or "wl-clipboard" or "clipman" or "copyq") and
 not process.parent.name:("bwrap" or "micro")
 '''
@@ -88,8 +94,8 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.group_leader.executable"]
+value = ["agent.id", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
