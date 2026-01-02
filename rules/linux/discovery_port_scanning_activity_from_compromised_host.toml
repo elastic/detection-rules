@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/29"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -94,9 +94,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-endpoint.events.network-*
+from logs-endpoint.events.network-* metadata _id, _index, _version
+| mv_expand event.action
 | where
-    @timestamp > now() - 1h and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "connection_attempted" and
@@ -104,42 +104,50 @@ from logs-endpoint.events.network-*
     destination.port < 32768 and
     not (
       cidr_match(destination.ip, "127.0.0.0/8", "::1", "FE80::/10", "FF00::/8") or
+      process.name in ("java", "node") or
+      process.name like "python*" or
       process.executable in (
-        "/opt/dbtk/bin/jsvc", "/usr/lib/dotnet/dotnet", "/usr/share/elasticsearch/jdk/bin/java", "/usr/sbin/haproxy",
-        "/usr/bin/java", "/opt/kaspersky/kesl/libexec/kesl", "/usr/bin/dotnet", "/opt/java/openjdk/bin/java"
+        "/opt/dbtk/bin/jsvc", "/usr/lib/dotnet/dotnet", "/usr/sbin/haproxy", "/opt/kaspersky/kesl/libexec/kesl",
+        "/usr/bin/dotnet", "/usr/sap/SAPBusinessOne/EDS/bin/EDFBackend", "/usr/local/bin/longhorn-instance-manager"
       ) or
       process.executable like "/var/opt/kaspersky/kesl/*kesl" or
-      process.executable like "/usr/lib/jvm/*/java" or
       process.executable like "/opt/google/chrome*" or
-      process.executable like "/var/lib/docker/*/java" or
-      process.executable like "/usr/lib64/jvm/*/java" or
       process.executable like "/snap/*" or
       process.executable like "/home/*/.local/share/JetBrains/*"
     )
 | keep
     @timestamp,
+    _id,
+    _index,
+    _version,
     host.os.type,
     event.type,
     event.action,
+    network.direction,
     destination.port,
     process.executable,
+    process.name,
     destination.ip,
     source.ip,
     agent.id,
-    host.name
+    host.name,
+    event.dataset,
+    data_stream.namespace
+
 | stats
     Esql.event_count = count(),
     Esql.destination_port_count_distinct = count_distinct(destination.port),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
-    Esql.source_ip_values = values(source.ip)
+    Esql.source_ip_values = values(source.ip),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
     by process.executable, destination.ip
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.destination_port_count_distinct > 100
 | sort Esql.event_count asc
-| limit 100
 '''
 
 [[rule.threat]]

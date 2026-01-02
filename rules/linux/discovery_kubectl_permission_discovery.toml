@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/06/17"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,8 +13,12 @@ them to gain unauthorized access or escalate privileges.
 """
 from = "now-9m"
 index = [
-  "logs-endpoint.events.process*",
-  "logs-crowdstrike.fdr*",
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -57,7 +61,7 @@ Kubectl is a command-line tool for interacting with Kubernetes clusters, allowin
 references = [
     "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_auth/kubectl_auth_can-i/",
     ]
-risk_score = 21
+risk_score = 47
 rule_id = "1600f9e2-5be6-4742-8593-1ba50cd94069"
 setup = """## Setup
 
@@ -84,7 +88,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
   "Domain: Endpoint",
   "Domain: Container",
@@ -93,13 +97,17 @@ tags = [
   "Use Case: Threat Detection",
   "Tactic: Discovery",
   "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name == "kubectl" and process.args == "auth" and process.args == "can-i"
 '''
 

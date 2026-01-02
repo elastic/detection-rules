@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,7 @@ The dynamic linker in Linux environments is crucial for loading shared libraries
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected or if there is a broader threat campaign.
 - Update detection and monitoring systems to enhance visibility and alerting for similar suspicious activities involving the `od` utility and critical system files."""
 references = ["https://github.com/arget13/DDexec"]
-risk_score = 21
+risk_score = 73
 rule_id = "0369e8a6-0fa7-4e7a-961a-53180a4c966e"
 setup = """## Setup
 
@@ -86,7 +86,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -101,7 +101,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
  and process.name == "od" and process.args in (
@@ -110,17 +109,15 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

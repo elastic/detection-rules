@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/01/29"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/04/25"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,60 +13,16 @@ memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious /proc/maps Discovery"
-references = ["https://github.com/arget13/DDexec"]
-risk_score = 21
-rule_id = "2f95540c-923e-4f57-9dae-de30169c68b9"
-setup = """## Setup
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep") and process.args like "/proc/*/maps"
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -101,6 +57,63 @@ In Linux environments, the `/proc/*/maps` files provide detailed memory mapping 
 - Implement stricter access controls and monitoring on `/proc/*/maps` files to limit exposure and detect unauthorized access attempts.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
 - Update and enhance endpoint detection and response (EDR) solutions to improve monitoring and alerting for similar suspicious activities in the future."""
+references = ["https://github.com/arget13/DDexec"]
+risk_score = 73
+rule_id = "2f95540c-923e-4f57-9dae-de30169c68b9"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep", "awk") and process.args like "/proc/*/maps" and
+not (
+  ?process.parent.args in ("/usr/bin/finalrd", "/sbin/chkrootkit", "./uac", "/usr/sbin/chkrootkit") or
+  ?process.parent.executable in ("/usr/sbin/chkrootkit", "/sbin/chkrootkit") or
+  ?process.parent.name == "uac" or
+  ?process.parent.executable in ("/opt/secl/linux-ir-scripts-v3/thieves.sh", "/opt/traps/rpm-installer/setup.sh") or
+  ?process.working_directory like ("/opt/traps/deb-installer", "/opt/Tanium/TaniumClient/*") or
+  ?process.parent.executable like ("/home/*/sunlight/thieves.sh")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -114,3 +127,21 @@ reference = "https://attack.mitre.org/techniques/T1057/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1003.007"
+name = "Proc Filesystem"
+reference = "https://attack.mitre.org/techniques/T1003/007/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

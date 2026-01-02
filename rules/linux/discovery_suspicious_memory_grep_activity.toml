@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/02/05"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,12 @@ read a process's memory map to identify memory addresses for code injection or p
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -57,14 +59,15 @@ In Linux, the `/proc/*/maps` file reveals a process's memory layout, crucial for
 - Implement stricter access controls and monitoring on sensitive files and directories, such as `/proc/*/maps`, to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the need for broader organizational response measures."""
 references = ["https://github.com/arget13/DDexec"]
-risk_score = 21
+risk_score = 73
 rule_id = "d74d6506-427a-4790-b170-0c2a6ddac799"
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
@@ -73,24 +76,21 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
