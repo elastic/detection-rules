@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/17"
 
 [transform]
 [[transform.osquery]]
@@ -28,7 +28,6 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
-
 
 [rule]
 author = ["Elastic"]
@@ -146,18 +145,19 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id, process.entity_id with maxspan=3s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-   process.args == "client" and process.args : ("R*", "*:*", "*socks*", "*.*") and process.args_count >= 4 and 
+   process.args == "client" and process.args : ("R*", "*:*", "*socks*") and process.args_count >= 4 and 
    process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
    not process.name in ("velociraptor", "nbemmcmd", "redis-cli", "ipa")]
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and 
    destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" and 
    not process.name : (
      "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk", "java", "telnet",
-     "ftp", "socat", "curl", "wget", "dpkg", "docker", "dockerd", "yum", "apt", "rpm", "dnf", "ssh", "sshd")]
+     "ftp", "socat", "curl", "wget", "dpkg", "docker", "dockerd", "yum", "apt", "rpm", "dnf", "ssh", "sshd", "kubectl*",
+     "clickhouse"
+   )]
 '''
 
 [[rule.threat]]
