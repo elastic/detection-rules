@@ -2,7 +2,7 @@
 creation_date = "2024/07/30"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,7 @@ OpenSSL is a widely-used toolkit for implementing secure communication via SSL/T
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat has spread to other systems.
 - Implement enhanced monitoring and logging for OpenSSL usage across the network to detect similar activities in the future, ensuring that alerts are promptly reviewed and acted upon."""
 references = ["https://gtfobins.github.io/gtfobins/openssl/"]
-risk_score = 21
+risk_score = 47
 rule_id = "ad5a3757-c872-4719-8c72-12d3f08db655"
 setup = """## Setup
 
@@ -78,7 +78,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -91,46 +91,52 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
-  process.name == "openssl" and (
-    (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
-    (process.args == "s_server" and process.args == "-port")
-  ) and
-  not process.parent.executable in (
-    "/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert", "/etc/zabbix/scripts/check_dane_tlsa.sh"
-  )
+process.name == "openssl" and (
+  (
+    process.args == "s_client" and process.args : ("-connect", "*:*") and
+    process.args in (
+      "sh", "dash", "bash", "zsh",
+      "/bin/sh", "/bin/dash", "/bin/bash", "/bin/zsh",
+      "/usr/bin/sh", "/usr/bin/dash", "/usr/bin/bash", "/usr/bin/zsh",
+      "/usr/local/bin/sh", "/usr/local/bin/dash", "/usr/local/bin/bash", "/usr/local/bin/zsh"
+    ) and not process.args == "-showcerts"
+  ) or
+  (process.args == "s_server" and process.args == "-port")
+) and
+not process.parent.executable in (
+  "/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert", "/etc/zabbix/scripts/check_dane_tlsa.sh"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

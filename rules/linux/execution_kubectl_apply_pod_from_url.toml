@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/06/27"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,12 @@ pods or modify existing ones, potentially leading to unauthorized access or data
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -90,6 +92,7 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Execution",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Crowdstrike",
@@ -100,8 +103,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-process.name == "kubectl" and process.args == "apply" and process.args like "http*"
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "process_started", "executed") and
+process.name == "kubectl" and process.args == "apply" and
+process.args like ("http://*", "https://*") and
+not process.command_line like ("*download.elastic.co*", "*github.com/kubernetes-sigs/*")
 '''
 
 [[rule.threat]]

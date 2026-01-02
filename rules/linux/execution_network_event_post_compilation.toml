@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -56,12 +56,21 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.name in ("gcc", "g++", "cc")] by process.args
-  [file where host.os.type == "linux" and event.action == "creation" and process.name == "ld"] by file.name
+   process.name like~ (
+     "gcc*", "g++*", "c++", "cc", "c99", "c89", "cc1*", "cc1plus*", "clang*", "clang++*",
+     "musl-gcc", "musl-clang", "*-linux-gnu-gcc*", "*-linux-gnu-g++*", "*-pc-linux-gnu-gcc*",
+     "tcc", "zig", "ccache", "distcc"
+   )] by process.args
+  [file where host.os.type == "linux" and event.action == "creation" and process.name like~ (
+    "ld", "ld.*", "lld", "ld.lld", "mold", "collect2", "*-linux-gnu-ld*", "*-pc-linux-gnu-ld*"
+   )] by file.name
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec"] by process.name
   [network where host.os.type == "linux" and event.action == "connection_attempted" and destination.ip != null and not (
      cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1") or
-     process.name in ("simpleX", "conftest", "ssh", "python", "ispnull", "pvtui", "npreal2d", "ruby", "source", "ssh")
+     process.name in (
+       "simpleX", "conftest", "ssh", "python", "ispnull", "pvtui", "npreal2d", "ruby", "source", "ssh", "git-remote-http",
+       "sshd-session", "gendb", "sqlplus"
+     )
    )] by process.name
 '''
 note = """## Triage and analysis

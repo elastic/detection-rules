@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/09/04"
-integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -14,9 +14,7 @@ evade detection.
 """
 from = "now-9m"
 index = [
-    "auditbeat-*",
     "endgame-*",
-    "logs-auditd_manager.auditd-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
@@ -69,17 +67,15 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
  (
   (process.name in ("nc", "ncat", "netcat", "nc.openbsd") and
    process.args == "-U" and process.args : ("/usr/local/*", "/run/*", "/var/run/*")) or
@@ -89,21 +85,24 @@ process where host.os.type == "linux" and event.type == "start" and
 ) and
 not (
   process.args == "/var/run/libvirt/libvirt-sock" or
-  process.parent.name in ("bundle", "ruby", "haproxystatus.sh")
+  process.parent.name in ("bundle", "ruby", "haproxystatus.sh") or
+  process.parent.command_line == "sh /docker-entrypoint autoheal" or
+  process.command_line like "*runtime.autoheal*" or
+  process.parent.executable == "/app/letsencrypt_service" or
+  process.parent.args in ("/usr/libexec/netdata/plugins.d/cgroup-name.sh", "/healthcheck") or
+  ?process.working_directory == "/app"
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1559"
 name = "Inter-Process Communication"
 reference = "https://attack.mitre.org/techniques/T1559/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

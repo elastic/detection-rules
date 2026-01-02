@@ -2,7 +2,7 @@
 creation_date = "2023/09/20"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -95,33 +95,32 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+(
+  (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
   (
-    (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
-    (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and
-    process.args_count == 4)
+    process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and process.args_count == 4
   )
+) and
+not process.parent.command_line like ("linode-longview", "*bootstrap*", "*homebrew*")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

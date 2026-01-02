@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/30"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,11 @@ rule type, this rule can identify uncommon process command lines that may indica
 named pipe.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = [
+    "logs-endpoint.events.process*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Named Pipe Creation"
@@ -52,7 +56,7 @@ Named pipes, or FIFOs, are a form of inter-process communication in Linux enviro
 - Implement additional monitoring on the affected system and network to detect any further attempts to create suspicious named pipes or execute unauthorized commands.
 - Escalate the incident to the security operations team for further investigation and to determine if the threat is part of a larger attack campaign.
 """
-risk_score = 21
+risk_score = 73
 rule_id = "8167c5ae-3310-439a-8a58-be60f55023d2"
 setup = """## Setup
 
@@ -79,7 +83,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
@@ -89,13 +93,14 @@ tags = [
   "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2) and process.name:mkfifo and
+host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2 or start) and process.name:mkfifo and
 process.parent.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and
-process.args:((/dev/shm/* or /tmp/* or /var/tmp/*) and not /*fifo*)
+process.args:((/dev/shm/* or /tmp/* or /var/tmp/*) and not (/*fifo* or /var/tmp/dracut* or /var/tmp/portage/* or /tmp/opencode_install*.trace))
 '''
 
 [[rule.threat]]
@@ -131,8 +136,8 @@ reference = "https://attack.mitre.org/techniques/T1071/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.command_line"]
+value = ["agent.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-5d"

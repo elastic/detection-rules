@@ -2,7 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,41 @@ index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell via UDP"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via UDP
+
+Reverse shells over UDP can be exploited by attackers to bypass firewalls and gain unauthorized access to systems. This technique leverages UDP's connectionless nature, making it harder to detect. Adversaries may use scripting languages or network tools to initiate these connections. The detection rule identifies suspicious processes executing network-related syscalls and egress connections, flagging potential reverse shell activity.
+
+### Possible investigation steps
+
+- Review the process details such as process.pid, process.parent.pid, and process.name to identify the specific process that triggered the alert and its parent process.
+- Examine the command line arguments and environment variables associated with the suspicious process to understand its intended function and origin.
+- Check the network connection details, including destination.ip and network.direction, to determine the external entity the process attempted to connect to and assess if it is a known malicious IP or domain.
+- Investigate the user account associated with the process to determine if it has been compromised or if there are any signs of unauthorized access.
+- Analyze historical logs for any previous instances of similar process executions or network connections to identify patterns or repeated attempts.
+- Correlate the alert with other security events or alerts from the same host.id to gather additional context and assess the scope of potential compromise.
+
+### False positive analysis
+
+- Legitimate administrative scripts or tools may trigger the rule if they use UDP for valid network operations. Users can create exceptions for specific scripts or processes that are known to perform routine administrative tasks.
+- Automated monitoring or network management tools that use UDP for health checks or status updates might be flagged. Identify these tools and exclude their process names or network patterns from the rule.
+- Development or testing environments where developers frequently use scripting languages or network tools for legitimate purposes can cause false positives. Consider excluding specific host IDs or process names associated with these environments.
+- Custom applications that use UDP for communication, especially if they are developed in-house, may be mistakenly identified. Review these applications and whitelist their process names or network behaviors if they are verified as safe.
+- Network scanning or diagnostic tools that use UDP for troubleshooting can be misinterpreted as malicious. Ensure these tools are recognized and excluded from the detection rule if they are part of regular network maintenance activities.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, particularly those associated with known reverse shell tools or scripting languages.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise, such as unauthorized user accounts or modified system files.
+- Review and update firewall rules to block outbound UDP traffic from unauthorized applications or processes, ensuring legitimate traffic is not disrupted.
+- Reset credentials for any accounts accessed from the affected host, especially if they have administrative privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems may be affected.
+- Implement enhanced monitoring and logging for similar suspicious activities, focusing on the execution of network-related syscalls and egress connections from scripting languages or network tools."""
 references = [
     "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
     "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
@@ -70,13 +105,13 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 sample by host.id, process.pid, process.parent.pid
   [process where host.os.type == "linux" and event.type == "start" and event.action == "executed" and process.name : (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*",
     "ruby", "openssl", "awk", "telnet", "lua*", "socat"
-    )]
+    ) and
+    not process.args in ("/var/www/MISP/app/Console/cake", "/var/www/MISP/app", "/usr/local/bin/wp")]
   [process where host.os.type == "linux" and auditd.data.syscall == "socket" and process.name : (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*",
     "ruby", "openssl", "awk", "telnet", "lua*", "socat"
@@ -88,70 +123,34 @@ sample by host.id, process.pid, process.parent.pid
     ) and network.direction == "egress" and destination.ip != null and
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Reverse Shell via UDP
-
-Reverse shells over UDP can be exploited by attackers to bypass firewalls and gain unauthorized access to systems. This technique leverages UDP's connectionless nature, making it harder to detect. Adversaries may use scripting languages or network tools to initiate these connections. The detection rule identifies suspicious processes executing network-related syscalls and egress connections, flagging potential reverse shell activity.
-
-### Possible investigation steps
-
-- Review the process details such as process.pid, process.parent.pid, and process.name to identify the specific process that triggered the alert and its parent process.
-- Examine the command line arguments and environment variables associated with the suspicious process to understand its intended function and origin.
-- Check the network connection details, including destination.ip and network.direction, to determine the external entity the process attempted to connect to and assess if it is a known malicious IP or domain.
-- Investigate the user account associated with the process to determine if it has been compromised or if there are any signs of unauthorized access.
-- Analyze historical logs for any previous instances of similar process executions or network connections to identify patterns or repeated attempts.
-- Correlate the alert with other security events or alerts from the same host.id to gather additional context and assess the scope of potential compromise.
-
-### False positive analysis
-
-- Legitimate administrative scripts or tools may trigger the rule if they use UDP for valid network operations. Users can create exceptions for specific scripts or processes that are known to perform routine administrative tasks.
-- Automated monitoring or network management tools that use UDP for health checks or status updates might be flagged. Identify these tools and exclude their process names or network patterns from the rule.
-- Development or testing environments where developers frequently use scripting languages or network tools for legitimate purposes can cause false positives. Consider excluding specific host IDs or process names associated with these environments.
-- Custom applications that use UDP for communication, especially if they are developed in-house, may be mistakenly identified. Review these applications and whitelist their process names or network behaviors if they are verified as safe.
-- Network scanning or diagnostic tools that use UDP for troubleshooting can be misinterpreted as malicious. Ensure these tools are recognized and excluded from the detection rule if they are part of regular network maintenance activities.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious processes identified by the detection rule, particularly those associated with known reverse shell tools or scripting languages.
-- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise, such as unauthorized user accounts or modified system files.
-- Review and update firewall rules to block outbound UDP traffic from unauthorized applications or processes, ensuring legitimate traffic is not disrupted.
-- Reset credentials for any accounts accessed from the affected host, especially if they have administrative privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems may be affected.
-- Implement enhanced monitoring and logging for similar suspicious activities, focusing on the execution of network-related syscalls and egress connections from scripting languages or network tools."""
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
