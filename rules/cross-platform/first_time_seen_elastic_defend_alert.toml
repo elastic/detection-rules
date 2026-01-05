@@ -24,7 +24,7 @@ type = "esql"
 
 query = '''
 from logs-endpoint.alerts-*
-| WHERE event.code == "behavior"
+| WHERE event.code == "behavior" and rule.name is not null
 | STATS alerts_count = count(*),
         Esql.min_timestamp = MIN(@timestamp),
         Esql.max_timestamp = MAX(@timestamp),
@@ -46,7 +46,7 @@ note = """## Triage and analysis
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating First Time Seen Elastic Defend Alert
+### Investigating First Time Seen Elastic Defend Behavior Alert
 
 Elastic Defend behavior alerts indicate suspicious activity observed on an endpoint that may not yet be widespread or repeated.
 This rule surfaces newly observed, low-frequency behavior alerts affecting a single agent within the current day, which can
