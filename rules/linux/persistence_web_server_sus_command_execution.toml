@@ -109,12 +109,13 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     event.type == "start" and
     event.action == "exec" and (
       (
-        process.parent.name like (
+        process.parent.name in (
             "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "mongrel_rails", "gunicorn",
             "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
-            "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel", "php-fpm*", "php-cgi",
+            "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel", "php-cgi",
             "php-fcgi", "php-cgi.cagefs", "catalina.sh", "hiawatha", "lswsctrl"
         ) or
+        process.parent.name like "php-fpm*" or
         user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9") or
         user.id in ("33", "498", "48") or
         (process.parent.name == "java" and process.parent.working_directory like "/u0?/*") or
