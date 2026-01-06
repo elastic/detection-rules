@@ -2,18 +2,25 @@
 creation_date = "2024/11/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2025/12/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user or role has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege escalation. This is a New Terms rule that identifies when a service assumes a role in AWS Security Token Service (STS) to obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for unauthorized access, privilege escalation, or lateral movement within an AWS environment.
+Identifies when a user or role has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain
+temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
+escalation. This is a New Terms rule that identifies when a service assumes a role in AWS Security Token Service (STS)
+to obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for
+unauthorized access, privilege escalation, or lateral movement within an AWS environment.
 """
 false_positives = [
-    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes. Applications integrated with AWS might assume roles to access AWS resources. Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments.",
+    """
+    AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes.
+    Applications integrated with AWS might assume roles to access AWS resources. Automated workflows might assume roles
+    to perform periodic tasks such as data backups, updates, or deployments.
+    """,
 ]
 from = "now-6m"
-interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -85,26 +92,6 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.user_identity.type: ("AssumedRole" or "IAMUser")
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "user_agent.original",
-    "source.ip",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "event.action",
-    "event.outcome",
-    "aws.cloudtrail.resources.arn",
-    "aws.cloudtrail.resources.type",
-    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
-    "aws.cloudtrail.flattened.response_elements.credentials.accessKeyId",
-    "cloud.region",
-    "cloud.account.id",
-    "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -136,11 +123,32 @@ id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
+    "aws.cloudtrail.flattened.response_elements.credentials.accessKeyId",
+    "cloud.region",
+    "cloud.account.id",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["cloud.account.id", "user.name", "aws.cloudtrail.resources.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-5d"
 
 
