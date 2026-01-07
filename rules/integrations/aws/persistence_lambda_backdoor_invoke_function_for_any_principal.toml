@@ -2,59 +2,88 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/11"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an AWS Lambda function policy is updated to allow public invocation. This rule specifically looks for
-the `AddPermission` API call with the `Principal` set to `*` which allows any AWS account to invoke the Lambda function.
-Adversaries may abuse this permission to create a backdoor in the Lambda function that allows them to execute arbitrary
-code.
+Identifies when an AWS Lambda function policy is updated to allow public invocation. This rule detects use of the
+AddPermission API where the Principal is set to "*", enabling any AWS account to invoke the function. Adversaries may
+abuse this configuration to establish persistence, create a covert execution path, or operate a function as an
+unauthenticated backdoor. Public invocation is rarely required outside very specific workloads and should be considered
+high-risk when performed unexpectedly.
 """
-false_positives = ["Lambda function owners may legitimately update the function policy to allow public invocation."]
-from = "now-60m"
+event_category_override = "event.type"
+false_positives = [
+    """
+    Some organizations may legitimately expose Lambda functions for cross-account or anonymous invocation (e.g., custom
+    public APIs, integrations, or legacy architectures). Validate whether the function owner explicitly intended to make
+    the function publicly invokable. Routine CI/CD deployments or IaC templates may also temporarily set permissive
+    policies; confirm this is expected behavior before treating it as suspicious.
+    """,
+]
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "AWS Lambda Function Policy Updated to Allow Public Invocation"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
+> While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS Lambda Function Policy Updated to Allow Public Invocation
 
-This rule detects when an AWS Lambda function policy is updated to allow public invocation. It specifically looks for the `AddPermission` API call with the `Principal` set to `*`, which allows any AWS account to invoke the Lambda function. Adversaries may abuse this permission to create a backdoor in the Lambda function that allows them to execute arbitrary code. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+AWS Lambda policies control who can invoke a function. When the `Principal` is set to `*`, the function becomes publicly invokable by any AWS account. Adversaries may modify Lambda permissions to create a stealthy execution backdoor or to maintain persistence inside an AWS environment. This activity is uncommon in most production environments and should receive careful scrutiny when detected.
 
-#### Possible Investigation Steps:
+### Possible investigation steps
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific changes made to the Lambda function policy. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
-- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+**Identify the actor**
+- Identify the actor who made the change by reviewing `aws.cloudtrail.user_identity.arn` and access key ID. Determine whether this principal typically administers Lambda functions.
 
-### False Positive Analysis:
+**Review request details**
+- Review request details in `aws.cloudtrail.request_parameters` to understand the exact permission added:
+  - Confirm that the `Principal` is set to `"*"`.
+  - Note the `Action` (`lambda:InvokeFunction`) and any `SourceArn` restrictions (sometimes present, often missing in malicious cases).
 
-- **Legitimate Administrative Actions**: Confirm if the update to allow public invocation aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+**Analyze source context**
+- Check the source of the request using `source.ip`, geo information, and user agent. Unexpected networks, automation tools, or CLI usage may indicate credential compromise.
 
-### Response and Remediation:
+**Correlate timing and related events**
+- Evaluate timing and sequence by correlating `@timestamp` with other events. Look for surrounding actions such as:
+  - Creation or update of Lambda function code.
+  - Publishing new Lambda layers.
+  - Changes to roles attached to the function.
 
-- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, update the Lambda function policy to remove the public invocation permission and restore it to its previous state.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive functions or permissions.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning Lambda function management and the use of permissions.
-- **Audit Lambda Functions and Policies**: Conduct a comprehensive audit of all Lambda functions and associated policies to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+**Assess function sensitivity and impact**
+- Assess the function’s role and data sensitivity. Determine whether public invocation could:
+  - Enable unmonitored code execution,
+  - Trigger access to internal resources via the function’s IAM role,
+  - Be chained with persistence or privilege escalation behavior.
 
-### Additional Information:
+**Validate operational intent**
+- Validate the operational context. Confirm with the function owner whether the permission change was intentional, part of a deployment, or unexpected.
 
-For further guidance on managing Lambda functions and securing AWS environments, refer to the [AWS Lambda documentation](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) and AWS best practices for security. Additionally, consult the following resources for specific details on Lambda persistence techniques:
-- [AWS Lambda Persistence](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence)
-- [AWS Lambda Backdoor Function](https://stratus-red-team.cloud/attack-techniques/AWS/aws.persistence.lambda-backdoor-function/)
-- [AWS API AddPermission](https://docs.aws.amazon.com/lambda/latest/api/API_AddPermission.html)
+### False positive analysis
 
+- Public invocation may be intentional for certain workloads (e.g., webhook handlers, openly accessible compute functions). Compare the event with documentation, IaC templates, or the deployment pipeline.
+- Some teams may regularly modify permissions during testing or refactoring; check whether this aligns with existing workflows.
+- Evaluate whether the function already had permissive invocation policies and whether the update is part of expected configuration drift.
 
+### Response and remediation
+
+- Remove unauthorized public invocation permissions immediately by reverting the Lambda function policy to the approved baseline.
+- Investigate for follow-on activity: execution of the function, updates to code, modifications to IAM roles, or API calls issued using the function's role.
+- Rotate or disable credentials associated with the identity that issued the `AddPermission` call if compromise is suspected.
+- Enable or refine monitoring for Lambda policy updates, layer additions, and code changes to detect future unauthorized modifications.
+- Conduct a security review of the Lambda function and any downstream resources it can access to ensure no misuse has occurred.
+- Work with the application team to enforce least-privilege invocation policies and deploy guardrails (e.g., SCPs, IAM Conditions, or automated compliance checks) preventing public invocation unless explicitly authorized.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
 """
 references = [
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence",
@@ -74,14 +103,15 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.dataset: aws.cloudtrail
-    and event.provider: lambda.amazonaws.com
-    and event.outcome: success
-    and event.action: AddPermission*
-    and aws.cloudtrail.request_parameters: (*lambda\:InvokeFunction* and *principal=\**)
+info where event.dataset == "aws.cloudtrail" 
+    and event.provider == "lambda.amazonaws.com" 
+    and event.outcome == "success" 
+    and event.action : "AddPermission*" 
+    and stringContains(aws.cloudtrail.request_parameters, "lambda:InvokeFunction") 
+    and stringContains(aws.cloudtrail.request_parameters, "principal=\\*")
 '''
 
 
@@ -97,4 +127,22 @@ reference = "https://attack.mitre.org/techniques/T1546/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

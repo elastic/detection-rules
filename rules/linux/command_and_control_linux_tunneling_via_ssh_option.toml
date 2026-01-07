@@ -2,7 +2,7 @@
 creation_date = "2025/04/25"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -107,9 +107,14 @@ process.name in ("ssh", "sshd") and process.args == "-o" and
 process.command_line like~ (
   "*ProxyCommand*", "*LocalForward*", "*RemoteForward*", "*DynamicForward*", "*Tunnel*", "*GatewayPorts*",
   "*ExitOnForwardFailure*", "*ProxyCommand*", "*ProxyJump*"
+) and 
+not (
+  ?process.parent.args == "/usr/bin/pvedaemon" or
+  ?process.parent.command_line in ("pvedaemon", "pve-ha-lrm") or
+  ?process.working_directory like "*ansible*" or
+  process.command_line like "*ansible*"
 )
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
