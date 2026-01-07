@@ -2,7 +2,7 @@
 creation_date = "2025/01/21"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -93,57 +93,72 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.parent.name == "dbus-daemon" and process.args_count > 1 and not (
   process.parent.args == "--session" or
   process.args in ("/usr/lib/software-properties/software-properties-dbus", "/usr/share/backintime/qt/serviceHelper.py") or
   process.name in ("dbus-daemon-launch-helper", "gnome-keyring-daemon", "abrt-dbus", "aptd", "usb-creator-helper") or
-  process.executable like~ ("/usr/lib/*", "/usr/local/lib/*", "/usr/libexec/*", "/tmp/newroot/*")
+  process.executable like (
+    "/usr/lib/*", "/usr/local/lib/*", "/usr/libexec/*", "/tmp/newroot/*", "/usr/sbin/setroubleshootd",
+    "/usr/share/setroubleshoot/SetroubleshootPrivileged.py",
+    "/var/lib/awx/.local/share/containers/storage/overlay/*/SetroubleshootPrivileged.py",
+    "/home/*/.local/share/containers/storage/overlay/*/SetroubleshootPrivileged.py",
+    "/bin/rpm", "/run/user/*/.bubblewrap/newroot/usr/libexec/rhsmd", "/opt/CrowdStrike/sandbox/usr/libexec/rhsmd",
+    "/run/user/*/.bubblewrap/*/setroubleshootd"
+  ) or
+  (
+    process.name like "python*" and
+    process.args in (
+      "/usr/share/usb-creator/usb-creator-helper", "/usr/sbin/aptd", "/usr/sbin/aptk", "/usr/bin/hp-pkservice",
+      "/usr/libexec/language-selector/ls-dbus-backend"
+    )
+  ) or
+  (process.name == "perl" and process.args like "/usr/share/system-tools-backends-*.pl") or
+  ?process.working_directory like "/run/user/*/.bubblewrap/newroot/var/lib/gdm/"
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
