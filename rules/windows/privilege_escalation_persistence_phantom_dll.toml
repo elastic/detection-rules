@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2026/01/02"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ that can be loaded from a different location by a native Windows process. This m
 privileges via privileged file write vulnerabilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious DLL Loaded for Persistence or Privilege Escalation"
@@ -83,7 +83,6 @@ tags = [
     "Tactic: Privilege Escalation",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
 ]
@@ -91,45 +90,29 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where host.os.type == "windows" and
-(event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
+any where host.os.type == "windows" and 
 (
-  /* compatible with Elastic Endpoint Library Events */
-  (
-    ?dll.name : (
-        "wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
-        "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
-        "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "TPPCOIPW32.dll", 
-        "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll"
-    )
-    and (
-      ?dll.code_signature.trusted != true or
-      ?dll.code_signature.exists != true or
-      (
-        ?dll.code_signature.trusted == true and
-          not ?dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation", "Microsoft Windows Publisher")
-      )
-  ) or
-   /* oci.dll is too noisy due to unsigned Oracle related DLL loaded from random dirs */
-  (
-   (?dll.path : "?:\\Windows\\*\\oci.dll" and process.executable : "?:\\Windows\\*.exe" and 
-    (?dll.code_signature.trusted != true or ?dll.code_signature.exists != true)) or 
-    
-   (file.path : "?:\\Windows\\*\\oci.dll" and not file.code_signature.status == "Valid" and process.executable : "?:\\Windows\\*.exe")
-   ) or 
+  /*  Elastic Defend DLL load events */
+  (event.category == "library" and 
+    (
+     ?dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll", "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll", "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "TPPCOIPW32.dll", "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") or 
 
-  /* compatible with Sysmon EventID 7 - Image Load */
-  (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
-               "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
-               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "TPPCOIPW32.dll", 
-               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") and 
-   not file.hash.sha256 : 
+     (?dll.path : "?:\\Windows\\*\\oci.dll" and process.executable : "?:\\Windows\\*.exe")
+     )
+    and (?dll.code_signature.trusted == false or ?dll.code_signature.exists == false or (?dll.code_signature.trusted == true and not ?dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation", "Microsoft Windows Publisher"))
+      ))
+   or
+
+  /*  Sysmon DLL load events */
+  ((event.category == "process" and event.action like "Image loaded*") and file.code_signature.status != "Valid" and 
+  file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll", "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll", "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "TPPCOIPW32.dll", "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") and 
+   not file.hash.sha256 in 
             ("6e837794fc282446906c36d681958f2f6212043fc117c716936920be166a700f", 
              "b14e4954e8cca060ffeb57f2458b6a3a39c7d2f27e94391cbcea5387652f21a4", 
-             "c258d90acd006fa109dc6b748008edbb196d6168bc75ace0de0de54a4db46662") and 
-   not file.code_signature.status == "Valid")
-  ) and
-  not
+             "c258d90acd006fa109dc6b748008edbb196d6168bc75ace0de0de54a4db46662", 
+             "254e5053ac04b7623e86234077876388e0b10c3ac5c3f4e4e86292b62571bfb0")) 
+
+) and not
   (
     ?dll.path : (
       "?:\\Windows\\System32\\wbemcomn.dll",
@@ -143,9 +126,12 @@ any where host.os.type == "windows" and
       "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\windowsperformancerecordercontrol.dll", 
       "\\Device\\HarddiskVolume?\\Windows\\System32\\windowsperformancerecordercontrol.dll", 
       "C:\\ProgramData\\docker\\windowsfilter\\*\\Files\\Windows\\System32\\windowsperformancerecordercontrol.dll", 
-      "C:\\ProgramData\\docker\\windowsfilter\\*\\Files\\Windows\\System32\\windowsperformancerecordercontrol.dll", 
-      "\\Device\\vmsmb\\VSMB-{*}\\os\\windows\\system32\\*.dll"
+      "\\Device\\vmsmb\\VSMB-{*}\\os\\windows\\system32\\*.dll", 
+      "C:\\Windows\\WinSxS\\amd64_microsoft-windows-wmi-core-wbemcomn-dll_*\\wbemcomn.dll", 
+      "C:\\Windows\\WinSxS\\wow64_microsoft-windows-wmi-core-wbemcomn-dll_*\\wbemcomn.dll", 
+      "C:\\Windows\\WinSxS\\amd64_microsoft-windows-coresystem-wpr_*\\windowsperformancerecordercontrol.dll"
     ) or
+    
     file.path : (
       "?:\\Windows\\System32\\wbemcomn.dll",
       "?:\\Windows\\SysWOW64\\wbemcomn.dll",
@@ -153,10 +139,13 @@ any where host.os.type == "windows" and
       "?:\\Windows\\System32\\wlanhlp.dll", 
       "C:\\ProgramData\\docker\\windowsfilter\\*\\Files\\Windows\\System32\\windowsperformancerecordercontrol.dll", 
       "C:\\ProgramData\\docker\\windowsfilter\\*\\Files\\Windows\\System32\\wbemcomn.dll", 
-      "\\Device\\vmsmb\\VSMB-{*}\\os\\windows\\system32\\*.dll"
-    )
+      "\\Device\\vmsmb\\VSMB-{*}\\os\\windows\\system32\\*.dll", 
+      "C:\\Windows\\WinSxS\\amd64_microsoft-windows-wmi-core-wbemcomn-dll_*\\wbemcomn.dll", 
+      "C:\\Windows\\WinSxS\\wow64_microsoft-windows-wmi-core-wbemcomn-dll_*\\wbemcomn.dll"
+    ) or 
+
+ ?dll.code_signature.status like "errorCode_endpoint*"
   )
-)
 '''
 
 
