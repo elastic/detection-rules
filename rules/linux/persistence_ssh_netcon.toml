@@ -2,7 +2,7 @@
 creation_date = "2024/06/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -16,44 +16,13 @@ from = "now-9m"
 index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Network Connection Initiated by SSHD Child Process"
-references = ["https://hadess.io/the-art-of-linux-persistence/"]
-risk_score = 47
-rule_id = "63431796-f813-43af-820b-492ee2efec8e"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
-]
-type = "eql"
-query = '''
-sequence by host.id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.parent.executable == "/usr/sbin/sshd"] by process.entity_id
-  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and not (
-     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
-     destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
-     "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
-     "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
-     "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
-     "FF00::/8", "172.31.0.0/16"
-     )
-    ) and not (
-      process.executable in ("/bin/yum", "/usr/bin/yum") or
-      process.name in ("login_duo", "ssh", "sshd", "sshd-session")
-    )
-  ] by process.parent.entity_id
-'''
+name = "Network Connection Initiated by Suspicious SSHD Child Process"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Network Connection Initiated by SSHD Child Process
+### Investigating Network Connection Initiated by Suspicious SSHD Child Process
 
 The SSH Daemon (SSHD) facilitates secure remote logins and command execution on Linux systems. Adversaries may exploit SSHD by modifying shell configurations or backdooring the daemon to establish unauthorized connections, often for persistence or data exfiltration. The detection rule identifies suspicious outbound connections initiated by SSHD child processes, excluding benign processes and internal IP ranges, to flag potential malicious activity.
 
@@ -81,6 +50,52 @@ The SSH Daemon (SSHD) facilitates secure remote logins and command execution on 
 - Apply security patches and updates to the SSH daemon and related software to mitigate known vulnerabilities that could be exploited for persistence or unauthorized access.
 - Monitor network traffic for any further suspicious outbound connections from other systems, indicating potential lateral movement or additional compromised hosts.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the compromise."""
+references = ["https://hadess.io/the-art-of-linux-persistence/"]
+risk_score = 47
+rule_id = "63431796-f813-43af-820b-492ee2efec8e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.parent.executable == "/usr/sbin/sshd" and not process.command_line like ("*ansible*", "*BECOME-SUCCESS*")] by process.entity_id
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
+     process.executable like (
+       "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "/lost+found/*",
+       "/proc/*", "/var/mail/*", "/var/www/*", "/home/*", "/root/*" 
+     ) or
+     process.name like~ (
+       // Hidden processes
+       ".*",
+       // Suspicious file formats
+       "*.elf", "*.sh", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", ".js",
+       // Scheduled tasks
+       "systemd", "cron", "crond",
+       // Network utilities often used for reverse shells
+       "nc", "netcat", "ncat", "telnet", "socat", "openssl", "nc.openbsd", "ngrok", "nc.traditional"
+     )
+   ) and  
+   not (
+     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+       "FF00::/8", "172.31.0.0/16"
+     ) or
+     process.executable in ("/bin/yum", "/usr/bin/yum") or
+     process.name in ("login_duo", "ssh", "sshd", "sshd-session", "sqlplus")
+   )
+  ] by process.parent.entity_id
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
