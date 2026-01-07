@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2025/12/09"
+integration = ["github"]
+maturity = "production"
+updated_date = "2025/12/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the github-actions[bot] pushes code to a repository where it has not performed this behavior before in a certain time window. This may
+indicate a supply chain attack where malicious code running in a CI workflow attempts to modify repository contents,
+such as injecting backdoor workflow files.
+"""
+false_positives = [
+    """
+    Legitimate CI/CD automation that commits and pushes changes (e.g., auto-formatting, changelog updates, version
+    bumps, Dependabot auto-merge) will trigger this alert on first use in a repository. Review the repository's
+    workflow configurations to determine if bot pushes are expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GitHub Actions Unusual Bot Push to Repository"
+note = """## Triage and analysis
+
+### Investigating GitHub Actions Unusual Bot Push to Repository
+
+This rule detects when the GitHub Actions bot pushes to a repository where it hasn't pushed to in a certain time interval. While this can be
+legitimate automation, it may also indicate a supply chain attack where malicious code executes during CI and attempts
+to modify repository contents.
+
+### Possible investigation steps
+
+- Review the `github.repo` field to identify the affected repository.
+- Check recent workflow runs in the repository to identify which workflow triggered the push.
+- Examine the repository's commit history to see what files were modified by the bot push.
+- Look for newly added or modified files in `.github/workflows/` directory.
+- Review the repository's dependencies for recently added or updated packages with preinstall/postinstall hooks.
+- Check if the repository has legitimate automation that would explain bot pushes (Dependabot, Renovate, release automation).
+- Correlate with `protected_branch.rejected_ref_update` events to see if workflow injection was blocked.
+- Search for other repositories in the organization with similar suspicious activity.
+
+### False positive analysis
+
+- Repositories with auto-commit workflows (formatting, changelog generation, version bumps) will trigger on first run.
+- Dependabot or Renovate auto-merge configurations cause legitimate bot pushes.
+- GitHub Pages deployment workflows may push to gh-pages branches.
+- Release automation that updates version files or generates artifacts.
+
+### Response and remediation
+
+- If the push is unexpected, immediately review the commit contents for malicious files.
+- Check for suspicious workflow files (e.g., `discussion_*.yaml`, `formatter_*.yml`).
+- Audit all dependencies in the affected repository for malicious packages.
+- Rotate any secrets that may have been exposed during the workflow run.
+- Enable branch protection rules to require PR reviews for all changes.
+- Consider restricting GITHUB_TOKEN permissions in workflow files using `permissions:` key.
+"""
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+]
+risk_score = 21
+rule_id = "03245b25-3849-4052-ab48-72de65a82c35"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "github.audit" and
+    event.action: "git.push" and
+    user.name: "github-actions[bot]"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["github.org_id", "github.repo"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
