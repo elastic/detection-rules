@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Renaming of ESXI index.html File"
+name = "Deprecated - Suspicious Renaming of ESXI index.html File"
 references = [
     "https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/",
 ]
@@ -57,7 +57,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action == "rename" and file.name : "index.html" and
 file.Ext.original.path : "/usr/lib/vmware/*"
@@ -67,7 +66,7 @@ note = """## Triage and analysis
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Suspicious Renaming of ESXI index.html File
+### Investigating Deprecated - Suspicious Renaming of ESXI index.html File
 
 VMware ESXi hosts use the index.html file within their web interface for management tasks. Adversaries may rename this file to evade detection or to replace it with a malicious version, facilitating unauthorized access or data exfiltration. The detection rule monitors Linux systems for renaming actions targeting this file in the VMware directory, flagging potential defense evasion attempts by correlating file path and event actions.
 
@@ -98,22 +97,20 @@ VMware ESXi hosts use the index.html file within their web interface for managem
 - Implement additional monitoring on the affected host and similar systems to detect any further attempts to rename or modify critical files.
 - Review and update access controls and permissions on the VMware ESXi host to ensure that only authorized personnel have the ability to modify critical system files."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename Legitimate Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

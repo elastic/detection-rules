@@ -2,7 +2,7 @@
 creation_date = "2022/07/12"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -43,7 +43,6 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
-
 
 [rule]
 author = ["Elastic"]
@@ -165,33 +164,30 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync") and
+[process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
    process.args in (
      "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
      "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
     )]
-[file where host.os.type == "linux" and event.action == "creation" and file.extension == "so"]
+[file where host.os.type == "linux" and event.action == "creation" and (file.extension == "so" or file.name like "*.so.*")]
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

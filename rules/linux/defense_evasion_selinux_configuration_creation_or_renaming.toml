@@ -2,7 +2,7 @@
 creation_date = "2024/08/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -93,28 +93,31 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
-and file.path : "/etc/selinux/config" and not process.name in ("dockerd", "platform-python")
+and file.path : "/etc/selinux/config" and not (
+  process.name in ("dockerd", "platform-python") or
+  process.executable like (
+    "/usr/libexec/platform-python*", "/dev/fd/3", "/usr/bin/podman", "/usr/local/cpanel/3rdparty/perl/*/bin/perl",
+    "/kaniko/executor", "/usr/lib/systemd/systemd", "/usr/bin/insights-client", "/bin/podman"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
