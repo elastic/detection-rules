@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,14 @@ This rule detects when a process executes the curl or wget command with an argum
 api.telegram.org domain. This may indicate command and control behavior.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Telegram API Request"
@@ -49,7 +56,7 @@ Telegram's API allows applications to interact with its messaging platform, ofte
 - Update and patch the affected system to the latest security standards to mitigate vulnerabilities that could be exploited in similar attacks.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "af1e36fe-0abd-4463-b5ec-4e276dec0b26"
 setup = """## Setup
 
@@ -89,20 +96,24 @@ In order to capture this behavior, this rule requires a specific configuration o
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
   "Use Case: Threat Detection",
   "Tactic: Command and Control",
   "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
+  "Data Source: Elastic Endgame",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+  "Data Source: Auditd Manager",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "start", "exec_event", "ProcessRollup2", "executed", "exec_event", "process_started") and
 process.name in ("curl", "wget") and process.command_line like "*api.telegram.org*"
 '''
 

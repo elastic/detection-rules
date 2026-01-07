@@ -2,7 +2,7 @@
 creation_date = "2024/08/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -90,45 +90,50 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "deletion" and file.path : "/etc/ssl/certs/*" and
-file.extension in ("pem", "crt") and not process.name in ("dockerd", "pacman")
+file where host.os.type == "linux" and event.type == "deletion" and process.executable != null and
+file.path : "/etc/ssl/certs/*" and file.extension in ("pem", "crt") and
+not (
+  process.name in ("dockerd", "pacman") or
+  process.executable in (
+    "/kaniko/executor", "/usr/sbin/update-ca-certificates", "/usr/bin/gnurm", "/usr/bin/podman",
+    "/usr/local/bin/executor", "/opt/kaniko/executor", "/.envbuilder/bin/envbuilder", "/opt/kaspersky/kesl/libexec/kesl"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.004"
 name = "File Deletion"
 reference = "https://attack.mitre.org/techniques/T1070/004/"
-
 
 [[rule.threat.technique]]
 id = "T1553"
 name = "Subvert Trust Controls"
 reference = "https://attack.mitre.org/techniques/T1553/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1485"
 name = "Data Destruction"
 reference = "https://attack.mitre.org/techniques/T1485/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

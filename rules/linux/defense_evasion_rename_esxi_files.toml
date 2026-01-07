@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -57,11 +57,18 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.action == "rename" and
-file.Ext.original.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
-and not file.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
+file where host.os.type == "linux" and event.action == "rename" and (
+  file.Ext.original.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem") or
+  (file.name == "index.html" and file.Ext.original.path like "/usr/lib/vmware/*")
+)
+and not (
+  file.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem") or
+  process.executable like (
+    "/usr/sbin/gdm", "/usr/share/dotnet/dotnet", "/usr/bin/dotnet", "/usr/sbin/apache2",
+    "/var/lib/docker/overlay2/*/usr/bin/dotnet", "/usr/lib/3cxpbx/3cxSystemService"
+  )
+)
 '''
 note = """## Triage and analysis
 
@@ -99,22 +106,20 @@ VMware ESXi files are critical for virtual machine operations, storing configura
 - Implement additional monitoring on the affected system and similar environments to detect any further attempts at file masquerading or other suspicious activities.
 - Review and update access controls and permissions for VMware ESXi files to ensure only authorized users have the ability to rename or modify these files."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename Legitimate Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
