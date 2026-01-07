@@ -2,7 +2,7 @@
 creation_date = "2023/09/05"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -28,7 +28,6 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
-
 
 [rule]
 author = ["Elastic"]
@@ -108,7 +107,7 @@ This rule monitors for the addition of the cap_setuid+ep or cap_setgid+ep capabi
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 47
+risk_score = 73
 rule_id = "f5c005d3-4e17-48b0-9cd7-444d48857f97"
 setup = """## Setup
 
@@ -135,7 +134,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -149,16 +148,14 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
-  process.name == "setcap" and process.args : "cap_set?id+ep" and not (
-    process.parent.name in ("jem", "vzctl") or
-    process.args like "/usr/bin/new?idmap"
-  )
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
+process.name == "setcap" and process.args : "cap_set?id+ep" and not (
+  process.parent.name in ("jem", "vzctl") or
+  process.args like "/usr/bin/new?idmap"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -167,21 +164,21 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
