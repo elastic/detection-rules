@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the usage of the most common video recording or screenshot utilities on unix systems
+by an uncommon process parent. Adversaries may collect video or screenshot data from users or systems for a
+variety of reasons including espionage, credential theft, or reconnaissance.
+"""
+from = "now-9m"
+index = [
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+        ]
+language = "kuery"
+license = "Elastic License v2"
+name = "Linux Video Recording or Screenshot Activity Detected"
+risk_score = 21
+rule_id = "93dd73f9-3e59-45be-b023-c681273baf81"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:"linux" and event.type:"start" and event.action:("exec" or "exec_event" or "start") and
+process.name:(
+  "gnome-screenshot", "spectacle", "xfce4-screenshooter", "mate-screenshot", "scrot", "maim", "import", "grim",
+  "grimshot", "slurp", "flameshot", "shutter", "ksnip", "deepin-screenshot", "simplescreenrecorder", "kazam",
+  "vokoscreen", "recordmydesktop", "obs", "obs-studio"
+) and
+not process.args:("-h" or "--help" or "--version")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1113"
+name = "Screen Capture"
+reference = "https://attack.mitre.org/techniques/T1113/"
+
+[[rule.threat.technique]]
+id = "T1125"
+name = "Video Capture"
+reference = "https://attack.mitre.org/techniques/T1125/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["agent.id", "process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the usage of the most common audio recording utilities on unix systems by an uncommon process parent.
+Adversaries may collect audio data from users or systems for a variety of reasons including espionage, credential theft, or reconnaissance.
+"""
+from = "now-9m"
+index = [
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+        ]
+language = "kuery"
+license = "Elastic License v2"
+name = "Linux Audio Recording Activity Detected"
+risk_score = 21
+rule_id = "3ee526ce-1f26-45dd-9358-c23100d1121f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:"linux" and event.type:"start" and event.action:("exec" or "exec_event" or "start") and (
+  process.name:("arecord" or "parec" or "pw-record" or "ecasound") or
+  (process.name:"ffmpeg" and process.args:"-i")
+) and
+not process.args:("-h" or "--help" or "--version")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["agent.id", "process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
