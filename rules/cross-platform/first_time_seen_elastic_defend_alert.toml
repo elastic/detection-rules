@@ -25,11 +25,9 @@ type = "esql"
 query = '''
 from logs-endpoint.alerts-*
 | WHERE event.code == "behavior" and rule.name is not null
-| STATS alerts_count = count(*),
-        Esql.min_timestamp = MIN(@timestamp),
-        Esql.max_timestamp = MAX(@timestamp),
-        days = DATE_DIFF("days", MIN(@timestamp), MAX(@timestamp)),
-        agents_distinct_count = COUNT_DISTINCT(agent.id),
+| STATS Esql.alerts_count = count(*),
+        Esql.fist_time_seen = MIN(@timestamp),
+        Esql.agents_distinct_count = COUNT_DISTINCT(agent.id),
         Esql.process_executable = VALUES(process.executable),
         Esql.process_parent_executable = VALUES(process.parent.executable),
         Esql.process_command_line = VALUES(process.command_line),
@@ -37,8 +35,8 @@ from logs-endpoint.alerts-*
         Esql.host_id = VALUES(host.id),
         Esql.user_name = VALUES(user.name) by rule.name
 // fist time seen in the last 5 days - defined in the rule schedule Additional look-back time
-| eval recent = DATE_DIFF("day", Esql.max_timestamp, now())
-| where days == 0 and recent == 0 and agents_distinct_count == 1 and alerts_count <= 10
+| eval recent = DATE_DIFF("day", Esql.fist_time_seen, now())
+| where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10
 | keep rule.name, Esql.*
 '''
 note = """## Triage and analysis
