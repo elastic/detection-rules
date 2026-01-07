@@ -2,7 +2,7 @@
 creation_date = "2023/03/07"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -27,7 +27,6 @@ query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Retrieve Information for a Specific Group"
 query = "SELECT * FROM groups WHERE groupname = {{group.name}}"
-
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +94,7 @@ This rule identifies the usage of the `usermod` command to set a user's UID to 0
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
-risk_score = 47
+risk_score = 73
 rule_id = "494ebba4-ecb7-4be4-8c6f-654c686549ad"
 setup = """## Setup
 
@@ -122,7 +121,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -137,29 +136,27 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
- and process.name == "usermod" and process.args : "-u" and process.args : "0" and process.args : "-o"
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "usermod" and process.args in ("-u", "--uid") and process.args == "0" and
+process.args in ("-o", "--non-unique")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
