@@ -2,7 +2,7 @@
 creation_date = "2022/07/22"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -174,30 +174,29 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start") and
+process.executable != null and
 ( 
   (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
   (process.args : "*chkconfig" and process.args : "--add")
 ) and not (
   process.parent.name in ("rpm", "qualys-scan-util", "qualys-cloud-agent", "update-alternatives") or
-  process.parent.args : ("/var/tmp/rpm*", "/var/lib/waagent/*") or
-  process.args in ("jexec", "sapinit", "httpd", "dbora")
+  process.parent.executable in ("/opt/commvault/.gxsetup/silent_install/install", "/usr/sbin/alternatives") or
+  process.parent.args : ("/var/tmp/rpm*", "/var/lib/waagent/*", "/usr/bin/puppet*") or
+  process.args in ("jexec", "sapinit", "httpd", "dbora" , "selfprotection")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
