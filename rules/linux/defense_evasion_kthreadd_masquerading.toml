@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,7 @@ In Linux environments, kernel processes like `kthreadd` and `kworker` typically 
 - Update and patch the system to close any vulnerabilities that may have been exploited by the attacker, ensuring all software and security tools are up to date.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 references = ["https://sandflysecurity.com/blog/linux-stealth-rootkit-malware-with-edr-evasion-analyzed/"]
-risk_score = 21
+risk_score = 73
 rule_id = "202829f6-0271-4e88-b882-11a655c590d4"
 setup = """## Setup
 
@@ -84,7 +84,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -98,33 +98,30 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name : ("kworker*", "kthread*") and process.executable != null
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.004"
 name = "Masquerade Task or Service"
 reference = "https://attack.mitre.org/techniques/T1036/004/"
-
 
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
