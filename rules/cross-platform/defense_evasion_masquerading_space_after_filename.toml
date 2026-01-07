@@ -2,7 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,41 +18,6 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Masquerading Space After Filename"
-references = [
-    "https://www.picussecurity.com/resource/blog/picus-10-critical-mitre-attck-techniques-t1036-masquerading",
-]
-risk_score = 47
-rule_id = "f5fb4598-4f10-11ed-bdc3-0242ac120002"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-query = '''
-process where host.os.type:("linux","macos") and event.type == "start" and
-process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
-  process.name in ("ls", "find", "grep", "xkbcomp") or
-  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", "/tmp/ansible-admin/*") or
-  process.parent.args in (
-    "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", "/etc/rubrik/start_stop_agent.sh"
-  )
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -87,6 +52,42 @@ In Linux and macOS environments, file execution is determined by the file's true
 - Review and update endpoint protection settings to block execution of files with suspicious naming conventions, such as those ending with a space.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess potential impacts on other systems.
 - Implement additional monitoring for similar masquerading attempts by enhancing logging and alerting mechanisms to detect files with unusual naming patterns."""
+references = [
+    "https://www.picussecurity.com/resource/blog/picus-10-critical-mitre-attck-techniques-t1036-masquerading",
+]
+risk_score = 47
+rule_id = "f5fb4598-4f10-11ed-bdc3-0242ac120002"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type:("linux","macos") and event.type == "start" and
+process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
+  process.name in ("ls", "find", "grep", "xkbcomp") or
+  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", "/tmp/ansible-admin/*") or
+  process.parent.args in (
+    "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", "/etc/rubrik/start_stop_agent.sh"
+  ) or
+  process.args == "runc"
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
