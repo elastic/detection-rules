@@ -1,16 +1,27 @@
 [metadata]
 creation_date = "2024/08/21"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/09/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the use of the AWS CLI with the `--endpoint-url` argument, which allows users to specify a custom endpoint URL for AWS services. This can be leveraged by adversaries to redirect API requests to non-standard or malicious endpoints, potentially bypassing typical security controls and logging mechanisms. This behavior may indicate an attempt to interact with unauthorized or compromised infrastructure, exfiltrate data, or perform other malicious activities under the guise of legitimate AWS operations.
+Detects the use of the AWS CLI with the "--endpoint-url" argument, which allows users to specify a custom endpoint URL
+for AWS services. This can be leveraged by adversaries to redirect API requests to non-standard or malicious endpoints,
+potentially bypassing typical security controls and logging mechanisms. This behavior may indicate an attempt to interact
+with unauthorized or compromised infrastructure, exfiltrate data, or perform other malicious activities under the guise
+of legitimate AWS operations.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-crowdstrike.fdr*"]
+index = [
+          "logs-crowdstrike.fdr*",
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+          "auditbeat-*",
+          "logs-auditd_manager.auditd-*",
+        ]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CLI Command with Custom Endpoint URL"
@@ -21,18 +32,23 @@ risk_score = 47
 rule_id = "349276c0-5fcf-11ef-b1a9-f661ea17fbce"
 severity = "medium"
 tags = [
-  "Data Source: Elastic Defend",
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Command and Control",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 type = "new_terms"
 timestamp_override = "event.ingested"
 query = '''
-host.os.type: "linux" and event.category: "process" and process.name: "aws" and process.args:  "--endpoint-url"
+host.os.type:"linux" and event.category:"process" and
+event.action:("exec" or "exec_event" or "executed" or "process_started" or "ProcessRollup2") and
+process.name:"aws" and process.args:"--endpoint-url"
 '''
 note = """## Triage and analysis
 
@@ -72,21 +88,21 @@ The AWS CLI allows users to interact with AWS services via command-line, offerin
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1102"
 name = "Web Service"
 reference = "https://attack.mitre.org/techniques/T1102/"
-
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name"]
+value = ["host.id"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-3d"
