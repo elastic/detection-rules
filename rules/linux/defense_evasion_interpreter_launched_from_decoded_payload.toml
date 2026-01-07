@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,7 @@ Base64 encoding is a method to encode binary data into ASCII text, often used fo
 - Implement enhanced monitoring and logging for base64 decoding activities and interpreter executions to detect similar threats in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if broader organizational impacts exist.
 """
-risk_score = 47
+risk_score = 73
 rule_id = "5bdad1d5-5001-4a13-ae99-fa8619500f1a"
 setup = """## Setup
 
@@ -79,7 +79,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
@@ -106,9 +106,18 @@ sequence by host.id, process.parent.entity_id with maxspan=3s
   )]
  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name like~ (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*"
- )]
+  ) and
+  not (
+    ?process.parent.command_line in ("bash ./run_tests.sh unit-integration", "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure") or
+    process.command_line == "/usr/bin/perl /usr/bin/shasum -a 256" or
+    ?process.working_directory like (
+      "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
+      "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
+    ) or
+    (?process.parent.name == "zsh" and ?process.parent.command_line like "*extendedglob*") or
+    (process.name like "python*" and ?process.parent.name == "python*")
+  )]
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
