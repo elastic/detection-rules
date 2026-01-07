@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -165,44 +165,41 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
-  process.name : "kworker*" and not (
-    (process.name : "kworker*kcryptd*") or
-    (file.path : (
-      "/var/log/*", "/var/crash/*", "/var/run/*", "/var/lib/systemd/coredump/*", "/var/spool/*",
-      "/var/lib/nfs/nfsdcltrack/main.sqlite-journal", "/proc/*/cwd/core.*", "/var/run/apport.lock",
-      "/var/spool/abrt/ccpp-*", "/var/lib/dynatrace/oneagent/*", "/var/lib/nfs*", "/run/user/*/.bubblewrap/*",
-      "/etc/localtime/*", "/proc/*/cwd/core.*"
-      )
-    )
+process.name : "kworker*" and not (
+  process.name : "kworker*kcryptd*" or
+  file.path like (
+    "/var/log/*", "/var/crash/*", "/var/run/*", "/var/lib/systemd/coredump/*", "/var/spool/*",
+    "/var/lib/nfs/nfsdcltrack/main.sqlite-journal", "/proc/*/cwd/core.*", "/var/run/apport.lock",
+    "/var/spool/abrt/ccpp-*", "/var/lib/dynatrace/oneagent/*", "/var/lib/nfs*", "/run/user/*/.bubblewrap/*",
+    "/etc/localtime/*", "/proc/*/cwd/core.*", "/tmp/sh-thd.*", "/var/lib/apport/coredump/*", "/var/tmp/abrt/ccpp*"
   )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

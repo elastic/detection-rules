@@ -2,7 +2,7 @@
 creation_date = "2025/09/18"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/11/26"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -105,17 +105,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
- process.parent.name in ("node", "bun", "node.exe", "bun.exe") and (
-  (
-    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "cmd.exe", "bash.exe", "powershell.exe") and
-    process.command_line like~ ("*curl*http*", "*wget*http*")
-  ) or 
-  (
-    process.name in ("curl", "wget", "curl.exe", "wget.exe")
-  )
-) and
- not process.command_line like ("*127.0.0.1*", "*localhost*")
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.parent.name in ("node", "bun", "node.exe", "bun.exe") and (
+(
+  process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "cmd.exe", "bash.exe", "powershell.exe") and
+  process.command_line like~ ("*curl*http*", "*wget*http*")
+) or 
+(
+  process.name in ("curl", "wget", "curl.exe", "wget.exe")
+)
+) and not (
+  process.command_line like ("*127.0.0.1*", "*localhost*", "*/home/*/.claude/shell-snapshots/*", "*/root/.claude/shell-snapshots/snapshot*") or
+  process.parent.executable like ("/*/.cursor-server/*node", "/root/.nvm/*/node", "/*/.vscode-server/*/node", "/home/*/.nvm/*/node", "/home/*/cursor-agent/*/node") 
+)
 '''
 
 [[rule.threat]]
