@@ -2,7 +2,7 @@
 creation_date = "2025/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,7 @@ Base64 encoding is a common method to encode binary data into ASCII text, often 
 
 - Review and update access controls and permissions for the directories involved to prevent unauthorized access and execution of potentially harmful scripts or binaries.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "03d856c2-7f74-4540-a530-e20af5e39789"
 setup = """## Setup
 
@@ -84,7 +84,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -109,7 +109,8 @@ sequence by process.parent.entity_id with maxspan=3s
      ) or
      process.working_directory like (
        "/opt/microsoft/omsagent/plugin", "/opt/rapid7/ir_agent/*", "/tmp/newroot/*"
-      )
+      ) or
+      (process.parent.name == "zsh" and process.parent.command_line like "*extendedglob*")
    )]
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and
    process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
