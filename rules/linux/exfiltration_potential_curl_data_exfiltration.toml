@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2026/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ actors have been seen utilizing curl to upload this archive file with the collec
 way while not inherently malicious should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*",]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Data Exfiltration Through Curl"
@@ -79,19 +79,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
-Elastic Defend integration does not collect environment variable logging by default.
-In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
- #### To set up environment variable capture for an Elastic Agent policy:
-- Go to “Security → Manage → Policies”.
-- Select an “Elastic Agent policy”.
-- Click “Show advanced settings”.
-- Scroll down or search for “linux.advanced.capture_env_vars”.
-- Enter the names of environment variables you want to capture, separated by commas.
-- For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
-- Click “Save”.
-After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
-For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
 """
 severity = "medium"
 tags = [
@@ -102,14 +89,16 @@ tags = [
   "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "curl" and
-?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like "--data*") and 
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "curl" and
+?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like ("--data*", "--form*")) and 
 process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
-process.command_line like~ "*http*"
+process.command_line like~ "*http*" and
+not ?process.parent.executable == "/usr/share/untangle/bin/configuration-backup-upload-backup.sh"
 '''
 
 [[rule.threat]]

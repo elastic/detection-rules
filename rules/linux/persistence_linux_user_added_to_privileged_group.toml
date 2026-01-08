@@ -2,7 +2,7 @@
 creation_date = "2023/02/13"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -20,7 +20,6 @@ query = "SELECT * FROM groups WHERE groupname = {{group.name}}"
 [[transform.osquery]]
 label = "Osquery - Retrieve Running Processes by User"
 query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
-
 
 [rule]
 author = ["Elastic"]
@@ -129,35 +128,32 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-  process.args in (
-    "root", "admin", "wheel", "staff", "sudo","disk", "video", "shadow", "lxc", "lxd"
-  ) and
-  (
-    process.name in ("usermod", "adduser") or
-    (process.name == "gpasswd" and process.args in ("-a", "--add", "-M", "--members"))
-  )
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.executable != null and process.args in (
+  "root", "admin", "wheel", "staff", "sudo","disk", "video", "shadow", "lxc", "lxd"
+) and
+(
+  process.name in ("usermod", "adduser") or
+  (process.name == "gpasswd" and process.args in ("-a", "--add", "-M", "--members"))
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
