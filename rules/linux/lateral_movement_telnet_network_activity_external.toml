@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -108,10 +108,9 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by process.entity_id
-  [process where host.os.type == "linux" and process.name == "telnet" and event.type == "start"]
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and process.name == "telnet"]
   [network where host.os.type == "linux" and process.name == "telnet" and not cidrmatch(
      destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
      "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
@@ -122,17 +121,15 @@ sequence by process.entity_id
   ]
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
 
-
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
