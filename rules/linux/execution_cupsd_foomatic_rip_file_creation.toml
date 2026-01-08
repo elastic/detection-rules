@@ -2,7 +2,7 @@
 creation_date = "2024/09/27"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +69,7 @@ references = [
     "https://gist.github.com/stong/c8847ef27910ae344a7b5408d9840ee1",
     "https://github.com/RickdeJager/cupshax/blob/main/cupshax.py",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "b9b14be7-b7f4-4367-9934-81f07d2f63c4"
 setup = """## Setup
 
@@ -96,7 +96,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -108,27 +108,27 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=10s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.parent.name == "foomatic-rip" and
    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.entity_id
   [file where host.os.type == "linux" and event.type != "deletion" and
-   not (process.name == "gs" and file.path like "/tmp/gs_*")] by process.parent.entity_id
+   not (
+     (process.name == "gs" and file.path like ("/tmp/gs_*", "/var/spool/cups/tmp/gs_*")) or
+     (process.name == "pdftops" and file.path like "/tmp/0*")
+   )] by process.parent.entity_id
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1203"
 name = "Exploitation for Client Execution"
 reference = "https://attack.mitre.org/techniques/T1203/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
