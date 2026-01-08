@@ -3,7 +3,7 @@
 creation_date = "2025/04/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,7 @@ In Linux environments, the mount command integrates filesystems, enabling access
 - Escalate the incident to the security operations team for further investigation and to assess the scope of the threat, including potential lateral movement or additional compromised systems.
 - Enhance monitoring and detection capabilities by configuring alerts for unusual mount activities and integrating threat intelligence feeds to identify similar tactics used by adversaries.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "68e90a9b-0eab-425e-be3b-902b0cd1fe9c"
 setup = """## Setup
 
@@ -79,7 +79,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -94,11 +94,18 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "mount" and 
 process.args like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/home/*", "/root/*", "/mount") and process.parent.executable != null and
 not (
-  process.parent.executable like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*", "/usr/libexec/*") or
+  process.parent.executable like (
+    "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*", "/usr/libexec/*",
+    "/usr/local/nutanix/ngt/*/python"
+  ) or
+  process.parent.executable in (
+    "/usr/lib/uptrack/ksplice-apply", "/usr/lib/Acronis/BackupAndRecovery/mms",
+    "/usr/lib/Acronis/BackupAndRecovery/service_process-bin", "/usr/lib/systemd/systemd", "/etc/grub.d/10_linux_zfs",
+    "./tools/image-summary", "/nfsplugin", "/usr/share/ksplice/ksplice-apply", "/lib/systemd/systemd"
+  ) or
   process.parent.name == "snapd"
 )
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

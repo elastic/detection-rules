@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,61 +17,6 @@ index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Linux DAC permissions"
-risk_score = 47
-rule_id = "f7c70f2e-4616-439c-85ac-5b98415042fe"
-setup = """## Setup
-
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:exec and
-(process.thread.capabilities.permitted:CAP_DAC_* or process.thread.capabilities.effective: CAP_DAC_*) and
-process.command_line:(*sudoers* or *passwd* or *shadow* or */root/.ssh*) and not (
-  user.id : "0" or
-  process.name : (
-    "tar" or "getent" or "su" or "stat" or "dirname" or "chown" or "sudo" or "dpkg-split" or "dpkg-deb" or "dpkg" or
-    "podman" or "awk" or "passwd" or "dpkg-maintscript-helper" or "mutt_dotlock" or "nscd" or "logger" or "gpasswd"
-  ) or
-  process.executable : /usr/lib/*/lxc/rootfs/* or
-  process.parent.name : (
-    "dpkg" or "java" or *postinst or "dpkg-preconfigure" or "gnome-shell"
-  )
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -107,15 +52,75 @@ Linux Discretionary Access Control (DAC) allows file owners to set permissions, 
 - Implement additional monitoring on the affected system to detect any further attempts at privilege escalation or unauthorized access.
 - Escalate the incident to the security operations team for a comprehensive investigation to determine the root cause and potential impact.
 - Apply security patches and updates to the affected system to mitigate any known vulnerabilities that could be exploited for privilege escalation."""
+risk_score = 21
+rule_id = "f7c70f2e-4616-439c-85ac-5b98415042fe"
+setup = """## Setup
 
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+(process.thread.capabilities.permitted:CAP_DAC_* or process.thread.capabilities.effective: CAP_DAC_*) and
+process.command_line:(*/etc/sudoers* or */etc/passwd* or */etc/shadow* or */root/.ssh/* or /home/*/.ssh/*) and not (
+  user.id : "0" or
+  process.name : (
+    "tar" or "getent" or "su" or "stat" or "dirname" or "chown" or "sudo" or "dpkg-split" or "dpkg-deb" or "dpkg" or
+    "podman" or "awk" or "passwd" or "dpkg-maintscript-helper" or "mutt_dotlock" or "nscd" or "logger" or "gpasswd"
+  ) or
+  process.executable : /usr/lib/*/lxc/rootfs/* or
+  process.parent.name : (
+    "dpkg" or "java" or *postinst or "dpkg-preconfigure" or "gnome-shell"
+  ) or
+  process.parent.executable:(
+    "/opt/microsoft/mdatp/sbin/wdavdaemon" or "/usr/bin/podman" or "/bin/podman" or
+    /var/lib/awx/.local/share/containers/storage/overlay/* or ./merged/var/lib/awx/.local/share/containers/storage/overlay/* or
+    "/var/ossec/bin/wazuh-modulesd" or /home/*/.local/share/containers/storage/overlay/* or /snap/* or /dev/fd/* or /tmp/newroot/* or
+    "/usr/bin/google_guest_agent" or /var/lib/docker/overlay2/* or /var/lib/containers/* or "/usr/bin/gcc" or "/usr/bin/make" or "/usr/bin/ninja"
+  ) or
+  process.parent.command_line:(*ansible* or "runc init")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
-
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -124,9 +129,8 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.executable"]
+value = ["process.name"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
-
-
+value = "now-5d"

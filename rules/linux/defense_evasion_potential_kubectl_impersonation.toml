@@ -2,7 +2,7 @@
 creation_date = "2025/06/19"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/07/21"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -60,7 +60,7 @@ Kubectl is a command-line tool for interacting with Kubernetes clusters, allowin
 - Escalate the incident to the security operations team for a comprehensive review and to determine if additional security measures or incident response actions are required.
 - Implement additional logging and monitoring for kubectl commands and Kubernetes API interactions to enhance detection capabilities for similar threats in the future.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "3c6685eb-9eaa-43a4-be1b-a7f9f1f5e63d"
 setup = """## Setup
 
@@ -87,7 +87,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "Domain: Container",
@@ -113,7 +113,8 @@ process.name == "kubectl" and (
     process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
     process.parent.name like (".*", "*.sh")
   )
-) and process.args like~ ("--kubeconfig*", "--token*", "--as*", "--as-group*", "--as-uid*")
+) and process.args like~ ("--kubeconfig*", "--token*", "--as*", "--as-group*", "--as-uid*") and
+not process.parent.args like ("/snap/microk8s/*/apiservice-kicker", "/snap/microk8s/*/microk8s-start.wrapper")
 '''
 
 [[rule.threat]]

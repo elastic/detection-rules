@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,8 @@ index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual Interactive Shell Launched from System User"
-risk_score = 21
+references = ["https://www.elastic.co/security-labs/continuation-on-persistence-mechanisms"]
+risk_score = 47
 rule_id = "9c5b2382-19d2-4b5d-8f14-9e1631a3acdb"
 setup = """## Setup
 
@@ -44,7 +45,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
         "Domain: Endpoint",
         "OS: Linux",
@@ -52,7 +53,7 @@ tags = [
         "Tactic: Defense Evasion",
         "Data Source: Elastic Defend",
         "Resources: Investigation Guide"
-        ]
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -65,11 +66,22 @@ event.category:process and host.os.type:linux and event.type:start and event.act
   process.parent.name:(
     apt-key or apt-config or gpgv or gpgconf or man-db.postinst or sendmail or rpm or nullmailer-inject
   ) or
-  process.args:(/etc/apt/trusted.gpg.d/* or /tmp/apt-key-gpg*) or
+  process.args:(/etc/apt/trusted.gpg.d/* or /tmp/apt-key-gpg* or "/usr/bin/dnf") or
   process.name:(awk or apt-config or dpkg or grep or gpgv or sed) or
   (user.name:_apt and process.name:(sqv or apt-key or gpgconf or sort or mktemp or find or cmp or gpg-connect-agent)) or
   (user.name:man and process.name:mandb) or
-  (user.name:daemon and process.name:at)
+  (user.name:daemon and process.name:at) or
+  process.parent.args:("/usr/bin/apt-key" or "/var/lib/dpkg/info/man-db.postinst") or
+  process.parent.executable:(
+    "/usr/lib/polkit-1/polkitd" or "./runc" or "/usr/bin/apt-get" or "/opt/gitlab/embedded/bin/bundle" or "/run/podman-init" or
+    /tmp/newroot/* or /var/lib/docker/overlay2/* or /usr/libexec/platform-python*
+  ) or
+  process.parent.command_line:"runc init" or
+  process.executable:(
+    "/opt/gitlab/embedded/bin/bundle" or "/usr/bin/env" or "/usr/bin/readlink" or "/usr/bin/date" or "/usr/bin/dircolors" or
+    "/usr/sbin/sendmail" or "/usr/bin/atrm" or "/usr/bin/atq" or "/run/podman-init" or "/usr/bin/basename" or "/usr/bin/locale" or
+    "/usr/bin/tr"
+  )
 )
 '''
 note = """## Triage and analysis
@@ -108,6 +120,7 @@ In Linux environments, system users are typically non-interactive and serve spec
 - Implement stricter access controls and monitoring for system user accounts to prevent unauthorized interactive shell launches in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Update detection mechanisms and rules to enhance monitoring for similar threats, ensuring that any future attempts are quickly identified and addressed."""
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -132,4 +145,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"

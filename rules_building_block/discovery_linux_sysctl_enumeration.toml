@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -56,8 +56,13 @@ type = "new_terms"
 
 query = '''
 host.os.type:linux and event.category:file and event.action:("opened-file" or "read-file" or "wrote-to-file") and
-file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not process.name:(
-  dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or pool*
+file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not (
+  process.name:(
+    dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or pool*
+  ) or
+  process.executable:(
+    /opt/sophos-spl/plugins/av/bin/* or /usr/bin/pacman or "/usr/lib/dracut/dracut-install" or /var/lib/elastic-agent/*
+  )
 )
 '''
 
@@ -80,4 +85,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
