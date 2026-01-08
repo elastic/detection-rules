@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,7 @@ AppArmor is a Linux security module that enforces strict access controls, limiti
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems may be affected.
 - Implement enhanced monitoring on the affected system and similar environments to detect any future attempts to disable AppArmor or other security controls.
 - Review and update access controls and permissions to ensure that only authorized personnel can modify security settings, reducing the risk of similar incidents."""
-risk_score = 21
+risk_score = 73
 rule_id = "fac52c69-2646-4e79-89c0-fd7653461010"
 setup = """## Setup
 
@@ -85,7 +85,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -100,34 +100,33 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
- event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
- (
-  (process.name == "systemctl" and process.args in ("stop", "disable", "kill") and process.args in ("apparmor", "apparmor.service")) or
-  (process.name == "service" and process.args == "apparmor" and process.args == "stop") or
-  (process.name == "chkconfig" and process.args == "apparmor" and process.args == "off") or
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+(
+  (process.name == "service" and process.args == "stop") or
+  (process.name == "chkconfig" and process.args == "off") or
+  (process.name == "update-rc.d" and process.args in ("remove", "disable")) or
+  (process.name == "systemctl" and process.args in ("disable", "stop", "kill", "mask")) or
   (process.name == "ln" and process.args : "/etc/apparmor.d/*" and process.args == "/etc/apparmor.d/disable/")
-)
+) and
+not ?process.parent.executable == "/opt/puppetlabs/puppet/bin/ruby"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

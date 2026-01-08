@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -56,9 +56,16 @@ type = "new_terms"
 
 query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and
-file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*) and not process.name:(
-  cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or borg or auditbeat or lspci or
-  aide or modprobe or python*
+file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*) and
+not (
+  process.name:(
+    cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or borg or auditbeat or lspci or
+    aide or modprobe or python*
+  ) or
+  process.executable:(
+    /opt/sophos/* or /opt/eset/* or /var/lib/elastic* or /opt/Elastic/* or "/usr/lib/dracut/dracut-install" or
+    "/usr/bin/pacman" or /opt/saltstack/salt/bin/python* or /var/lib/waagent/* or /opt/sophos-spl/plugins/av/bin/*
+  )
 )
 '''
 
@@ -81,4 +88,4 @@ value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
