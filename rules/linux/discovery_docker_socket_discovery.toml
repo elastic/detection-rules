@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,7 +61,7 @@ Docker sockets facilitate communication between the Docker client and daemon, en
 - Escalate the incident to the security operations team for further investigation and to determine if additional hosts or systems are affected.
 - Implement enhanced monitoring and logging for Docker socket interactions to detect and respond to similar threats more quickly in the future.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "dd983e79-22e8-44d1-9173-d57dba514cac"
 setup = """## Setup
 
@@ -88,7 +88,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "Domain: Container",
@@ -104,25 +104,27 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name in ("curl", "socat", "nc", "netcat", "ncat", "nc.traditional") and
-process.command_line like ("*/var/run/docker.sock*", "*/run/docker.sock*")
+process.command_line like ("*/var/run/docker.sock*", "*/run/docker.sock*") and
+process.parent.executable != null and
+not (
+  process.parent.executable in ("/usr/sbin/sshd", "/www/server/panel/BT-Panel") or
+  process.parent.args in ("/usr/libexec/netdata/plugins.d/cgroup-name.sh", "/docker-entrypoint")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

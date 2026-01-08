@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,14 @@ A threat actor can utilize tc to set a bpf filter on an interface for the purpos
 This technique is not at all common and should indicate abnormal, suspicious or malicious activity.
 """
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "BPF filter applied using TC"
@@ -89,36 +96,36 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Threat: TripleCross",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.executable == "/usr/sbin/tc" and
-process.args == "filter" and process.args == "add" and process.args == "bpf" and
-not process.parent.executable == "/usr/sbin/libvirtd"
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.executable == "/usr/sbin/tc" and process.args == "filter" and process.args == "add" and process.args == "bpf" and
+not ?process.parent.executable == "/usr/sbin/libvirtd"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
