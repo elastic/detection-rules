@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/01/08"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2026/01/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts with unusually high entropy relative to host and global baselines via MAD-based z-scores
+with host/global shrinkage. This detection requires enough data to build stable baselines, so it may not alert in
+low-volume environments.
+"""
+false_positives = [
+  """
+  Legitimate large or encoded PowerShell scripts (automation frameworks, installers, or admin tooling) can exhibit high
+  entropy or uneven character distributions.
+  """,
+  """
+  Low-volume environments can yield more instable baselines, which can increase alert noise.
+  """
+]
+from = "now-4h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "PowerShell Script Block High Entropy via Z-Score"
+risk_score = 21
+rule_id = "23826d38-92a0-4d14-91ca-d43c265ec153"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell* metadata _id, _version, _index
+| where event.code == "4104"
+| where powershell.file.script_block_text is not null and
+    powershell.file.script_block_entropy_bits is not null and
+    powershell.file.script_block_length > 1000
+
+// Keep only what we need downstream (and for triage)
+| keep @timestamp, host.name, user.id, user.name, agent.id, host.id, file.path, file.name, powershell.*, _id, _index, _version
+
+// Host baseline (median/MAD on entropy_bits per host)
+| inline stats
+    Esql.host_block_n = count_distinct(powershell.file.script_block_id),
+    Esql.host_med     = median(powershell.file.script_block_entropy_bits),
+    Esql.host_mad     = median_absolute_deviation(powershell.file.script_block_entropy_bits)
+  by host.id
+
+// Require minimum distinct script blocks and non-zero dispersion
+| eval Esql.host_ok = Esql.host_block_n >= 8 and Esql.host_mad > 0
+// Robust z-score using MAD (0.6745 scales MAD to std-dev units)
+| eval Esql.host_z  = case(
+    Esql.host_ok,
+    // 0.6745 scales MAD units to std-dev units
+    0.6745 * (powershell.file.script_block_entropy_bits - Esql.host_med) / Esql.host_mad,
+    null
+  )
+
+// Global baseline (median/MAD on entropy_bits over all hosts)
+| inline stats
+    Esql.global_block_n = count_distinct(powershell.file.script_block_id),
+    Esql.global_med     = median(powershell.file.script_block_entropy_bits),
+    Esql.global_mad     = median_absolute_deviation(powershell.file.script_block_entropy_bits)
+
+// Require minimum distinct script blocks and non-zero dispersion
+| eval Esql.global_ok = Esql.global_block_n >= 20 and Esql.global_mad > 0
+// Robust z-score using MAD (0.6745 scales MAD to std-dev units)
+| eval Esql.global_z  = case(
+    Esql.global_ok,
+    0.6745 * (powershell.file.script_block_entropy_bits - Esql.global_med) / Esql.global_mad,
+    null
+  )
+
+// --------------------
+// Blend host + global scores; more distinct scripts => more trust in host.
+// k is the "crossover" point where host/global are about 50/50 (k=50).
+// Example weights: host_block_n=8 (minimum) => ~14% host, host_block_n=20 => ~29% host, host_block_n=50 => ~50% host.
+// Global baseline contributes only after 20+ distinct script blocks.
+// If a baseline is missing, use the one we have.
+// --------------------
+| eval Esql.k = 50.0
+// Higher host_block_n means more trust in host_z
+| eval Esql.w_host = case(
+    Esql.host_ok and Esql.global_ok, (1.0 * Esql.host_block_n) / (Esql.host_block_n + Esql.k),
+    Esql.host_ok, 1.0,
+    0.0
+  )
+
+// If both baselines are valid, blend host+global; otherwise use the available one.
+// If neither baseline is valid, entropy_score is null.
+| eval Esql.entropy_score = case(
+    Esql.host_ok and Esql.global_ok, Esql.w_host * Esql.host_z + (1.0 - Esql.w_host) * Esql.global_z,
+    Esql.host_ok, Esql.host_z,
+    Esql.global_ok, Esql.global_z,
+    null
+  )
+
+// Alert threshold: high anomaly score plus elevated surprisal stdev
+// (surprisal_stdev is the spread of per-character surprisal values; higher means more uneven distributions)
+| where Esql.entropy_score > 2.5 and powershell.file.script_block_surprisal_stdev > 0.7
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
