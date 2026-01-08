@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,7 @@ The 'hidepid' mount option in Linux allows users to restrict visibility of proce
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and alerting for future attempts to use the 'hidepid' option, ensuring rapid detection and response."""
 references = ["https://www.cyberciti.biz/faq/linux-hide-processes-from-other-users/"]
-risk_score = 47
+risk_score = 73
 rule_id = "dc71c186-9fe4-4437-a4d0-85ebb32b8204"
 setup = """## Setup
 
@@ -89,7 +89,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -103,25 +103,22 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "executed", "process_started") and
-  process.name == "mount" and process.args == "/proc" and process.args == "-o" and process.args : "*hidepid=2*" and
-  not process.parent.command_line like "/opt/cloudlinux/*"
+event.action in ("exec", "exec_event", "start", "executed", "process_started") and
+process.name == "mount" and process.args == "/proc" and process.args == "-o" and process.args : "*hidepid=2*" and
+not process.parent.command_line like "/opt/cloudlinux/*"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

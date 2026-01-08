@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/29"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -64,9 +64,13 @@ not (
   process.command_line:(*_PATH=* or *PYTHONPATH=* or sh*/run/motd.dynamic.new) or
   process.parent.executable:(
     "/opt/puppetlabs/puppet/bin/puppet" or /var/lib/docker/overlay2/* or /vz/root/*/dovecot or
-    "/usr/libexec/dovecot/auth" or /home/*/.local/share/containers/* or /vz/root/*/dovecot/auth
+    "/usr/libexec/dovecot/auth" or /home/*/.local/share/containers/* or /vz/root/*/dovecot/auth or
+    "/usr/local/bin/ansible-playbook" or "/opt/puppetlabs/puppet/bin/ruby" or /tmp/CVU_19_resource_*/exectask or
+    "/opt/ds_agent/ds_agent" or "/usr/lib/systemd/systemd" or "/opt/TrendMicro/vls_agent/vls_agent" or
+    "/opt/Tanium/TaniumClient/TaniumCX"
   ) or
-  process.parent.command_line:"runc init"
+  process.parent.command_line:"runc init" or
+  process.parent.name:(gmake or sshd or sudo or make or ninja or ninja-build or steam or sshd-session)
 )
 '''
 note = """## Triage and analysis
@@ -138,8 +142,8 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.executable"]
+value = ["process.parent.name"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
