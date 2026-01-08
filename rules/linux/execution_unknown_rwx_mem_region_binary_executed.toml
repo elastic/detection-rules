@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -18,49 +18,6 @@ index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unknown Execution of Binary with RWX Memory Region"
-references = [
-    "https://man7.org/linux/man-pages/man2/mprotect.2.html",
-    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
-]
-risk_score = 47
-rule_id = "23bcd283-2bc0-4db2-81d4-273fc051e5c0"
-setup = """## Setup
-
-This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
-```
-Kibana -->
-Management -->
-Integrations -->
-Auditd Manager -->
-Add Auditd Manager
-```
-`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
-For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
-```
--a always,exit -F arch=b64 -S mprotect
-```
-Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Auditd Manager",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "new_terms"
-
-query = '''
-event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7 and not (
-  process.executable:(
-    "/usr/share/kibana/node/bin/node" or "/usr/share/elasticsearch/jdk/bin/java" or "/usr/sbin/apache2"
-  ) or
-  process.name:(httpd or java)
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -96,20 +53,61 @@ In Linux environments, the `mprotect()` system call is crucial for managing memo
 - Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
 - Restore the system from a known good backup if the integrity of the system is in question and ensure all security patches are applied post-restoration.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+references = [
+    "https://man7.org/linux/man-pages/man2/mprotect.2.html",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
+risk_score = 47
+rule_id = "23bcd283-2bc0-4db2-81d4-273fc051e5c0"
+setup = """## Setup
 
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-a always,exit -F arch=b64 -S mprotect
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7 and not (
+  process.executable:(
+    "/usr/share/kibana/node/bin/node" or "/usr/share/elasticsearch/jdk/bin/java" or "/usr/sbin/apache2"
+  ) or
+  process.name:(httpd or java or node or dotnet or github-desktop or code or tenzir or brave or qemu-* or php* or deno)
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -118,9 +116,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.executable"]
+value = ["process.name"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
-
-
+value = "now-5d"
