@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/06/25"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,12 @@ attempting to establish persistence in a YUM or DNF plugin.
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -88,6 +90,7 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
+    "Data Source: Auditd Manager",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
@@ -96,27 +99,25 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.name == "grep" and process.args : "plugins*" and process.args : (
-    "/etc/yum.conf", "/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*",
-    "/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*", "/etc/dnf/dnf.conf"
-  )
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "grep" and process.args : "plugins*" and process.args like (
+  "/etc/yum.conf", "/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*",
+  "/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*", "/etc/dnf/dnf.conf"
+) and
+not ?process.parent.executable == "/usr/lib/venv-salt-minion/bin/python.original"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

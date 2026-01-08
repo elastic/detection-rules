@@ -2,7 +2,7 @@
 creation_date = "2023/03/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -25,11 +25,10 @@ query = "SELECT name, cmdline, parent, path, uid FROM processes WHERE uid = {{pr
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious commands executed via a web server, which may suggest a vulnerability and remote shell access.
+Identifies suspicious child processes executed via a web server, which may suggest a vulnerability and remote shell access.
 Attackers may exploit a vulnerability in a web application to execute commands via a web server, or place a backdoor
 file that can be abused to gain code execution as a mechanism for persistence.
 """
@@ -43,10 +42,10 @@ from = "now-9m"
 index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Remote Code Execution via Web Server"
+name = "Suspicious Child Execution via Web Server"
 note = """## Triage and analysis
 
-### Investigating Potential Remote Code Execution via Web Server
+### Investigating Suspicious Child Execution via Web Server
 
 Adversaries may backdoor web servers with web shells to establish persistent access to systems. A web shell is a malicious script, often embedded into a compromised web server, that grants an attacker remote access and control over the server. This enables the execution of arbitrary commands, data exfiltration, and further exploitation of the target network.
 
@@ -101,7 +100,7 @@ references = [
     "https://pentestlab.blog/tag/web-shell/",
     "https://www.elastic.co/security-labs/elastic-response-to-the-the-spring4shell-vulnerability-cve-2022-22965",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "f16fca20-4d6c-43f9-aec1-20b6de3b0aeb"
 setup = """## Setup
 
@@ -128,7 +127,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -143,57 +142,67 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start") and process.parent.executable : (
-  "/usr/sbin/nginx", "/usr/local/sbin/nginx",
-  "/usr/sbin/apache", "/usr/local/sbin/apache",
-  "/usr/sbin/apache2", "/usr/local/sbin/apache2",
-  "/usr/sbin/php*", "/usr/local/sbin/php*",
-  "/usr/sbin/lighttpd", "/usr/local/sbin/lighttpd",
-  "/usr/sbin/hiawatha", "/usr/local/sbin/hiawatha",
-  "/usr/local/bin/caddy", 
-  "/usr/local/lsws/bin/lswsctrl",
-  "*/bin/catalina.sh"
-) and
-process.name : (
-  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc",
-  "netcat", "ncat", "telnet", "awk", "socat"
-  ) and process.args : (
-  "whoami", "id", "uname", "cat", "hostname", "ip", "curl", "wget", "pwd", "ls", "cd", "python*", "php*", "perl",
-  "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk", "socat"
-  ) and not process.name == "phpquery"
+process where host.os.type == "linux" and event.type == "start" and process.parent.executable != null and (
+  process.parent.name like (
+    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "php-fpm*", "mongrel_rails", "haproxy",
+    "gunicorn", "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "uvicorn",
+    "tornado", "hypercorn", "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs", "catalina.sh", "hiawatha", "lswsctrl"
+  ) or
+  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9") or
+  user.id in ("33", "498", "48") or
+  (process.name == "java" and ?process.working_directory like "/u0?/*")
+) and (
+  process.executable like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "/lost+found/*",
+    "/proc/*", "/var/mail/*", "/var/www/*", "/home/*", "/root/*" 
+  ) or
+  process.name like~ (
+    // Hidden processes
+    ".*",
+    // Suspicious file formats
+    "*.elf", "*.sh", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", ".js",
+    // Scheduled tasks
+    "systemd", "cron", "crond",
+    // Network utilities often used for reverse shells
+    "nc", "netcat", "ncat", "telnet", "socat", "openssl", "nc.openbsd", "ngrok", "nc.traditional",
+    // Cloud CLI
+    "az", "gcloud", "aws",
+    // Misc. tools
+    "whoami", "ifconfig", "ip", "ss", "top", "htop", "df", "du", "lsblk", "lsof", "tcpdump",
+    "strace", "ltrace", "curl", "wget", "dig", "nslookup", "host", "nmap", "arp", "traceroute"
+  ) 
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
 
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
