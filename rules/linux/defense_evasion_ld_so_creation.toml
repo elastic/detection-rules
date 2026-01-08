@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/29"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -97,7 +97,8 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and process.executable != null and
 file.path like~ ("/lib/ld-linux*.so*", "/lib64/ld-linux*.so*", "/usr/lib/ld-linux*.so*", "/usr/lib64/ld-linux*.so*") and
-not process.executable in (
+not (
+  process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
     "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
@@ -107,10 +108,14 @@ not process.executable in (
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/platform-python",
     "/usr/lib/snapd/snap-update-ns", "./usr/bin/podman", "/usr/bin/crio", "/usr/bin/buildah", "/bin/dnf5",
-    "/usr/bin/dnf5", "/usr/bin/pamac"
+    "/usr/bin/dnf5", "/usr/bin/pamac", "/dev/fd/3"
+  ) or
+  process.executable like (
+    "/snap/docker/*/bin/dockerd", "/usr/bin/python*", "/nix/store/*/docker/dockerd", "/var/lib/docker/overlay2/*/dockerd",
+    "/rpool/data/*usr/bin/dockerd"
+  )
 )
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

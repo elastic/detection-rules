@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -39,14 +39,22 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name in ("hexdump", "xxd") and process.args == "-s") or
   (process.name == "dd" and process.args : ("skip*", "seek*"))
 ) and not (
-  process.parent.args like ("/opt/error_monitor/error_monitor.sh", "printf*") or
+  process.parent.args like ("/opt/error_monitor/error_monitor.sh", "printf*", "/sbin/dracut") or
   process.parent.name in ("acme.sh", "dracut", "leapp") or
   process.parent.executable like (
     "/bin/cagefs_enter", "/opt/nessus_agent/sbin/nessus-service", "/usr/libexec/platform-python*",
-    "/usr/libexec/vdsm/vdsmd", "/usr/local/bin/docker-entrypoint.sh", "/usr/lib/module-init-tools/lsinitrd-quick"
+    "/usr/libexec/vdsm/vdsmd", "/usr/local/bin/docker-entrypoint.sh", "/usr/lib/module-init-tools/lsinitrd-quick",
+    "/usr/bin/unmkinitramfs", "/usr/bin/lsinitramfs", "/opt/msp-agent/msp-agent-core.run",
+    "/usr/local/cloudamize/bin/register.sh", "/usr/local/hestia/bin/v-log-action", "/usr/local/emps/bin/php"
   ) or
   process.parent.command_line like "sh*acme.sh*" or
-  process.args like "/var/tmp/dracut*"
+  process.args like ("/var/tmp/dracut*", "/opt/bitdefender-security-tools/var/log/script_update.log") or
+  ?process.working_directory like (
+    "/usr/local/nutanix/ngt/python/bin", "/var/lib/waagent/*", "/opt/Tychon/Endpoint/bin",
+    "/usr/local/cloudamize/bin", "/opt/sentinelone/bin"
+  ) or
+  process.command_line in ("tail -c 1", "tail -c 2") or
+  (process.command_line == "dd ibs=18850 skip=1 count=1" and process.parent.args == "/opt/msp-agent/msp-agent-core.run")
 )
 '''
 
