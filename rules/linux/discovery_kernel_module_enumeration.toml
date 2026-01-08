@@ -18,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual Kernel Module Enumeration"
@@ -90,13 +90,12 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:(exec or exec_event) and (
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
  (process.name:(lsmod or modinfo)) or
  (process.name:kmod and process.args:list) or
  (process.name:depmod and process.args:(--all or -a))
@@ -109,9 +108,13 @@ not (
   ) or
   process.parent.executable:(
     /var/lib/dpkg/info/linux-modules*-generic.post* or "/var/ossec/bin/wazuh-modulesd" or "/opt/gitlab/embedded/bin/ruby" or
-    "/usr/share/initramfs-tools/hooks/thermal" or "/usr/libexec/iptables/iptables.init"
+    "/usr/share/initramfs-tools/hooks/thermal" or "/usr/libexec/iptables/iptables.init" or "/usr/sbin/mkinitramfs" or
+    "/usr/share/initramfs-tools/hooks/cryptroot" or "/usr/bin/kdumpctl"
   ) or
-  process.parent.args:(/var/lib/dpkg/info/* or /var/tmp/rpm-tmp* or "longhorn-manager" or "/usr/bin/entry")
+  process.parent.args:(/var/lib/dpkg/info/* or /var/tmp/rpm-tmp* or "longhorn-manager" or "/usr/bin/entry") or
+  process.entry_leader.executable:(
+    "/usr/lib/apt/apt.systemd.daily" or "/usr/libexec/gnome-terminal-server" or "/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent"
+  )
 )
 '''
 
