@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ actors have been seen utilizing curl to upload this archive file with the collec
 way while not inherently malicious should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*",]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Data Exfiltration Through Curl"
@@ -102,14 +102,16 @@ tags = [
   "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
   "Data Source: Crowdstrike",
+  "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name == "curl" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "curl" and
 ?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like "--data*") and 
 process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
-process.command_line like~ "*http*"
+process.command_line like~ "*http*" and
+not ?process.parent.executable == "/usr/share/untangle/bin/configuration-backup-upload-backup.sh"
 '''
 
 [[rule.threat]]

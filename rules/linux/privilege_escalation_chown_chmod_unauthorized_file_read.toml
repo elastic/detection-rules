@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,7 @@ In Linux environments, commands like `chown` and `chmod` are used to change file
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Update and patch the affected system to address any vulnerabilities that may have been exploited during the attack, ensuring all security updates are applied."""
 references = ["https://www.exploit-db.com/papers/33930"]
-risk_score = 21
+risk_score = 47
 rule_id = "4a99ac6f-9a54-4ba5-a64f-6eb65695841b"
 setup = """## Setup
 
@@ -86,7 +86,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -102,41 +102,39 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
   process.name in ("chown", "chmod") and process.args == "-R" and process.args : "--reference=*"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1003"
 name = "OS Credential Dumping"
 reference = "https://attack.mitre.org/techniques/T1003/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1003.008"
 name = "/etc/passwd and /etc/shadow"
 reference = "https://attack.mitre.org/techniques/T1003/008/"
 
-
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-
