@@ -1,17 +1,21 @@
 [metadata]
 creation_date = "2023/07/10"
-integration = ["endpoint", "auditd_manager", "crowdstrike"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = "Enrich process events with uname and other command lines that imply Linux system information discovery."
+description = """
+This rule identifies Linux system information discovery activity via built-in commands that read common
+system files. Adversaries may use these commands to gather information about the operating system, installed
+services, and hardware configuration to aid in further exploration and exploitation of the system.
+"""
 from = "now-119m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*",]
 interval = "60m"
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Linux System Information Discovery"
 risk_score = 21
@@ -25,31 +29,38 @@ tags = [
   "Rule Type: BBR",
   "Data Source: Elastic Defend",
   "Data Source: Elastic Endgame",
-  "Data Source: Auditd Manager",
-  "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+
 ]
 timestamp_override = "event.ingested"
-type = "eql"
-
+type = "new_terms"
 query = '''
-process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and (
-  process.name: "uname" or (
-  process.name: ("cat", "more", "less") and process.args: ("*issue*", "*version*", "*profile*", "*services*", "*cpuinfo*")
-  )
-)
+event.category:process and host.os.type:linux and event.type:start and event.action:(exec or exec_event or start) and
+process.name:("cat" or "more" or "less" or "nano" or "vi" or "vim" or "vim.basic" or "emacs") and
+process.args:(
+  "/etc/issue" or "/etc/os-release" or "/proc/version" or "/etc/profile" or "/proc/cpuinfo" or "/etc/services" or
+  "/etc/lsb-release" or "/etc/redhat-release" or "/etc/debian_version" or "/etc/hostname"
+) and
+not process.parent.executable:("/usr/local/jamf/bin/jamf" or "/etc/cp/watchdog/cp-nano-watchdog")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.executable", "process.command_line", "agent.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

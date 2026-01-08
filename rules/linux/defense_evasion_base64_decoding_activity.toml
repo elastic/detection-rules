@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -92,11 +92,10 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
-
 query = '''
-from logs-endpoint.events.process-*
+from logs-endpoint.events.process-* metadata _id, _index, _version
+| mv_expand event.action 
 | where
-    @timestamp > now() - 1h and
     host.os.type == "linux" and
     event.type == "start" and
     event.action == "exec" and (
@@ -134,30 +133,40 @@ from logs-endpoint.events.process-*
     )
 | keep
     @timestamp,
+    _id,
+    _index,
+    _version,
     host.os.type,
     event.type,
     event.action,
     process.name,
     process.args,
     process.command_line,
+    process.parent.name,
+    process.parent.command_line,
     agent.id,
-    host.name
+    host.name,
+    event.dataset,
+    data_stream.namespace
 | stats
     Esql.event_count = count(),
+    Esql.process_parent_name_values = values(process.parent.name),
+    Esql.process_parent_command_line_values = values(process.parent.command_line),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
-    Esql.agent_id_values = values(agent.id)
+    Esql.agent_id_values = values(agent.id),
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
     by process.name, process.command_line
 | where
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 15
 | sort Esql.event_count asc
-| limit 100
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
@@ -168,36 +177,35 @@ id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1204.002"
 name = "Malicious File"
 reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

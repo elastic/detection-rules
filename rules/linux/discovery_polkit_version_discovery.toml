@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/01/16"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,12 @@ an attacker attempting to exploit misconfigurations or vulnerabilities in the Po
 """
 from = "now-9m"
 index = [
+    "auditbeat-*",
     "endgame-*",
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -86,32 +88,34 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2") and (
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "process_started", "executed") and (
   (process.name == "dnf" and process.args == "dnf" and process.args == "info" and process.args == "polkit") or
   (process.name == "rpm" and process.args == "polkit") or
   (process.name == "apt" and process.args == "show" and process.args == "policykit-1") or
   (process.name == "pkaction" and process.args == "--version")
+) and
+not (
+  ?process.working_directory in ("/opt/msp-agent", "/opt/CyberCNSAgent") or
+  ?process.parent.executable like ("/usr/local/cpanel/3rdparty/perl/*/bin/perl", "/usr/share/vicarius/topiad")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
