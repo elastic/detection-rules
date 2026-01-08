@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/04/29"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -97,23 +97,37 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  (
-    (process.name == "xxd" and process.args like ("-r*", "-p*")) or
-    (process.name like "python*" and process.command_line like "*fromhex*" and process.command_line like ("*decode*", "*encode*")) or
-    (process.name like "php*" and process.command_line like "*hex2bin*") or
-    (process.name like "ruby*" and process.command_line like "*].pack(\"H*\")*") or
-    (process.name like "perl*" and process.command_line like "*pack(\"H*\",*") or
-    (process.name like "lua*" and process.command_line like "*tonumber(cc, 16)*")
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+(
+  (process.name == "xxd" and process.args like ("-r*", "-p*")) or
+  (process.name like "python*" and process.command_line like "*fromhex*" and process.command_line like ("*decode*", "*encode*")) or
+  (process.name like "php*" and process.command_line like "*hex2bin*") or
+  (process.name like "ruby*" and process.command_line like "*].pack(\"H*\")*") or
+  (process.name like "perl*" and process.command_line like "*pack(\"H*\",*") or
+  (process.name like "lua*" and process.command_line like "*tonumber(cc, 16)*")
+) and
+not (
+  // Vulnerability scanning tools scanning for xz-backdoor
+  process.command_line like ("*liblzma*", "*xz*") or
+  ?process.parent.args like (
+    "/srv/acme/acme.sh", "/home/*/.acme.sh/acme.sh", "/opt/custom-nagios-plugins/check_rad_eap",
+    "/usr/bin/testssl", "./testssl.sh", "/root/.acme.sh/acme.sh"
+  ) or
+  ?process.parent.args like "printf*" or
+  ?process.working_directory in (
+    "/home/prtg-ssh",
+    "/home/svc-acas-lnx",
+    "/tmp/newroot/home/svc-acas-lnx",
+    "/var/prtg/scriptsxml"
   )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
@@ -124,36 +138,35 @@ id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1204.002"
 name = "Malicious File"
 reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
