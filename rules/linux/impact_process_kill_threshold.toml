@@ -2,7 +2,7 @@
 creation_date = "2022/07/27"
 integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -86,19 +86,21 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
-
 query = '''
-event.category:process and host.os.type:linux and event.type:start and process.name:"pkill" and process.args:"-f"
+event.category:process and host.os.type:linux and event.type:start and (
+  (process.name:"pkill" and process.args:"-f") or
+  (process.name:kill and process.args:"-9") or
+  (process.name:killall)
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1489"
 name = "Service Stop"
 reference = "https://attack.mitre.org/techniques/T1489/"
-
 
 [rule.threat.tactic]
 id = "TA0040"
@@ -106,6 +108,5 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.threshold]
-field = ["host.id", "process.executable", "user.name"]
-value = 10
-
+field = ["agent.id", "process.executable", "user.name"]
+value = 15
