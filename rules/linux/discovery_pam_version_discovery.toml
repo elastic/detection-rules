@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -101,52 +101,59 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and process.parent.name != null and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and ?process.parent.name != null and
   (
     (process.name in ("dpkg", "dpkg-query") and process.args == "libpam-modules") or
     (process.name == "rpm" and process.args == "pam")
   ) and
-not process.parent.name in ("dcservice", "inspectorssmplugin")
+not (
+  ?process.parent.name in ("dcservice", "inspectorssmplugin") or
+  ?process.working_directory in ("/var/ossec", "/opt/msp-agent") or
+  ?process.parent.executable in (
+    "/opt/CyberCNSAgent/cybercnsagent_linux", "/usr/local/manageengine/uems_agent/bin/dcpatchscan",
+    "/usr/local/manageengine/uems_agent/bin/dcconfig", "/usr/share/vicarius/topiad",
+    "/etc/rc.d/init.d/sshd-chroot"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
 
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-
