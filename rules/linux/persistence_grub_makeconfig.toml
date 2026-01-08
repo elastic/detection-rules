@@ -2,7 +2,7 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -92,21 +92,28 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.parent.executable != null and process.name in ("grub-mkconfig", "grub2-mkconfig", "update-grub") and not (
   process.parent.name in ("run-parts", "sudo", "update-grub", "pacman", "dockerd", "dnf", "rpm", "yum") or
-  process.parent.executable like~ (
-    "/var/lib/dpkg/info/*", "/usr/lib/bootloader/grub2-efi/config", "/tmp/newroot/*", "/usr/lib/kernel/install.d/*"
-  )
+  process.parent.executable like (
+    "/var/lib/dpkg/info/*", "/usr/lib/bootloader/grub2-efi/config", "/tmp/newroot/*", "/usr/lib/kernel/install.d/*",
+    "/run/user/*/.bubblewrap/*/timeout"
+  ) or
+  process.parent.executable in (
+    "/usr/bin/timeout", "/usr/sbin/nvidia-boot-update", "/usr/lib/oci-linux-config/misc_updates.sh",
+    "/opt/puppetlabs/puppet/bin/puppet", "/usr/sbin/selinux-activate", "/usr/lib/skylight/stop-workspace",
+    "/var/lib/aws-replication-agent/install_agent", "/usr/local/CTS/bin/apply_personality",
+    "/opt/puppetlabs/puppet/bin/ruby"
+  ) or
+  (process.parent.name like ("python*", "platform-python*") and process.parent.command_line like "*ansible*")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1542"
 name = "Pre-OS Boot"
@@ -122,9 +129,7 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
