@@ -28,7 +28,6 @@ from .alerts-security.* metadata _id
         KQL(""" kibana.alert.rule.name : "External Alerts" or kibana.alert.rule.tags : "Promotion: External Alerts" """) and
         kibana.alert.severity is not null and kibana.alert.severity != "low" and
         not (event.module == "crowdstrike" and kibana.alert.rule.name like "* at *")
-| eval target_time_window = DATE_TRUNC(30 minutes, @timestamp)
 | stats Esql.alerts_count = COUNT(*),
         Esql.severity_unique_count = COUNT_DISTINCT(kibana.alert.severity),
         Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
