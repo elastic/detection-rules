@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation or modification of a mandatory user profile hive (NTUSER.MAN) by an unusual process.
+Adversaries may abuse Windows mandatory profiles by dropping a malicious NTUSER.MAN file containing
+pre-populated persistence-related registry keys. On the next user logon, Windows loads the registry hive
+from NTUSER.MAN, causing embedded persistence mechanisms to activate without directly modifying the live
+registry. This technique can evade traditional registry-based monitoring and indicate a stealthy
+persistence attempt.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Persistence via Mandatory User Profile"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Persistence via Mandatory User Profile
+
+Windows supports *mandatory user profiles*, which rely on the `NTUSER.MAN` registry hive instead of the standard `NTUSER.DAT`. When a user logs in, Windows loads registry settings directly from this file. Adversaries can exploit this behavior by crafting or modifying an `NTUSER.MAN` file with embedded persistence mechanisms (for example, `Run` keys, logon scripts, or policy-based execution). Because the registry hive is loaded at logon, this technique may bypass traditional registry modification telemetry and provide stealthy persistence.
+
+This rule detects the creation or modification of `NTUSER.MAN` files in user profile directories by non-system processes, which is uncommon in legitimate environments.
+
+### Possible investigation steps
+
+- Review the process responsible for creating or modifying NTUSER.MAN, focusing on process.name, process.executable, and parent process relationships. Creation or modification by scripting engines, LOLBins, or unsigned binaries is highly suspicious.
+- Examine the file path to confirm whether the .MAN profile corresponds to a legitimate mandatory profile or an unexpected user directory.
+- Extract and analyze the contents of the NTUSER.MAN file by loading it offline into a registry viewer. Look for persistence-related keys such as:
+  - Run / RunOnce
+  - UserInitMprLogonScript
+  - Policy-based execution keys
+- Determine which user account(s) are configured to use the mandatory profile and whether this aligns with expected administrative behavior.
+- Correlate the event with preceding file writes, downloads, or process executions** that may have staged the malicious hive.
+- Review recent logon activity for users tied to the mandatory profile to identify whether persistence may have already been triggered.
+- Check threat intelligence sources for known malware or tooling that abuses mandatory profiles or offline registry hive manipulation.
+
+### False positive analysis
+
+- Legitimate enterprise environments may use mandatory profiles in controlled scenarios such as kiosks, training systems, or shared workstations.
+- Administrative tools or scripts used during system imaging or profile provisioning may legitimately create NTUSER.MAN files.
+- Profile migrations or backup/restore operations could trigger benign modifications.
+
+Validate whether the modifying process, user, and timing align with known administrative activity before dismissing the alert.
+
+### Response and remediation
+
+- Isolate the affected host if malicious persistence is suspected to prevent further execution.
+- Prevent further logons for users associated with the suspicious mandatory profile until analysis is complete.
+- Remove or replace the malicious NTUSER.MAN file with a known-good version.
+- Inspect the loaded registry hive for additional persistence mechanisms and remove any unauthorized entries.
+- Conduct a full endpoint scan to identify additional payloads or lateral movement.
+- Review endpoint detection coverage to ensure offline registry hive and profile-based persistence** techniques are monitored.
+- Escalate confirmed malicious activity to incident response and document findings to improve future detections."""
+references = ["https://deceptiq.com/blog/ntuser-man-registry-persistence"]
+risk_score = 47
+rule_id = "0e42f920-047d-4568-b961-2a50db6c4713"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timeline_id = "4d4c0b59-ea83-483f-b8c1-8c360ee53c5c"
+timeline_title = "Comprehensive File Timeline"
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and
+ event.type in ("creation", "change") and user.id != "S-1-5-18" and
+ file.name : "NTUSER.MAN" and file.path : "?:\\Users\\*.MAN"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

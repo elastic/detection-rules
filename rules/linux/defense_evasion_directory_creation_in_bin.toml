@@ -2,7 +2,7 @@
 creation_date = "2024/11/01"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -97,32 +97,32 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "start", "ProcessRollup2", "exec_event") and process.name == "mkdir" and
-  process.args like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*") and
-not process.args in ("/bin/mkdir", "/usr/bin/mkdir", "/usr/local/bin/mkdir")
+event.action in ("exec", "start", "ProcessRollup2", "exec_event") and process.name == "mkdir" and
+process.args like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*") and
+not process.args in ("/bin/mkdir", "/usr/bin/mkdir", "/usr/local/bin/mkdir", "/usr/local/bin/cursor", "/usr/bin/coreutils") and
+not process.parent.executable in ("/usr/bin/make", "/bin/make")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -130,4 +130,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
