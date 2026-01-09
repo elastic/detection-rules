@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/09/27"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,12 @@ through crafted UDP packets or network spoofing. This can result in arbitrary co
 initiated.
 """
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Printer User (lp) Shell Execution"
@@ -104,23 +109,25 @@ tags = [
   "Use Case: Threat Detection",
   "Use Case: Vulnerability",
   "Tactic: Execution",
+  "Data Source: Crowdstrike",
   "Data Source: Elastic Defend",
   "Data Source: Elastic Endgame",
+  "Data Source: SentinelOne",
   "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
+
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "ProcessRollup2") and user.name == "lp" and
+  event.action in ("exec", "exec_event", "ProcessRollup2", "ProcessRollup2") and user.name == "lp" and
   process.parent.name in ("cupsd", "foomatic-rip", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and not (
     process.command_line like (
       "*/tmp/foomatic-*", "*-sDEVICE=ps2write*", "*printf*", "/bin/sh -e -c cat", "/bin/bash -c cat",
       "/bin/bash -e -c cat"
     ) or
-    process.args like "gs*"
+    process.args like ("gs*", "/usr/bin/lsb_release", "/usr/lib/cups/filter/gstopdf")
   )
 '''
 

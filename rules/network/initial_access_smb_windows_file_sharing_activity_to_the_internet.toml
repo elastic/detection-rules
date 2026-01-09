@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,12 +18,12 @@ language = "kuery"
 license = "Elastic License v2"
 name = "SMB (Windows File Sharing) Activity to the Internet"
 references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml"]
-risk_score = 73
+risk_score = 47
 rule_id = "c82b2bd8-d701-420c-ba43-f11a155b681a"
-severity = "high"
-tags = ["Tactic: Initial Access", "Domain: Endpoint", "Use Case: Threat Detection", "Data Source: PAN-OS", "Resources: Investigation Guide"]
+severity = "medium"
+tags = ["Tactic: Initial Access", "Domain: Network", "Use Case: Threat Detection", "Data Source: PAN-OS", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 (event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
@@ -124,3 +124,10 @@ id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
 
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
