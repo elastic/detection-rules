@@ -13,17 +13,12 @@ from attacker-controlled servers via OLLAMA_HOST or custom manifests. Malicious 
 parsing vulnerabilities like CVE-2025-1975, or poison inference outputs.
 """
 from = "now-119m"
+index = ["logs-endpoint.events.network-*"]
 interval = "60m"
-index = [
-    "logs-endpoint.events.network-*",
-]
 language = "eql"
 license = "Elastic License v2"
 name = "Ollama DNS Query to Untrusted Domain"
-references = [
-    "https://atlas.mitre.org/techniques/AML.T0010.003",
-    "https://nvd.nist.gov/vuln/detail/CVE-2025-1975",
-]
+references = ["https://atlas.mitre.org/techniques/AML.T0010.003", "https://nvd.nist.gov/vuln/detail/CVE-2025-1975"]
 risk_score = 21
 rule_id = "e9a3b2c1-d4f5-6789-0abc-def123456789"
 severity = "low"
@@ -44,23 +39,12 @@ type = "eql"
 
 query = '''
 network where event.action == "lookup_requested" and
-  
-  // Ollama process only
   process.name in ("ollama", "ollama.exe") and
-  
-  // Exclude official Ollama infrastructure and common legitimate domains
   dns.question.name != null and
   not dns.question.name : (
-    // Ollama official registry
     "ollama.ai", "*.ollama.ai", "ollama.com", "*.ollama.com",
-    
-    // GitHub (Ollama update checks and releases)
     "github.com", "*.github.com", "*.githubusercontent.com",
-    
-    // Cloudflare R2 (Ollama model blob storage)
     "*.r2.cloudflarestorage.com", "*.cloudflare.com", "*.cloudflarestorage.com",
-    
-    // Local domains
     "localhost", "*.local", "*.internal", "*.localdomain"
   )
 '''
@@ -95,3 +79,4 @@ reference = "https://attack.mitre.org/techniques/T1195/002/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
