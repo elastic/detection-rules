@@ -36,8 +36,9 @@ from logs-endpoint.alerts-*
         Esql.host_id = VALUES(host.id),
         Esql.user_name = VALUES(user.name) by rule.name
 // first time seen in the last 5 days - defined in the rule schedule Additional look-back time
-| eval recent = DATE_DIFF("day", Esql.first_time_seen, now())
-| where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+// first time seen is within 10m of the rule execution time
+| where Esql.recent <= 10 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
 | keep rule.name, Esql.*
 '''
 note = """## Triage and analysis
