@@ -25,13 +25,13 @@ query = '''
 from .alerts-security.*
 | WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "m365_defender.alert") and
         host.id is not null and
-        kibana.alert.severity != "low" and
+        kibana.alert.risk_score > 21 and
         not (event.module == "crowdstrike" and kibana.alert.rule.name like "* at *")
 | stats Esql.alerts_count = COUNT(*),
-        Esql.severity_unique_count = COUNT_DISTINCT(kibana.alert.severity),
+        Esql.rule_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
         Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.processes_count = COUNT_DISTINCT(process.executable),
-        Esql.severity_values = VALUES(kibana.alert.severity),
+        Esql.rule_severity_values = VALUES(kibana.alert.risk_score),
         Esql.process_path_values = VALUES(process.executable),
         Esql.file_path_values = VALUES(file.path),
         Esql.process_command_line_values = VALUES(process.command_line),
@@ -40,7 +40,7 @@ from .alerts-security.*
         Esql.rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, event.module
 // 3 unique rules or 3 unique processes with different severity levels or with one high severity alert
 | where (Esql.unique_rules_count >= 3 or (Esql.processes_count >= 3 and Esql.rule_name_values == "External Alerts")) and
-        (Esql.severity_unique_count >= 2 or Esql.severity_values in ("high", "critical"))
+        (Esql.rule_risk_score_distinct_count >= 2 or Esql.rule_severity_values == 73 or Esql.rule_severity_values == 99)
 | KEEP event.module, host.id, host.name, Esql.*
 '''
 note = """## Triage and analysis
