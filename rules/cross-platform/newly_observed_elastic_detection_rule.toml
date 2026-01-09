@@ -46,8 +46,9 @@ FROM .alerts-security.*
         Esql.source_ip_values = VALUES(source.ip),
         Esql.agents_distinct_count = COUNT_DISTINCT(agent.id) by kibana.alert.rule.name
 // fist time seen in the last 5 days - defined in the rule schedule Additional look-back time
-| eval recent = DATE_DIFF("day", Esql.first_time_seen, now())
-| where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+// first time see in within 10m of the rule execution time
+| where Esql.recent <= 10 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
 | keep kibana.alert.rule.name, Esql.*
 '''
 note = """## Triage and analysis
