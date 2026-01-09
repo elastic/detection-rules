@@ -23,24 +23,25 @@ type = "esql"
 
 query = '''
 from .alerts-security.*
-| WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "m365_defender.alert") and
+| WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "sentinel_one.threat", "m365_defender.alert") and
         host.id is not null and
         kibana.alert.risk_score > 21 and
-        not (event.module == "crowdstrike" and kibana.alert.rule.name like "* at *")
+        not (event.module == "crowdstrike" and (kibana.alert.rule.name like "* at *" or kibana.alert.rule.name like "* on *" or kibana.alert.rule.name == "EICARTestFileWrittenWin"))
 | stats Esql.alerts_count = COUNT(*),
         Esql.rule_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
         Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.processes_count = COUNT_DISTINCT(process.executable),
+        Esql.files_count = COUNT_DISTINCT(file.path),
+        Esql.process_cmdline_count = COUNT_DISTINCT(process.command_line),
         Esql.rule_severity_values = VALUES(kibana.alert.risk_score),
         Esql.process_path_values = VALUES(process.executable),
         Esql.file_path_values = VALUES(file.path),
+        Esql.user_name_values = VALUES(user.name),
         Esql.process_command_line_values = VALUES(process.command_line),
         Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
-        Esql.user_name_values = VALUES(user.name),
         Esql.rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, event.module
-// 3 unique rules or 3 unique processes with different severity levels or with one high severity alert
-| where (Esql.unique_rules_count >= 3 or (Esql.processes_count >= 3 and Esql.rule_name_values == "External Alerts")) and
-        (Esql.rule_risk_score_distinct_count >= 2 or Esql.rule_severity_values == 73 or Esql.rule_severity_values == 99)
+// 3 unique rules  or 3 unique processes with different severity levels or 5 unique rules from same host with medium severity level
+| where ((Esql.unique_rules_count >= 3 or (Esql.processes_count >= 3 and Esql.rule_name_values == "External Alerts")) and (Esql.rule_risk_score_distinct_count >= 2 or Esql.rule_severity_values == 73 or Esql.rule_severity_values == 99)) or (Esql.unique_rules_count >= 5 and Esql.alerts_count <= 50 and (Esql.files_count >= 1 or Esql.process_cmdline_count >= 1 or Esql.processes_count >= 1))
 | KEEP event.module, host.id, host.name, Esql.*
 '''
 note = """## Triage and analysis
