@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,7 @@ Netcat, a versatile networking tool, can establish connections for data transfer
 - Apply security patches and updates to the affected system to mitigate any exploited vulnerabilities.
 - Enhance monitoring and logging on the affected host and network to detect similar activities in the future.
 - Report the incident to the appropriate internal security team or external authorities if required, following organizational protocols."""
-risk_score = 21
+risk_score = 47
 rule_id = "0f56369f-eb3d-459c-a00b-87c2bf7bdfc5"
 setup = """## Setup
 
@@ -90,7 +90,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -104,7 +104,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
@@ -112,22 +111,20 @@ process where host.os.type == "linux" and event.type == "start" and
   process.args : "*l*" and process.args_count >= 4
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

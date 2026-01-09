@@ -2,7 +2,7 @@
 creation_date = "2020/04/15"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,11 @@ Identifies when a terminal (tty) is spawned via Python. Attackers may upgrade a 
 interactive tty after obtaining initial access to a host.
 """
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Interactive Terminal Spawned via Python"
@@ -89,33 +93,36 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 (
   (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh",
    "fish") and process.parent.args_count >= 3 and process.parent.args : "*pty.spawn*" and process.parent.args : "-c") or
-  (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh",
-   "fish") and process.args : "*sh" and process.args_count == 1 and process.parent.args_count == 1)
+  (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   process.args in (
+     "sh", "dash", "bash", "zsh",
+     "/bin/sh", "/bin/dash", "/bin/bash", "/bin/zsh",
+     "/usr/bin/sh", "/usr/bin/dash", "/usr/bin/bash", "/usr/bin/zsh",
+     "/usr/local/bin/sh", "/usr/local/bin/dash", "/usr/local/bin/bash", "/usr/local/bin/zsh"
+   ) and process.args_count == 1 and process.parent.args_count == 1
+  )
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.006"
 name = "Python"
 reference = "https://attack.mitre.org/techniques/T1059/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
