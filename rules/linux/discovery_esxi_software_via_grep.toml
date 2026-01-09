@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/04/11"
-integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ index = [
     "logs-auditd_manager.auditd-*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -96,30 +97,28 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "executed", "process_started") and
-  process.name in ("grep", "egrep", "pgrep") and
-  process.args in ("vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", "vmem") and
-  not process.parent.executable == "/usr/share/qemu/init/qemu-kvm-init"
+event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
+process.name in ("grep", "egrep", "pgrep") and
+process.args in ("vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", "vmem") and
+not ?process.parent.executable in ("/usr/share/qemu/init/qemu-kvm-init", "/etc/sysconfig/modules/kvm.modules")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
