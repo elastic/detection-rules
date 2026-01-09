@@ -34,7 +34,7 @@ from logs-endpoint.alerts-*
         Esql.process_hash_sha256 = VALUES(process.hash.sha256),
         Esql.host_id = VALUES(host.id),
         Esql.user_name = VALUES(user.name) by rule.name
-// fist time seen in the last 5 days - defined in the rule schedule Additional look-back time
+// first time seen in the last 5 days - defined in the rule schedule Additional look-back time
 | eval recent = DATE_DIFF("day", Esql.first_time_seen, now())
 | where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10
 | keep rule.name, Esql.*
