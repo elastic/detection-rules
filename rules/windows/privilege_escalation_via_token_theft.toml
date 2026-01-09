@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -39,22 +39,21 @@ query = '''
 process where host.os.type == "windows" and event.action == "start" and
 
  /* CreateProcessWithToken and effective parent is a privileged MS native binary used as a target for token theft */
- user.id : "S-1-5-18"  and
+ user.id == "S-1-5-18"  and process.parent.executable != null and
 
  /* Token Theft target process usually running as service are located in one of the following paths */
- process.Ext.effective_parent.executable :
-                ("?:\\Windows\\*.exe",
-                 "?:\\Program Files\\*.exe",
-                 "?:\\Program Files (x86)\\*.exe",
-                 "?:\\ProgramData\\*") and
+ process.Ext.effective_parent.executable : "?:\\Windows\\*.exe" and
 
 /* Ignores Utility Manager in Windows running in debug mode */
  not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
       process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
 
 /* Ignores Windows print spooler service with correlation to Access Intelligent Form */
-not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
-     process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe") and
+not (process.parent.executable : ("?\\Windows\\System32\\spoolsv.exe", "C:\\Windows\\System32\\PrintIsolationHost.exe") and
+     process.executable: ("?:\\Program Files\\*.exe",
+                          "?:\\Program Files (x86)\\*.exe",
+                          "?:\\Windows\\System32\\spool\\drivers\\*.exe",
+                          "?:\\Windows\\System32\\ROUTE.EXE")) and
 
 /* Ignores Windows error reporting executables */
  not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
@@ -86,7 +85,8 @@ not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
                 "?:\\Program Files (x86)\\*.exe",
                 "?:\\Program Files\\*.exe",
                 "?:\\Windows\\System32\\msiexec.exe",
-                "?:\\Windows\\System32\\DriverStore\\*") and
+                "?:\\Windows\\System32\\DriverStore\\*",
+                "?:\\Windows\\LTSvc\\*\\Update.exe") and
 
 /* Ignores Windows binaries with a trusted signature and specific signature name */
  not (process.code_signature.trusted == true and
@@ -97,7 +97,17 @@ not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
                  "Projector.is, Inc.",
                  "TeamViewer GmbH",
                  "Cisco WebEx LLC",
-                 "Dell Inc"))
+                 "Dell Inc",
+                 "Sophos Ltd",
+                 "Sophos Limited",
+                 "Brother Industries, Ltd.",
+                 "MILVUS INOVACOES EM SOFTWARE LTDA",
+                 "Chocolatey Software, Inc")) and
+
+ not (process.Ext.effective_parent.executable : "?:\\Windows\\servicing\\TrustedInstaller.exe" and
+      process.executable : "C:\\Windows\\WinSxS\\amd64_microsoft-windows-servicingstack_*\\TiWorker.exe") and
+
+ not process.Ext.effective_parent.executable : "?:\\Windows\\ServiceProfiles\\LocalService\\AppData\\Local\\ServicePortalAgent\\current\\emulator\\MmrAgent.NetFxEmulator.exe"
 '''
 note = """## Triage and analysis
 
