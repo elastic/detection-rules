@@ -6,8 +6,8 @@ updated_date = "2026/01/09"
 [rule]
 author = ["Elastic"]
 description = """
-This rule uses alert data to determine when multiple external EDR alerts involving the same host are triggered.
-Analysts can use this to prioritize triage and response, as these hosts are more likely to be compromised.
+This rule uses alert data to determine when multiple external EDR alerts involving the same host are triggered. Analysts
+can use this to prioritize triage and response, as these hosts are more likely to be compromised.
 """
 from = "now-60m"
 interval = "30m"
@@ -24,8 +24,7 @@ type = "esql"
 query = '''
 from .alerts-security.*
 | WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "sentinel_one.threat", "m365_defender.alert") and
-        host.id is not null and
-        kibana.alert.risk_score > 21 and
+        host.id is not null and kibana.alert.risk_score > 21 and
         not (event.module == "crowdstrike" and (kibana.alert.rule.name like "* at *" or kibana.alert.rule.name like "* on *" or kibana.alert.rule.name == "EICARTestFileWrittenWin"))
 | stats Esql.alerts_count = COUNT(*),
         Esql.rule_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
@@ -33,7 +32,7 @@ from .alerts-security.*
         Esql.processes_count = COUNT_DISTINCT(process.executable),
         Esql.files_count = COUNT_DISTINCT(file.path),
         Esql.process_cmdline_count = COUNT_DISTINCT(process.command_line),
-        Esql.rule_severity_values = VALUES(kibana.alert.risk_score),
+        Esql.rule_risk_score_values = VALUES(kibana.alert.risk_score),
         Esql.process_path_values = VALUES(process.executable),
         Esql.file_path_values = VALUES(file.path),
         Esql.user_name_values = VALUES(user.name),
