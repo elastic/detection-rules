@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -45,6 +45,7 @@ index = [
     "logs-auditd_manager.auditd-*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -162,35 +163,41 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko" and
-not process.parent.executable like (
-  "/opt/ds_agent/*", "/usr/sbin/veeamsnap-loader", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*",
-  "/opt/commvault/Base/linux_drv", "/bin/falcoctl"
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "insmod" and process.args : "*.ko" and
+not (
+  ?process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*") or
+  ?process.working_directory in ("/opt/vinchin/agent", "/var/opt/ds_agent/am", "/opt/ds_agent", "/var/opt/TrendMicro/vls_agent/am") or
+  ?process.parent.executable in (
+    "/usr/lib/uptrack/ksplice-apply", "/opt/commvault/commvault/Base/linux_drv", "/opt/cisco/amp/bin/cisco-amp-helper",
+    "/usr/bin/kcarectl", "/usr/share/ksplice/ksplice-apply", "/opt/commvault/Base/linux_drv", "/usr/sbin/veeamsnap-loader",
+    "/bin/falcoctl"
+  ) or
+  (?process.parent.name like ("python*", "platform-python*") and ?process.parent.args in ("--smart-update", "--auto-update"))
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

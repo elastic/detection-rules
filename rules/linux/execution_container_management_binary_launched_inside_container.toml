@@ -2,7 +2,7 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/06/17"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -24,6 +24,41 @@ index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Container Management Utility Run Inside A Container"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Container Management Utility Run Inside A Container
+
+Container management utilities like Docker and Kubectl are essential for orchestrating and managing containerized applications. They facilitate tasks such as deployment, scaling, and networking. However, adversaries can exploit these tools to execute unauthorized commands within containers, potentially leading to system compromise. The detection rule identifies suspicious execution of these utilities within containers, signaling possible misuse or misconfiguration, by monitoring specific process activities and event types.
+
+### Possible investigation steps
+
+- Examine the process name and command line arguments to understand the context of the execution and identify any anomalies or unauthorized commands.
+- Check the user and permissions associated with the process to assess if it aligns with expected roles and access levels for container management tasks.
+- Investigate the container's creation and deployment history to identify any recent changes or deployments that could explain the presence of the management utility.
+- Analyze network activity associated with the container to detect any unusual connections or data transfers that might indicate malicious activity.
+- Correlate the event with other security alerts or logs to identify patterns or related incidents that could provide additional context or evidence of compromise.
+
+### False positive analysis
+
+- Routine maintenance tasks within containers can trigger the rule. Exclude known maintenance scripts or processes by adding them to an allowlist if they frequently execute container management utilities.
+- Development and testing environments often run container management commands for legitimate purposes. Consider excluding these environments from monitoring or adjust the rule to focus on production environments only.
+- Automated deployment tools may execute container management commands as part of their workflow. Identify these tools and create exceptions for their activities to prevent false positives.
+- System updates or patches might involve running container management utilities. Monitor update schedules and temporarily adjust the rule to avoid unnecessary alerts during these periods.
+- Legitimate administrative actions by authorized personnel can trigger the rule. Implement user-based exceptions for known administrators to reduce false positives while maintaining security oversight.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or execution of commands. This can be done by stopping the container or disconnecting it from the network.
+- Review the container's configuration and access controls to identify any misconfigurations or unauthorized access permissions that may have allowed the execution of container management utilities.
+- Conduct a thorough analysis of the container's logs and process activities to determine the extent of the compromise and identify any additional malicious activities or lateral movement attempts.
+- Remove any unauthorized or suspicious binaries and scripts from the container to prevent further exploitation.
+- Patch and update the container image and underlying host system to address any known vulnerabilities that may have been exploited.
+- Implement stricter access controls and monitoring on container management utilities to ensure they are only accessible by authorized users and processes.
+- Escalate the incident to the security operations team for further investigation and to assess the need for broader security measures across the container environment."""
+
 risk_score = 21
 rule_id = "4b74d3b0-416e-4099-b432-677e1cd098cc"
 setup = """## Setup
@@ -66,43 +101,14 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.entry_leader.entry_meta.type == "container" and process.interactive == true and
-process.name in ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") and
-not process.parent.executable in ("/sbin/init", "/usr/bin/dockerd")
+process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") and
+not (
+  process.parent.executable in ("/sbin/init", "/usr/bin/dockerd", "/usr/bin/runc", "/usr/bin/containerd-shim-runc-v2") or
+  process.working_directory == "/aws" or
+  process.parent.command_line == "runc init" or
+  (process.parent.name == "busybox" and process.name == "kubectl")
+)
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Container Management Utility Run Inside A Container
-
-Container management utilities like Docker and Kubectl are essential for orchestrating and managing containerized applications. They facilitate tasks such as deployment, scaling, and networking. However, adversaries can exploit these tools to execute unauthorized commands within containers, potentially leading to system compromise. The detection rule identifies suspicious execution of these utilities within containers, signaling possible misuse or misconfiguration, by monitoring specific process activities and event types.
-
-### Possible investigation steps
-
-- Examine the process name and command line arguments to understand the context of the execution and identify any anomalies or unauthorized commands.
-- Check the user and permissions associated with the process to assess if it aligns with expected roles and access levels for container management tasks.
-- Investigate the container's creation and deployment history to identify any recent changes or deployments that could explain the presence of the management utility.
-- Analyze network activity associated with the container to detect any unusual connections or data transfers that might indicate malicious activity.
-- Correlate the event with other security alerts or logs to identify patterns or related incidents that could provide additional context or evidence of compromise.
-
-### False positive analysis
-
-- Routine maintenance tasks within containers can trigger the rule. Exclude known maintenance scripts or processes by adding them to an allowlist if they frequently execute container management utilities.
-- Development and testing environments often run container management commands for legitimate purposes. Consider excluding these environments from monitoring or adjust the rule to focus on production environments only.
-- Automated deployment tools may execute container management commands as part of their workflow. Identify these tools and create exceptions for their activities to prevent false positives.
-- System updates or patches might involve running container management utilities. Monitor update schedules and temporarily adjust the rule to avoid unnecessary alerts during these periods.
-- Legitimate administrative actions by authorized personnel can trigger the rule. Implement user-based exceptions for known administrators to reduce false positives while maintaining security oversight.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or execution of commands. This can be done by stopping the container or disconnecting it from the network.
-- Review the container's configuration and access controls to identify any misconfigurations or unauthorized access permissions that may have allowed the execution of container management utilities.
-- Conduct a thorough analysis of the container's logs and process activities to determine the extent of the compromise and identify any additional malicious activities or lateral movement attempts.
-- Remove any unauthorized or suspicious binaries and scripts from the container to prevent further exploitation.
-- Patch and update the container image and underlying host system to address any known vulnerabilities that may have been exploited.
-- Implement stricter access controls and monitoring on container management utilities to ensure they are only accessible by authorized users and processes.
-- Escalate the incident to the security operations team for further investigation and to assess the need for broader security measures across the container environment."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
