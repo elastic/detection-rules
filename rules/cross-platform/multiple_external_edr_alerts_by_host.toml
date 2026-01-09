@@ -38,11 +38,11 @@ from .alerts-security.* metadata _id
         Esql.process_cmdline_values = VALUES(process.command_line),
         Esql.process_parent_cmdline_values = VALUES(process.parent.command_line),
         Esql.user_name_values = VALUES(user.name),
-        Esql.rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, target_time_window, event.module
+        Esql.rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, event.module
 // 3 unique rules or 3 unique processes with different severity levels or with one high severity alert
 | where (Esql.unique_rules_count >= 3 or (Esql.processes_count >= 3 and Esql.rule_name_values == "External Alerts")) and
         (Esql.severity_unique_count >= 2 or Esql.severity_values in ("high", "critical"))
-| KEEP target_time_window, event.module, host.id, host.name, Esql.*
+| KEEP event.module, host.id, host.name, Esql.*
 '''
 note = """## Triage and analysis
 
