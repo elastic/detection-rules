@@ -22,11 +22,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from .alerts-security.* metadata _id
-| WHERE event.module in ("crowdstrike", "sentinel_one", "carbon_black_cloud", "eset_protect", "cisco_secure_endpoint", "jamf_protect") and
+from .alerts-security.*
+| WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "m365_defender.alert", "carbon_black_cloud.alert_v7", "eset_protect.detection", "eset_protect.event", "jamf_protect.alerts", "jamf.protect") and
         host.id is not null and
-        kibana.alert.rule.rule_id in ("eb079c62-4481-4d6e-9643-3ca499df7aaa", "74147312-ba03-4bea-91d1-040d54c1e8c3", "9b35422b-9102-45a9-8610-2e0c22281c55", "aeebe561-c338-4118-9924-8cb4e478aa58") and
-        kibana.alert.severity is not null and kibana.alert.severity != "low" and
+        kibana.alert.severity != "low" and
         not (event.module == "crowdstrike" and kibana.alert.rule.name like "* at *")
 | stats Esql.alerts_count = COUNT(*),
         Esql.severity_unique_count = COUNT_DISTINCT(kibana.alert.severity),
