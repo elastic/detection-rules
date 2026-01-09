@@ -2,7 +2,7 @@
 creation_date = "2023/09/20"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,7 @@ In Linux environments, background processes can be manipulated to establish reve
 - Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
 - Implement network segmentation to limit the ability of compromised systems to communicate with critical infrastructure or sensitive data repositories.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
-risk_score = 47
+risk_score = 73
 rule_id = "259be2d8-3b1a-4c2c-a0eb-0c8e77f35e39"
 setup = """## Setup
 
@@ -82,7 +82,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -96,42 +96,40 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-  process.name in ("setsid", "nohup") and process.args : "*/dev/tcp/*0>&1*" and
-  process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+process.name in ("setsid", "nohup") and process.args : "*/dev/tcp/*0>&1*" and
+process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

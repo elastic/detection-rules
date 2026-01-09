@@ -2,7 +2,7 @@
 creation_date = "2024/05/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2025/12/23"
 
 [transform]
 [[transform.osquery]]
@@ -46,7 +46,6 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
-
 
 [rule]
 author = ["Elastic"]
@@ -137,7 +136,7 @@ references = [
     "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
     "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "b605f262-f7dc-41b5-9ebc-06bafe7a83b6"
 setup = """## Setup
 
@@ -164,7 +163,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -176,7 +175,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
 process.executable:/usr/bin/systemctl and process.args:(enable or reenable or start) and 
@@ -189,42 +187,46 @@ not (
     /bin/podman or /bin/rpm or /bin/snapd or /bin/sudo or /bin/useradd or /bin/yum or /usr/bin/dnf or
     /usr/bin/dnf-automatic or /usr/bin/dockerd or /usr/bin/dpkg or /usr/bin/microdnf or /usr/bin/pacman or
     /usr/bin/podman or /usr/bin/rpm or /usr/bin/snapd or /usr/bin/sudo or /usr/bin/yum or /usr/sbin/adduser or
-    /usr/sbin/invoke-rc.d or /usr/sbin/useradd or /var/lib/dpkg/*
+    /usr/sbin/invoke-rc.d or /usr/sbin/useradd or /var/lib/dpkg/* or /opt/datadog-agent/embedded/bin/installer or
+    /opt/saltstack/salt/bin/python* or /opt/puppetlabs/puppet/bin/puppet or /opt/splunkforwarder/bin/splunk or
+    /opt/puppetlabs/puppet/bin/ruby or /opt/kaspersky/kesl/shared/kesl or /usr/local/bin/cloudflared or
+    /usr/bin/puppet or /opt/sentinelone/bin/sentinelctl
   ) or
-  process.args_count >= 5
+  process.args_count >= 5 or
+  process.parent.command_line:*ansible*
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -234,8 +236,7 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
-
-
+value = "now-5d"
