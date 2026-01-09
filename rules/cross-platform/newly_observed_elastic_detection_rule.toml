@@ -31,6 +31,7 @@ FROM .alerts-security.*
   event.dataset != "endpoint.alerts"
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
+        Esql.last_time_seen = MAX(@timestamp),
         Esql.process_executable = VALUES(process.executable),
         Esql.cmd_line = VALUES(process.command_line),
         Esql.parent_executable = VALUES(process.parent.executable),
@@ -46,7 +47,7 @@ FROM .alerts-security.*
         Esql.agents_distinct_count = COUNT_DISTINCT(agent.id) by kibana.alert.rule.name
 // fist time seen in the last 5 days - defined in the rule schedule Additional look-back time
 | eval recent = DATE_DIFF("day", Esql.first_time_seen, now())
-| where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10
+| where recent == 0 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
 | keep kibana.alert.rule.name, Esql.*
 '''
 note = """## Triage and analysis
