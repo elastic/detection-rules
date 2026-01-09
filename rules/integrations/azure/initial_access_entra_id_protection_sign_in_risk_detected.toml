@@ -3,7 +3,7 @@ creation_date = "2025/04/29"
 integration = ["azure"]
 maturity = "production"
 promotion = true
-updated_date = "2025/09/08"
+updated_date = "2026/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,10 @@ type = "query"
 query = '''
 event.dataset: "azure.identity_protection" and
     event.action: "User Risk Detection" and
-    azure.identityprotection.properties.activity: "signin"
+    azure.identityprotection.properties.activity: "signin" and
+    not azure.identityprotection.properties.risk_state: (
+        "remediated" or "dismissed" or "confirmedSafe"
+    )
 '''
 
 
