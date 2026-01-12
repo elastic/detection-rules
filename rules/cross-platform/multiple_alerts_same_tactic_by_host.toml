@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2026/01/12"
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule correlates multiple security alerts associated with the same ATT&CK tactic on a single host within a defined time window.
+By requiring alerts from multiple distinct detection rules, this detection helps identify hosts exhibiting concentrated malicious behavior,
+which may indicate an active intrusion or post-compromise activity. The rule is intended to assist analysts in prioritizing triage
+toward hosts with higher likelihood of compromise rather than signaling a single discrete event.
+"""
+from = "now-60m"
+interval = "30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Alerts in Same ATT&CK Tactic by Host"
+risk_score = 73
+rule_id = "6e92a21a-58e7-449a-9cfd-9f563f59ac88"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from .alerts-security.*  metadata _id
+
+| where kibana.alert.risk_score > 21 and
+        kibana.alert.rule.name IS NOT NULL and
+        host.id is not null and event.dataset is not null and
+
+        // excluding ML and Threat Match rules as they tend to be noisy
+        not kibana.alert.rule.type in ("threat_match", "machine_learning") and
+
+        // excluding noisy tactics like Discovery, Persistence and Lateral Movement
+        kibana.alert.rule.threat.tactic.name in ("Credential Access", "Defense Evasion", "Execution", "Command and Control") and
+
+        // excluding some noisy rules
+        not kibana.alert.rule.name in ("Agent Spoofing - Mismatched Agent ID", "Process Termination followed by Deletion")
+
+// extract unique counts and values by host.id and tactic name
+| stats Esql.alerts_count = COUNT(*),
+        Esql.kibana_alert_rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
+        Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
+        Esql.event_module_values = VALUES(event.module),
+        Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+        Esql.threat_technique_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.threat.technique.id),
+        Esql.threat_technique_name_values = VALUES(kibana.alert.rule.threat.technique.name),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.process_parent_executable_values = VALUES(process.parent.executable),
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.process_entity_id_distinct_count = COUNT_DISTINCT(process.entity_id) by host.id, kibana.alert.rule.threat.tactic.name
+
+// filter for at least 3 unique rules and exclude noisy patterns like high count of alerts or processes often associated with noisy FPs
+| where Esql.kibana_alert_rule_name_distinct_count >= 3 and Esql.process_entity_id_distinct_count <= 10 and Esql.alerts_count <= 20
+
+// fields populated in the resulting alerts
+| Keep host.id, kibana.alert.rule.threat.tactic.name, Esql.*
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Multiple Alerts in Same ATT&CK Tactic by Host
+
+The detection rule identifies hosts with alerts from the same ATT&CK tactic, indicating potential compromise. Adversaries exploit system vulnerabilities, moving through different tactics like execution, defense evasion, and credential access. This rule prioritizes hosts with high-risk.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host involved and the different techniques that triggered the alerts.
+- Examine the timeline of the alerts to understand the sequence of events and determine if there is a pattern or progression in the tactics used.
+- Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
+- Investigate any known vulnerabilities or misconfigurations on the host that could have been exploited by the adversary.
+- Check for any indicators of compromise (IOCs) associated with the alerts, such as suspicious IP addresses, domains, or file hashes, and search for these across the network.
+- Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
+
+### False positive analysis
+
+- Alerts from routine administrative tasks may trigger multiple rules. Review and exclude known benign activities such as scheduled software updates or system maintenance.
+- Security tools running on the host might generate multiple alerts. Identify and exclude alerts from trusted security applications to reduce noise.
+- Automated scripts or batch processes can mimic adversarial behavior. Analyze and whitelist these processes if they are verified as non-threatening.
+- Frequent alerts from development or testing environments can be misleading. Consider excluding these environments from the rule or applying a different risk score.
+- User behavior anomalies, such as accessing multiple systems or applications, might trigger alerts. Implement user behavior baselines to differentiate between normal and suspicious activities.
+
+### Response and remediation
+
+- Isolate the affected host from the network immediately to prevent further lateral movement by the adversary.
+- Conduct a thorough forensic analysis of the host to identify the specific vulnerabilities exploited and gather evidence of the attack phases involved.
+- Remove any identified malicious software or unauthorized access tools from the host, ensuring all persistence mechanisms are eradicated.
+- Apply security patches and updates to the host to address any exploited vulnerabilities and prevent similar attacks.
+- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
+- Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
+- Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""
+
+
