@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/01/08"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2026/01/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell script blocks with high entropy and non-uniform character distributions. Attackers may obfuscate
+PowerShell scripts using encoding, encryption, or compression techniques to evade signature-based detections and hinder
+manual analysis by security analysts.
+"""
+false_positives = [
+  """
+  Legitimate automation, installers, or admin tooling that embed large encoded payloads or compressed content.
+  """,
+  """
+  Security products or configuration management tools that ship scripted binaries or highly compressed data.
+  """
+]
+from = "now-9m"
+index = ["logs-windows.powershell*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscated Script via High Entropy"
+risk_score = 21
+rule_id = "737b5532-cf2e-4d40-9209-d7aec9dd25d5"
+setup = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and host.os.type:windows and powershell.file.script_block_length > 1000 and
+  powershell.file.script_block_entropy_bits >= 5.3 and powershell.file.script_block_surprisal_stdev > 0.7 and
+  not file.directory: "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts"
+'''
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+case_insensitive = true
+value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
