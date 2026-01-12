@@ -1298,7 +1298,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @classmethod
     def all_rule_types(cls) -> set[str]:
@@ -1710,7 +1710,7 @@ class DeprecatedRuleContents(BaseRuleContents):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @property
     def id(self) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
