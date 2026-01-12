@@ -2,6 +2,8 @@
 creation_date = "2026/01/08"
 integration = ["windows"]
 maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
 updated_date = "2026/01/08"
 
 [rule]
@@ -25,6 +27,82 @@ interval = "1h"
 language = "esql"
 license = "Elastic License v2"
 name = "PowerShell Script Block Entropy Outlier via MAD Z-Score"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script Block Entropy Outlier via MAD Z-Score
+
+This rule detects PowerShell Script Block Logging events (Event ID 4104) where the script block's character entropy is an outlier relative to baselines computed over a short lookback period. High-entropy PowerShell content is commonly observed when scripts are encoded, compressed, encrypted, or otherwise obfuscated (for example, long Base64 blobs, compressed payloads, randomized variable names, or embedded binary data).
+
+Because the rule relies on statistically derived baselines, interpretation is best when you review the alert's scoring fields alongside the script content and surrounding execution context (host, user, and nearby process activity).
+
+#### Key alert fields to review
+
+- `powershell.file.script_block_text`: The script block content that triggered the alert.
+- `powershell.file.script_block_length`: Used to focus on larger scripts where entropy is more meaningful.
+- `powershell.file.script_block_entropy_bits`: The raw entropy value being scored.
+- `powershell.file.script_block_surprisal_stdev`: Secondary feature used to reduce noise and emphasize uneven character distributions often seen in obfuscation/encoding patterns.
+- `Esql.entropy_score`: Final blended robust z-score used for thresholding.
+- `Esql.host_z`, `Esql.global_z`: Per-host and global robust z-scores (helpful to understand whether this is a host-local anomaly, a population-wide anomaly, or both).
+- `Esql.w_host`: Host weighting factor (higher means the score is more driven by the host baseline; lower means the global baseline dominates).
+- `Esql.host_block_n`, `Esql.global_block_n`: Baseline sample sizes (low counts can reduce confidence in the stability of the baseline).
+
+#### Possible investigation steps
+
+- Validate the basic context:
+  - Identify the affected `host.name` and `user.name` / `user.id`.
+  - Confirm whether this user/host commonly executes large PowerShell scripts (administration, EDR tooling, software deployment, configuration management).
+
+- Review the script block content (`powershell.file.script_block_text`) and look for common obfuscation indicators:
+  - Long Base64-like strings and decoding functions (for example, `FromBase64String`, `-enc`, custom Base64 routines).
+  - Compression/decompression patterns (for example, GZip/Deflate APIs, byte array inflation, stream decompression).
+  - Dynamic execution patterns (for example, `IEX`/`Invoke-Expression`, `Invoke-Command`, reflection-based loading, `Add-Type`, `Assembly::Load`).
+  - Heavy use of string concatenation, character arrays, arithmetic/XOR loops, or randomized variable/function names.
+
+- Determine whether the content is simply “high entropy” or actually suspicious:
+  - If the script block contains a large, single encoded blob, attempt safe offline decoding (Base64 → decompress → deobfuscate) and assess the resulting content.
+  - If the script block appears to be a legitimate installer or automation artifact, identify the owning software/package and confirm provenance (publisher, expected path, expected execution time).
+
+- Correlate with surrounding activity on the same host around the alert time:
+  - If you have process creation telemetry (for example, Windows Security 4688, Sysmon Event ID 1, or endpoint process events), pivot by host and timestamp to identify:
+    - The PowerShell host process (`powershell.exe`, `pwsh.exe`, `powershell_ise.exe`) and its parent process.
+    - Command-line flags associated with abuse (`-EncodedCommand`, `-ExecutionPolicy Bypass`, `-NoProfile`, hidden window styles).
+  - Look for follow-on behaviors (file writes, scheduled tasks, registry changes, network connections) that align with post-exploitation activity.
+
+- Assess prevalence and scope:
+  - Search for other script blocks with similarly high `powershell.file.script_block_entropy_bits` or `powershell.file.script_block_surprisal_stdev` on the same host.
+  - Check whether the same user is generating similar outliers across multiple hosts (possible credential compromise or an automation job running widely).
+
+### False positive analysis
+
+- Legitimate sources of high-entropy PowerShell script blocks commonly include:
+  - Software deployment and endpoint management tooling (packaged scripts, embedded resources, signed admin scripts).
+  - Installers/updaters that embed compressed content or serialized objects.
+  - Security products or IT scripts that bundle binaries/configuration as encoded strings.
+  - Automation frameworks that generate large scripts dynamically.
+
+- Triage tips to reduce noise while preserving detection value:
+  - Prefer allowlisting by trusted script origin (known paths, known publishers, known management accounts) rather than suppressing by entropy alone.
+  - Use the scoring context:
+    - Alerts dominated by global baseline anomalies may indicate broadly used tooling in the environment.
+    - Alerts with strong host-local anomalies (high `Esql.w_host` and high `Esql.host_z`) may better indicate host-specific suspicious activity.
+
+### Response and remediation
+
+- If the script content is confirmed or strongly suspected malicious:
+  - Isolate the affected host to prevent further execution and lateral movement.
+  - Capture relevant artifacts (full script block text, decoded payloads, related dropped files, persistence mechanisms).
+  - Hunt for related activity across the environment (similar encoded strings, similar decoded payload content, repeated outlier scoring).
+  - Identify and remediate the initial access vector (phishing attachment, drive-by download, compromised admin credential, vulnerable service).
+  - Reset credentials for impacted accounts and review privileged access paths used on the host.
+
+- If the script content is benign but noisy:
+  - Document the legitimate source (tool name, owner team, expected schedule, expected hosts).
+  - Add targeted exceptions (for example, trusted management accounts, known script paths, or known benign script identifiers where available).
+  - Consider strengthening PowerShell governance (script signing enforcement, constrained language mode where feasible, and tighter administrative scripting controls).
+"""
 risk_score = 21
 rule_id = "23826d38-92a0-4d14-91ca-d43c265ec153"
 setup = """## Setup
@@ -51,7 +129,8 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Data Source: PowerShell Logs"
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
