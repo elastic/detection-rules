@@ -38,7 +38,7 @@ from .integrations import (
     load_integrations_schemas,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
-from .rule_formatter import nested_normalize, toml_write
+from .rule_formatter import toml_write
 from .schemas import (
     SCHEMA_DIR,
     definitions,
@@ -1237,7 +1237,7 @@ class BaseRuleContents(ABC):
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
-        obj = nested_normalize(obj)
+        # obj = nested_normalize(obj)
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
@@ -1586,7 +1586,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if self.transform:
             data = self.data.process_transforms(self.transform, data)
         dict_obj = {"metadata": metadata, "rule": data}
-        return nested_normalize(dict_obj)
+        # return nested_normalize(dict_obj)
+        return dict_obj
 
     def flattened_dict(self) -> dict[str, Any]:
         flattened: dict[str, Any] = {}
