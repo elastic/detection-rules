@@ -2,13 +2,13 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/12"
+updated_date = "2026/01/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of WinRar or 7z to create an encrypted files. Adversaries will often compress and encrypt data in
-preparation for exfiltration.
+Identifies the use of WinRAR or 7-Zip to create encrypted archives. Adversaries often compress and encrypt data
+in preparation for exfiltration.
 """
 from = "now-9m"
 index = [
@@ -26,23 +26,26 @@ note = """## Triage and analysis
 
 ### Investigating Encrypting Files with WinRar or 7z
 
-Attackers may compress and/or encrypt data collected before exfiltration. Compressing the data can help obfuscate the collected data and minimize the amount of data sent over the network. Encryption can be used to hide information that is being exfiltrated from detection or make exfiltration less apparent upon inspection by a defender.
+Attackers may compress and/or encrypt data collected before exfiltration. Compressing data can help stage and obfuscate content and may reduce the amount of data sent over the network. Encryption can be used to hide the contents of the archive and make the activity less apparent during review.
 
-These steps are usually done in preparation for exfiltration, meaning the attack may be in its final stages.
+These steps are often performed in preparation for exfiltration, meaning the intrusion may be in its later stages.
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Retrieve the encrypted file.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Check if the password used in the encryption was included in the command line.
-- Decrypt the `.rar`/`.zip` and check if the information is sensitive.
-- If the password is not available, and the format is `.zip` or the option used in WinRAR is not the `-hp`, list the file names included in the encrypted file.
-- Investigate if the file was transferred to an attacker-controlled server.
+- Review the process ancestry (parent process tree) for the archiving command. Identify what launched WinRAR/7-Zip and whether the parent is expected in your environment.
+- Validate the executable: check file path, signature, hash prevalence, and whether the binary is the expected vendor build.
+- Identify the archive output location and name. Look for staging locations (e.g., user profile temp directories, public folders, removable media paths) and unusual naming patterns.
+- Retrieve the created archive if policy allows. Determine whether the contents are sensitive or business-critical.
+- Check whether the encryption password is present in the command line. If present, treat as high confidence data staging.
+- If the password is not available and the archive format is `.zip` (or WinRAR is not using the `-hp` option), enumerate filenames within the archive to understand what was staged.
+- Review other alerts and related activity for the same host/user over the last 48 hours (credential access, discovery, lateral movement, and outbound transfers).
+- Investigate whether the archive was transferred off-host (e.g., browser uploads, cloud sync clients, RMM tools, SMB to unusual destinations, or other outbound network activity).
 
 ### False positive analysis
 
-- Backup software can use these utilities. Check the `process.parent.executable` and `process.parent.command_line` fields to determine what triggered the encryption.
+- Backup, packaging, and software distribution workflows may legitimately create password-protected archives.
+- IT administrators and automation may use WinRAR/7-Zip for log collection, incident response packaging, or data transfer.
+- Validate the parent process and context using `process.parent.executable` and `process.parent.command_line`, and confirm whether the archive destination and file set match an expected workflow.
 
 ### Response and remediation
 
@@ -106,6 +109,7 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1005"
 name = "Data from Local System"
@@ -115,15 +119,14 @@ reference = "https://attack.mitre.org/techniques/T1005/"
 id = "T1560"
 name = "Archive Collected Data"
 reference = "https://attack.mitre.org/techniques/T1560/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1560.001"
 name = "Archive via Utility"
 reference = "https://attack.mitre.org/techniques/T1560/001/"
 
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
