@@ -43,10 +43,14 @@ This rule detects when Ollama accepts connections from external IP addresses. Ol
 - Review Ollama and system logs for signs of compromise.
 - Consider running Ollama in a container with network isolation.
 """
-references = ["https://atlas.mitre.org/techniques/AML.T0040", "https://atlas.mitre.org/techniques/AML.T0044"]
-risk_score = 73
+references = [
+    "https://www.greynoise.io/blog/threat-actors-actively-targeting-llms",
+    "https://atlas.mitre.org/techniques/AML.T0040",
+    "https://atlas.mitre.org/techniques/AML.T0044",
+]
+risk_score = 47
 rule_id = "d8f2a1b3-c4e5-6789-abcd-ef0123456789"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -67,15 +71,18 @@ query = '''
 network where event.action == "connection_accepted" and
   process.name in ("ollama", "ollama.exe") and
   destination.port == 11434 and
-  source.ip != null and
+  source.ip != null and source.ip != "0.0.0.0" and
   not cidrmatch(source.ip, 
     "10.0.0.0/8", 
     "127.0.0.0/8", 
     "169.254.0.0/16", 
     "172.16.0.0/12", 
     "192.168.0.0/16",
+    "100.64.0.0/10",
     "::1",
-    "FE80::/10"
+    "fe80::/10",
+    "fc00::/7",
+    "ff00::/8"
   )
 '''
 
