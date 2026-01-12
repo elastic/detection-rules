@@ -4,26 +4,19 @@ This document provides detailed information about the different versions that ar
 
 ## Current Version
 
-The current version of prebuilt detection rules is `v8.17`.
+The current version of prebuilt detection rules is `v9.3`.
 
 ## Previous Versions Released
 
 The following version(s) are released along with the current version.
 
-- `v8.16`
-- `v8.15`
-- `v8.14`
-
-### Previous Versions Maintained
-
-The following version(s) are maintained along with the current version.
-
-- `v8.13`
-- `v8.12`
+- `v8.19`
+- `v9.1`
+- `v9.3`
 
 ## End of Life Policy
 
-Our policy is to support and provide public releases for `Current`, `Current-1`, `Current-2`, `Current-3` versions. We maintain and do not release `Current-4` and `Current-5` versions.
+Our policy is to support and provide public releases for `Current`, `Current-1`, `Current-2`, `Current-3` versions. Currently we are maintaining the latest version in 8.X series which is `v8.19`.
 
 
 # Code Supported Versions and Releases
