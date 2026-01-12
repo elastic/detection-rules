@@ -337,6 +337,12 @@ def migrate_to_9_2(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("9.3")
+def migrate_to_9_3(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
+    """Default migration for 9.3."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(
     api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None
 ) -> dict[str, Any]:
