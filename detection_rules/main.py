@@ -256,12 +256,16 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         # Parse created_at and updated_at to creation_date and updated_date if they exist in contents
         if dates_import:
             now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            contents["creation_date"] = datetime.strptime(
-                contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).replace(tzinfo=UTC).strftime("%Y/%m/%d")
-            contents["updated_date"] = datetime.strptime(
-                contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).replace(tzinfo=UTC).strftime("%Y/%m/%d")
+            contents["creation_date"] = (
+                datetime.strptime(contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .strftime("%Y/%m/%d")
+            )
+            contents["updated_date"] = (
+                datetime.strptime(contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .strftime("%Y/%m/%d")
+            )
 
         contents.update(
             update_metadata_from_file(
