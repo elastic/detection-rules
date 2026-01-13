@@ -2,7 +2,7 @@
 creation_date = "2025/06/19"
 integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/17"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,13 @@ such as configmaps. In environments where kubectl is not expected to be used, th
 activity by an adversary.
 """
 from = "now-119m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*"]
+index = [
+    "logs-endpoint.events.*",
+    "endgame-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*"
+]
 interval = "60m"
 language = "eql"
 license = "Elastic License v2"
@@ -40,7 +46,10 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
-process.name == "kubectl" and process.args in ("get", "describe") and process.args in ("configmap", "configmaps")
+process.name == "kubectl" and process.args in ("get", "describe") and process.args in ("configmap", "configmaps") and
+not ?process.parent.args in (
+  "/hooks/schedule_sync_configmap.sh", "/service-fabric/generate-support-bundle.sh", "/hooks/onstartup_sync_configmap.sh"
+)
 '''
 
 [[rule.threat]]

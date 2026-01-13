@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of dmidecode to gather system information from a Linux host when executed from a parent
+shell process. Adversaries may use dmidecode to collect detailed hardware and system information, which can aid in
+further exploitation or lateral movement within a network, or be used as a fingerprint for a compromised system.
+"""
+from = "now-9m"
+index = [
+        "logs-endpoint.events.*",
+        "endgame-*",
+        "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "System Information Discovery via dmidecode from Parent Shell"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Information Discovery via dmidecode from Parent Shell
+
+This rule flags dmidecode launched from a parent shell, signaling collection of hardware and firmware inventory that adversaries use to profile a host and inform exploitation or lateral movement. A typical pattern is an intruder running bash -c 'dmidecode -t system -t bios' within a post-exploitation script to harvest model, serial, BIOS vendor, and hypervisor indicators, then tailoring payload choices or host-based evasion accordingly.
+
+### Possible investigation steps
+
+- Extract the full parent shell command payload to see exact dmidecode arguments, targeted DMI types, and any output redirection or piping to grep, gzip, curl, scp, or similar utilities indicating data collection or exfiltration.
+- Correlate execution context by tying the parent shell to the user, TTY versus non-interactive origin (cron/systemd/SSH), source IP, and presence of unexpected sudo/root elevation to judge intent and privilege.
+- Pivot on the parent PID and session to list adjacent commands within the timeline to identify broader discovery or staging chains and any script or binary loader used.
+- Search for captured output by reviewing recent file writes under /tmp, /var/tmp, /dev/shm, and home directories for DMI dumps, hardware inventory files, or compressed archives, and triage ownership and timestamps.
+- Investigate network activity from the shell and its children around the event for outbound connections, especially HTTP/S3/SSH transfers that could carry dmidecode output, and capture destination details for enrichment.
+
+### False positive analysis
+
+- A system administrator runs a shell with -c to execute dmidecode during manual troubleshooting; corroborate with an interactive TTY, a known admin user, and absence of adjacent collection or network activity.
+- A legitimate cron or systemd maintenance/provisioning job calls a shell with -c to run dmidecode for hardware inventory; verify the scheduled unit or service, script location under /etc, and expected run cadence.
+
+### Response and remediation
+
+- Immediately kill the shell process running '-c "dmidecode ..."', terminate its children (e.g., grep, gzip, curl, scp), and isolate the host if the command chained output to a network transfer.
+- Block observed exfil destinations by adding temporary egress rules for the IP/domain referenced in the parent shell (curl/wget/scp targets), and confiscate any DMI dumps or archives found under /tmp, /var/tmp, or /dev/shm.
+- Remove persistence by deleting scripts and jobs that call dmidecode, including entries under /etc/cron.*, systemd units in /etc/systemd/system, or shell scripts dropped in home directories and /opt, and clear residual output files.
+- Recover by validating integrity of /usr/sbin/dmidecode and shell binaries (bash/sh/zsh), restoring from backup if tampering is detected, and re-enable network only after rotating passwords and SSH keys for affected accounts.
+- Escalate to incident response if dmidecode output is compressed/encoded then sent externally (e.g., '/tmp/dmi.txt.gz' piped to curl or scp), if run via sudo by an unexpected user, or observed on multiple hosts in a short window.
+- Harden by restricting dmidecode use to approved scripts via sudoers and AppArmor/SELinux profiles, alerting on shell '-c' hardware inventory commands, auditing writes to /tmp and /var/tmp, and replacing ad-hoc inventory with signed, centrally managed tooling.
+"""
+references = ["https://research.checkpoint.com/2024/29676/"]
+risk_score = 21
+rule_id = "da0ebebe-5ad3-4277-95e7-889f5a69b959"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
+
+#### The following steps should be executed in order to add the Auditbeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
+- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
+- For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+"""
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Data Source: Elastic Endgame",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
+process.name == "dmidecode" and process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.parent.args == "-c"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

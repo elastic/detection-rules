@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the usage of the most common audio recording utilities on unix systems by an uncommon process parent.
+Adversaries may collect audio data from users or systems for a variety of reasons including espionage, credential theft, or reconnaissance.
+"""
+from = "now-9m"
+index = [
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+        ]
+language = "kuery"
+license = "Elastic License v2"
+name = "Linux Audio Recording Activity Detected"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Audio Recording Activity Detected
+
+This rule flags executions of Linux audio-recording tools (arecord, parec, pw-record, ecasound, pw-cat -r, ffmpeg) started by uncommon parent processes, signaling potential covert microphone capture. Attackers often drop a systemd service or cron job that silently invokes arecord or ffmpeg to record from default PulseAudio/PipeWire devices and stash WAV/MP3 files under user directories or stream them to a remote host. Capturing ambient audio can reveal passwords, meeting content, and sensitive conversations, aiding reconnaissance and espionage.
+
+### Possible investigation steps
+
+- Examine the full process tree and session context (parent/grandparent, controlling TTY, logged-in user) to determine whether launch came from an expected desktop workflow versus non-interactive origins like cron, systemd, or ssh.
+- Parse the command line to identify input device and output target, then hunt for created artifacts (WAV/MP3/OGG) under common stash paths (~/.cache, ~/.local/share, /tmp, /var/tmp, hidden directories) and verify timestamps and owner.
+- If the command indicates streaming or piping, inspect recent outbound network connections and DNS from the process/user for RTMP/HTTP/SFTP endpoints and correlate with firewall or EDR flow logs to detect exfiltration.
+- Check for persistence mechanisms that could re-invoke the recorder, including systemd user/system units and timers, cron/anacron entries, and shell scripts in autostart paths, and disable or quarantine any suspicious items.
+- Review audio subsystem and device access evidence (audit logs for open/read on /dev/snd/* and PipeWire/PulseAudio logs showing record nodes) to confirm capture and identify the device and scope.
+
+### False positive analysis
+
+- ffmpeg is executed with -i to read an existing media file for transcode or audio extraction, not to capture from a microphone, which satisfies the rule conditions but is routine multimedia processing.
+- A legitimate systemd or cron job starts arecord/parec/pw-record/pw-cat -r to periodically sample audio for device diagnostics or content creation, resulting in an uncommon parent process yet expected outputs under user or application directories.
+
+### Response and remediation
+
+- Immediately terminate arecord, parec, pw-record, ecasound, pw-cat -r, or ffmpeg processes launched by cron/systemd/ssh and stop any associated systemd units/timers, then block outbound RTMP/HTTP/SFTP connections from the recording user.
+- Disable and remove persistence that invokes recording, including systemd .service/.timer files under /etc/systemd/system or ~/.config/systemd/user, cron entries in /etc/cron.* or user crontabs, and autostart scripts in ~/.config/autostart or /etc/xdg/autostart, and quarantine any unknown executables or wrappers in /tmp, /var/tmp, or hidden user directories that spawn these tools.
+- Before cleanup, preserve the full command line and copies of recorded artifacts (WAV/MP3/OGG) located in ~/.cache, ~/.local/share, /tmp, /var/tmp, and hidden directories, then remove remaining audio files and staging folders after evidence collection.
+- Verify recovery by confirming no active record nodes in PipeWire/PulseAudio and no further opens on /dev/snd/*, and restart affected user sessions or hosts if audio subsystem settings were altered.
+- Harden by restricting access to /dev/snd/* via udev group membership and AppArmor/SELinux, whitelisting approved desktop apps, and adding detections to flag non-interactive parents launching arecord/ffmpeg or pw-cat -r and creation of large audio files in cache/temp paths.
+- Escalate to incident response and privacy/legal if recording is initiated by a root-owned systemd service or an unknown binary in /tmp, or if audio streaming/exfiltration to external IPs/domains is observed.
+"""
+risk_score = 21
+rule_id = "3ee526ce-1f26-45dd-9358-c23100d1121f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:"linux" and event.type:"start" and event.action:("exec" or "exec_event" or "start") and (
+  process.name:("arecord" or "parec" or "pw-record" or "ecasound") or
+  (process.name:"pw-cat" and process.args:"-r") or
+  (process.name:"ffmpeg" and process.args:"-i")
+) and
+not process.args:("-h" or "--help" or "--version")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["agent.id", "process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

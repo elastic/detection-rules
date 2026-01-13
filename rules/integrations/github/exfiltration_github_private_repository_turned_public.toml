@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2023/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a private GitHub repository is changed to public visibility. Adversaries may change repository
+visibility to public in order to exfiltrate sensitive code or data, potentially indicating a compromise or
+unauthorized access.
+"""
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Private Repository Turned Public"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Private Repository Turned Public
+
+This rule flags when a previously private repository is made public, a high-risk change that can expose proprietary code, credentials, and internal documentation. Attackers who hijack a maintainer’s account often flip visibility via the UI or API, then immediately fork or mirror the repo to an external account to retain access and harvest embedded secrets even if the org reverts the change.
+
+### Possible investigation steps
+
+- Identify the actor and authentication method used for the visibility change, verify their repository role, and confirm the action against an approved change request or ticket.
+- Pull a time-bounded audit trail around the event for the actor and repository to surface related risky operations such as forking, transfers, collaborator additions, webhook edits, branch protection changes, or archive downloads.
+- Enumerate forks, mirrors, stars, and watchers added after the change via the repository network graph and correlate with external accounts or suspicious clusters.
+- Inspect GitHub Actions runs, deployments, and webhooks triggered post-change for workflows that export code or secrets to external destinations.
+- Perform rapid secret scanning across the repository history and HEAD, triage any exposed credentials, and initiate rotation while mapping impacted services and environments.
+
+### False positive analysis
+
+- A planned, approved open-source release where a maintainer intentionally flips a sanitized repository from private to public as part of a documented change.
+- Bulk visibility changes during an organization-wide cleanup or migration that publishes templates, sample repos, or empty scaffolds, executed by an authorized service account.
+
+### Response and remediation
+
+- Immediately revert the repository to private, remove outside collaborators, lock access to the core maintainers team, disable GitHub Actions and webhooks, and delete any release assets or packages published during the exposure window.
+- Enumerate new forks, mirrors, stars, and watchers created after the visibility change and file takedown requests with GitHub Trust & Safety for unauthorized public copies while removing any deploy keys and uninstalling suspicious GitHub App installations added around the event.
+- Run a rapid secret scan across the repository history and HEAD, rotate exposed credentials (cloud keys, API tokens, SSH keys), invalidate compromised service accounts, and purge cached artifacts or container images built from the public commit range.
+- Restore secure settings from baseline by re-applying branch protection rules, CODEOWNERS, required reviews, signed commits, and protected environments, then re-enable workflows only after reviewing job steps and outputs for any export of code or secrets.
+- Escalate to Security IR and Legal if the actor denies making the change, the repo network graph shows new public forks under unknown accounts, regulated data is present, or external users downloaded source zips or release archives during the public period.
+- Restrict who can change repository visibility to organization owners, enforce SSO and 2FA for maintainers, disable forking of private repositories, limit Actions to trusted runners and verified actions, and enable secret scanning with push protection across the organization.
+"""
+risk_score = 21
+rule_id = "8c707e4c-bd20-4ff4-bda5-4dc3b34ce298"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Impact",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+configuration where event.dataset == "github.audit" and github.operation_type == "modify" and github.category == "repo" and
+event.action == "repo.access" and github.previous_visibility == "private" and github.visibility == "public"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

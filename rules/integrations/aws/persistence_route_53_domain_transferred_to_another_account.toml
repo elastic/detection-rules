@@ -2,22 +2,27 @@
 creation_date = "2021/05/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = "Identifies when a request has been made to transfer a Route 53 domain to another AWS account."
+description = """
+Identifies when an AWS Route 53 domain is transferred to another AWS account. Transferring a domain changes
+administrative control of the DNS namespace, enabling the receiving account to modify DNS records, route traffic,
+request certificates, and potentially hijack operational workloads. Adversaries who gain access to privileged IAM users
+or long-lived credentials may leverage domain transfers to establish persistence, redirect traffic, conduct phishing, or
+stage infrastructure for broader attacks. This rule detects successful domain transfer requests.
+"""
 false_positives = [
     """
-    A domain may be transferred to another AWS account by a system or network administrator. Verify whether the user
-    identity, user agent, and/or hostname should be making changes in your environment. Domain transfers from unfamiliar
-    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
-    rule.
+    Internal account restructuring, mergers and acquisitions, or legitimate ownership transfers between business units
+    may involve transferring DNS domains to other AWS accounts. Confirm the transfer is approved and documented in
+    change management processes before taking action. Transfers performed by unfamiliar identities, originating from
+    atypical locations, or outside expected maintenance windows should be investigated.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route 53 Domain Transferred to Another Account"
@@ -28,55 +33,98 @@ note = """## Triage and analysis
 
 ### Investigating AWS Route 53 Domain Transferred to Another Account
 
-AWS Route 53 is a scalable domain name system (DNS) web service designed to route end-user requests to internet applications. Transferring a domain to another AWS account can be legitimate but may also indicate unauthorized access or account manipulation. Adversaries might exploit this to gain persistent control over a domain. The detection rule monitors successful domain transfer requests, flagging potential misuse by correlating specific AWS CloudTrail events, thus aiding in identifying unauthorized domain transfers.
+Transferring a Route 53 domain to another AWS account is a high-impact administrative action. A successful transfer enables the
+recipient account to fully manage the domain and all associated DNS resources. Unauthorized transfers can result in loss of
+visibility and control, traffic redirection, service outages, or domain hijacking for phishing, credential harvesting, or command-and-control.
+
+This rule detects successful calls to `TransferDomainToAnotherAwsAccount`. These events are rare and should be considered
+high-risk unless explicitly documented and approved.
 
 ### Possible investigation steps
 
-- Review the AWS CloudTrail logs to identify the specific event with event.action:TransferDomainToAnotherAwsAccount and event.outcome:success to gather details about the domain transfer request.
-- Verify the identity of the AWS account to which the domain was transferred by examining the event details, including the account ID and any associated user or role information.
-- Check the AWS account's activity history for any unusual or unauthorized access patterns around the time of the domain transfer event.
-- Contact the domain's original owner or administrator to confirm whether the transfer was authorized and legitimate.
-- Investigate any recent changes in IAM policies or permissions that might have allowed unauthorized users to initiate the domain transfer.
-- Assess the potential impact of the domain transfer on your organization's operations and security posture, considering the domain's role in your infrastructure.
+- **Identify the actor and authentication context**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine who initiated the transfer. Determine whether the actor typically performs Route 53 administrative actions or if this represents anomalous behavior.
+
+- **Review request details and target account**
+  - Inspect `aws.cloudtrail.request_parameters` for: `DomainName`, `AccountId` receiving the transfer, Request tokens or validation parameters. Validate whether the destination AWS account is recognized, trusted, or documented in ownership transfer procedures.
+
+- **Assess environment and timing**
+  - Compare `@timestamp` against maintenance windows, deployment pipelines, or approved domain operations. Review the region and endpoint used; domain transfers occurring from unexpected regions may indicate unauthorized access.
+
+- **Analyze source and execution context**
+  - Review `source.ip`, `source.geo.country_iso_code`, and `user_agent.original` to determine:
+    - If the request originated from known networks, Whether it matches typical administrator access patterns or if suspicious automation tools, outdated SDK versions, or unknown agents were used.
+
+- **Correlate with broader activity**
+  - Pivot on the same IAM principal or access key ID to identify:
+    - Recent IAM policy changes or privilege escalation
+    - `DisableDomainTransferLock`, which normally precedes domain transfers
+    - AWS console sign-ins from new geolocations or ASNs
+    - API calls involving certificate requests, hosted zone changes, or DNS record edits
+  - Look for evidence of lateral movement or credential theft preceding the transfer.
+
+- **Validate with business owners**
+  - Confirm with domain owners, development teams, or asset managers whether The transfer was intentional.
 
 ### False positive analysis
 
-- Routine domain transfers between accounts within the same organization can trigger alerts. To manage this, create exceptions for known internal account transfers by whitelisting specific account IDs involved in regular transfers.
-- Scheduled domain management activities by IT teams may result in false positives. Coordinate with IT to document and schedule these activities, then exclude them from alerts during these periods.
-- Automated scripts or tools used for domain management might inadvertently trigger alerts. Identify these scripts and their associated user accounts, and configure exceptions for these known, benign activities.
-- Transfers related to mergers or acquisitions can be mistaken for unauthorized actions. Ensure that such events are communicated to the security team in advance, allowing them to temporarily adjust monitoring rules to accommodate these legitimate transfers.
-
+- **Expected domain migrations**
+  - Organizations with multi-account strategies may transfer domains between operational, security, or sandbox accounts.
+- **Business events**
+  - Mergers, acquisitions, or contractual transitions between managed service providers often involve bulk domain transfers.
+- **Automated administrative tooling**
+  - Domain lifecycle automation or infrastructure-as-code pipelines may trigger transfers if misconfigured.
+  
 ### Response and remediation
 
-- Immediately revoke any unauthorized access to the AWS account by changing the credentials and access keys associated with the account where the domain was transferred.
-- Contact AWS Support to report the unauthorized domain transfer and request assistance in reversing the transfer if it was not authorized.
-- Review AWS CloudTrail logs to identify any other suspicious activities or unauthorized access attempts around the time of the domain transfer.
-- Implement multi-factor authentication (MFA) for all AWS accounts to enhance security and prevent unauthorized access.
-- Conduct a thorough audit of IAM roles and permissions to ensure that only authorized users have the ability to transfer domains.
-- Notify relevant stakeholders, including IT security teams and domain administrators, about the incident and the steps being taken to remediate it.
-- Enhance monitoring and alerting for similar events by configuring additional AWS CloudWatch alarms or integrating with a Security Information and Event Management (SIEM) system to detect future unauthorized domain transfer attempts.
+- **Contain and revoke access**
+  - If unauthorized, immediately invalidate the IAM session or access keys used in the transfer.
+  - Rotate credentials for the implicated IAM user or role and require MFA for privileged operations.
 
-## Setup
+- **Reverse or halt the transfer**
+  - Contact AWS Support as soon as possible to request assistance reversing or blocking the transfer if it was not approved.
+  - Re-enable transfer lock (`DisableDomainTransferLock=false`) to prevent further modifications.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- **Investigate the extent of compromise**
+  - Review CloudTrail to identify all actions performed by the actor before and after the transfer.
+  - Check for additional changes to hosted zones, DNS records, certificates, or registrar contact details.
+
+- **Restore operational integrity**
+  - Validate DNS routing, certificate issuance, and application endpoints for signs of redirection or tampering.
+  - Communicate with impacted teams and external stakeholders if customer-facing domains were affected.
+
+- **Hardening and long-term improvements**
+  - Restrict domain transfer permissions to a minimal set of roles using IAM Conditions such as `aws:PrincipalArn` and `aws:MultiFactorAuthPresent`
+  - Consider SCPs to block domain-transfer APIs in production accounts.
+  - Add change-management tracking for domain ownership modifications.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
+"""
 references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/API_Operations_Amazon_Route_53.html"]
-risk_score = 21
+risk_score = 73
 rule_id = "2045567e-b0af-444a-8c0b-0b6e2dae9e13"
-severity = "low"
+severity = "high"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS Route53",
+    "Data Source: AWS Route 53",
     "Use Case: Asset Visibility",
     "Tactic: Persistence",
+    "Tactic: Resource Development",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:TransferDomainToAnotherAwsAccount and event.outcome:success
+event.dataset: aws.cloudtrail 
+    and event.provider: route53domains.amazonaws.com 
+    and event.action: TransferDomainToAnotherAwsAccount 
+    and event.outcome: success
 '''
 
 
@@ -94,9 +142,37 @@ name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1584"
+name = "Compromise Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1584/"
+[[rule.threat.technique.subtechnique]]
+id = "T1584.001"
+name = "Domains"
+reference = "https://attack.mitre.org/techniques/T1584/001/"
+
+
 
 [rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "target.entity.id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

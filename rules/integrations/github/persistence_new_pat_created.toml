@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2023/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a new GitHub Personal Access Token (PAT) is created. Adversaries may create new PATs to maintain
+persistent access to a compromised account or to escalate privileges within an organization.
+"""
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "New GitHub Personal Access Token (PAT) Added"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New GitHub Personal Access Token (PAT) Added
+
+This alert triggers when someone creates and authorizes a new GitHub personal access token, signaling a fresh long‑lived credential that outlasts sessions and enables broad API access. A common abuse path: after compromising a developer account, the adversary mints a PAT with repo and organization scopes and uses it from an external host to enumerate and clone private repositories via the API.
+
+### Possible investigation steps
+
+- Retrieve token details (type fine‑grained vs classic, scopes, repository/org binding, and expiration) and verify they match the user’s role and least‑privilege expectations.
+- Correlate the creation IP, geolocation, and user agent with the user’s recent login history and corporate network ranges to identify anomalous origin.
+- Determine whether the token is SSO‑enforced and organization‑scoped; lack of SSO or broad classic scopes increases risk and warrants expedited review.
+- Pivot to recent Git and API events by this actor since the token was created to see private repo enumeration/clones or org/admin actions indicating misuse.
+- Check for concurrent account security changes (2FA status modifications, new SSH/GPG keys, email/password changes, or OAuth app grants) that suggest account takeover and escalate if present.
+
+### False positive analysis
+
+- A developer performs planned token rotation or migrates from a classic to a fine‑grained PAT to comply with expiration and least‑privilege policies, generating a legitimate personal_access_token.access_granted creation event.
+- Expected onboarding or maintenance activities create PATs for service or automation use with scoped repository access and set expiration, producing anticipated alerts from known corporate locations.
+
+### Response and remediation
+
+- Revoke the specific PAT referenced in the alert via GitHub UI or API immediately, and temporarily lock the user account if the token’s origin, scopes, or target repositories are not expected.
+- If any activity is observed with this PAT, rotate repository and organization secrets, remove newly added deploy keys and suspicious OAuth app grants, and strip unauthorized collaborator or team role changes.
+- Force a password reset for the account owner, invalidate active sessions, require fresh 2FA re-enrollment, and delete any other nonessential PATs before restoring normal access.
+- Review audit and repository logs for API calls authenticated with this PAT since its creation, block offending source IPs in network controls, and enable GitHub IP allow lists or SSO enforcement to restrict token use to trusted contexts.
+- Escalate to incident response if the PAT has admin or organization owner scopes, was created from an unfamiliar location or device, or was used to clone private repositories or change security settings.
+- Harden going forward by enforcing fine-grained, expiring, SSO-enforced PATs, disabling classic tokens at the organization, requiring approval for new PATs, and migrating automation to GitHub Apps with least-privilege permissions.
+"""
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://trigger.dev/blog/shai-hulud-postmortem",
+    "https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem",
+]
+risk_score = 21
+rule_id = "214d4e03-90b0-4813-9ab6-672b47158590"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+configuration where event.dataset == "github.audit" and github.operation_type == "create" and
+github.category == "personal_access_token" and event.action == "personal_access_token.access_granted"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

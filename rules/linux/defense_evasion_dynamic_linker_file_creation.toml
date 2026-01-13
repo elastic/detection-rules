@@ -2,21 +2,21 @@
 creation_date = "2024/08/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/29"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation or modification of files related to the configuration of the dynamic linker on Linux systems.
-The dynamic linker is a shared library that is used by the Linux kernel to load and execute programs. Attackers may
-attempt to hijack the execution flow of a program by modifying the dynamic linker configuration files. This technique
-is often observed by userland rootkits that leverage shared objects to maintain persistence on a compromised host.
+Detects the creation of files related to the configuration of the dynamic linker on Linux systems. The dynamic linker
+is a shared library that is used by the Linux kernel to load and execute programs. Attackers may attempt to hijack
+the execution flow of a program by modifying the dynamic linker configuration files. This technique is often observed
+by userland rootkits that leverage shared objects to maintain persistence on a compromised host.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Dynamic Linker Creation or Modification"
+name = "Dynamic Linker Creation"
 risk_score = 47
 rule_id = "640f79d1-571d-4f96-a9af-1194fc8cf763"
 setup = """## Setup
@@ -57,8 +57,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("creation", "rename") and
-file.path : ("/etc/ld.so.preload", "/etc/ld.so.conf.d/*", "/etc/ld.so.conf") and
+file where host.os.type == "linux" and event.action == "creation" and
+file.path like ("/etc/ld.so.preload", "/etc/ld.so.conf.d/*", "/etc/ld.so.conf") and
 not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",

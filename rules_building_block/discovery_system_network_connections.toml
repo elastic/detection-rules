@@ -1,17 +1,19 @@
 [metadata]
 creation_date = "2023/07/11"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = "Adversaries may attempt to get a listing of network connections to or from a compromised system."
+description = """
+Adversaries may attempt to get a listing of network connections to or from a compromised system.
+"""
 from = "now-119m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*"]
 interval = "60m"
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "System Network Connections Discovery"
 risk_score = 21
@@ -25,28 +27,38 @@ tags = [
     "Tactic: Discovery",
     "Rule Type: BBR",
     "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
-
+type = "new_terms"
 query = '''
-process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
-process.name in ("netstat", "lsof", "who", "w")
+event.category:process and host.os.type:(linux or macos) and event.type:start and event.action:exec and
+process.name:("netstat" or "lsof" or "ss" or "iftop" or "ip" or "nmcli" or "arp" or "route" or "ifconfig" or "netcfg" or "networksetup") and
+not (
+  process.parent.executable:(
+    /Library/Elastic/Agent/* or "/Applications/Docker.app/Contents/MacOS/com.docker.backend" or
+    "/opt/NinjaRMMAgent/programfiles/ninjarmm-linagent" or "/usr/local/ASR/Vx/bin/svagents"
+  ) or
+  process.working_directory:("/var/ossec" or "/usr/lib/check_mk_agent/plugins" or "/opt/microsoft/mdatp/sbin")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1049"
 name = "System Network Connections Discovery"
 reference = "https://attack.mitre.org/techniques/T1049/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.executable", "process.command_line", "agent.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

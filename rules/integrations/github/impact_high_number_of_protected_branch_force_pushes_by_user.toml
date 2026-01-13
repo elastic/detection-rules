@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2025/12/16"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of force push actions to protected branches by a single user within a short
+time frame. Adversaries may perform force pushes to overwrite commit history on protected branches,
+potentially leading to data loss or disruption of development workflows.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "High Number of Protected Branch Force Pushes by User"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Number of Protected Branch Force Pushes by User
+
+This rule flags a single user performing many force pushes to protected branches in a short window, signaling aggressive history rewrites on critical repositories. Such activity can erase commits, hide unauthorized changes, and disrupt builds or releases, indicating potential data destruction or sabotage. Example: a compromised maintainer acquires elevated access and repeatedly force-pushes rewritten history to the main branch to purge prior commits, remove security fixes, and introduce a backdoor while bypassing merge protections.
+
+### Possible investigation steps
+
+- Verify the user's current and recent org/repo roles and bypass permissions, along with any recent elevation, SSO changes, or new PAT/GitHub App installations linked to the account.
+- Enumerate impacted repositories and protected branches, then reconstruct the overwritten history by comparing before/after SHAs from audit logs or local mirrors to determine what commits were removed or rewritten.
+- Assess intent and legitimacy by contacting repo owners and checking change tickets or maintenance windows for planned history rewrites, and suspend override permissions if unplanned while preserving forensic evidence.
+- Analyze sign-in and authentication telemetry around the events (IP, geo, MFA status, device, OAuth/PAT/App identifiers, off-hours) to spot account compromise indicators and pivot to other activity by the same token.
+- Review diffs of the resulting branch heads and CI/CD artifacts to detect malicious changes (e.g., removed security fixes, inserted secrets/backdoors), and check for anomalous releases or workflows triggered by the rewritten commits.
+
+### False positive analysis
+
+- An authorized maintainer conducts a planned history rewrite (rebases/resets to remove problematic commits) across protected branches in multiple repositories, legitimately invoking policy overrides and issuing many force pushes in quick succession.
+- A release owner executes an emergency rollback by resetting protected branches to a known-good commit across several repositories, causing repeated, intentional force pushes and protected-branch overrides.
+
+### Response and remediation
+
+- Immediately contain by removing the user from repo admin/maintain teams, revoking all active PATs/OAuth/App tokens linked to the account, and updating branch protection on affected branches to disallow force pushes and restrict pushes to a small trusted group.
+- Freeze each impacted protected branch by creating an annotated tag at the last known-good commit SHA prior to the force pushes and temporarily pausing CI/CD workflows that build from those branch heads.
+- Recover by restoring each branch head to the last known-good commit or signed tag from a trusted mirror/backup, verifying the target SHA, and re-enabling protections and required status checks after integrity confirmation.
+- Eradicate unauthorized changes by diffing the pre-override and post-override branch heads, reverting malicious edits, rotating repository secrets referenced in code/workflows, and removing suspicious GitHub Apps installed by the user.
+- Escalate to incident response and legal if any overwritten history includes production release branches or signed tags, if the user denies authorization, or if pushes originated from a new token/App unknown to repo owners.
+- Harden by enforcing rulesets that block force pushes and require linear history on main and release/* branches, enabling CODEOWNERS-required reviews and signed commits, limiting bypass permissions to a small admin group, and using deploy keys or CI bots with short-lived tokens for pushes.
+"""
+references = [
+    "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
+    "https://trigger.dev/blog/shai-hulud-postmortem",
+    "https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem",
+]
+risk_score = 47
+rule_id = "0428c618-27f5-4d94-99e6-b254585aba69"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and
+  event.type == "change" and
+  event.action == "protected_branch.policy_override" and
+  github.category == "protected_branch" and
+  mv_contains(github.reasons.code, "force_push")
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_org_values = values(github.org),
+  Esql.github_repo_values = values(github.repo),
+  Esql.github_overridden_codes_values = values(github.overridden_codes),
+  Esql.github_reasons_code_values = values(github.reasons.code),
+  Esql.github_reasons_message_values = values(github.reasons.message),
+  Esql.user_name_values = values(user.name),
+  Esql.agent_id_values = values(agent.id),
+  Esql.event_dataset_values = values(event.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  by user.name
+
+| keep Esql.*
+
+| where
+  Esql.event_count >= 10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
