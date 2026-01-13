@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2026/01/12"
+integration = ["entityanalytics_ad"]
+maturity = "production"
+updated_date = "2026/01/12"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AD privileged users that generate multiple high severity alerts within 4 hours by correlating alert and
+Active Directory Entity Analytics data.
+"""
+from = "now-4h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple High-Severity Alerts for Privileged AD User"
+risk_score = 73
+rule_id = "92670e1d-bb46-4f55-a36a-44951dbc305a"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Data Source: Active Directory Entity Analytics"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from .alerts-security.*, logs-entityanalytics_ad.user* metadata _id, _index, _version
+| where user.id is not null and (
+    (kibana.alert.rule.name is not null and kibana.alert.risk_score >= 73 and
+      not kibana.alert.rule.type in ("threat_match", "machine_learning") and
+      not kibana.alert.rule.name like "Deprecated - *") or
+      event.dataset == "entityanalytics_ad.user"
+  )
+| inline stats
+    Esql.alert_count = count(*) where event.kind == "signal",
+    Esql.distinct_alert_count = count_distinct(kibana.alert.rule.name) where event.kind == "signal",
+    Esql.alert_values = values(kibana.alert.rule.name) where event.kind == "signal",
+    Esql.privileged_group_member = max(entityanalytics_ad.user.privileged_group_member),
+    Esql.ad_groups = values(entityanalytics_ad.groups.member),
+    Esql.first_timestamp = min(@timestamp) where event.kind == "signal"
+  by user.id
+
+// Filter out events from the enriching index
+// Only keep the first event related to each privileged user that triggered multiple alerts in the window, so we can
+// deduplicate using the metadata fields
+| where event.kind == "signal" and Esql.privileged_group_member == true and
+        Esql.distinct_alert_count >= 2 and Esql.first_timestamp == @timestamp
+'''
