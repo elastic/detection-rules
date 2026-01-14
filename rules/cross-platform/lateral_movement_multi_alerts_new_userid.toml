@@ -28,6 +28,8 @@ FROM .alerts-security.*
 | where kibana.alert.rule.threat.tactic.name is not null and
         (to_string(user.id) like "S-1-5-21*" or to_string(user.id) like "S-1-12-*") and
         host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" """)
+
+//  avoid user.id mapping ambiguities error
 | eval source_user_id = to_string(user.id)
 // aggregate stats by user.id
 | stats  Esql.first_time_seen = MIN(@timestamp),
@@ -39,8 +41,6 @@ FROM .alerts-security.*
          Esql.host_ip_values = VALUES(host.ip),
          Esql.source_ip_values = VALUES(source.ip),
          Esql.process_cmd_line = VALUES(process.command_line),
-
-         //  user_id to avoid user.id mapping ambiguities error
          Esql.tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name) by source_user_id
 
 // at least 2 unique lateral movement detection rules from same user.id and that was first seen in last 5 days
