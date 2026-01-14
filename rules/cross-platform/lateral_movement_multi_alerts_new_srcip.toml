@@ -41,7 +41,7 @@ FROM .alerts-security.*
          Esql.tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name) by source.ip
 
 // values we will need for next filter
-| eval isLocal = locate(MV_CONCAT(Esql.host_ip_values, ","), source.ip),
+| eval isLocal = locate(MV_CONCAT(to_string(Esql.host_ip_values), ","), to_string(source.ip)),
        Esql.date_diff = DATE_DIFF("minute", Esql.first_time_seen, now())
 
 // at least 2 unique rules from same source.ip and that was first seen in last 5 days
