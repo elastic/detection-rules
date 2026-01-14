@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/01/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the Ollama LLM server accepts connections from external IP addresses. Ollama lacks built-in authentication,
+so exposed instances allow unauthenticated model theft, prompt injection, and resource hijacking.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Ollama API Accessed from External Network"
+note = """## Triage and analysis
+
+### Investigating Ollama API Accessed from External Network
+
+This rule detects when Ollama accepts connections from external IP addresses. Ollama binds to localhost:11434 by default but can be exposed via OLLAMA_HOST. Since Ollama lacks authentication, exposed instances allow unauthenticated model theft, prompt injection, and resource hijacking.
+
+### Possible investigation steps
+
+- Check the OLLAMA_HOST environment variable to determine if external exposure was intentional.
+- Review the source IP address to identify if it's a known attacker, scanner, or miscategorized internal system.
+- Examine Ollama logs for suspicious API calls to /api/pull, /api/push, or /api/generate.
+- Check ~/.ollama/models/ for unexpected model downloads that may indicate model poisoning.
+- Review network traffic for data exfiltration following the connection.
+- Look for child processes spawned by Ollama that may indicate exploitation.
+
+### False positive analysis
+
+- Internal networks not properly classified in CIDR ranges may trigger false positives.
+- Load balancers or reverse proxies accessing Ollama from external-facing IPs within trusted infrastructure.
+- Legitimate remote access through VPN or authenticated proxy (add proxy IPs to exclusions).
+
+### Response and remediation
+
+- Restrict access immediately by setting OLLAMA_HOST=127.0.0.1:11434 or applying firewall rules.
+- If exploitation is suspected, stop Ollama and audit ~/.ollama/models/ for unauthorized models.
+- Review Ollama and system logs for signs of compromise.
+- Consider running Ollama in a container with network isolation.
+"""
+references = [
+    "https://www.greynoise.io/blog/threat-actors-actively-targeting-llms",
+    "https://atlas.mitre.org/techniques/AML.T0040",
+    "https://atlas.mitre.org/techniques/AML.T0044",
+]
+risk_score = 47
+rule_id = "d8f2a1b3-c4e5-6789-abcd-ef0123456789"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0040",
+    "Mitre Atlas: T0044",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where event.action == "connection_accepted" and
+  process.name in ("ollama", "ollama.exe") and
+  destination.port == 11434 and
+  source.ip != null and source.ip != "0.0.0.0" and
+  not cidrmatch(source.ip, 
+    "10.0.0.0/8", 
+    "127.0.0.0/8", 
+    "169.254.0.0/16", 
+    "172.16.0.0/12", 
+    "192.168.0.0/16",
+    "100.64.0.0/10",
+    "::1",
+    "fe80::/10",
+    "fc00::/7",
+    "ff00::/8"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
