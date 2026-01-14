@@ -28,7 +28,7 @@ FROM .alerts-security.*
 | where kibana.alert.rule.threat.tactic.name is not null and
         (to_string(user.id) like "S-1-5-21*" or to_string(user.id) like "S-1-12-*") and
         host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" """)
-
+| eval source_user_id = to_string(user.id)
 // aggregate stats by user.id
 | stats  Esql.first_time_seen = MIN(@timestamp),
          Esql.alerts_count = count(*),
@@ -41,7 +41,7 @@ FROM .alerts-security.*
          Esql.process_cmd_line = VALUES(process.command_line),
 
          //  user_id to avoid user.id mapping ambiguities error
-         Esql.tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name) by user_id = to_string(user.id)
+         Esql.tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name) by source_user_id
 
 // at least 2 unique lateral movement detection rules from same user.id and that was first seen in last 5 days
 | eval Esql.date_diff = DATE_DIFF("minute", Esql.first_time_seen, now())
@@ -49,7 +49,7 @@ FROM .alerts-security.*
         // matches are within 10m of the rule execution time to avoid alert duplicates
         Esql.date_diff <= 10
 
-| KEEP Esql.*, user_id
+| KEEP Esql.*, source_user_id
 '''
 note = """## Triage and analysis
 
