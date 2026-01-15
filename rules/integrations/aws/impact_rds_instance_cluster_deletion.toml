@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/24"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -45,7 +45,7 @@ This rule detects the deletion of an RDS DB instance, Aurora DB cluster, or glob
 
 **Review the Deletion Event**
 - Confirm which action was invoked: `DeleteDBInstance`, `DeleteDBCluster` or `DeleteGlobalCluster`
-- Examine `aws.cloudtrail.request_parameters` and `target.entity.id`. Identify which resource was deleted and whether a final snapshot was created before deletion.
+- Examine `aws.cloudtrail.request_parameters`. Identify which resource was deleted and whether a final snapshot was created before deletion.
 
 **Analyze Source and Access Context**
 - Check `source.ip`, `source.geo` fields and `user_agent.original`
@@ -69,7 +69,7 @@ Search CloudTrail for:
 - Contact the service owner or DB administrator to confirm whether the deletion is expected.
 
 **Assess Impact and Data Recovery Path**
-- Identify which DB instance or cluster was deleted (`target.entity.id`)
+- Identify which DB instance or cluster was deleted
 - Evaluate:
   - Whether automated backups existed.
   - Whether point-in-time recovery is still possible.
@@ -180,7 +180,6 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",
