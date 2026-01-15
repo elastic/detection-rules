@@ -1,4 +1,3 @@
-
 [metadata]
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
@@ -26,7 +25,7 @@ name = "Encrypting Files with WinRAR or 7-Zip"
 
 note = """## Triage and analysis
 
-### Investigating Encrypting Files with WinRar or 7z
+### Investigating Encrypting Files with WinRAR or 7-Zip
 
 Attackers may compress and/or encrypt data collected before exfiltration. Compressing data can help stage and obfuscate content and may reduce the amount of data sent over the network. Encryption can be used to hide the contents of the archive and make the activity less apparent during review.
 
@@ -54,6 +53,7 @@ These steps are often performed in preparation for exfiltration, meaning the int
 - Initiate the incident response process based on the outcome of the triage.
 - Prioritize cases that involve personally identifiable information (PII) or other classified data.
 - Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigetrieve the created archive if policy allows. Determine whether the contents are sensitive or business-critical.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -95,20 +95,6 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
     process.args == "a" and process.args : "-p*"
   )
-) and
-  process where host.os.type == "windows" and event.type == "start" and
-(
-  (
-    (
-      process.name : ("rar.exe", "WinRAR.exe") or ?process.code_signature.subject_name == "win.rar GmbH" or
-      ?process.pe.original_file_name == "WinRAR.exe"
-    ) and
-    process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
-  ) or
-  (
-    (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
-    process.args == "a" and process.args : "-p*"
-  )
 ) and not process.parent.executable : (
   "C:\\Program Files\\*.exe",
   "C:\\Program Files (x86)\\*.exe",
@@ -119,9 +105,7 @@ process where host.os.type == "windows" and event.type == "start" and
   "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
   "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
 )
-
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -140,7 +124,6 @@ reference = "https://attack.mitre.org/techniques/T1560/"
 id = "T1560.001"
 name = "Archive via Utility"
 reference = "https://attack.mitre.org/techniques/T1560/001/"
-
 
 [rule.threat.tactic]
 id = "TA0009"
