@@ -1,102 +1,9 @@
-diff --git a/rules/windows/collection_winrar_encryption.toml b/rules/windows/collection_winrar_encryption.toml
-index 0000000..0000000 100644
---- a/rules/windows/collection_winrar_encryption.toml
-+++ b/rules/windows/collection_winrar_encryption.toml
-@@ -7,8 +7,8 @@ updated_date = "2026/01/14"
- [rule]
- author = ["Elastic"]
- description = """
--Identifies use of WinRar or 7z to create an encrypted files. Adversaries will often compress and encrypt data in
-+Identifies use of WinRar or 7z to create an encrypted archive. Adversaries will often compress and encrypt data in
- preparation for exfiltration.
- """
- from = "now-9m"
-@@ -39,27 +39,33 @@ type = "eql"
- query = '''
- process where host.os.type == "windows" and event.type == "start" and
- (
--  (
--    (
--      process.name : ("rar.exe", "WinRAR.exe") or ?process.code_signature.subject_name == "win.rar GmbH" or
--      ?process.pe.original_file_name == "WinRAR.exe"
--    ) and
--    process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
--  ) or
--  (
--    (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
--    process.args == "a" and process.args : "-p*"
--  )
-- and
-- not (
--  /* existing path-based suppressions (keep them) */
--  process.parent.executable : (
--    "C:\\Program Files\\*.exe",
--    "C:\\Program Files (x86)\\*.exe",
--    "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
--    "?:\\Nox\\bin\\Nox.exe",
--    "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
--    "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
--    "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
--    "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
--  )
--
--  /* new: suppress legitimate backup tooling when parent is trusted code-signed */
--  or
--  (
--    ?process.parent.code_signature.trusted == true and
--    ?process.parent.code_signature.subject_name : (
--      "Veeam Software Group GmbH",
--      "Acronis International GmbH",
--      "Veritas Technologies LLC",
--      "Commvault Systems, Inc."
--    )
--  )
-- )
-+  (
-+    (
-+      process.name : ("rar.exe", "WinRAR.exe") or ?process.code_signature.subject_name == "win.rar GmbH" or
-+      ?process.pe.original_file_name == "WinRAR.exe"
-+    ) and
-+    process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
-+  ) or
-+  (
-+    (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
-+    process.args == "a" and process.args : "-p*"
-+  )
- )
-+and
-+not (
-+  /* existing path-based suppressions (keep them) */
-+  process.parent.executable : (
-+    "C:\\Program Files\\*.exe",
-+    "C:\\Program Files (x86)\\*.exe",
-+    "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
-+    "?:\\Nox\\bin\\Nox.exe",
-+    "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
-+    "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
-+    "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
-+    "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
-+  )
-+
-+  /* new: suppress legitimate backup tooling when parent is trusted code-signed */
-+  or
-+  (
-+    ?process.parent.code_signature.trusted == true and
-+    ?process.parent.code_signature.subject_name : (
-+      "Veeam Software Group GmbH",
-+      "Acronis International GmbH",
-+      "Veritas Technologies LLC",
-+      "Commvault Systems, Inc."
-+    )
-+  )
-+)
- 
- '''
+
 [metadata]
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/01/12"
+updated_date = "2026/01/14"
 
 [rule]
 author = ["Elastic"]
@@ -115,7 +22,8 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Encrypting Files with WinRar or 7z"
+name = "Encrypting Files with WinRAR or 7-Zip"
+
 note = """## Triage and analysis
 
 ### Investigating Encrypting Files with WinRar or 7z
@@ -188,16 +96,30 @@ process where host.os.type == "windows" and event.type == "start" and
     process.args == "a" and process.args : "-p*"
   )
 ) and
-  not process.parent.executable : (
-        "C:\\Program Files\\*.exe",
-        "C:\\Program Files (x86)\\*.exe",
-        "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
-        "?:\\Nox\\bin\\Nox.exe",
-        "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
-        "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
-        "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
-        "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
-      )
+  process where host.os.type == "windows" and event.type == "start" and
+(
+  (
+    (
+      process.name : ("rar.exe", "WinRAR.exe") or ?process.code_signature.subject_name == "win.rar GmbH" or
+      ?process.pe.original_file_name == "WinRAR.exe"
+    ) and
+    process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
+  ) or
+  (
+    (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
+    process.args == "a" and process.args : "-p*"
+  )
+) and not process.parent.executable : (
+  "C:\\Program Files\\*.exe",
+  "C:\\Program Files (x86)\\*.exe",
+  "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
+  "?:\\Nox\\bin\\Nox.exe",
+  "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
+  "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
+  "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
+  "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
+)
+
 '''
 
 
