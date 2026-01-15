@@ -53,7 +53,7 @@ These steps are often performed in preparation for exfiltration, meaning the int
 - Initiate the incident response process based on the outcome of the triage.
 - Prioritize cases that involve personally identifiable information (PII) or other classified data.
 - Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigetrieve the created archive if policy allows. Determine whether the contents are sensitive or business-critical.
+- Retrieve the created archive if policy allows. Determine whether the contents are sensitive or business-critical.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -95,15 +95,10 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
     process.args == "a" and process.args : "-p*"
   )
-) and not process.parent.executable : (
+) and
+not process.parent.executable : (
   "C:\\Program Files\\*.exe",
-  "C:\\Program Files (x86)\\*.exe",
-  "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
-  "?:\\Nox\\bin\\Nox.exe",
-  "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
-  "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
-  "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
-  "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
+  "C:\\Program Files (x86)\\*.exe"
 )
 '''
 
