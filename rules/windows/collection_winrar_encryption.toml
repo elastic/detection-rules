@@ -81,12 +81,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 
-query = '''
+query = """
 process where host.os.type == "windows" and event.type == "start" and
 (
   (
     (
-      process.name : ("rar.exe", "WinRAR.exe") or ?process.code_signature.subject_name == "win.rar GmbH" or
+      process.name : ("rar.exe", "WinRAR.exe") or
+      ?process.code_signature.subject_name == "win.rar GmbH" or
       ?process.pe.original_file_name == "WinRAR.exe"
     ) and
     process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
@@ -100,7 +101,7 @@ not process.parent.executable : (
   "C:\\Program Files\\*.exe",
   "C:\\Program Files (x86)\\*.exe"
 )
-'''
+"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
