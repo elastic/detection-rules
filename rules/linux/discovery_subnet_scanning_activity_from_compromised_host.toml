@@ -139,6 +139,12 @@ from logs-endpoint.events.network-* metadata _id, _index, _version
     Esql.agent_id_count_distinct == 1 and
     Esql.destination_ip_count_distinct > 250
 | sort Esql.event_count asc
+
+// Extract unique values to ECS fields for alerts exclusion
+| eval agent.id = mv_min(Esql.agent_id_values),
+       host.name = mv_min(Esql.host_name_values)
+
+| keep agent.id, host.name, process.executable, Esql.*
 '''
 
 [[rule.threat]]
