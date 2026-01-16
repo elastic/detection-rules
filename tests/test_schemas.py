@@ -324,7 +324,7 @@ class TestESQLValidation(unittest.TestCase):
         query = """
             FROM logs-windows.powershell_operational* METADATA _id, _version, _index
             | WHERE event.code == "4104"
-            | KEEP event.code, _id, _version, _index
+            | KEEP event.code
         """
         rule_dict["rule"]["query"] = query
         _ = RuleCollection().load_dict(rule_dict, path=rule_path)
@@ -334,7 +334,7 @@ class TestESQLValidation(unittest.TestCase):
         query = """
             FROM logs-windows.powershell_operational* METADATA _id, _index, _version
             | WHERE event.code == "4104"
-            | KEEP event.code, _id, _version, _index
+            | KEEP event.code
         """
         rule_dict["rule"]["query"] = query
         _ = RuleCollection().load_dict(rule_dict, path=rule_path)
@@ -344,7 +344,7 @@ class TestESQLValidation(unittest.TestCase):
             query = """
                 FROM logs-windows.powershell_operational* METADATA _foo, _index
                 | WHERE event.code == "4104"
-                | KEEP event.code, _id, _version, _index
+                | KEEP event.code
             """
             rule_dict["rule"]["query"] = query
             _ = RuleCollection().load_dict(rule_dict, path=rule_path)
