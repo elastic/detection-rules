@@ -25,7 +25,6 @@ from logs-aws.cloudtrail-*
     event.outcome == "success" AND
     aws.cloudtrail.request_parameters LIKE "*phoneNumber*"
 | DISSECT user_agent.original "%{user_agent_name} %{?user_agent_remainder}"
-| KEEP target_time_window, cloud.account.id, aws.cloudtrail.user_identity.arn, cloud.region, source.address, user_agent_name
 | STATS sms_message_count = COUNT(*) by target_time_window, cloud.account.id, aws.cloudtrail.user_identity.arn, cloud.region, source.address, user_agent_name
 | WHERE sms_message_count > 30
 ```
