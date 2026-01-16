@@ -2,7 +2,7 @@
 creation_date = "2024/08/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/09"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,6 @@ license = "Elastic License v2"
 name = "AWS Sign-In Console Login with Federated User"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS Sign-In Console Login with Federated User
 
 Federated users in AWS are granted temporary credentials to access resources, often without the need for a permanent account. This setup is convenient but can be risky if not properly secured with multi-factor authentication (MFA). Adversaries might exploit this by using stolen or misconfigured credentials to gain unauthorized access. CloudTrail alone cannot reliably indicate MFA usage for federated logins. This rule surfaces potentially risky access for analyst review and IdP correlation.
@@ -37,20 +34,22 @@ Federated users in AWS are granted temporary credentials to access resources, of
 - **Identify the prinicipal involved**
   - `aws.cloudtrail.user_identity.arn` (federated session ARN)
   - `aws.cloudtrail.user_identity.session_context.session_issuer.*` (role ARN/name, account) of the identity that created the federated session.
+  - Find the corresponding IdP login around the same time and verify MFA was required and passed. If IdP shows **no MFA**, raise severity.
+
 - **Investigate the source context**
   - examine `source.ip`, ASN, `geo` fields, and `user_agent.original`
   - Compare against normal IP ranges, known user-agents and expected locations for this identity
-#### Correlate to raise/lower priority
-- **Check IdP MFA:** Find the corresponding IdP login around the same time and verify MFA was required and passed. If IdP shows **no MFA**, raise severity.
+
 - **Federation token pivot:** Look for a nearby `signin.amazonaws.com` `GetSigninToken` API call.
   - **More suspicious:** token creation and console login from different public IPs/ASNs/geo fields.
   - **Less suspicious:** same IP and expected user agents within ~10–15 minutes (typical operator behavior).
+
 - **Rareness/anomaly signals:** new/rare role or session issuer, rare source IP/ASN/geo, unusual time-of-day, multiple ConsoleLogin events from disparate networks in a short window.
+
 - Review recent activity associated with the federated user to identify any unusual or unauthorized actions that may have occurred following the login event.
+
 - Assess the configuration and policies of the Identity Provider (IdP) used for federated access to ensure MFA is enforced and properly configured for all users.
 
-### Related rules
-- AWS Sign-In Token Created - f754e348-f36f-4510-8087-d7f29874cc12
 
 ### False positive analysis
 - Organizations using SSO for console access will routinely see federated `ConsoleLogin` where CloudTrail shows `MFAUsed: "No"` — this is expected due to IdP-side MFA.
