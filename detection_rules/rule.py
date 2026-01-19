@@ -988,13 +988,27 @@ class ESQLRuleData(QueryRuleData):
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
             )
 
-        # Enforce KEEP command for ESQL rules
+        # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
         # Match | followed by optional whitespace/newlines and then 'keep'
-        keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
-        if not keep_pattern.search(query_lower):
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match = keep_pattern.search(query_lower)
+        if not keep_match:
             raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
+
+        # Ensure that keep clause includes metadata fields on non-aggregate queries
+        aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
+        if not aggregate_pattern.search(query_lower):
+            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            if "*" not in keep_fields:
+                required_metadata = {"_id", "_version", "_index"}
+                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
+                    raise EsqlSemanticError(
+                        f"Rule: {data['name']} contains a keep clause without"
+                        f" metadata fields '_id', '_version', and '_index' ->"
+                        f" Add '_id', '_version', '_index' to the keep command."
+                    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1298,7 +1312,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @classmethod
     def all_rule_types(cls) -> set[str]:
@@ -1710,7 +1724,7 @@ class DeprecatedRuleContents(BaseRuleContents):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @property
     def id(self) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
