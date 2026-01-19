@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/06/23"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager", "cloud_defend"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/01/19"
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +20,7 @@ index = [
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-auditd_manager.auditd-*",
+    "logs-cloud_defend.process*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -101,6 +102,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Data Source: Elastic Defend for Containers",
     "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
@@ -108,7 +110,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
-process.name in ("curl", "wget") and process.args like~ (
+process.name in ("curl", "wget") and process.command_line like~ (
   "*http*//*/apis/authorization.k8s.io/*",
   "*http*//*/apis/rbac.authorization.k8s.io/*",
   "*http*//*/api/v1/secrets*",
