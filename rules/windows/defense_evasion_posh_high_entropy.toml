@@ -24,6 +24,74 @@ license = "Elastic License v2"
 name = "Potential PowerShell Obfuscated Script via High Entropy"
 risk_score = 21
 rule_id = "737b5532-cf2e-4d40-9209-d7aec9dd25d5"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell Obfuscated Script via High Entropy
+
+This rule detects large PowerShell Script Block Logging content with high character entropy and a non-uniform character distribution, which is commonly produced by encoded, compressed, or encrypted payloads. Adversaries frequently use these techniques to obfuscate PowerShell activity to evade signature-based detections and hinder manual analysis.
+
+#### Key alert fields to review
+
+- `powershell.file.script_block_text`: Script block content that triggered the alert.
+- `powershell.file.script_block_length`: Script size used to focus on large blocks where entropy is more meaningful.
+- `powershell.file.script_block_entropy_bits`: High entropy often indicates encoded, compressed, or encrypted content.
+- `powershell.file.script_block_surprisal_stdev`: Helps identify unusually uneven character distributions (common in obfuscation and encoding patterns).
+- `file.path`, `file.directory`, `file.name`: Script origin (when populated).
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Useful for reconstructing full content when logged in chunks (if populated).
+- `host.name`, `host.id`, `user.name`, `user.id`, `agent.id`: Scope and execution context.
+
+#### Possible investigation steps
+
+- Validate the basic context:
+  - Identify the affected `host.name` and `user.name` or `user.id`.
+  - Confirm the event is Script Block Logging (commonly Event ID `4104` when Script Block Logging is enabled).
+  - Confirm the alert meets the detection thresholds (large script block plus high entropy plus high surprisal variation).
+- Review the script block content (`powershell.file.script_block_text`) for common obfuscation and staging patterns:
+  - Long Base64-like strings and decoding routines (for example, `FromBase64String`, `-EncodedCommand`, custom decoding loops).
+  - Compression or decompression logic (GZip or Deflate patterns, memory streams, byte-array inflation).
+  - Dynamic execution triggers (for example, `IEX` or `Invoke-Expression`, `Invoke-Command`, `Add-Type`, reflection or `Assembly::Load`).
+  - Download cradles and external retrieval (for example, `Invoke-WebRequest`, `System.Net.WebClient`, raw sockets).
+- Reconstruct the full script (if logged in multiple parts):
+  - Group by `powershell.file.script_block_id` and order by `powershell.sequence` to rebuild the complete content before attempting decoding.
+- Decode or decompress safely (offline):
+  - Extract encoded blobs and decode or decompress in an isolated analysis environment.
+  - Review the decoded content for IOCs (domains, URLs, IPs, file paths, hashes) and high-level behavior (persistence, credential access, lateral movement).
+- Correlate with surrounding host activity near the alert timestamp:
+  - Pivot to process creation telemetry to identify the PowerShell host process and its parent process.
+  - Watch for suspicious parents (Office apps, browsers, `wscript.exe`, `mshta.exe`, `rundll32.exe`) and suspicious flags (`-ExecutionPolicy Bypass`, `-NoProfile`, hidden window styles).
+  - Look for follow-on behaviors: file writes, scheduled tasks or services, registry changes, and outbound network connections.
+- Assess prevalence and scope:
+  - Search for similar high-entropy script blocks on the same host (and from the same user) within a broader window.
+  - If available, pivot on `powershell.file.script_block_hash` (or stable substrings or decoded IOCs) to find related executions across the environment.
+
+### False positive analysis
+
+- Legitimate sources of high-entropy PowerShell script blocks commonly include:
+  - Software deployment and endpoint management tooling (packaged scripts, embedded resources, installers).
+  - Security tools performing response actions or bundling content as encoded strings.
+  - Scripts handling secrets or certificates or encrypted configuration values.
+  - Automation frameworks that generate scripts dynamically.
+- This rule already excludes known management or security locations (for example, Intune detection scripts) and a Microsoft Defender for Endpoint data collection path; remaining alerts should be validated against other known tooling in your environment.
+- Triage tips to reduce noise while preserving detection value:
+  - Prefer allowlisting by trusted script origin (known paths, known publisher or tooling, known management accounts) rather than weakening entropy thresholds.
+  - If a specific verified benign tool is responsible, add narrowly scoped exceptions (path, account, or consistent benign identifiers where available).
+
+### Response and remediation
+
+- If the script content is confirmed or strongly suspected malicious:
+  - Isolate the affected host to prevent further execution and lateral movement.
+  - Capture relevant artifacts (full script block text, decoded payloads, related dropped files, persistence mechanisms).
+  - Hunt for related activity across the environment (same decoded IOCs, similar encoded blobs, related process chains).
+  - Remove persistence mechanisms and block known-bad network indicators discovered during analysis.
+  - Reset credentials and review privileged access paths if compromise is suspected.
+- If the script content is benign but noisy:
+  - Document the legitimate source (tool name, owner team, expected schedule, expected hosts).
+  - Add targeted exceptions and continue monitoring for deviations from the known benign pattern.
+  - Consider PowerShell governance improvements where feasible (script signing, constrained language mode, WDAC or AppLocker, least-privilege controls).
+"""
 setup = """## Setup
 
 This rule requires the Elastic Windows integration v3.1.3 or later, which adds the new fields used by this detection (powershell.file.script_block_entropy_bits and powershell.file.script_block_surprisal_stdev).
