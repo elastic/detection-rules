@@ -35,7 +35,7 @@ FROM logs-suricata.*
         src_ip_values = VALUES(source.ip),
         dst_ip_values = VALUES(destination.ip),
         url_dom = VALUES(url.domain),
-        url_path = VALUES(url.path) by rule.name
+        url_path = VALUES(url.path) by rule.name, event.type
 
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
   // first time seen is within 10m of the rule execution time
@@ -48,7 +48,7 @@ FROM logs-suricata.*
        destination.ip = MV_FIRST(dst_ip_values),
        url.domain = MV_FIRST(url_dom),
        url.path = MV_FIRST(url_path)
-| keep rule.name, Esql.*, cluster_uuid, source.ip, destination.ip, url.domain, url.path
+| keep rule.name, event.type, Esql.*, source.ip, destination.ip, url.domain, url.path
 '''
 note = """## Triage and analysis
 
