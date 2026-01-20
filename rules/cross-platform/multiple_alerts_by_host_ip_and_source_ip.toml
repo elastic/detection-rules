@@ -61,7 +61,7 @@ from .alerts-security.*
 | eval host_ip_equal_to_source_ip =LOCATE(concat_ip_values, TO_STRING(Esql.source_ip))
 | where Esql.rule_name_distinct_count >= 2 and Esql.host_id_distinct_count >= 2 and host_ip_equal_to_source_ip > 0 and SRC_IP is not null and Esql.alerts_count <= 100
 
-// Move signle values to their corresponding ECS fields for alerts exclusion
+// Move single values to their corresponding ECS fields for alerts exclusion
 | eval source.ip = mv_min(Esql.source_ip),
        host.id = mv_min(Esql.host_id_values)
 | KEEP Esql.*, source.ip, host.id
