@@ -7,9 +7,8 @@ updated_date = "2026/01/20"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects Elastic SIEM high severity detection alerts that are observed for the first time in the previous 5 days
-of alert history. It highlights low-volume, newly observed alerts tied to a specific detection rule, analysts can use this
-to prioritize triage and response.
+This rule detects Suricata high severity  alerts that are observed for the first time in the previous 5 days of alert history.
+Analysts can use this to prioritize triage and response.
 """
 from = "now-7205m"
 interval = "5m"
@@ -34,7 +33,9 @@ FROM logs-suricata.*
         Esql.distinct_count_src_ip = COUNT_DISTINCT(source.ip),
         Esql.distinct_count_dst_ip = COUNT_DISTINCT(destination.ip),
         src_ip_values = VALUES(source.ip),
-        dst_ip_values = VALUES(destination.ip) by rule.name
+        dst_ip_values = VALUES(destination.ip),
+        url_dom = VALUES(url.domain),
+        url_path = VALUES(url.path) by rule.name
 
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
   // first time seen is within 10m of the rule execution time
@@ -42,9 +43,12 @@ FROM logs-suricata.*
   // exclude high volume alerts such as vuln-scanners
   Esql.alerts_count <= 5 and Esql.distinct_count_src_ip <= 2 and Esql.distinct_count_dst_ip <= 2
 
-  // populate IP values to use in alerts exclusions
-| eval source.ip = MV_FIRST(src_ip_values), destination.ip = MV_FIRST(dst_ip_values)
-| keep rule.name, Esql.*, cluster_uuid, source.ip, destination.ip
+  // move dynamic fields to ECS quivalent for rule exceptions
+| eval source.ip = MV_FIRST(src_ip_values),
+       destination.ip = MV_FIRST(dst_ip_values),
+       url.domain = MV_FIRST(url_dom),
+       url.path = MV_FIRST(url_path)
+| keep rule.name, Esql.*, cluster_uuid, source.ip, destination.ip, url.domain, url.path
 '''
 note = """## Triage and analysis
 
