@@ -2,7 +2,7 @@
 creation_date = "2024/04/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/09/30"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -24,19 +24,21 @@ name = "Potential AWS S3 Bucket Ransomware Note Uploaded"
 note = """
 ## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating Potential AWS S3 Bucket Ransomware Note Uploaded
 
 This rule detects a successful `PutObject` to S3 where the object key matches common ransomware-note patterns (for example, `readme`, `how_to_decrypt`, `decrypt_instructions`, `ransom`, `lock`). Attackers who obtain credentials or abuse overly-permissive bucket policies can upload ransom notes (often after deleting or encrypting data).
 
 #### Possible Investigation Steps:
 - **Confirm the actor and session details.** Review `aws.cloudtrail.user_identity.*` (ARN, type, access key, session context), `source.ip`, `user.agent`, and `tls.client.server_name` to identify *who* performed the upload and *from where*. Validate whether this principal typically writes to this bucket. 
+
 - **Inspect the object key and bucket context.** From `aws.cloudtrail.request_parameters`, capture the exact `key` and `bucketName`. Check whether the key is publicly readable (ACL), whether the bucket is internet-exposed, and whether replication or lifecycle rules could propagate or remove related objects. 
+
 - **Pivot to related S3 activity around the same time.** Look for `DeleteObject`/`DeleteObjects`, mass `PutObject` spikes, `PutBucketPolicy`, `PutPublicAccessBlock`, `PutBucketVersioning`, and `PutBucketLifecycleConfiguration` events on the same bucket or by the same actor to determine if data destruction, policy tampering, or guard-rail changes occurred. 
+
 - **Assess blast radius across the account.** Search recent CloudTrail for the same actor/IP touching other buckets, KMS keys used by those buckets, and IAM changes (new access keys, policy attachments, role assumptions) that could indicate broader compromise paths consistent with ransomware playbooks. 
+
 - **Check protections and recovery posture on the bucket.** Verify whether S3 Versioning and (if in use) Object Lock legal hold are enabled; note prior versions available for the affected key, and whether lifecycle rules might expire them. 
+
 - **Correlate with threat signals.** Review other related alerts, GuardDuty S3-related findings, AWS Config drift on the bucket and its policy, and any SOAR/IR runbook executions tied to ransomware triage. 
 
 ### False Positive Analysis:
@@ -46,36 +48,36 @@ This rule detects a successful `PutObject` to S3 where the object key matches co
 
 ### Response and Remediation:
 
-**1. Immediate, low-risk actions (safe for most environments)**
+**Immediate, low-risk actions (safe for most environments)**
 - **Preserve context:** Export the triggering `PutObject` CloudTrail record(s), plus 15–30 min before/after, to an evidence bucket (restricted access). 
 - **Snapshot configuration:** Record current bucket settings (Block Public Access, Versioning, Object Lock, Bucket Policy, Lifecycle rules) and any KMS keys used.
 - **Quiet the spread:** Pause destructive automation: disable/bypass lifecycle rules that would expire/delete object versions; temporarily pause data pipelines targeting the bucket.
 - **Notify owners:** Inform the bucket/application owner(s) and security leadership.
 
-**2. Containment options (choose the least disruptive first)**
+**Containment options (choose the least disruptive first)**
 - **Harden exposure:** If not already enforced, enable `Block Public Access` for the bucket.
 - **Targeted deny policy (temporary):** Add a restrictive bucket policy allowing only IR/admin roles while you scope impact. Reconfirm critical workload dependencies before applying.
 - **Credential risk reduction:** If a specific IAM user/key or role is implicated, rotate access keys; for roles, remove risky policy attachments or temporarily restrict with an SCP/deny statement.
 
-**3. Evidence preservation**
+**Evidence preservation**
 - Export relevant CloudTrail events, S3 server/access logs (if enabled), AWS Config history for the bucket/policy, and the suspicious object plus its previous versions (if Versioning is enabled).
 - Document actor ARN, source IPs, user agent(s), exact `bucketName`/`key`, and timestamps. Maintain a simple chain-of-custody note for collected artifacts.
 
-**4. Scope and hunting (same actor/time window)**
+**Scope and hunting (same actor/time window)**
 - Look for `DeleteObject(s)`, unusual `PutObject` volume, `PutBucketPolicy`, `PutPublicAccessBlock`, `PutBucketVersioning` changes, `PutBucketLifecycleConfiguration`, and cross-account access.
 - Cross reference other buckets touched by the same actor/IP; recent IAM changes (new keys, policy/role edits); GuardDuty findings tied to S3/credentials.
 
-**5. Recovery (prioritize data integrity)**
+**Recovery (prioritize data integrity)**
 - If Versioning is enabled, restore last known-good versions for impacted objects. Consider applying Object Lock legal hold to clean versions during recovery if configured.
 - If Versioning is not enabled, recover from backups (AWS Backup, replication targets). Enable Versioning going forward on critical buckets; evaluate Object Lock for high-value data.
 - Carefully remove any temporary deny policy only after credentials are rotated, policies re-validated, and no ongoing destructive activity is observed.
 
-**6. Post-incident hardening**
+**Post-incident hardening**
 - Enforce `Block Public Access`, enable Versioning (and MFA-Delete where appropriate), and review bucket policies for least privilege.
 - Ensure continuous CloudTrail data events for S3 are enabled in covered regions; enable/verify GuardDuty S3 protections and alerts routing.
 - Add detections for related behaviors (policy tampering, bulk deletes, versioning/lifecycle toggles) and create allowlists for known maintenance windows.
 
-**7. Communication & escalation**
+**Communication & escalation**
 - If you have an IR team/provider: escalate with the evidence bundle and a summary (bucket/key, actor, protections, related activity, business impact).
 - If you do not have an IR team: designate an internal incident lead, track actions/time, and follow these steps conservatively. Favor reversible controls (temporary deny, key rotation) over invasive changes.
 
