@@ -40,7 +40,7 @@ from logs-endpoint.alerts-*
 // first time seen is within 10m of the rule execution time
 | where Esql.recent <= 10 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
 
-// Move signle values to their corresponding ECS fields for alerts exclusion
+// Move single values to their corresponding ECS fields for alerts exclusion
 | eval host.id = mv_min(Esql.host_id_values)
 
 | keep host.id, rule.name, Esql.*
