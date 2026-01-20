@@ -2,7 +2,7 @@
 creation_date = "2024/04/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/24"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -30,9 +30,6 @@ name = "AWS S3 Bucket Expiration Lifecycle Configuration Added"
 note = """## Triage and analysis
 
 ### Investigating AWS S3 Bucket Expiration Lifecycle Configuration Added
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 This rule detects when a lifecycle expiration policy is added to an S3 bucket via the `PutBucketLifecycle` or `PutBucketLifecycleConfiguration` API. Note: `PutBucketLifecycleConfiguration` is the newer supported API call, however both of these API calls show up as `PutBucketLifecycle` in Cloudtrail [ref](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudtrail-logging-s3-info.html#cloudtrail-bucket-level-tracking).
 Lifecycle expiration automatically deletes objects after a defined period (`Expiration:Days`), which can be leveraged by adversaries to erase logs, exfiltration evidence, or security artifacts before detection and response teams can review them.
@@ -87,24 +84,24 @@ Use AWS CloudTrail search or your SIEM to pivot for:
 ### Response and remediation
 
 **Containment and validation**
-1. **Revert or disable** the lifecycle configuration if it is unauthorized:  
+**Revert or disable** the lifecycle configuration if it is unauthorized:  
    - Use the AWS Console or CLI (`delete-bucket-lifecycle` or `put-bucket-lifecycle-configuration --lifecycle-configuration Disabled`).
-2. **Preserve evidence**:  
+**Preserve evidence**:  
    - Copy existing objects (especially logs or forensic data) before they expire.  
    - Enable object versioning or replication to protect against loss.
 
 **Investigation**
-3. Review CloudTrail and S3 Access Logs for the same bucket:
+Review CloudTrail and S3 Access Logs for the same bucket:
    - Identify who and what performed previous deletions.
    - Determine whether any objects of investigative value have already been removed.
-4. Search for other S3 buckets where similar lifecycle configurations were added in a short timeframe.
+Search for other S3 buckets where similar lifecycle configurations were added in a short timeframe.
 
 **Recovery and hardening**
-5. Implement guardrails:
+Implement guardrails:
    - Use AWS Config rules like `s3-bucket-lifecycle-configuration-check` to monitor lifecycle changes.
    - Restrict `s3:PutLifecycleConfiguration` to specific administrative roles.
    - Enable [S3 Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html) on log or evidence buckets to enforce immutability.
-6. Enable Security Hub and GuardDuty findings for additional anomaly detection on S3 data management activity.
+Enable Security Hub and GuardDuty findings for additional anomaly detection on S3 data management activity.
 
 ### Additional information
 

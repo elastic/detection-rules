@@ -2,7 +2,7 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/27"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,6 @@ note = """
 ## Triage and analysis
 
 ### Investigating AWS S3 Bucket Server Access Logging Disabled
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 This detection alerts when the server-access logging configuration for an S3 bucket is changed so that logging is disabled.  
 Because detailed request logs are central to tracking object access, modifications here are significant from a visibility and forensics standpoint. They can signal that an adversary is preparing to act (exfiltrate, delete, or manipulate data) while minimizing audit evidence.
@@ -63,20 +60,20 @@ Because detailed request logs are central to tracking object access, modificatio
 
 ### Response and remediation
 
-**1. Contain & restore visibility**
+**Contain & restore visibility**
    - Immediately re-enable server‐access logging for the affected bucket (ensure `LoggingEnabled=true` and correct `TargetBucket/Prefix`).  
    - If you suspect activity while logging was disabled, preserve any remaining object versions, cross-account access logs, or S3 Inventory data.  
 
-**2. Investigate scope and impact**
+**Investigate scope and impact**
    - Use CloudTrail Lake or Athena to query access to the bucket and objects for the timeframe when logging was disabled.  
    - Identify external IP addresses, unusual principals, or rapid object transfers or deletions.
 
-**3. Recover & harden**
+**Recover & harden**
    - Apply bucket-policy or SCP restrictions to prevent unauthorized modifications of `PutBucketLogging` for audit/logging buckets.  
    - Enable AWS Config rule (e.g., `cloudtrail-s3-bucket-access-logging`) to alert if logging is disabled.  
    - Ensure logging target buckets are configured with retention, versioning, and immutability (S3 Object Lock) to prevent tampering.
 
-**4. Improve & monitor**
+**Improve & monitor**
    - Update your incident response playbook to include this scenario (see AWS IR + Customer Playbook Framework).  
    - Educate stakeholders (storage, DevOps, security) that any change to logging configuration on buckets — especially audit/log buckets should be treated as a security event and ticketed.
 

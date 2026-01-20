@@ -2,7 +2,7 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/07/10"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -21,36 +21,33 @@ license = "Elastic License v2"
 name = "AWS EC2 Security Group Configuration Change"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS EC2 Security Group Configuration Change
 
 This rule identifies any changes to an AWS Security Group, which functions as a virtual firewall controlling inbound and outbound traffic for resources like EC2 instances. Modifications to a security group configuration could expose critical assets to unauthorized access. Threat actors may exploit such changes to establish persistence, exfiltrate data, or pivot within an AWS environment.
 
 #### Possible Investigation Steps
 
-1. **Identify the Modified Security Group**:
+**Identify the Modified Security Group**:
    - **Security Group ID**: Check the `aws.cloudtrail.request_parameters` field to identify the specific security group affected.
    - **Rule Changes**: Review `aws.cloudtrail.response_elements` to determine the new rules or configurations, including any added or removed IP ranges, protocol changes, and port specifications.
 
-2. **Review User Context**:
+**Review User Context**:
    - **User Identity**: Inspect the `aws.cloudtrail.user_identity.arn` field to determine which user or role made the modification. Verify if this is an authorized administrator or a potentially compromised account.
    - **Access Patterns**: Analyze whether this user regularly interacts with security group configurations or if this event is out of the ordinary for their account.
 
-3. **Analyze the Configuration Change**:
+**Analyze the Configuration Change**:
    - **Egress vs. Ingress**: Determine if the change affected inbound (ingress) or outbound (egress) traffic by reviewing fields like `isEgress` in the `securityGroupRuleSet`. Unauthorized changes to outbound traffic can indicate data exfiltration attempts.
    - **IP Ranges and Ports**: Assess any added IP ranges, especially `0.0.0.0/0`, which exposes resources to the internet. Port changes should also be evaluated to ensure only necessary ports are open.
 
-4. **Check User Agent and Source IP**:
+**Check User Agent and Source IP**:
    - **User Agent Analysis**: Examine the `user_agent.original` field to identify the tool or application used, such as `AWS Console` or `Terraform`, which may reveal if the action was automated or manual.
    - **Source IP and Geolocation**: Use `source.address` and `source.geo` fields to verify if the IP address and geolocation match expected locations for your organization. Unexpected IPs or regions may indicate unauthorized access.
 
-5. **Evaluate for Persistence Indicators**:
+**Evaluate for Persistence Indicators**:
    - **Repeated Changes**: Investigate if similar changes were recently made across multiple security groups, which may suggest an attempt to maintain or expand access.
    - **Permissions Review**: Confirm that the user’s IAM policies are configured to limit changes to security groups only as necessary.
 
-6. **Correlate with Other CloudTrail Events**:
+**Correlate with Other CloudTrail Events**:
    - **Cross-Reference Other Security Events**: Look for related actions like `AuthorizeSecurityGroupIngress`, `CreateSecurityGroup`, or `RevokeSecurityGroupIngress` that may indicate additional or preparatory steps for unauthorized access.
    - **Monitor for IAM or Network Changes**: Check for IAM modifications, network interface changes, or other configuration updates in the same timeframe to detect broader malicious activities.
 
