@@ -25,10 +25,9 @@ type = "esql"
 query = '''
 FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 
-| WHERE event.module in ("fortinet", "fortinet_fortigate") and
-  not event.action in ("anomaly", "ftgd_allow", "ssl-new-con", "ftgd_err", "ssl-new-con", "ssl-exit-error", "deny") and
+| WHERE event.module == "fortinet_fortigate" and event.action in ("signature", "ssl-anomaly") and
   message is not null and event.category != "authentication" and
-  message != "Connection Failed" and
+  message != "Connection Failed" and not message like "Web.Client: *" and
   not message like "Network.Service: *" and not message like "General.Interest*" and not message like "Update: *"
 
 | STATS Esql.alerts_count = count(*),
@@ -38,7 +37,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
         src_ip = VALUES(source.ip),
         dst_ip = VALUES(destination.ip),
         url_domain = VALUES(url.domain),
-        url_path = VALUES(url.path) by message, event.category, event.module, event.outcome
+        url_path = VALUES(url.path) by message, event.category, event.outcome
 
 // first time seen is within 10m of the rule execution time
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
@@ -50,7 +49,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
        url.domain = MV_FIRST(url_domain),
        url.path = MV_FIRST(url_path)
 
-| keep message, event.module, event.category, event.outcome, Esql.*, source.ip, destination.ip, url.domain, url.path
+| keep message, event.category, event.outcome, Esql.*, source.ip, destination.ip, url.domain, url.path
 '''
 note = """## Triage and analysis
 
