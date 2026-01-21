@@ -2,7 +2,7 @@
 creation_date = "2024/12/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/13"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +17,7 @@ license = "Elastic License v2"
 name = "AWS IAM Login Profile Added for Root"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+### Investigating AWS IAM Login Profile Added for Root
 
 This rule detects when a console login profile is created for the AWS root account.  
 A login profile enables password-based console access, and because the root user has unrestricted privileges, creating one is an extremely high-impact event. Adversaries who temporarily gain root-level credentials (for example, through an STS session or credential compromise) may use `CreateLoginProfile` without specifying a `userName` to add a password to the root account. This grants persistent access even if the attacker’s API keys are later rotated or disabled.
@@ -68,27 +67,27 @@ For any potential false positive, verify that:
 
 > Any unapproved creation of a login profile for the root account is a critical security incident requiring immediate containment and credential rotation.
 
-**1. Containment**
+**Containment**
 - Delete the newly created root login profile if it was not authorized.  
 - Rotate the root account password using AWS’s official password-reset workflow.  
 - Revoke any active sessions, temporary credentials, or tokens associated with this event.  
 - Verify that multi-factor authentication (MFA) is enabled and functioning on the root account.  
 - Check that no root access keys exist — if present, remove them immediately.
 
-**2. Investigation and scoping**
+**Investigation and scoping**
 - Examine CloudTrail logs from 30 minutes before and after this event to identify correlated actions.  
 - Capture and securely store these logs in an isolated S3 bucket with Object Lock enabled to preserve forensic integrity.  
 - Investigate for additional IAM or STS operations by the same `access_key_id` or IP address that may indicate privilege escalation or persistence attempts.  
 - Review whether any new IAM roles, users, or policies were created in proximity to this event.
 
-**3. Recovery and hardening**
+**Recovery and hardening**
 - Reset the root password and distribute the new credentials securely to authorized custodians only.  
 - Ensure MFA is enforced for all administrative and root-level access.  
 - Audit all IAM policies for least-privilege adherence, focusing on `iam:CreateLoginProfile`, `iam:UpdateLoginProfile`, and `iam:CreateAccessKey` permissions.  
 - Enable Cloudtrail, GuardDuty, AWS Config, and Security Hub across all regions for continuous monitoring of root and IAM activity.  
 - Review your organization’s playbooks and detection coverage for root-level persistence techniques, and update procedures as needed.
 
-**4. Post-incident actions**
+**Post-incident actions**
 - Notify AWS account owners and your security operations center of the incident.  
 - Conduct a post-mortem to determine the initial vector of compromise (e.g., stolen credentials, misconfigured role chaining, or insufficient MFA).  
 - Update alerting thresholds and detection logic to minimize mean time to detect (MTTD) and respond (MTTR).
