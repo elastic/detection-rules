@@ -80,7 +80,8 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   ) or
   (process.name == "openssl" and process.args == "s_client" and process.args == "-connect") or
   (process.name == "socat" and process.args like~ "*ssl*") or
-  (process.name == "ncat" and process.args like "--ssl*")
+  (process.name == "ncat" and process.args like "--ssl*") or
+  (process.name == "kubectl" and process.args in ("get", "list", "watch", "create", "patch", "update"))
 ) and
 process.interactive == true and container.id like "*"
 '''
