@@ -2,7 +2,7 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/15"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -25,9 +25,6 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Full Network Packet Capture Detected"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS EC2 Full Network Packet Capture Detected
 
@@ -74,22 +71,22 @@ Look before and after this event (±30–60 minutes) by the same principal / acc
 
 ### Response and remediation
 
-**1. Contain**
+**Contain**
 - If unauthorized, terminate the session immediately (use the `TrafficMirrorSessionId` from `aws.cloudtrail.response_elements`)
   and block creation permissions for the offending principal.
 - Quarantine or restrict egress from the target if you suspect it is forwarding captured traffic outside approved destinations.
 
-**2. Investigate**
+**Investigate**
 - Enumerate all active sessions in the affected account/region; verify there aren’t additional rogue sessions.
 - Review related target and filter resources (and recent `Modify*` calls) to understand captured scope and recipients.
 - Trace the source ENI back to the EC2 instance and validate whether sensitive workloads were mirrored.
 
-**3. Recover & harden**
+**Recover & harden**
 - Remove or lock down unapproved targets/filters; enforce least privilege on `ec2:CreateTrafficMirrorSession/Target/Filter`.
 - Consider SCPs or IAM conditions limiting who/where sessions can be created (e.g., only into designated monitoring VPCs).
 - Ensure monitoring targets are controlled, logged, and not internet-reachable.
 
-**4. Improve**
+**Improve**
 - Add correlation logic to automatically surface CreateTrafficMirrorSession alongside Create/Modify Target/Filter calls by the same actor.
 - Require tags on approved mirroring resources; alert on untagged/unticketed creations.
 - Update playbooks to include a standard validation checklist (principal, source ENI, target, filter rules, destination path).
