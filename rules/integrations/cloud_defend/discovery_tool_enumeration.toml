@@ -40,10 +40,19 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "which" and process.args like (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+(
+  process.name == "which" or
+  (
+    /* Containers may log a command execution as a shell process + arg combination instead of process name */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args in ("which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which")
+  )
+) and
+process.args in (
 
   /* TCP IP */
-  "curl", "wget", "socat", "nc", "netcat", "ncat", "busybox", "python3", "python", "perl", "node", "openssl",
+  "curl", "wget", "socat", "nc", "netcat", "ncat", "busybox", "python3", "python", "perl", "node", "openssl", "ruby", "lua",
 
   /* networking */
   "getent", "dig", "nslookup", "host", "ip", "tcpdump", "tshark",
@@ -52,8 +61,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   "kubectl", "docker", "kubelet", "kube-proxy", "containerd", "systemd", "crictl",
 
   /* compilation */
-  "gcc", "g++", "clang", "clang++", "cc", "c++", "c99", "c89", "cc1*", "cc1plus*", "musl-gcc", "musl-clang", "*-linux-gnu-gcc*",
-  "*-pc-linux-gnu-gcc*", "tcc", "zig", "ccache", "distcc", "make",
+  "gcc", "g++", "clang", "clang++", "cc", "c++", "c99", "c89", "cc1*", "musl-gcc", "musl-clang", "tcc", "zig", "ccache", "distcc", "make",
 
   /* scanning */
   "nmap", "zenmap", "nuclei", "netdiscover", "legion", "masscan", "zmap", "zgrab", "ngrep", "telnet", "mitmproxy", "zmap",
