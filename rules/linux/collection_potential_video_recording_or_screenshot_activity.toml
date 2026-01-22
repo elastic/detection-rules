@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the usage of the most common video recording or screenshot utilities on unix systems
+by an uncommon process parent. Adversaries may collect video or screenshot data from users or systems for a
+variety of reasons including espionage, credential theft, or reconnaissance.
+"""
+from = "now-9m"
+index = [
+          "logs-endpoint.events.process*",
+          "logs-sentinel_one_cloud_funnel.*",
+          "endgame-*",
+        ]
+language = "kuery"
+license = "Elastic License v2"
+name = "Linux Video Recording or Screenshot Activity Detected"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Video Recording or Screenshot Activity Detected
+
+This alert flags the launch of common Linux screenshot or screen-recording tools—such as scrot, gnome-screenshot, flameshot, grim, or obs—when triggered by an atypical parent process, indicating potential visual data collection. A typical attacker pattern is a compromised user session or remote shell spawning scrot or grim during credential entry to capture MFA codes and application windows, or starting simplescreenrecorder/obs to persistently record the desktop for later exfiltration.
+
+### Possible investigation steps
+
+- Review the process lineage and session context to determine if the capture was launched interactively from a desktop or via ssh/cron/systemd or a script in transient directories.
+- Inspect command-line options and environment variables (DISPLAY, WAYLAND_DISPLAY, XAUTHORITY) to identify window/region capture, explicit save targets, or headless clipboard-only usage.
+- Search for newly created media files around the alert time (screenshots under ~/Pictures or /tmp, and recordings like .mkv/.webm) and evaluate their sensitivity and relevance.
+- Verify binary provenance and integrity by checking installation logs, file path and ownership, hashes, and unexpected copies or modified ELF binaries in user-writable locations.
+- Correlate with user and network telemetry for concurrent credential entry, browser MFA prompts, or outbound transfers/clipboard synchronization indicative of exfiltration.
+
+### False positive analysis
+
+- A user presses Print Screen or uses a desktop hotkey, and the environment launches gnome-screenshot, flameshot, or grim via a keybinding/compositor component, producing an uncommon parent despite benign activity.
+- Legitimate demo or documentation recording with obs or simplescreenrecorder started by a wrapper script, cron, or a systemd unit can surface as a non-interactive start from an unusual parent without malicious intent.
+
+### Response and remediation
+
+- Immediately terminate the capture process (e.g., scrot, grim, flameshot, gnome-screenshot, simplescreenrecorder, obs) and isolate the host or terminate the GUI session, suspending the user and revoking SSH keys if the parent was sshd, cron, or a systemd unit.
+- Eradicate launch points by deleting rogue systemd services/timers, crontab entries, ~/.config/autostart/*.desktop files, and scripts in /tmp or ~/bin that invoke these tools, and replace any trojanized binaries found outside package-managed paths.
+- Recover by rotating passwords and invalidating MFA sessions/tokens used during the recorded period, then remove captured media (.png/.jpg/.webm/.mkv) from ~/Pictures, /tmp, and similar staging paths after evidence collection.
+- Escalate to incident response and privacy/legal if screenshots/recordings contain credentials, customer data, or secrets, if execution originated from privileged users or servers, or if exfiltration is observed via scp/rsync/curl to external hosts.
+- Harden endpoints by uninstalling unneeded screenshot/recording packages, enforcing allowlists and AppArmor/SELinux profiles that block scrot/grim/obs except for approved users, and requiring xdg-desktop-portal/PipeWire screencast prompts for console users only.
+- Improve detection by alerting on these binaries executed by sshd/cron/systemd, repeated saves under ~/Pictures or /tmp, copies in user-writable paths (~/bin, /tmp), and outbound transfers of resulting media files.
+"""
+risk_score = 21
+rule_id = "93dd73f9-3e59-45be-b023-c681273baf81"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:"linux" and event.type:"start" and event.action:("exec" or "exec_event" or "start") and
+process.name:(
+  "gnome-screenshot" or "spectacle" or "xfce4-screenshooter" or "mate-screenshot" or "scrot" or "maim" or "import" or "grim" or
+  "grimshot" or "slurp" or "flameshot" or "shutter" or "ksnip" or "deepin-screenshot" or "simplescreenrecorder" or "kazam" or
+  "vokoscreen" or "recordmydesktop" or "obs" or "obs-studio"
+) and
+not process.args:("-h" or "--help" or "--version")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1113"
+name = "Screen Capture"
+reference = "https://attack.mitre.org/techniques/T1113/"
+
+[[rule.threat.technique]]
+id = "T1125"
+name = "Video Capture"
+reference = "https://attack.mitre.org/techniques/T1125/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["agent.id", "process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

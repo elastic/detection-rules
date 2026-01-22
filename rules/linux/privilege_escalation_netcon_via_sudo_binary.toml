@@ -2,7 +2,7 @@
 creation_date = "2024/01/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,40 @@ from = "now-9m"
 index = ["endgame-*", "logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Network Connection via Sudo Binary"
+name = "Deprecated - Network Connection via Sudo Binary"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - Network Connection via Sudo Binary
+
+The 'sudo' command in Linux allows users to execute commands with elevated privileges, typically as the root user. Adversaries may exploit this by injecting malicious shellcode into processes running with these privileges, potentially establishing unauthorized network connections. The detection rule identifies unusual network activity initiated by 'sudo', excluding common internal IP ranges, to flag potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific destination IP address involved in the network connection attempt. Cross-reference this IP with known malicious IP databases or threat intelligence sources to assess potential risk.
+- Examine the process tree and command line arguments associated with the 'sudo' process to determine if there are any unusual or unexpected commands being executed that could indicate malicious activity.
+- Check the user account that initiated the 'sudo' command to verify if it is a legitimate user and if there have been any recent changes to user permissions or roles that could explain the activity.
+- Investigate any recent login attempts or authentication logs for the user account involved to identify any suspicious access patterns or failed login attempts that could suggest a compromised account.
+- Analyze network traffic logs around the time of the alert to identify any other unusual outbound connections or data exfiltration attempts that may correlate with the 'sudo' network connection event.
+
+### False positive analysis
+
+- Internal network monitoring tools may trigger this rule if they use the sudo command to initiate legitimate network connections. To handle this, identify the specific tools and processes involved and create exceptions for their known IP addresses.
+- Automated scripts or cron jobs running with elevated privileges might occasionally establish network connections for updates or data transfers. Review these scripts and whitelist their expected behavior to prevent false positives.
+- System administrators using sudo for remote management tasks could inadvertently trigger the rule. Document and exclude the IP addresses and processes associated with routine administrative tasks.
+- Security software or agents that require elevated permissions to perform network diagnostics or reporting may cause alerts. Verify these applications and add them to an exception list if they are deemed safe and necessary for operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes associated with the 'sudo' command that are attempting to establish network connections.
+- Conduct a thorough review of system logs and network traffic to identify any additional indicators of compromise or lateral movement attempts.
+- Reset credentials for any accounts that may have been compromised, particularly those with elevated privileges.
+- Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
+- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 risk_score = 21
 rule_id = "30e1e9f2-eb9c-439f-aff6-1e3068e99384"
 setup = """## Setup
@@ -57,7 +90,10 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec"]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sudo" and not (
+    process.args == "su" or
+    process.command_line like ("sudo su*", "sudo ./opt/Limpar_ram.sh", "*BECOME-SUCCESS*")
+  )]
   [network where host.os.type == "linux" and event.type == "start" and
   event.action in ("connection_attempted", "ipv4_connection_attempt_event") and process.name == "sudo" and not (
     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
@@ -69,39 +105,6 @@ sequence by host.id, process.entity_id with maxspan=5s
     )
   )]
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Connection via Sudo Binary
-
-The 'sudo' command in Linux allows users to execute commands with elevated privileges, typically as the root user. Adversaries may exploit this by injecting malicious shellcode into processes running with these privileges, potentially establishing unauthorized network connections. The detection rule identifies unusual network activity initiated by 'sudo', excluding common internal IP ranges, to flag potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific destination IP address involved in the network connection attempt. Cross-reference this IP with known malicious IP databases or threat intelligence sources to assess potential risk.
-- Examine the process tree and command line arguments associated with the 'sudo' process to determine if there are any unusual or unexpected commands being executed that could indicate malicious activity.
-- Check the user account that initiated the 'sudo' command to verify if it is a legitimate user and if there have been any recent changes to user permissions or roles that could explain the activity.
-- Investigate any recent login attempts or authentication logs for the user account involved to identify any suspicious access patterns or failed login attempts that could suggest a compromised account.
-- Analyze network traffic logs around the time of the alert to identify any other unusual outbound connections or data exfiltration attempts that may correlate with the 'sudo' network connection event.
-
-### False positive analysis
-
-- Internal network monitoring tools may trigger this rule if they use the sudo command to initiate legitimate network connections. To handle this, identify the specific tools and processes involved and create exceptions for their known IP addresses.
-- Automated scripts or cron jobs running with elevated privileges might occasionally establish network connections for updates or data transfers. Review these scripts and whitelist their expected behavior to prevent false positives.
-- System administrators using sudo for remote management tasks could inadvertently trigger the rule. Document and exclude the IP addresses and processes associated with routine administrative tasks.
-- Security software or agents that require elevated permissions to perform network diagnostics or reporting may cause alerts. Verify these applications and add them to an exception list if they are deemed safe and necessary for operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious processes associated with the 'sudo' command that are attempting to establish network connections.
-- Conduct a thorough review of system logs and network traffic to identify any additional indicators of compromise or lateral movement attempts.
-- Reset credentials for any accounts that may have been compromised, particularly those with elevated privileges.
-- Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
-- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

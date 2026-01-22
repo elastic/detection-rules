@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects child process execution from GenAI tools or MCP (Model Context Protocol) servers. Adversaries exploit AI agents
+to execute system commands, exfiltrate data, or establish persistence. MCP servers provide LLMs direct access to execute
+shell commands, read files, and interact with external services. This building block provides visibility into
+AI-initiated process execution for correlation with other suspicious activity.
+"""
+from = "now-119m"
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI or MCP Server Child Process Execution"
+risk_score = 21
+rule_id = "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Rule Type: BBR",
+    "Domain: LLM",
+    "Mitre Atlas: T0053",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" 
+  and (
+    // GenAI clients
+    process.parent.name in (
+      "Cursor", "Cursor.exe", "cursor",
+      "Cursor Helper", "Cursor Helper (Plugin)", "Cursor Helper (GPU)", "Cursor Helper (Renderer)",
+      "Claude", "Claude.exe", "claude",
+      "Claude Helper", "Claude Helper (Plugin)", "Claude Helper (GPU)", "Claude Helper (Renderer)",
+      "Windsurf", "Windsurf.exe", "windsurf",
+      "Windsurf Helper", "Windsurf Helper (Plugin)", "Windsurf Helper (GPU)", "Windsurf Helper (Renderer)",
+      "Code", "Code.exe", "code",
+      "Code Helper", "Code Helper (Plugin)", "Code Helper (GPU)", "Code Helper (Renderer)",
+      "codex", "codex.exe",
+      "Copilot", "Copilot.exe", "copilot",
+      "Jan", "Jan.exe", "jan",
+      "Jan Helper", "Jan Helper (Plugin)", "Jan Helper (GPU)", "Jan Helper (Renderer)",
+      "LM Studio", "LM Studio.exe", "lmstudio",
+      "Ollama", "Ollama.exe", "ollama",
+      "GPT4All", "gpt4all", "gpt4all.exe",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "gemini-cli.exe", "gemini-cli",
+      "genaiscript.exe", "genaiscript",
+      "grok.exe", "grok",
+      "qwen.exe", "qwen",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    ) or
+    // Package managers running MCP servers
+    (process.parent.name in ("npx", "npx.exe", "pnpm", "pnpm.exe", "yarn", "yarn.exe", "bunx", "bunx.exe") and
+     process.parent.command_line like~ ("*@modelcontextprotocol/*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // Node/Deno/Bun running MCP servers
+    (process.parent.name in ("node", "node.exe", "deno", "deno.exe", "bun", "bun.exe") and
+     process.parent.command_line like~ ("*@modelcontextprotocol/*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // Python MCP servers
+    (process.parent.name like~ "python*" and
+     process.parent.command_line like~ ("*-m mcp_server*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // MCP server binaries
+    process.parent.name like~ ("mcp-server*", "*-mcp-server", "*_mcp_server*") or
+    process.parent.name in ("mcp-server", "mcp-server-elastic-cloud", "github-mcp-server")
+  )
+  and process.name != null
+  // Exclusions
+  and not (
+    // Runtime self-spawns
+    (process.parent.name in ("node", "node.exe") and process.name in ("node", "node.exe")) or
+    (process.parent.name like~ "python*" and process.name like~ "python*") or
+    (process.parent.name in ("deno", "deno.exe") and process.name in ("deno", "deno.exe")) or
+    (process.parent.name in ("bun", "bun.exe") and process.name in ("bun", "bun.exe")) or
+    
+    // Helper process self-spawns
+    (process.parent.name == "Cursor" and process.name like~ "Cursor Helper*") or
+    (process.parent.name == "Claude" and process.name like~ "Claude Helper*") or
+    (process.parent.name == "Windsurf" and process.name like~ "Windsurf Helper*") or
+    (process.parent.name == "Code" and process.name like~ "Code Helper*") or
+    (process.parent.name == "Jan" and process.name like~ "Jan Helper*") or
+    (process.parent.name == "LM Studio" and process.name like~ "LM Studio Helper*") or
+    (process.parent.name == "Ollama" and process.name like~ "Ollama Helper*") or
+    
+    // Version and help checks
+    process.args in ("--version", "--help", "-v", "-h", "-V", "version", "help")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

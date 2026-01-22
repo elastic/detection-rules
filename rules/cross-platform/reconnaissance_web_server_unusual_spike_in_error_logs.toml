@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2025/12/05"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ as vulnerability scanning or fuzzing attempts by adversaries. These activities o
 responses as they probe for weaknesses in web applications. Error response codes may potentially indicate server-side
 issues that could be exploited.
 """
-from = "now-9m"
+from = "now-11m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
@@ -71,13 +71,16 @@ from logs-nginx.error-*, logs-apache_tomcat.error-*, logs-apache.error-*, logs-i
     event.dataset,
     source.ip,
     agent.id,
-    host.name
+    host.name,
+    data_stream.namespace
+
 | where source.ip is not null
 | stats
     Esql.event_count = count(),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
-    Esql.event_dataset_values = values(event.dataset)
+    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
     by source.ip, agent.id
 | where
     Esql.event_count > 50

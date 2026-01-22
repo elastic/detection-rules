@@ -2,58 +2,80 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an Lambda Layer is added to an existing Lambda function. AWS layers are a way to share code and data
-across multiple functions. By adding a layer to an existing function, an attacker can persist or execute code in the
-context of the function.
+Identifies when a Lambda layer is added to an existing AWS Lambda function. Lambda layers allow shared code,
+dependencies, or runtime modifications to be injected into a function’s execution environment. Adversaries with the
+ability to update function configurations may add a malicious layer to establish persistence, run unauthorized code, or
+intercept data handled by the function. This activity should be reviewed to ensure the modification is expected and
+authorized.
 """
-false_positives = ["Lambda function owners may add layers to their functions for legitimate purposes."]
-from = "now-60m"
+false_positives = [
+    """
+    Lambda function owners or deployment pipelines may legitimately add or update layers as part of normal development
+    and maintenance workflows. Confirm that the layer addition aligns with approved changes, expected CI/CD behavior, or
+    routine dependency updates. Known automation roles or build systems can be excluded if they consistently perform
+    authorized modifications.
+    """,
+]
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Lambda Layer Added to Existing Function"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS Lambda Layer Added to Existing Function
 
-This rule detects when a Lambda layer is added to an existing Lambda function. AWS Lambda layers are a mechanism for sharing code and data across multiple functions. By adding a layer to an existing function, an attacker can persist or execute code in the context of the function. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+Lambda layers introduce external code artifacts into a function’s runtime. Adding a layer to an existing Lambda function
+modifies its execution environment and may allow an adversary to run arbitrary code, intercept data, or maintain
+persistence without altering the function source itself. This detection highlights successful configuration updates using
+`PublishLayerVersion*` or `UpdateFunctionConfiguration*`.
 
-#### Possible Investigation Steps:
+### Possible investigation steps
 
-- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific layer added to the Lambda function. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
-- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
-- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+**Identify the actor**
+- Review `aws.cloudtrail.user_identity.arn` and the `access_key_id`. Determine whether the actor normally administers Lambda or has recently exhibited unusual behavior.
 
-### False Positive Analysis:
+**Review what was modified**
+- Inspect `aws.cloudtrail.request_parameters` to identify which layer ARN was added, the function name and region, whether multiple layers were applied at once or in rapid succession.
+- Compare the added layer version against known and approved layer catalogs.
 
-- **Legitimate Administrative Actions**: Confirm if the addition of the Lambda layer aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
-- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
-- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+**Validate the operational context**
+- Check the time of the update (`@timestamp`) to see if it aligns with known release pipelines or deployment windows and Normal working hours for the responsible team.
+- Determine whether a CI/CD pipeline or IaC tool was expected to update this function.
 
-### Response and Remediation:
+**Assess where the change came from**
+- Review `source.ip` and `user_agent.original` for signs of console access from unusual locations, access via previously unused automation tools, suspicious programmatic access consistent with compromised keys.
 
-- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, remove the added layer from the Lambda function to mitigate any unintended code execution or persistence.
-- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive functions or layers.
-- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning Lambda function management and the use of layers.
-- **Audit Lambda Functions and Policies**: Conduct a comprehensive audit of all Lambda functions and associated policies to ensure they adhere to the principle of least privilege.
-- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+**Correlate with additional activity**
+- Look for preceding or subsequent events such as:
+  - Creation of new Lambda layers (`PublishLayerVersion`).
+  - IAM role modifications affecting the Lambda function.
+  - Increased invocation volume or unusual invocation patterns after the layer addition.
+- Search for other functions modified by the same actor or from the same IP.
 
-### Additional Information:
+### False positive analysis
 
-For further guidance on managing Lambda functions and securing AWS environments, refer to the [AWS Lambda documentation](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) and AWS best practices for security. Additionally, consult the following resources for specific details on Lambda layers and persistence techniques:
-- [AWS Lambda Layers Persistence](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence/aws-lambda-layers-persistence)
-- [AWS API PublishLayerVersion](https://docs.aws.amazon.com/lambda/latest/api/API_PublishLayerVersion.html)
-- [AWS API UpdateFunctionConfiguration](https://docs.aws.amazon.com/lambda/latest/api/API_UpdateFunctionConfiguration.html)
+- Confirm whether the change aligns with a planned deployment, application update, or dependency upgrade.
+- Determine whether the user or automation role commonly modifies Lambda function configurations.
+- Validate the legitimacy of the added layer by checking internal documentation or release notes.
 
+### Response and remediation
+
+- Remove or roll back the added layer if the modification appears unauthorized or suspicious.
+- Review the layer contents, especially for newly published layers, to verify integrity and legitimacy.
+- Investigate the IAM role or user responsible for the change and rotate compromised credentials if necessary.
+- Tighten permissions by ensuring only approved roles can modify Lambda configurations or publish new layers.
+- Implement monitoring for subsequent Lambda configuration changes, invocation anomalies caused by the injected layer, additional persistence techniques targeting serverless infrastructure.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
 """
 references = [
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence/aws-lambda-layers-persistence",
@@ -79,7 +101,7 @@ query = '''
 event.dataset: aws.cloudtrail
     and event.provider: lambda.amazonaws.com
     and event.outcome: success
-    and event.action: (PublishLayerVersion* or UpdateFunctionConfiguration)
+    and event.action: (PublishLayerVersion* or UpdateFunctionConfiguration*)
 '''
 
 
@@ -95,4 +117,21 @@ reference = "https://attack.mitre.org/techniques/T1648/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
 

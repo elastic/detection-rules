@@ -2,65 +2,116 @@
 creation_date = "2020/06/09"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies the deletion of a specified AWS Web Application Firewall (WAF) rule or rule group."
+description = """
+Identifies the deletion of an AWS Web Application Firewall (WAF) rule or rule group. WAF rules and rule groups enforce
+critical protections for web applications by filtering malicious HTTP requests, blocking known attack patterns, and
+enforcing access controls. Deleting these rules—even briefly—can expose applications to SQL injection, cross-site
+scripting, credential-stuffing bots, or targeted exploitation. Adversaries who have gained sufficient permissions may
+remove WAF protections as part of a broader defense evasion or impact strategy, often preceding data theft or direct
+application compromise.
+"""
 false_positives = [
     """
-    WAF rules or rule groups may be deleted by a system or network administrator. Verify whether the user identity, user
-    agent, and/or hostname should be making changes in your environment. Rule deletions by unfamiliar users or hosts
-    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Routine WAF maintenance, rule lifecycle updates, or temporary rule removals during application changes may trigger
+    this alert. Validate whether the principal, source IP, automation role, or deployment pipeline is expected to modify
+    WAF rules. Confirm that the deletion corresponds to a documented change or deployment before taking action.
     """,
 ]
-from = "now-60m"
+from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS WAF Rule or Rule Group Deletion"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS WAF Rule or Rule Group Deletion
 
-AWS Web Application Firewall (WAF) protects web applications by filtering and monitoring HTTP requests. Adversaries may delete WAF rules or groups to disable security measures, facilitating attacks like SQL injection or cross-site scripting. The detection rule monitors AWS CloudTrail logs for successful deletion actions, signaling potential defense evasion attempts by identifying unauthorized or suspicious deletions.
+AWS WAF rules and rule groups define the security boundary for web applications by blocking malicious inputs,
+enforcing rate-based protections, and applying managed or custom signatures. Deleting a rule or rule group immediately
+weakens this boundary. Adversaries who obtain sufficient permissions may delete these protections to remove detection of malicious payloads prior to exploitation or erase defenses protecting high-value APIs. 
+
+This rule detects successful `DeleteRule` or `DeleteRuleGroup` API calls in CloudTrail.
 
 ### Possible investigation steps
 
-- Review the AWS CloudTrail logs to identify the user or role associated with the deletion action by examining the userIdentity field.
-- Check the event.time field in the CloudTrail logs to determine when the deletion occurred and correlate it with any other suspicious activities around the same time.
-- Investigate the source IP address and user agent from the CloudTrail logs to assess if the request originated from a known or expected location and device.
-- Verify if the deleted WAF rule or rule group was part of a critical security configuration by reviewing the AWS WAF setup and any associated documentation.
-- Contact the user or team responsible for AWS WAF management to confirm if the deletion was authorized and understand the rationale behind it.
-- Examine any recent changes in IAM policies or permissions that might have allowed unauthorized users to perform the deletion action.
+**Identify the actor**
+- Review `aws.cloudtrail.user_identity.arn` and `user_identity.access_key_id` to determine which principal performed the deletion.
+- Determine whether the principal normally manages WAF resources or appears anomalous (new key, unused IAM role, unexpected federation source).
+
+**Inspect the request context**
+- Review `source.address`, `source.geo` fields, and `user_agent.original` to determine if the request originated from a known enterprise IP range, a CI/CD runner or automation tool, an unfamiliar network, region, or browser/CLI pattern.
+
+**Understand what was deleted**
+- Review `aws.cloudtrail.request_parameters` for `RuleId` or `RuleGroupId`, any referenced WebACLs using the rule, metadata indicating whether the deleted rule was part of production traffic control. 
+
+**Correlate surrounding activity**
+- Look for adjacent CloudTrail events:
+  - modifications to WebACLs (`UpdateWebACL`)
+  - creation of permissive rules (`CreateRule`, `PutRule`) after deletion  
+  - IAM privilege escalation events  
+  - unusual S3, API Gateway, or ALB access patterns immediately after the rule deletion  
+- Determine if deletion preceded or followed exploit attempts visible in application logs.
+
+**Establish operational context**
+- Confirm whether the deletion aligns with a deployment pipeline, scheduled maintenance, rule tuning by security teams. If not, treat the event as potentially malicious.
+
+**Engage relevant owners**
+- Contact application security or platform engineering teams to verify whether the rule or rule group deletion was authorized.
 
 ### False positive analysis
 
-- Routine maintenance or updates by authorized personnel can trigger rule deletions. Verify if the deletion aligns with scheduled maintenance activities and consider excluding these events from alerts.
-- Automated scripts or tools used for infrastructure management might delete and recreate WAF rules as part of their normal operation. Identify these scripts and whitelist their actions to prevent unnecessary alerts.
-- Changes in security policies or architecture might necessitate the removal of certain WAF rules. Ensure that such changes are documented and approved, and exclude these documented actions from triggering alerts.
-- Temporary rule deletions for testing purposes by security teams can be mistaken for malicious activity. Coordinate with the security team to log these activities and exclude them from detection rules.
-- Ensure that IAM roles or users with permissions to delete WAF rules are reviewed regularly. Exclude actions performed by trusted roles or users after confirming their legitimacy.
+- **Authorized deployment workflows**  
+  Some organizations rebuild WAF rules programmatically during deployments. Validate expected CI/CD service roles and event timing.
+
+- **Automated rule regeneration**  
+  Certain WAF-as-code approaches temporarily delete and recreate rules. Confirm if the event corresponds to an expected automation cycle.
+
+- **Security team testing**  
+  Teams may temporarily disable or remove rules during testing of new signatures or rate controls. Verify scheduling and ownership.
+
+- **Non-production environments**  
+  Development or staging accounts may routinely alter WAF rules. Tune the rule by account, environment tags, or namespaces to reduce noise.
 
 ### Response and remediation
 
-- Immediately review AWS CloudTrail logs to confirm the unauthorized deletion of WAF rules or rule groups and identify the source of the action, including the IAM user or role involved.
-- Reapply the deleted WAF rules or rule groups to restore the intended security posture and prevent potential attacks such as SQL injection or cross-site scripting.
-- Temporarily restrict or revoke permissions for the identified IAM user or role to prevent further unauthorized actions until a thorough investigation is completed.
-- Conduct a security review of the affected AWS environment to identify any other potential security gaps or unauthorized changes that may have occurred.
-- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
-- Implement additional monitoring and alerting for AWS WAF configuration changes to detect and respond to similar unauthorized actions promptly in the future.
-- Consider enabling AWS Config rules to continuously monitor and enforce compliance with WAF configurations, ensuring any unauthorized changes are automatically flagged.
+- **Contain the incident**
+  - Immediately verify whether the deletion was intentional.
+  - If unauthorized, revoke active access keys or disable implicated IAM roles/sessions.
 
-## Setup
+- **Reinstate protections**
+  - Restore the deleted rule or rule group from infrastructure-as-code definitions, backups, or documented configuration.
+  - Inspect associated WebACLs to ensure no additional rules were removed or modified.
 
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- **Investigate follow-on activity**
+  - Review application logs for suspicious requests following WAF rule removal.
+  - Investigate potential exploitation attempts (SQLi, XSS, API abuse, authentication bypass).
+
+- **Harden IAM and WAF governance**
+  - Limit WAF deletion operations to tightly controlled IAM roles.
+  - Enforce MFA and short session durations for privileged accounts.
+  - Consider guardrails using AWS Config or SCPs to prevent deletion of production WAF rules.
+
+- **Post-incident improvements**
+  - Update runbooks to track planned WAF changes.
+  - Strengthen CI/CD guardrails to prevent unauthorized rule manipulation.
+  - Enhance alerting for other high-risk WAF configuration changes.
+
+### Additional information
+
+- **DeleteRule API (WAF Classic & Regional)**  
+  https://docs.aws.amazon.com/waf/latest/APIReference/API_waf_DeleteRule.html  
+- **DeleteRuleGroup API (WAFv2)**  
+  https://docs.aws.amazon.com/waf/latest/APIReference/API_waf_DeleteRuleGroup.html   
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
+"""
 references = [
-    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/waf/delete-rule-group.html",
+    "https://docs.aws.amazon.com/waf/latest/APIReference/API_waf_DeleteRule.html",
     "https://docs.aws.amazon.com/waf/latest/APIReference/API_waf_DeleteRuleGroup.html",
 ]
 risk_score = 47
@@ -70,6 +121,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS WAF",
     "Use Case: Network Security Monitoring",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
@@ -78,7 +130,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:(waf.amazonaws.com or waf-regional.amazonaws.com or wafv2.amazonaws.com) and event.action:(DeleteRule or DeleteRuleGroup) and event.outcome:success
+event.dataset: aws.cloudtrail 
+    and event.provider: (waf.amazonaws.com or waf-regional.amazonaws.com or wafv2.amazonaws.com) 
+    and event.action: (DeleteRule or DeleteRuleGroup) 
+    and event.outcome: success
 '''
 
 
@@ -89,9 +144,9 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.001"
-name = "Disable or Modify Tools"
-reference = "https://attack.mitre.org/techniques/T1562/001/"
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 
 
@@ -99,4 +154,20 @@ reference = "https://attack.mitre.org/techniques/T1562/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 

@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,41 @@ index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious APT Package Manager Network Connection"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious APT Package Manager Network Connection
+
+The APT package manager is crucial for managing software on Debian-based Linux systems. Adversaries may exploit APT by injecting malicious scripts, gaining persistence and control. The detection rule identifies suspicious APT-triggered shell executions followed by unusual network connections, flagging potential backdoor activities and unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the process details to confirm the parent process is indeed 'apt' and check the command-line arguments for any unusual or unauthorized scripts being executed.
+- Investigate the network connection details, focusing on the destination IP address to determine if it is known to be malicious or associated with suspicious activity. Cross-reference with threat intelligence sources.
+- Examine the process tree to identify any child processes spawned by the suspicious shell execution, which may provide further insight into the attacker's actions or intentions.
+- Check the system logs for any other recent unusual activities or alerts that might correlate with the suspicious APT activity, such as unauthorized user logins or file modifications.
+- Assess the system for any signs of persistence mechanisms that may have been established, such as cron jobs or modified startup scripts, which could indicate a backdoor installation.
+- If possible, capture and analyze network traffic to and from the destination IP to understand the nature of the communication and identify any data exfiltration or command and control activities.
+
+### False positive analysis
+
+- Legitimate administrative scripts executed by APT may trigger the rule if they involve shell commands followed by network connections. Users can create exceptions for known scripts by specifying their paths or hashes.
+- Automated system updates or package installations that involve network connections might be flagged. Users should monitor and whitelist these routine operations by identifying the specific processes and network destinations involved.
+- Network connections to internal or trusted IP addresses not covered by the existing CIDR exclusions could be mistakenly flagged. Users can expand the CIDR list to include additional trusted IP ranges specific to their environment.
+- Use of alternative shell environments or custom scripts that invoke APT with network operations may cause false positives. Users should document and exclude these specific use cases by process name or command-line arguments.
+- Non-standard APT configurations or third-party tools that interact with APT and initiate network connections might be misidentified. Users should review and whitelist these tools by their executable paths or process names.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further unauthorized network connections and potential lateral movement within the network.
+- Terminate any suspicious processes identified as being executed by the APT package manager, especially those involving shell executions.
+- Conduct a thorough review of the APT configuration files and scripts to identify and remove any injected malicious code or unauthorized modifications.
+- Revert any unauthorized changes to the system or software packages by restoring from a known good backup, ensuring the integrity of the system.
+- Update all system packages and apply security patches to close any vulnerabilities that may have been exploited by the attacker.
+- Monitor network traffic for any further suspicious connections or activities originating from the affected host, using enhanced logging and alerting mechanisms.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised, ensuring a comprehensive response."""
 references = ["https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms"]
 risk_score = 47
 rule_id = "eaef8a35-12e0-4ac0-bc14-81c72b6bd27c"
@@ -59,13 +94,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.parent.name == "apt" and process.args == "-c" and process.name in (
-     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-    )
+   process.parent.name == "apt" and process.args == "-c" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    not process.args == "/usr/bin/apt-listbugs apt"
   ] by process.entity_id
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and not (
      destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
@@ -78,45 +112,10 @@ sequence by host.id with maxspan=5s
    ) and not process.executable == "/usr/bin/apt-listbugs"
   ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious APT Package Manager Network Connection
-
-The APT package manager is crucial for managing software on Debian-based Linux systems. Adversaries may exploit APT by injecting malicious scripts, gaining persistence and control. The detection rule identifies suspicious APT-triggered shell executions followed by unusual network connections, flagging potential backdoor activities and unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the process details to confirm the parent process is indeed 'apt' and check the command-line arguments for any unusual or unauthorized scripts being executed.
-- Investigate the network connection details, focusing on the destination IP address to determine if it is known to be malicious or associated with suspicious activity. Cross-reference with threat intelligence sources.
-- Examine the process tree to identify any child processes spawned by the suspicious shell execution, which may provide further insight into the attacker's actions or intentions.
-- Check the system logs for any other recent unusual activities or alerts that might correlate with the suspicious APT activity, such as unauthorized user logins or file modifications.
-- Assess the system for any signs of persistence mechanisms that may have been established, such as cron jobs or modified startup scripts, which could indicate a backdoor installation.
-- If possible, capture and analyze network traffic to and from the destination IP to understand the nature of the communication and identify any data exfiltration or command and control activities.
-
-### False positive analysis
-
-- Legitimate administrative scripts executed by APT may trigger the rule if they involve shell commands followed by network connections. Users can create exceptions for known scripts by specifying their paths or hashes.
-- Automated system updates or package installations that involve network connections might be flagged. Users should monitor and whitelist these routine operations by identifying the specific processes and network destinations involved.
-- Network connections to internal or trusted IP addresses not covered by the existing CIDR exclusions could be mistakenly flagged. Users can expand the CIDR list to include additional trusted IP ranges specific to their environment.
-- Use of alternative shell environments or custom scripts that invoke APT with network operations may cause false positives. Users should document and exclude these specific use cases by process name or command-line arguments.
-- Non-standard APT configurations or third-party tools that interact with APT and initiate network connections might be misidentified. Users should review and whitelist these tools by their executable paths or process names.
-
-### Response and remediation
-
-- Isolate the affected host immediately to prevent further unauthorized network connections and potential lateral movement within the network.
-- Terminate any suspicious processes identified as being executed by the APT package manager, especially those involving shell executions.
-- Conduct a thorough review of the APT configuration files and scripts to identify and remove any injected malicious code or unauthorized modifications.
-- Revert any unauthorized changes to the system or software packages by restoring from a known good backup, ensuring the integrity of the system.
-- Update all system packages and apply security patches to close any vulnerabilities that may have been exploited by the attacker.
-- Monitor network traffic for any further suspicious connections or activities originating from the affected host, using enhanced logging and alerting mechanisms.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised, ensuring a comprehensive response."""
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -126,22 +125,22 @@ reference = "https://attack.mitre.org/techniques/T1543/"
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1546.016"
 name = "Installer Packages"
 reference = "https://attack.mitre.org/techniques/T1546/016/"
-
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -149,6 +148,7 @@ framework = "MITRE ATT&CK"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -156,4 +156,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

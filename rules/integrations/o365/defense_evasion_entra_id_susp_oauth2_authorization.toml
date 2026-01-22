@@ -1,0 +1,235 @@
+[metadata]
+creation_date = "2025/05/01"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/12/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies sign-ins on behalf of a principal user to the Microsoft Graph or legacy Azure AD API from multiple IPs using
+first-party Microsoft applications from the FOCI (Family of Client IDs) group. Developer tools like Azure CLI, VSCode,
+and Azure PowerShell accessing these resources from multiple IPs are flagged, along with any FOCI application accessing
+the deprecated Windows Azure Active Directory from multiple IPs. This behavior may indicate an adversary using a phished
+OAuth authorization code or refresh token, as seen in attacks like ConsentFix where attackers steal localhost OAuth
+codes and replay them from attacker infrastructure.
+"""
+from = "now-60m"
+interval = "59m"
+language = "esql"
+license = "Elastic License v2"
+name = "M365 Identity OAuth Flow by First-Party Microsoft App from Multiple IPs"
+note = """## Triage and analysis
+
+### Investigating M365 Identity OAuth Flow by First-Party Microsoft App from Multiple IPs
+
+This rule detects when the same user authenticates to Microsoft Graph or legacy Azure AD using FOCI applications from multiple IP addresses within a 30-minute window. This pattern is a strong indicator of OAuth code/token theft attacks like ConsentFix, where the victim completes the OAuth authorize flow on their device (first IP), and the attacker exchanges the stolen authorization code for tokens from their infrastructure (second IP).
+
+The rule aggregates events by user, application, and resource, requiring both `OAuth2:Authorize` and `OAuth2:Token` requests from at least 2 different IPs to fire - this indicates the code was generated on one IP and exchanged on another.
+
+### Possible investigation steps
+
+- Review `o365.audit.UserId` to identify the affected user and determine if they are a high-value target.
+- Analyze `Esql.source_ip_values` to see all unique IP addresses used within the 30-minute window. Determine whether these originate from different geographic regions, cloud providers (AWS, Azure, GCP), or anonymizing infrastructure (Tor, VPNs).
+- Use `Esql.time_window_date_trunc` to pivot into raw events and reconstruct the full sequence of resource access events with exact timestamps.
+- Check `Esql.source_as_organization_name_values` for unfamiliar ASN organizations that may indicate attacker infrastructure.
+- Review `Esql.o365_audit_ApplicationId_values` to confirm which first-party application was used.
+- Pivot to `azure.auditlogs` to check for device join or registration events around the same timeframe, which may indicate persistence attempts.
+- Correlate with `azure.identityprotection` to identify related risk detections such as anonymized IP access or token replay.
+- Search for additional sign-ins from the IPs involved across other users to determine if this is part of a broader campaign.
+
+### False positive analysis
+
+- Developers or IT administrators working across environments (office, home, cloud VMs) may produce similar behavior.
+- Users on VPN who switch servers or traveling between networks may show multiple IPs.
+- Mobile users moving between cellular and WiFi networks during the time window.
+- Consider correlating with device compliance status to distinguish managed vs. unmanaged access.
+
+### Response and remediation
+
+- If confirmed unauthorized, immediately revoke all refresh tokens for the affected user via Entra ID.
+- Remove any devices registered during this session by checking `azure.auditlogs` for `Add device` events.
+- Notify the user and determine whether they may have shared an OAuth code via phishing.
+- Block the attacker IPs at the perimeter and add to threat intel feeds.
+- Implement Conditional Access policies to restrict OAuth flows for these applications to compliant devices and approved locations.
+- Monitor for follow-on activity like lateral movement, privilege escalation, or data exfiltration via Graph API.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+    "https://pushsecurity.com/blog/consentfix",
+    "https://github.com/secureworks/family-of-client-ids-research",
+]
+risk_score = 73
+rule_id = "36188365-f88f-4f70-8c1d-0b9554186b9c"
+setup = """## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Email",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-o365.audit-*
+| where
+    event.dataset == "o365.audit" and
+    event.action == "UserLoggedIn" and
+    source.ip is not null and
+    o365.audit.UserId is not null and
+    o365.audit.ApplicationId is not null and
+    o365.audit.UserType in ("0", "2", "3", "10") and
+    (
+        /* Developer tools accessing Graph OR Legacy AAD */
+        (
+            o365.audit.ApplicationId in (
+                "aebc6443-996d-45c2-90f0-388ff96faa56",
+                "29d9ed98-a469-4536-ade2-f981bc1d605e",
+                "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
+                "1950a258-227b-4e31-a9cf-717495945fc2"
+            ) and
+            o365.audit.ObjectId in (
+                "00000003-0000-0000-c000-000000000000",
+                "00000002-0000-0000-c000-000000000000"
+            )
+        ) or
+        /* Any FOCI app accessing Legacy AAD only */
+        (
+            o365.audit.ApplicationId in (
+                "00b41c95-dab0-4487-9791-b9d2c32c80f2",
+                "1fec8e78-bce4-4aaf-ab1b-5451cc387264",
+                "26a7ee05-5602-4d76-a7ba-eae8b7b67941",
+                "27922004-5251-4030-b22d-91ecd9a37ea4",
+                "4813382a-8fa7-425e-ab75-3b753aab3abb",
+                "ab9b8c07-8f02-4f72-87fa-80105867a763",
+                "d3590ed6-52b3-4102-aeff-aad2292ab01c",
+                "872cd9fa-d31f-45e0-9eab-6e460a02d1f1",
+                "af124e86-4e96-495a-b70a-90f90ab96707",
+                "2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8",
+                "844cca35-0656-46ce-b636-13f48b0eecbd",
+                "87749df4-7ccf-48f8-aa87-704bad0e0e16",
+                "cf36b471-5b44-428c-9ce7-313bf84528de",
+                "0ec893e0-5785-4de6-99da-4ed124e5296c",
+                "22098786-6e16-43cc-a27d-191a01a1e3b5",
+                "4e291c71-d680-4d0e-9640-0a3358e31177",
+                "57336123-6e14-4acc-8dcf-287b6088aa28",
+                "57fcbcfa-7cee-4eb1-8b25-12d2030b4ee0",
+                "66375f6b-983f-4c2c-9701-d680650f588f",
+                "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223",
+                "a40d7d7d-59aa-447e-a655-679a4107e548",
+                "a569458c-7f2b-45cb-bab9-b7dee514d112",
+                "b26aadf8-566f-4478-926f-589f601d9c74",
+                "c0d2a505-13b8-4ae0-aa9e-cddd5eab0b12",
+                "d326c1ce-6cc6-4de2-bebc-4591e5e13ef0",
+                "e9c51622-460d-4d3d-952d-966a5b1da34c",
+                "eb539595-3fe1-474e-9c1d-feb3625d1be5",
+                "ecd6b820-32c2-49b6-98a6-444530e5a77a",
+                "f05ff7c9-f75a-4acd-a3b5-f4b6a870245d",
+                "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34",
+                "be1918be-3fe3-4be9-b32b-b542fc27f02e",
+                "cab96880-db5b-4e15-90a7-f3f1d62ffe39",
+                "d7b530a4-7680-4c23-a8bf-c52c121d2e87",
+                "dd47d17a-3194-4d86-bfd5-c6ae6f5651e3",
+                "e9b154d0-7658-433b-bb25-6b8e0a8a7c59"
+            ) and
+            o365.audit.ObjectId == "00000002-0000-0000-c000-000000000000"
+        )
+    )
+| eval
+    Esql.time_window_date_trunc = date_trunc(30 minutes, @timestamp),
+    Esql.oauth_authorize_user_id_case = case(
+        o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
+        o365.audit.UserId,
+        null
+    ),
+    Esql.oauth_token_user_id_case = case(
+        o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
+        o365.audit.UserId,
+        null
+    )
+| stats
+    Esql.source_ip_count_distinct = count_distinct(source.ip),
+    Esql.source_ip_values = values(source.ip),
+    Esql.o365_audit_ApplicationId_values = values(o365.audit.ApplicationId),
+    Esql.source_as_organization_name_values = values(source.`as`.organization.name),
+    Esql.oauth_token_count_distinct = count_distinct(Esql.oauth_token_user_id_case),
+    Esql.oauth_authorize_count_distinct = count_distinct(Esql.oauth_authorize_user_id_case)
+  by
+    o365.audit.UserId,
+    Esql.time_window_date_trunc,
+    o365.audit.ApplicationId,
+    o365.audit.ObjectId
+| keep
+    Esql.time_window_date_trunc,
+    Esql.source_ip_values,
+    Esql.source_ip_count_distinct,
+    Esql.o365_audit_ApplicationId_values,
+    Esql.source_as_organization_name_values,
+    Esql.oauth_token_count_distinct,
+    Esql.oauth_authorize_count_distinct
+| where
+    Esql.source_ip_count_distinct >= 2 and
+    Esql.oauth_token_count_distinct > 0 and
+    Esql.oauth_authorize_count_distinct > 0
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

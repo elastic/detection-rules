@@ -2,7 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/22"
 
 [transform]
 [[transform.osquery]]
@@ -29,7 +29,6 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
-
 
 [rule]
 author = ["Elastic"]
@@ -146,70 +145,67 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where event.type == "start" and host.os.type == "linux" and event.action : ("exec", "exec_event", "start") and
-  process.parent.executable : "/etc/update-motd.d/*" and
+process where event.type == "start" and host.os.type == "linux" and event.action in ("exec", "exec_event", "start") and
+process.parent.executable like "/etc/update-motd.d/*" and
+(
   (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
     (
-      process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-      (
-        process.args : ("-i", "-l") or
-        (process.parent.name == "socat" and process.parent.args : "*exec*")
-      )
-    ) or
-    (
-      process.name : ("nc", "ncat", "netcat", "nc.openbsd") and process.args_count >= 3 and 
-      not process.args : ("-*z*", "-*l*")
-    ) or
-    (
-      process.name : "python*" and process.args : "-c" and process.args : (
-        "*import*pty*spawn*", "*import*subprocess*call*"
-      )
-    ) or
-    (
-      process.name : "perl*" and process.args : "-e" and process.args : "*socket*" and process.args : (
-        "*exec*", "*system*"
-      )
-    ) or
-    (
-      process.name : "ruby*" and process.args : ("-e", "-rsocket") and process.args : (
-        "*TCPSocket.new*", "*TCPSocket.open*"
-      )
-    ) or
-    (
-      process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
-        "*io.popen*", "*os.execute*"
-      )
-    ) or
-    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
-    (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or 
-    (process.name in ("openssl", "telnet")) or
-    (
-      process.args : (
-        "./*", "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/etc/update-motd.d/*", "/run/*", "/srv/*",
-        "/tmp/*", "/var/tmp/*", "/var/log/*", "/opt/*"
-      ) and process.args_count == 1
+      process.args : ("-i", "-l") or
+      (process.parent.name == "socat" and process.parent.args : "*exec*")
     )
-  ) and 
-  not (
-    process.parent.args == "--force" or
-    process.args in ("/usr/games/lolcat", "/usr/bin/screenfetch") or
-    process.parent.name == "system-crash-notification"
+  ) or
+  (
+    process.name : ("nc", "ncat", "netcat", "nc.openbsd") and process.args_count >= 3 and 
+    not process.args : ("-*z*", "-*l*")
+  ) or
+  (
+    process.name : "python*" and process.args : "-c" and process.args : (
+      "*import*pty*spawn*", "*import*subprocess*call*"
+    )
+  ) or
+  (
+    process.name : "perl*" and process.args : "-e" and process.args : "*socket*" and process.args : (
+      "*exec*", "*system*"
+    )
+  ) or
+  (
+    process.name : "ruby*" and process.args : ("-e", "-rsocket") and process.args : (
+      "*TCPSocket.new*", "*TCPSocket.open*"
+    )
+  ) or
+  (
+    process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
+      "*io.popen*", "*os.execute*"
+    )
+  ) or
+  (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
+  (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or 
+  (process.name in ("openssl", "telnet")) or
+  (
+    process.args : (
+      "./*", "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/etc/update-motd.d/*", "/run/*", "/srv/*",
+      "/tmp/*", "/var/tmp/*", "/var/log/*", "/opt/*"
+    ) and process.args_count == 1
   )
+) and 
+not (
+  process.parent.args == "--force" or
+  process.args in ("/usr/games/lolcat", "/usr/bin/screenfetch") or
+  process.parent.name == "system-crash-notification"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

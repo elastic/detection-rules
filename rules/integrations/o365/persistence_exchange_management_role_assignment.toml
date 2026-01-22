@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2020/11/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a new role is assigned to a management group in Microsoft 365. An adversary may attempt to add a role in
+order to maintain persistence in an environment.
+"""
+false_positives = [
+    """
+    A new role may be assigned to a management group by a system or network administrator. Verify that the configuration
+    change was expected. Exceptions can be added to this rule to filter expected behavior.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Exchange Management Group Role Assigned"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating M365 Exchange Management Group Role Assigned
+
+Microsoft 365 Exchange Management roles define permissions for managing Exchange environments. Adversaries may exploit this by assigning roles to unauthorized users, ensuring persistent access. The detection rule monitors successful role assignments within Exchange, flagging potential unauthorized changes that align with persistence tactics, thus aiding in identifying and mitigating unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the event details to confirm the event.action is "New-ManagementRoleAssignment" and the event.outcome is "success" to ensure the alert is valid.
+- Identify the user account associated with the role assignment by examining the event.dataset and event.provider fields, and verify if the account is authorized to make such changes.
+- Check the history of role assignments for the identified user to determine if there are any patterns of unauthorized or suspicious activity.
+- Investigate the specific management role that was assigned to understand its permissions and potential impact on the environment.
+- Correlate this event with other recent activities from the same user or IP address to identify any additional suspicious behavior or anomalies.
+- Consult with the relevant IT or security teams to verify if the role assignment was part of a legitimate administrative task or change request.
+
+### False positive analysis
+
+- Routine administrative role assignments can trigger alerts. Regularly review and document legitimate role changes to differentiate them from unauthorized activities.
+- Automated scripts or tools used for role management may cause false positives. Identify and whitelist these tools to prevent unnecessary alerts.
+- Changes made during scheduled maintenance windows might be flagged. Establish a process to temporarily suppress alerts during these periods while ensuring post-maintenance reviews.
+- Role assignments related to onboarding or offboarding processes can appear suspicious. Implement a verification step to confirm these changes align with HR records and expected activities.
+- Frequent role changes by specific users with administrative privileges may not indicate malicious intent. Monitor these users' activities and establish a baseline to identify deviations from normal behavior.
+
+### Response and remediation
+
+- Immediately revoke the newly assigned management role from the unauthorized user to prevent further unauthorized access or changes.
+- Conduct a thorough review of recent activity logs for the affected account to identify any suspicious actions taken since the role assignment.
+- Reset the credentials of the compromised account and enforce multi-factor authentication to enhance security.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring on the affected account and similar high-privilege accounts to detect any further unauthorized attempts.
+- Review and update access control policies to ensure that only authorized personnel can assign management roles in Microsoft 365.
+- Consider conducting a security awareness session for administrators to reinforce the importance of monitoring and managing role assignments securely.
+
+## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.microsoft.com/en-us/powershell/module/exchange/new-managementroleassignment?view=exchange-ps",
+    "https://docs.microsoft.com/en-us/microsoft-365/admin/add-users/about-admin-roles?view=o365-worldwide",
+]
+risk_score = 47
+rule_id = "98995807-5b09-4e37-8a54-5cae5dc932d7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-ManagementRoleAssignment" and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

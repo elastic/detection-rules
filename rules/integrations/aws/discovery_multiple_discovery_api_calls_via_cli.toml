@@ -1,0 +1,239 @@
+[metadata]
+creation_date = "2024/11/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/01/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a single AWS resource is running multiple read-only, discovery API calls in a 10-second window. This
+behavior could indicate an actor attempting to discover the AWS infrastructure using compromised credentials or a
+compromised instance. Adversaries may use this information to identify potential targets for further exploitation or to
+gain a better understanding of the target's infrastructure.
+"""
+false_positives = [
+    """
+    Administrators or automated systems may legitimately perform multiple `Describe`, `List`, `Get` and `Generate` API calls in a short
+    time frame. Verify the user identity and the purpose of the API calls to determine if the behavior is expected.
+    """,
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Discovery API Calls via CLI from a Single Resource"
+note = """## Triage and analysis
+
+### Investigating AWS Discovery API Calls via CLI from a Single Resource
+
+This rule detects when a single AWS identity executes more than five unique discovery-related API calls (`Describe*`, `List*`, `Get*`, or `Generate*`) within a 10-second window using the AWS CLI.  
+High volumes of diverse “read-only” API calls in such a short period can indicate scripted reconnaissance, often an early phase of compromise after credential exposure or access to a compromised EC2 instance.  
+
+#### Possible Investigation Steps
+
+**Identify the actor and session context**
+- **Actor ARN (`aws.cloudtrail.user_identity.arn`)**: Determine which IAM user, role, or service principal performed the actions.  
+  - Check whether this identity normally performs enumeration activity or belongs to automation infrastructure.  
+- **Identity type (`Esql.aws_cloudtrail_user_identity_arn_type`)**: Validate if the caller is a human IAM user, assumed role, or federated identity. Unusual types (e.g., temporary credentials from an unfamiliar role) may indicate lateral movement.  
+- **Access key (`Esql.aws_cloudtrail_user_identity_access_key_id_values`)** – Identify which specific access key or temporary credential was used.  
+  - If multiple suspicious keys are found, use AWS IAM console or `aws iam list-access-keys` to determine when they were last used or rotated.  
+- **Account (`Esql.cloud_account_id_values`)** – Confirm which AWS account was affected and whether it matches the intended operational context (e.g., production vs. sandbox).
+
+**Assess the API call pattern and intent**
+- **Distinct action count (`Esql.event_action_count_distinct`)**: Note how many unique API calls occurred within each 10-second window. Counts far above normal operational baselines may indicate scripted reconnaissance.  
+- **API actions (`Esql.event_action_values`)**: Review which discovery APIs were invoked.  
+  - Focus on services such as EC2 (`DescribeInstances`), IAM (`ListRoles`, `ListAccessKeys`), S3 (`ListBuckets`), and KMS (`ListKeys`), which adversaries frequently query to map assets.  
+- **Service providers (`Esql.event_provider_values`)**: Identify which AWS services were targeted.  
+  - Multi-service enumeration (IAM + EC2 + S3) suggests broad discovery rather than a specific diagnostic task.  
+- **Time window (`Esql.time_window_date_trunc`)**: Verify whether activity occurred during normal maintenance windows or outside expected hours.
+
+**Analyze the source and origin**
+- **Source IP (`Esql.source_ip_values`)**: Check the originating IPs to determine whether the calls came from a known internal host, an EC2 instance, or an unfamiliar external network.  
+  - Compare with known corporate CIDR ranges, VPC flow logs, or guardrail baselines.  
+- **Source organization (`Esql.source_as_organization_name_values`)**: Review the associated ASN or organization.  
+  - If the ASN belongs to a commercial ISP or VPN service, investigate possible credential compromise or remote attacker usage.
+
+**Correlate with additional events**
+- Search CloudTrail for the same `aws.cloudtrail.user_identity.arn` or `aws_cloudtrail_user_identity_access_key_id_values` within ±30 minutes.  
+  - Look for follow-on actions such as `GetCallerIdentity`, `AssumeRole`, `CreateAccessKey`, or data access (`GetObject`, `CopySnapshot`).  
+  - Correlate this enumeration with authentication anomalies or privilege-related findings.  
+- Cross-reference `Esql.cloud_account_id_values` with other alerts for lateral or privilege escalation patterns.
+
+### False positive analysis
+
+Legitimate, high-frequency API activity may originate from:
+- **Inventory or compliance automation**: Scripts or tools such as AWS Config, Cloud Custodian, or custom CMDB collection performing periodic Describe/List calls.  
+- **Operational monitoring systems**: DevOps pipelines, Terraform, or deployment verifiers enumerating resources.  
+- **Security tooling**: Security scanners performing asset discovery across services.
+
+Validate by confirming:
+- Whether the `aws.cloudtrail.user_identity.arn` corresponds to a documented automation or monitoring identity.  
+- That the observed `Esql.event_action_values` match known inventory or cost-reporting workflows.  
+- Timing alignment with approved maintenance schedules.
+
+### Response and remediation
+
+If the activity is unexpected or originates from unrecognized credentials, follow AWS’s incident-handling guidance:
+
+**Contain**
+- Temporarily disable or rotate the access key (`Esql.aws_cloudtrail_user_identity_access_key_id_values`) using IAM.  
+- Restrict outbound connectivity for the instance or resource from which the API calls originated.
+
+**Investigate**
+- Retrieve full CloudTrail logs for the actor and `Esql.time_window_date_trunc` interval.  
+- Identify any subsequent write or privilege-modification actions.  
+- Review associated IAM policies for excessive permissions.
+
+**Recover and Harden**
+- Rotate credentials, enforce MFA on human users, and tighten IAM role trust policies.  
+- Implement AWS Config rules or SCPs to monitor and restrict large-scale enumeration.
+
+**Post-Incident Actions**
+- Document the finding and response in your organization’s IR management system.  
+- Update detection logic or allow-lists for known benign automation.  
+- Validate recovery by confirming no new suspicious discovery bursts occur.
+
+### Additional information
+
+- **AWS Documentation**
+  - [CloudTrail Event Reference](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html)
+  - [AWS Security Incident Response Guide](https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.pdf)
+- **AWS Playbook Resources**
+  - [AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/tree/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks)
+  - [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework)
+
+"""
+references = ["https://stratus-red-team.cloud/attack-techniques/AWS/aws.discovery.ec2-enumerate-from-instance/"]
+risk_score = 21
+rule_id = "74f45152-9aee-11ef-b0a5-f661ea17fbcd"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS EC2",
+    "Data Source: AWS IAM",
+    "Data Source: AWS S3",
+    "Data Source: AWS Cloudtrail",
+    "Data Source: AWS RDS",
+    "Data Source: AWS Lambda",
+    "Data Source: AWS STS",
+    "Data Source: AWS KMS",
+    "Data Source: AWS SES",
+    "Data Source: AWS Cloudfront",
+    "Data Source: AWS DynamoDB",
+    "Data Source: AWS Elastic Load Balancing",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+// create time window buckets of 10 seconds
+| eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
+
+| where
+    event.dataset == "aws.cloudtrail"
+    // filter on CloudTrail audit logs for IAM, EC2, S3, etc.
+    and event.provider in (
+      "iam.amazonaws.com",
+      "ec2.amazonaws.com",
+      "s3.amazonaws.com",
+      "rds.amazonaws.com",
+      "lambda.amazonaws.com",
+      "dynamodb.amazonaws.com",
+      "kms.amazonaws.com",
+      "cloudfront.amazonaws.com",
+      "elasticloadbalancing.amazonaws.com", 
+      "cloudtrail.amazonaws.com",
+      "sts.amazonaws.com",
+      "ses.amazonaws.com"
+    )
+    // ignore AWS service actions
+    and aws.cloudtrail.user_identity.type != "AWSService"
+    // filter for aws-cli specifically
+    and user_agent.name == "aws-cli"
+    // exclude DescribeCapacityReservations events related to AWS Config
+    and event.action != "DescribeCapacityReservations"
+
+// filter for Describe, Get, List, and Generate API calls
+| where true in (
+    starts_with(event.action, "Describe"),
+    starts_with(event.action, "Get"),
+    starts_with(event.action, "List"),
+    starts_with(event.action, "Generate")
+)
+
+// extract owner, identity type, and actor from the ARN
+| dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql_priv.aws_cloudtrail_user_identity_arn_owner}:%{Esql.aws_cloudtrail_user_identity_arn_type}/%{Esql.aws_cloudtrail_user_identity_arn_roles}"
+
+| where starts_with(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
+
+// keep relevant fields (preserving ECS fields and computed time window)
+| keep 
+    @timestamp, 
+    Esql.time_window_date_trunc, 
+    event.action, 
+    aws.cloudtrail.user_identity.arn, 
+    aws.cloudtrail.user_identity.type, 
+    aws.cloudtrail.user_identity.access_key_id, 
+    source.ip, 
+    cloud.account.id, 
+    event.provider, 
+    user_agent.name, 
+    source.as.organization.name, 
+    cloud.region,
+    data_stream.namespace
+
+// count the number of unique API calls per time window and actor
+| stats
+    Esql.event_action_count_distinct = count_distinct(event.action),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.event_timestamp_values = VALUES(@timestamp),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.event_provider_values = VALUES(event.provider),
+    Esql.user_agent_name_values = VALUES(user_agent.name),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
+
+// filter for more than 5 unique API calls per 10s window
+| where Esql.event_action_count_distinct > 5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+  "Esql.event_action_count_distinct", 
+  "Esql.time_window_date_trunc", 
+  "aws.cloudtrail.user_identity.arn", 
+  "Esql.aws_cloudtrail_user_identity_type_values",
+  "Esql.aws_cloudtrail_user_identity_access_key_id_values", 
+  "Esql.source_ip_values", 
+  "Esql.source_as_organization_name_values", 
+  "Esql.event_provider_values", 
+  "Esql.event_action_values", 
+  "Esql.cloud_account_id_values",
+  "Esql.cloud_region_values",
+  "Esql.data_stream_namespace_values"
+  ]
+

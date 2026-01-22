@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -19,9 +19,6 @@ license = "Elastic License v2"
 name = "AWS S3 Unauthenticated Bucket Access by Rare Source"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS S3 Unauthenticated Bucket Access by Rare Source
 
 This rule detects requests to an AWS S3 bucket by an unauthenticated source, which could indicate a misconfigured bucket policy allowing public access. Adversaries can exploit this misconfiguration by using tools or AWS CLI options like `--no-sign-request` to access bucket contents.
@@ -30,32 +27,32 @@ The rule triggers when an unauthenticated IP address retrieves an object, and th
 
 ### Possible Investigation Steps
 
-1. **Identify the Source of the Request**:
+**Identify the Source of the Request**:
     - Review the `source.address` field to determine the IP address of the request source.
     - Check `source.geo` fields for geographic details of the originating IP address.
     - Analyze the `user_agent.original` field to identify the client or tool used (e.g., `Python Requests`, `aws-cli`, browser).
 
-2. **Review the Accessed Bucket and Object**:
+**Review the Accessed Bucket and Object**:
     - Analyze the `aws.cloudtrail.resources.arn` field to identify the S3 bucket and object being accessed.
     - Inspect `aws.cloudtrail.request_parameters` for bucket name and object key to determine which file was retrieved.
     - Review the `even.action` field to identify which API call was made (e.g., `GetObject`, `ListObjects`, `PutObject`, `ListBucket`).
 
-3. **Validate the Source IP and Context**:
+**Validate the Source IP and Context**:
     - Determine if the IP address (`source.address`) has any prior activity in your environment.
     - Correlate the IP with threat intelligence or blocklist databases to check for malicious indicators.
     - Review CloudTrail logs for other activities originating from the same IP.
 
-4. **Analyze the S3 Bucket Configuration**:
+**Analyze the S3 Bucket Configuration**:
     - Review the S3 bucket's Access Control List (ACL) and bucket policy to check for misconfigurations allowing public or unauthenticated access.
     - Look for overly permissive settings, such as `Principal: *` or `Effect: Allow` rules that expose the bucket.
 
-5. **Investigate Additional Activity**:
+**Investigate Additional Activity**:
     - Check if there are subsequent actions, such as:
         - **Additional `GetObject` API calls**: Indicating further data exfiltration.
         - **ListObjects requests**: Attempting to enumerate the bucket's contents.
     - Correlate events within the same timeframe to identify related suspicious activity.
 
-6. **Assess the Data Exposed**:
+**Assess the Data Exposed**:
     - Identify the retrieved object(s) and analyze their content to assess potential data exposure.
     - Determine if the file contains sensitive information, such as credentials, intellectual property, or PII.
 
@@ -66,20 +63,20 @@ The rule triggers when an unauthenticated IP address retrieves an object, and th
 
 ### Response and Remediation
 
-1. **Immediate Action**:
+**Immediate Action**:
     - Restrict or remove public access to the affected S3 bucket.
     - Update the bucket policy to ensure access is restricted to trusted principals.
     - Enable **S3 Block Public Access** settings to prevent unintended public access.
 
-2. **Monitoring and Detection**:
+**Monitoring and Detection**:
     - Enable detailed logging and monitoring for all S3 bucket activities.
     - Configure real-time alerts for unauthenticated `GetObject` or `ListObjects` events on sensitive S3 buckets.
 
-3. **Security Audits**:
+**Security Audits**:
     - Regularly audit S3 bucket policies and ACLs to ensure they adhere to AWS security best practices.
     - Use AWS tools like **Trusted Advisor** or **Access Analyzer** to identify and address misconfigurations.
 
-4. **Investigate for Data Exfiltration**:
+**Investigate for Data Exfiltration**:
     - Analyze historical CloudTrail logs to determine if other sensitive files were accessed or exfiltrated.
     - Assess the scope of the exposure and initiate further response if sensitive data was compromised.
 
@@ -181,6 +178,6 @@ field = "new_terms_fields"
 value = ["source.address", "tls.client.server_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
 
 

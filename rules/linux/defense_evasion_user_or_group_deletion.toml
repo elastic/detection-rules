@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2026/01/08"
+integration = ["system"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the deletion of user or group accounts on Linux systems. Adversaries may use these
+commands to remove accounts to cover their tracks or disrupt operations.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-system.auth-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux User or Group Deletion"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux User or Group Deletion
+
+This rule surfaces successful deletions of Linux users or groups—activity that can erase evidence, hide persistence, or disrupt access control. A common pattern is an attacker with root rights running userdel -r to remove a temporary privileged account they used for access, deleting its home directory and mail spool to strip artifacts. Correlate with recent privilege escalation and changes to sudoers/wheel to identify whether this was malicious cleanup versus routine deprovisioning.
+
+### Possible investigation steps
+
+- Correlate with auth and sudo logs to identify the actor, session (TTY/SSH), and source IP that executed the deletion and confirm whether root was obtained via sudo or another escalation path.
+- Inspect the process tree and command line to see if userdel/groupdel used -r to remove the home/mail spool and whether it was launched from an interactive shell, SSH session, or automation tooling.
+- Validate expected deprovisioning by checking HR/ticketing/IdM and configuration-management activity around the time, and escalate if the deleted identity was privileged or part of sudo/wheel.
+- Build a timeline around the event to find adjacent actions such as account creation, password or key changes, group membership edits, and modifications to /etc/passwd, /etc/group, /etc/shadow, or sudoers.
+- Assess impact and persistence by locating services, cron/systemd units, files, ACLs, or running processes still referencing the deleted UID/GID, attempt recovery of the home/mail from backups, and look for wtmp/btmp/lastlog tampering.
+
+### False positive analysis
+
+- Scheduled deprovisioning or baseline enforcement where administrators intentionally remove stale local users or groups associated with retired projects, decommissioned systems, or role changes during maintenance.
+- Package uninstall or system maintenance scripts that add a service account during setup and later remove it during cleanup, causing legitimate user/group deletion events.
+
+### Response and remediation
+
+- If the deletion is unauthorized, immediately isolate the host and restrict interactive access by setting PermitRootLogin no and tightening AllowUsers/AllowGroups in /etc/ssh/sshd_config, then systemctl restart sshd to apply.
+- Review and clean authorization and persistence by inspecting /etc/sudoers and /etc/sudoers.d for unauthorized rules, checking wheel/sudo memberships in /etc/group, and purging cron or systemd units that reference the deleted UID/GID.
+- Recover the identity if legitimate by recreating the user/group with the original UID/GID from /var/backups/{passwd,group,shadow}, restoring the corresponding /home directory and /var/spool/mail from backups, and reassigning orphaned files using find -nouser -nogroup to a valid account.
+- Rotate credentials associated with the deleted identity by replacing SSH keys and secrets found in ~/.ssh/authorized_keys and application configs, and invalidate cached tokens and service account credentials that may have been shared.
+- Escalate to incident response if the deleted account was privileged (present in wheel/sudo groups), userdel/groupdel used -r to remove the home/mail spool, or evidence of log tampering exists such as truncated /var/log/auth.log or altered wtmp/btmp/lastlog.
+- Harden by centralizing local account lifecycle in IdM/LDAP, enforcing visudo-managed sudo changes, enabling auditd watches on /usr/sbin/userdel,/usr/sbin/groupdel and writes to /etc/passwd,/etc/group,/etc/shadow, and deploying AIDE to monitor integrity of /etc.
+"""
+risk_score = 21
+rule_id = "8f8004e1-0783-485f-a3da-aca4362f74a7"
+setup = """## Setup
+
+This rule requires data coming in from Filebeat.
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete “Setup and Run Filebeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the “Filebeat System Module” to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+iam where host.os.type == "linux" and event.type in ("group", "user") and event.type == "deletion" and event.outcome == "success"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

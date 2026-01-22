@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2025/03/10"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/12/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects rare non-interactive sign-ins where an Entra ID client application authenticates on behalf of a principal user
+using an application (client) ID that is not commonly associated with that user’s historical sign-in behavior.
+Adversaries with stolen credentials or OAuth tokens may abuse Entra ID–managed or first-party client IDs to perform
+on-behalf-of (OBO) authentication, blending into legitimate cloud traffic while avoiding traditional interactive sign-in
+flows. This technique is commonly observed in OAuth phishing, token theft, and access broker operations, and may precede
+lateral movement, persistence, or data access via Microsoft Graph or other cloud resources. The rule uses a New Terms
+approach to identify first-seen combinations of the UPN and Client ID within a defined history window, helping surface
+unexpected client usage that may indicate compromised identities, malicious automation, or unauthorized application
+impersonation.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID User Sign-in with Unusual Client"
+note = """## Triage and analysis
+
+### Investigating Entra ID User Sign-in with Unusual Client
+
+This rule identifies rare Azure Entra apps IDs requesting authentication on-behalf-of a principal user. An adversary with stolen credentials may specify an Azure-managed app ID to authenticate on-behalf-of a user. This is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The app ID specified may not be commonly used by the user based on their historical sign-in activity.
+
+### Possible investigation steps
+
+- Identify the source IP address from which the failed login attempts originated by reviewing `source.ip`. Determine if the IP is associated with known malicious activity using threat intelligence sources or if it belongs to a corporate VPN, proxy, or automation process.
+- Analyze affected user accounts by reviewing `azure.signinlogs.properties.user_principal_name` to determine if they belong to privileged roles or high-value users. Look for patterns indicating multiple failed attempts across different users, which could suggest a password spraying attempt.
+- Examine the authentication method used in `azure.signinlogs.properties.authentication_details` to identify which authentication protocols were attempted and why they failed. Legacy authentication methods may be more susceptible to brute-force attacks.
+- Review the authentication error codes found in `azure.signinlogs.properties.status.error_code` to understand why the login attempts failed. Common errors include `50126` for invalid credentials, `50053` for account lockouts, `50055` for expired passwords, and `50056` for users without a password.
+- Correlate failed logins with other sign-in activity by looking at `event.outcome`. Identify if there were any successful logins from the same user shortly after multiple failures or if there are different geolocations or device fingerprints associated with the same account.
+- Review `azure.signinlogs.properties.app_id` to identify which applications were initiating the authentication attempts. Determine if these applications are Microsoft-owned, third-party, or custom applications and if they are authorized to access the resources.
+- Check for any conditional access policies that may have been triggered by the failed login attempts by reviewing `azure.signinlogs.properties.authentication_requirement`. This can help identify if the failed attempts were due to policy enforcement or misconfiguration.
+
+## False positive analysis
+
+- Automated scripts or applications using non-interactive authentication may trigger this detection, particularly if they rely on legacy authentication protocols recorded in `azure.signinlogs.properties.authentication_protocol`.
+- Corporate proxies or VPNs may cause multiple users to authenticate from the same IP, appearing as repeated failed attempts under `source.ip`.
+- User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
+- Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
+- Exclude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
+- Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
+- Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
+
+## Response and remediation
+
+- Block the source IP address in `source.ip` if determined to be malicious.
+- Reset passwords for all affected user accounts listed in `azure.signinlogs.properties.user_principal_name` and enforce stronger password policies.
+- Ensure basic authentication is disabled for all applications using legacy authentication protocols listed in `azure.signinlogs.properties.authentication_protocol`.
+- Enable multi-factor authentication (MFA) for impacted accounts to mitigate credential-based attacks.
+- Review conditional access policies to ensure they are correctly configured to block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
+- Review Conditional Access policies to enforce risk-based authentication and block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
+- Implement a zero-trust security model by enforcing least privilege access and continuous authentication.
+- Regularly review and update conditional access policies to ensure they are effective against evolving threats.
+- Restrict the use of legacy authentication protocols by disabling authentication methods listed in `azure.signinlogs.properties.client_app_used`.
+- Regularly audit authentication logs in `azure.signinlogs` to detect abnormal login behavior and ensure early detection of potential attacks.
+- Regularly rotate client credentials and secrets for applications using non-interactive authentication to reduce the risk of credential theft.
+"""
+references = ["https://securityscorecard.com/wp-content/uploads/2025/02/MassiveBotnet-Report_022125_03.pdf"]
+risk_score = 47
+rule_id = "c766bc56-fdca-11ef-b194-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Data Source: Entra ID Sign-in",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.signinlogs" and event.category: "authentication"
+    and azure.signinlogs.properties.is_interactive: false
+    and azure.signinlogs.properties.user_type: "Member"
+    and not azure.signinlogs.properties.client_app_used: "Browser"
+    and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
+    and not azure.signinlogs.properties.app_id: (
+        "1b3c667f-cde3-4090-b60b-3d2abd0117f0" or
+        "26a7ee05-5602-4d76-a7ba-eae8b7b67941" or
+        "4b0964e4-58f1-47f4-a552-e2e1fc56dcd7" or
+        "ecd6b820-32c2-49b6-98a6-444530e5a77a" or
+        "268761a2-03f3-40df-8a8b-c3db24145b6b" or
+        "fc0f3af4-6835-4174-b806-f7db311fd2f3" or
+        "de50c81f-5f80-4771-b66b-cebd28ccdfc1" or
+        "ab9b8c07-8f02-4f72-87fa-80105867a763" or
+        "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3" or
+        "d7b530a4-7680-4c23-a8bf-c52c121d2e87" or
+        "52c2e0b5-c7b6-4d11-a89c-21e42bcec444" or
+        "38aa3b87-a06d-4817-b275-7a316988d93b" or
+        "27922004-5251-4030-b22d-91ecd9a37ea4" or
+        "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" or
+        "cab96880-db5b-4e15-90a7-f3f1d62ffe39" or
+        "3a4d129e-7f50-4e0d-a7fd-033add0a29f4" or
+        "29d9ed98-a469-4536-ade2-f981bc1d605e" or
+        "c0ab8ce9-e9a0-42e7-b064-33d422df41f1" or
+        "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7" or
+        "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+        "08e18876-6177-487e-b8b5-cf950c1e598c" or
+        "0ec893e0-5785-4de6-99da-4ed124e5296c" or
+        "d3590ed6-52b3-4102-aeff-aad2292ab01c" or
+        "0dc2408a-bbc0-4238-871e-13b372f0200f" or
+        "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+        "af124e86-4e96-495a-b70a-90f90ab96707" or
+        "e9c51622-460d-4d3d-952d-966a5b1da34c" or
+        "ecd6b820-32c2-49b6-98a6-444530e5a77a" or
+        "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34" or
+        "e2ef5054-0287-4db6-afa3-013d96881fd3"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.user_id",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.client_app_used",
+    "azure.signinlogs.properties.incoming_token_type",
+    "azure.signinlogs.properties.authentication_protocol",
+    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.token_issuer_type",
+    "azure.signinlogs.properties.resource_display_name",
+    "source.ip",
+    "source.as.number",
+    "source.geo.country_name",
+    "azure.signinlogs.properties.correlation_id",
+    "azure.signinlogs.properties.session_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.user_principal_name", "azure.signinlogs.properties.app_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

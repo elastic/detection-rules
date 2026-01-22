@@ -2,21 +2,20 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/02/28"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a potential port scan. A port scan is a method utilized by attackers to systematically scan a
-target system or network for open ports, allowing them to identify available services and potential vulnerabilities. By
-mapping out the open ports, attackers can gather critical information to plan and execute targeted attacks, gaining
-unauthorized access, compromising security, and potentially leading to data breaches, unauthorized control, or further
-exploitation of the targeted system or network. This rule defines a threshold-based approach to detect connection
-attempts from a single source to a wide range of destination ports.
+This rule identifies a potential port scan from an internal IP address. A port scan is a method utilized by attackers to
+systematically scan a target system for open ports, allowing them to identify available services and potential
+vulnerabilities. By mapping out the open ports, attackers can gather critical information to plan and execute targeted
+attacks, gaining unauthorized access, compromising security, and potentially leading to data breaches, unauthorized
+control, or further exploitation of the targeted system. This rule defines a threshold-based approach to detect
+connection attempts from a single internal source to a wide range of destination ports on a single destination.
 """
 from = "now-9m"
-index = ["logs-network_traffic.*", "packetbeat-*", "filebeat-*", "logs-panw.panos*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 max_signals = 5
 name = "Potential Network Scan Detected"
@@ -32,10 +31,23 @@ tags = [
     "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-event.action:network_flow and destination.port:* and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+from logs-network_traffic.*, packetbeat-*, logs-panw.panos*
+| mv_expand event.action
+| where event.action == "network_flow" and destination.port is not null and source.ip is not null and destination.ip is not null
+| eval Esql.time_window = DATE_TRUNC(1min, @timestamp)
+| where CIDR_MATCH(source.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+| eval sensitive_port = case(destination.port IN (21, 22, 23, 53, 88, 139, 389, 445, 3389, 5900, 5985, 5986, 9389), true, false)
+| stats
+    Esql.count_distinct_destination_ports = COUNT_DISTINCT(destination.port),
+    Esql.count_distinct_sensitive_ports = COUNT_DISTINCT(destination.port) where sensitive_port == true,
+    Esql.values_destination_ports = VALUES(destination.port),
+    Esql.values_sensitive_ports = VALUES(destination.port) where sensitive_port == true
+  by Esql.time_window, destination.ip, source.ip
+| where (Esql.count_distinct_destination_ports >= 50 or Esql.count_distinct_sensitive_ports >= 5)
+| keep source.ip, destination.ip, Esql.*
 '''
 note = """## Triage and analysis
 
@@ -103,11 +115,3 @@ reference = "https://attack.mitre.org/techniques/T1595/001/"
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
-
-[rule.threshold]
-field = ["destination.ip", "source.ip"]
-value = 1
-
-[[rule.threshold.cardinality]]
-field = "destination.port"
-value = 250

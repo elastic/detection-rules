@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects unusual modification of GenAI tool configuration files. Adversaries may inject malicious MCP server
+configurations to hijack AI agents for persistence, C2, or data exfiltration. Attack vectors include malware or scripts
+directly poisoning config files, supply chain attacks via compromised dependencies, and prompt injection attacks that
+abuse the GenAI tool itself to modify its own configuration. Unauthorized MCP servers added to these configs execute
+arbitrary commands when the AI tool is next invoked.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Process Modifying GenAI Configuration File"
+note = """## Triage and analysis
+
+### Investigating Unusual Process Modifying GenAI Configuration File
+
+Configuration files for GenAI tools like Cursor, Claude, Copilot, and Ollama control which MCP servers, plugins, and extensions are loaded. Attackers target these files to inject malicious MCP servers that execute arbitrary commands, exfiltrate data, or establish persistence. Threats include external processes (malware, compromised scripts, supply chain attacks) directly modifying configs, as well as prompt injection attacks that abuse the AI tool's own file access capabilities.
+
+### Possible investigation steps
+
+- Identify the process that modified the configuration file and determine if it's expected (GenAI tool, installer, user action) or suspicious (unknown script, malware).
+- If the modifying process is NOT a GenAI tool, investigate its origin, parent process tree, and whether it was downloaded or executed from a suspicious location.
+- If a GenAI tool made the modification, check recent user prompts or agent activity that may have triggered the config change via prompt injection.
+- Review the contents of the modified configuration file for suspicious MCP server URLs, unauthorized plugins, or unusual agent permissions.
+- Examine the process command line and parent process tree to identify how the modifying process was invoked.
+- Check for other file modifications by the same process around the same time, particularly to other GenAI configs or startup scripts.
+- Investigate whether the GenAI tool subsequently connected to unknown domains or spawned unusual child processes after the config change.
+
+### False positive analysis
+
+- Novel but legitimate configuration changes will trigger this rule when the process hasn't been seen modifying these files within the configured history window. Review the modified file content to determine legitimacy.
+- GenAI tool updates may modify config files in new ways; correlate with recent software updates.
+- IDE extensions integrating with GenAI tools may modify configs as part of initial setup.
+- Developer tools (git, go, npm) checking out or downloading projects containing `.gemini/` or `.claude/` directories may trigger alerts. These are project-level configs, not user configs - verify by checking if the path is within a project directory.
+
+### Response and remediation
+
+- Review the modified configuration file and revert any unauthorized changes to MCP servers, plugins, or agent settings.
+- If malicious MCP servers were added, block the associated domains at the network level.
+- Review and rotate any API keys or credentials that may have been exposed through the compromised GenAI configuration.
+"""
+references = [
+    "https://modelcontextprotocol.io/",
+    "https://www.cybereason.com/blog/security-research/weaponized-ai-how-cybercriminals-exploit-mcp-for-account-takeover",
+    "https://glama.ai/blog/2025-11-11-the-lethal-trifecta-securing-model-context-protocol-against-data-flow-attacks",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+]
+risk_score = 47
+rule_id = "590fc62d-7386-4c75-92b0-af4517018da1"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : "file" and event.action : ("modification" or "overwrite") and
+file.path : (
+    */.cursor/mcp.json or */.cursor/settings.json or */AppData/Roaming/Cursor/*mcp* or
+    */.claude/* or */claude_desktop_config.json or */AppData/Roaming/Claude/* or
+    */.config/github-copilot/* or */AppData/Local/GitHub?Copilot/* or
+    */.ollama/config* or */AppData/Local/Ollama/* or
+    */.codex/* or */AppData/Roaming/Codex/* or
+    */.gemini/* or */AppData/Roaming/gemini-cli/* or
+    */.grok/* or */AppData/Roaming/Grok/* or
+    */.windsurf/* or */AppData/Roaming/Windsurf/* or
+    */.vscode/extensions/*mcp*
+) and not (
+  file.extension : (lck or lock) or
+  (
+    file.path : */.config/github-copilot/* and 
+    file.name : (apps.json or versions.json or copilot*nitrite.db)
+    
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
