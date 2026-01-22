@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/16"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Identifies AWS CloudTrail events where an IAM role's trust policy has been updated by an IAM user or Assumed Role
 identity. The trust policy is a JSON document that defines which principals are allowed to assume the role. An attacker
 may attempt to modify this policy to gain the privileges of the role. This is a New Terms rule, which means it will only
-trigger once for each unique combination of the "cloud.account.id", "user.name" and "target.entity.id" fields, that have
+trigger once for each unique combination of the "cloud.account.id", "user.name" and "entity.target.id" fields, that have
 not been seen making this API request.
 """
 false_positives = [
@@ -36,7 +36,7 @@ The role trust policy is a JSON document in which you define the principals you 
 
 - Review the `aws.cloudtrail.user_identity.arn` to determine the IAM User that performed the action. 
 - If an AssumedRole identity type performed the action review the `aws.cloudtrail.user_identity.session_context.session_issuer.arn` field to determine which role was used.
-- Review the `target.entity.id` field to confirm the role that was updated.
+- Review the `entity.target.id` field to confirm the role that was updated.
 - Within the `aws.cloudtrail.request_parameters` field, review the `policyDocument` to understand the changes made to the trust policy.
 - If `aws.cloudtrail.user_identity.access_key_id` is present, investigate the access key used to perform the action as it may be compromised.
 - Identify the user account that performed the action and whether it should perform this kind of action.
@@ -119,7 +119,7 @@ field_names = [
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
+    "entity.target.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",
@@ -129,7 +129,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["cloud.account.id", "user.name", "target.entity.id"]
+value = ["cloud.account.id", "user.name", "entity.target.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
