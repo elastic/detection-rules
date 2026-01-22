@@ -55,10 +55,11 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-wiz.vulnerability-*
+FROM logs-wiz.vulnerability-*
+
 | WHERE event.dataset == "wiz.vulnerability" and event.category == "vulnerability" and
         wiz.vulnerability.vulnerable_asset.name is not null and
-        wiz.vulnerability.vulnerable_asset.id is not null and
+        wiz.vulnerability.vulnerable_asset.id is not null
 | stats Esql.count_distinct_vuln_id = COUNT_DISTINCT(wiz.vulnerability.id),
         Esql.count_distinct_vuln_severity = COUNT_DISTINCT(wiz.vulnerability.cvss_severity),
         Esql.count_has_exploit = COUNT(wiz.vulnerability.has_exploit),
