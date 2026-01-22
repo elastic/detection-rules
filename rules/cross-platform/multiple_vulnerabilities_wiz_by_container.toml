@@ -64,9 +64,11 @@ from logs-wiz.vulnerability-*
         Esql.count_has_exploit = COUNT(wiz.vulnerability.has_exploit),
         Esql.vuln_id_values = VALUES(wiz.vulnerability.id),
         Esql.vuln_severity_values = VALUES(wiz.vulnerability.cvss_severity) by wiz.vulnerability.vulnerable_asset.name, wiz.vulnerability.vulnerable_asset.id
+| eval concat_vuln_severity_values = MV_CONCAT(Esql.vuln_severity_values, ",")
 | where Esql.count_distinct_vuln_id >= 10 or
         (Esql.count_has_exploit >= 1 and Esql.count_distinct_vuln_id >= 3) or
-        (Esql.count_distinct_vuln_severity >= 3 and Esql.count_distinct_vuln_id >= 3)
+        (concat_vuln_severity_values like "*High*" and Esql.count_distinct_vuln_id >= 3) or
+        (concat_vuln_severity_values like "*Critical*" and Esql.count_distinct_vuln_id >= 3)
 | Keep wiz.vulnerability.vulnerable_asset.name, wiz.vulnerability.vulnerable_asset.id, Esql.*
 '''
 references = ["https://www.elastic.co/docs/reference/integrations/wiz#vulnerability"]
