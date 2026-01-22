@@ -26,6 +26,8 @@ TRIPLE_DQ = DQ * 3
 
 # Fields from nested objects (not BaseRuleData fields) that need to be perserved.
 # NOTE: we treat these as globally unique which might not be true in all cases
+# Excluded fields:
+# - actions[].params.message
 NESTED_PRESERVED_FIELD_NAMES: set[str] = {"message"}
 
 
