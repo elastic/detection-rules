@@ -43,7 +43,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
 | where Esql.recent <= 10 and Esql.distinct_count_src_ip <= 2 and Esql.distinct_count_dst_ip <= 2
 
-// move dynamic fields to ECS quivalent for rule exceptions
+// move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(src_ip),
        destination.ip = MV_FIRST(dst_ip),
        url.domain = MV_FIRST(url_domain),
