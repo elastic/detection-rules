@@ -24,14 +24,16 @@ type = "esql"
 query = '''
 from logs-wiz.vulnerability-*
 | WHERE event.dataset == "wiz.vulnerability" and event.category == "vulnerability" and
-        container.image.name is not null
+        wiz.vulnerability.vulnerable_asset.name is not null and
+        wiz.vulnerability.vulnerable_asset.id is not null and
 | stats Esql.count_distinct_vuln_id = COUNT_DISTINCT(wiz.vulnerability.id),
         Esql.count_distinct_vuln_severity = COUNT_DISTINCT(wiz.vulnerability.cvss_severity),
         Esql.count_has_exploit = COUNT(wiz.vulnerability.has_exploit),
         Esql.vuln_id_values = VALUES(wiz.vulnerability.id),
-        Esql.vuln_severity_values = VALUES(wiz.vulnerability.cvss_severity) by container.image.name
+        Esql.vuln_severity_values = VALUES(wiz.vulnerability.cvss_severity) by wiz.vulnerability.vulnerable_asset.name, wiz.vulnerability.vulnerable_asset.id
 | where Esql.count_distinct_vuln_id >= 10 or
         (Esql.count_has_exploit >= 1 and Esql.count_distinct_vuln_id >= 3) or
         (Esql.count_distinct_vuln_severity >= 3 and Esql.count_distinct_vuln_id >= 3)
+| Keep wiz.vulnerability.vulnerable_asset.name, wiz.vulnerability.vulnerable_asset.id, Esql.*
 '''
 references = ["https://www.elastic.co/docs/reference/integrations/wiz#vulnerability"]
