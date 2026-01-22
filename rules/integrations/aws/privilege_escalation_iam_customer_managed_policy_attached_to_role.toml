@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/16"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ unauthorized user. Customer-managed policies are policies created and controlled
 specific permissions to roles or users when attached. This rule identifies potential privilege escalation by flagging
 cases where a customer-managed policy is attached to a role by an unexpected actor, which could signal unauthorized
 access or misuse. Attackers may attach policies to roles to expand permissions and elevate their privileges within the
-AWS environment. This is a New Terms rule that uses the "cloud.account.id", "user.name" and "target.entity.id" fields to
+AWS environment. This is a New Terms rule that uses the "cloud.account.id", "user.name" and "entity.target.id" fields to
 check if the combination of the actor identity and target role name has not been seen before.
 """
 false_positives = [
@@ -37,7 +37,7 @@ This rule detects when a customer-managed IAM policy is attached to a role by an
 
 - **Identify the Initiating User and Target Role**:
   - **User Identity**: Examine the `aws.cloudtrail.user_identity.arn` field to determine the user who initiated the policy attachment. Confirm if this user typically has permissions to modify IAM roles and if their activity is consistent with their usual responsibilities.
-  - **Target Role**: Review `target.entity.id` to identify the role to which the policy was attached. Assess whether modifying this role is expected for this user or if this action is unusual in your environment.
+  - **Target Role**: Review `entity.target.id` to identify the role to which the policy was attached. Assess whether modifying this role is expected for this user or if this action is unusual in your environment.
 
 - **Analyze the Attached Policy**:
   - **Policy ARN**: Inspect the `aws.cloudtrail.request_parameters` field to identify the specific customer-managed policy attached to the role. Evaluate if this policy grants sensitive permissions, especially permissions that could enable privileged actions or data access.
@@ -122,7 +122,7 @@ field_names = [
     "source.ip",
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
-    "target.entity.id",
+    "entity.target.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",
@@ -132,7 +132,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["cloud.account.id", "user.name", "target.entity.id"]
+value = ["cloud.account.id", "user.name", "entity.target.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
