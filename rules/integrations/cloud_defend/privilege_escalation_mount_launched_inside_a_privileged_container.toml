@@ -75,8 +75,23 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name == "mount" and container.security_context.privileged == true
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name == "mount" or
+  (
+    /* account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args in (
+      "mount", "/bin/mount", "/usr/bin/mount", "/usr/local/bin/mount"
+    ) and
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and container.security_context.privileged == true and process.interactive == true and container.id like "*"
 '''
 
 [[rule.threat]]

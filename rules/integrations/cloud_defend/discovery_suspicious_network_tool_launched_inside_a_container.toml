@@ -79,13 +79,42 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in (
-  "nc.traditional", "nc", "ncat", "netcat", "nmap", "tcpdump", "tshark", "ngrep", "telnet",  "mitmproxy", "socat",
-  "zmap", "masscan", "zgrab"
-) and
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in (
+    "nc.traditional", "nc", "ncat", "netcat", "nmap", "tcpdump", "tshark", "ngrep", "telnet",  "mitmproxy", "socat",
+    "zmap", "masscan", "zgrab"
+  ) or
+  (
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args in (
+      "nc.traditional", "/bin/nc.traditional", "/usr/bin/nc.traditional", "/usr/local/bin/nc.traditional",
+      "nc", "/bin/nc", "/usr/bin/nc", "/usr/local/bin/nc",
+      "ncat", "/bin/ncat", "/usr/bin/ncat", "/usr/local/bin/ncat",
+      "netcat", "/bin/netcat", "/usr/bin/netcat", "/usr/local/bin/netcat",
+      "nmap", "/bin/nmap", "/usr/bin/nmap", "/usr/local/bin/nmap",
+      "tcpdump", "/bin/tcpdump", "/usr/bin/tcpdump", "/usr/local/bin/tcpdump",
+      "tshark", "/bin/tshark", "/usr/bin/tshark", "/usr/local/bin/tshark",
+      "ngrep", "/bin/ngrep", "/usr/bin/ngrep", "/usr/local/bin/ngrep",
+      "telnet", "/bin/telnet", "/usr/bin/telnet", "/usr/local/bin/telnet",
+      "mitmproxy", "/bin/mitmproxy", "/usr/bin/mitmproxy", "/usr/local/bin/mitmproxy",
+      "socat", "/bin/socat", "/usr/bin/socat", "/usr/local/bin/socat",
+      "zmap", "/bin/zmap", "/usr/bin/zmap", "/usr/local/bin/zmap",
+      "masscan", "/bin/masscan", "/usr/bin/masscan", "/usr/local/bin/masscan",
+      "zgrab", "/bin/zgrab", "/usr/bin/zgrab", "/usr/local/bin/zgrab"
+    ) and 
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and process.interactive == true and container.id like "*" and
 not (
-    process.name in ("nc.traditional", "nc", "ncat", "netcat") and
-    process.args like ("-*z*", "localhost", "127.0.0.1")
+  process.name in ("nc.traditional", "nc", "ncat", "netcat") and
+  process.args like ("-*z*", "localhost", "127.0.0.1")
 )
 '''
 

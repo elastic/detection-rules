@@ -77,8 +77,27 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") or
+  (
+    /* account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args in (
+      "nc", "/bin/nc", "/usr/bin/nc", "/usr/local/bin/nc",
+      "ncat", "/bin/ncat", "/usr/bin/ncat", "/usr/local/bin/ncat",
+      "netcat", "/bin/netcat", "/usr/bin/netcat", "/usr/local/bin/netcat",
+      "netcat.openbsd", "/bin/netcat.openbsd", "/usr/bin/netcat.openbsd", "/usr/local/bin/netcat.openbsd",
+      "netcat.traditional", "/bin/netcat.traditional", "/usr/bin/netcat.traditional", "/usr/local/bin/netcat.traditional"
+    ) and 
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and
 process.args like~ (
   /* bind shell to specific port or listener */
   "-*l*","-*p*",
@@ -86,7 +105,7 @@ process.args like~ (
   "-*e*",
   /* file transfer via stdout/pipe */
   ">","<", "|"
-)
+) and process.interactive == true and container.id like "*"
 '''
 
 [[rule.threat]]

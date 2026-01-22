@@ -72,7 +72,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.type in ("change", "creation") and file.name in ("authorized_keys", "authorized_keys2")
+file where host.os.type == "linux" and event.type in ("change", "creation") and
+file.name in ("authorized_keys", "authorized_keys2") and
+process.interactive == true and container.id like "*"
 '''
 
 [[rule.threat]]

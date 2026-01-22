@@ -78,8 +78,30 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and
-process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") and
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") or
+  (
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args in (
+      "dockerd", "/bin/dockerd", "/usr/bin/dockerd", "/usr/local/bin/dockerd",
+      "kubelet", "/bin/kubelet", "/usr/bin/kubelet", "/usr/local/bin/kubelet",
+      "kube-proxy", "/bin/kube-proxy", "/usr/bin/kube-proxy", "/usr/local/bin/kube-proxy",
+      "kubectl", "/bin/kubectl", "/usr/bin/kubectl", "/usr/local/bin/kubectl",
+      "containerd", "/bin/containerd", "/usr/bin/containerd", "/usr/local/bin/containerd",
+      "systemd", "/bin/systemd", "/usr/bin/systemd", "/usr/local/bin/systemd",
+      "crictl", "/bin/crictl", "/usr/bin/crictl", "/usr/local/bin/crictl"
+    ) and 
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and
+process.interactive == true and container.id like "*" and
 not (
   process.parent.executable in ("/sbin/init", "/usr/bin/dockerd", "/usr/bin/runc", "/usr/bin/containerd-shim-runc-v2") or
   process.working_directory == "/aws" or

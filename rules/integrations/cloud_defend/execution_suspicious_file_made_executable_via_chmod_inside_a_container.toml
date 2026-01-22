@@ -72,9 +72,21 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type in ("change", "creation") and
-process.name == "chmod" and process.args in ("4755", "755", "777", "0777", "444", "+x", "a+x") and
+process.name == "chmod" or
+(
+  /* account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+  process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+  process.args in (
+    "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+  ) and
+  /* default exclusion list to not FP on default multi-process commands */
+  not process.args in (
+    "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+    "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man"
+  )
+) and process.args in ("4755", "755", "777", "0777", "444", "+x", "a+x") and
 process.args like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*") and
-not process.args == "-x"
+process.interactive == true and container.id like "*" and not process.args == "-x"
 '''
 
 [[rule.threat]]
