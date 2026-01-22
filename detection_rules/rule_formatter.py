@@ -24,6 +24,10 @@ DQ = '"'
 TRIPLE_SQ = SQ * 3
 TRIPLE_DQ = DQ * 3
 
+# Fields from nested objects (not BaseRuleData fields) that need to be perserved.
+# NOTE: we treat these as globally unique which might not be true in all cases
+NESTED_PRESERVED_FIELD_NAMES: set[str] = {"message"}
+
 
 @cached
 def get_preserved_fmt_fields() -> set[str]:
@@ -34,6 +38,9 @@ def get_preserved_fmt_fields() -> set[str]:
     for field in dataclasses.fields(BaseRuleData):
         if field.type in (definitions.Markdown, definitions.Markdown | None):
             preserved_keys.add(field.metadata.get("data_key", field.name))
+
+    preserved_keys.update(NESTED_PRESERVED_FIELD_NAMES)
+
     return preserved_keys
 
 
