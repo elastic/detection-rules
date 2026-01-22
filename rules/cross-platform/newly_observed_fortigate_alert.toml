@@ -41,7 +41,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 
 // first time seen is within 10m of the rule execution time
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
-| where Esql.recent <= 10 and Esql.distinct_count_src_ip <= 2 and Esql.distinct_count_dst_ip <= 2
+| where Esql.recent <= 10 and Esql.alerts_count <= 5 and Esql.distinct_count_src_ip <= 2 and Esql.distinct_count_dst_ip <= 2
 
 // move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(src_ip),
