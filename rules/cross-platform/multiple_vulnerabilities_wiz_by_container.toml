@@ -1,0 +1,37 @@
+[metadata]
+creation_date = "2026/01/22"
+integration = ["wiz"]
+maturity = "production"
+updated_date = "2026/01/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects multiple vulnerability events reported by the Wiz Vulnerability integration. Analysts can use this to prioritize triage and response.
+"""
+from = "now-24h"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Wiz - Multiple Vulnerabilities by Container"
+risk_score = 73
+rule_id = "5a874b8b-99ce-4506-abe1-08e11e7db780"
+severity = "high"
+tags = ["Use Case: Vulnerability", "Rule Type: Higher-Order Rule", "Data Source: Wiz Vulnerability"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-wiz.vulnerability-*
+| WHERE event.dataset == "wiz.vulnerability" and event.category == "vulnerability" and
+        container.image.name is not null
+| stats Esql.count_distinct_vuln_id = COUNT_DISTINCT(wiz.vulnerability.id),
+        Esql.count_distinct_vuln_severity = COUNT_DISTINCT(wiz.vulnerability.cvss_severity),
+        Esql.count_has_exploit = COUNT(wiz.vulnerability.has_exploit),
+        Esql.vuln_id_values = VALUES(wiz.vulnerability.id),
+        Esql.vuln_severity_values = VALUES(wiz.vulnerability.cvss_severity) by container.image.name
+| where Esql.count_distinct_vuln_id >= 10 or
+        (Esql.count_has_exploit >= 1 and Esql.count_distinct_vuln_id >= 3) or
+        (Esql.count_distinct_vuln_severity >= 3 and Esql.count_distinct_vuln_id >= 3)
+'''
+references = ["https://www.elastic.co/docs/reference/integrations/wiz#vulnerability"]
