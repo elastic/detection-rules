@@ -52,7 +52,26 @@ query = '''
 sequence with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
      process.name in ("wget", "curl", "openssl", "socat", "ncat", "kubectl") or
-     (process.name == "busybox" and process.args in ("wget", "ssl_client"))
+     (
+       /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+       process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+       process.args in (
+         "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget",
+         "ssl_client", "/bin/ssl_client", "/usr/bin/ssl_client", "/usr/local/bin/ssl_client",
+         "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
+         "openssl", "/bin/openssl", "/usr/bin/openssl", "/usr/local/bin/openssl",
+         "socat", "/bin/socat", "/usr/bin/socat", "/usr/local/bin/socat",
+         "ncat", "/bin/ncat", "/usr/bin/ncat", "/usr/local/bin/ncat",
+         "kubectl", "/bin/kubectl", "/usr/bin/kubectl", "/usr/local/bin/kubectl"
+       ) and
+       /* default exclusion list to not FP on default multi-process commands */
+       not process.args in (
+         "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+         "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+         "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+         "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+       )
+     )
    ) and process.interactive == true and container.id like "*"
   ] by orchestrator.resource.name
   [any where event.dataset == "kubernetes.audit_logs" and kubernetes.audit.stage in ("ResponseComplete", "ResponseStarted")] by `kubernetes.audit.user.extra.authentication.kubernetes.io/pod-name` 

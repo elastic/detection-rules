@@ -48,7 +48,22 @@ process.interactive == true and container.id like "*" and
   /* explicit DNS query tools */
   (
     process.name in ("nslookup", "dig", "host") or
-    (process.name == "busybox" and process.args == "nslookup")
+    (
+      /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+      process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+      process.args in (
+        "nslookup", "/bin/nslookup", "/usr/bin/nslookup", "/usr/local/bin/nslookup",
+        "dig", "/bin/dig", "/usr/bin/dig", "/usr/local/bin/dig",
+        "host", "/bin/host", "/usr/bin/host", "/usr/local/bin/host"
+      ) and
+      /* default exclusion list to not FP on default multi-process commands */
+      not process.args in (
+        "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+        "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+        "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+        "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+      )
+    )
   ) and
   process.args like~ (
     "kubernetes.default",

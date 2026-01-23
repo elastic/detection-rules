@@ -67,13 +67,15 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     )
   ) or
   (
-    process.name == "busybox" and
-    process.args == "wget" and
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+    process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget") and
     process.args like "--header*" and
     process.args like "*Authorization: Bearer*" and
     process.args == "--no-check-certificate"
   ) or
   (
+    /* ssl_client is busybox-specific, so we need to handle it separately */
     process.name == "busybox" and
     process.args == "ssl_client" and
     process.args like "*Authorization: Bearer*"

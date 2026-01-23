@@ -40,7 +40,24 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in ("env", "printenv") and
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in ("env", "printenv") or
+  (
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+    process.args in (
+      "env", "/bin/env", "/usr/bin/env", "/usr/local/bin/env",
+      "printenv", "/bin/printenv", "/usr/bin/printenv", "/usr/local/bin/printenv"
+    ) and
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and
 process.interactive == true and container.id like "*"
 '''
 
