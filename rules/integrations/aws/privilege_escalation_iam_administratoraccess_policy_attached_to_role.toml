@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/13"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +24,6 @@ language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM AdministratorAccess Policy Attached to Role"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS IAM AdministratorAccess Policy Attached to Role
 
@@ -64,22 +61,22 @@ This rule detects `AttachRolePolicy` events where the `policyName` is `Administr
 
 ### Response and remediation
 
-**1. Immediate containment**
+**Immediate containment**
 - Detach the policy. Remove the `AdministratorAccess` policy from the target role.  
 - Restrict access. Temporarily revoke the caller’s IAM privileges until the legitimacy of the action is confirmed.  
 - Audit trust policies. Review the role’s trust relationships to ensure only approved principals can assume it.  
 - Rotate credentials for any principals who assumed the affected role during the period of elevated privileges.  
 
-**2. Evidence preservation**
+**Evidence preservation**
 - Export the triggering `AttachRolePolicy` event and related CloudTrail entries ±30 minutes from the alert.  
 - Preserve AWS Config snapshots and GuardDuty findings for traceability.  
 
-**3. Scoping and investigation**
+**Scoping and investigation**
 - Identify if the elevated role was subsequently assumed.  
   Correlate by matching `aws.cloudtrail.eventName:AssumeRole` with the target role ARN.  
 - Search for other recent IAM policy attachments or modifications by the same actor or IP.  
 
-**4. Recovery and hardening**
+**Recovery and hardening**
 - Apply least privilege policies; limit who can attach or modify administrative policies.  
 - Enforce IAM Conditions such as `aws:PrincipalArn` or `aws:ResourceTag` to limit policy attachment scope.  
 - Enable CloudTrail, GuardDuty, and Security Hub across all regions.  
