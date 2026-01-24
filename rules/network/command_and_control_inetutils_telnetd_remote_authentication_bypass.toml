@@ -42,15 +42,19 @@ type = "query"
 
 query = '''
 sequence with maxspan=5s
-  [network where 
-    (event.dataset == "fortinet_fortigate.log" or 
-     event.dataset == "sonicwall_firewall.log" or 
-     event.category == "network") and
-    network.protocol == "telnet" and
+  [network where
+  (
+    event.dataset == "network_traffic.flow" or
+    event.category in ("network", "network_traffic")) and
     event.type == "connection" and
-    not (event.action in (
+    not event.action in (
       "flow_dropped", "flow_denied", "denied", "deny",
-      "flow_terminated", "timeout", "Reject", "network_flow"))
+      "flow_terminated", "timeout", "Reject", "network_flow"
+    ) and
+    destination.port == 23 or 
+    ( event.dataset == "fortinet_fortigate.log" or 
+      event.dataset == "sonicwall_firewall.log" and
+      network.protocol == "telnet") 
   ] by host.name
   [process where
     event.action == "exec" and
