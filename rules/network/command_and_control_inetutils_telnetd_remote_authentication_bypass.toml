@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/01/24"
+integration = ["network_traffic", "panw", "fortinet", "sonicwall"]
+maturity = "production"
+updated_date = "2026/01/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects network events and process events related to CVE_2026_24061
+traffic.
+"""
+false_positives = [
+    """
+    IoT (Internet of Things) devices and networks may use telnet and can be excluded if desired. Some business
+    work-flows may use Telnet for administration of older devices. These often have a predictable behavior. Telnet
+    activity involving an unusual source or destination may be more suspicious. Telnet activity involving a production
+    server that has no known associated Telnet work-flow or business requirement is often suspicious.
+    """,
+]
+from = "now-9m"
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Inetutils Telnetd Remote Authentication Bypass"
+risk_score = 47
+rule_id = "92b2eee2-081b-4a8d-b0c7-fc068b9ba978"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Lateral Movement",
+    "Tactic: Initial Access",
+    "Data Source: PAN-OS",
+    "Resources: Investigation Guide"
+]
+timeline_id = "300afc76-072d-4261-864d-4149714bf3f1"
+timeline_title = "Comprehensive Network Timeline"
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+sequence with maxspan=5s
+  [network where 
+    (event.dataset == "fortinet_fortigate.log" or 
+     event.dataset == "sonicwall_firewall.log" or 
+     event.category == "network") and
+    network.protocol == "telnet" and
+    event.type == "connection" and
+    not (event.action in (
+      "flow_dropped", "flow_denied", "denied", "deny",
+      "flow_terminated", "timeout", "Reject", "network_flow"))
+  ] by host.name
+  [process where
+    event.action == "exec" and
+    process.name == "login" and
+    process.args == "-f" and
+    process.parent.name == "telnetd"] by host.name
+'''
+note = """
+TODO
+
+Update for non "telenetd" process names where applicable.
+Add Suricata datasource. 
+Add non-protocol detection OR in the network event detection for packet capture
+"""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
