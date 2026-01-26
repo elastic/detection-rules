@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2022/04/12"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of an Amazon Redshift cluster. Unexpected creation of this cluster by a non-administrative user
+may indicate a permission or role issue with current users. If unexpected, the resource may not properly be configured
+and could introduce security vulnerabilities.
+"""
+false_positives = [
+    """
+    Valid clusters may be created by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Cluster creations by unfamiliar users or hosts should
+    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS Redshift Cluster Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS Redshift Cluster Creation
+
+Amazon Redshift is a data warehousing service that allows for scalable data storage and analysis. In a secure environment, only authorized users should create Redshift clusters. Adversaries might exploit misconfigured permissions to create clusters, potentially leading to data exfiltration or unauthorized data processing. The detection rule monitors for successful cluster creation events, especially by non-admin users, to identify potential misuse or misconfigurations.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the event.dataset:aws.cloudtrail and event.provider:redshift.amazonaws.com to confirm the details of the CreateCluster event, including the timestamp and the user who initiated the action.
+- Identify the IAM role or user associated with the event.action:CreateCluster and verify if this user is expected to have permissions to create Redshift clusters. Check for any recent changes to their permissions or roles.
+- Investigate the event.outcome:success to ensure that the cluster creation was indeed successful and determine the region and account where the cluster was created.
+- Examine the configuration of the newly created Redshift cluster to ensure it adheres to security best practices, such as encryption settings, VPC configurations, and access controls.
+- Cross-reference the user activity with other logs or alerts to identify any unusual patterns or behaviors that might indicate misuse or compromise, such as multiple cluster creation attempts or access from unfamiliar IP addresses.
+- Contact the user or team responsible for the account to verify if the cluster creation was intentional and authorized, and document their response for future reference.
+
+### False positive analysis
+
+- Routine maintenance or testing activities by non-admin users can trigger alerts. To manage this, create exceptions for specific users or roles known to perform these tasks regularly.
+- Automated scripts or third-party tools that create clusters as part of their normal operation may cause false positives. Identify these tools and exclude their associated user accounts or roles from the detection rule.
+- Development or staging environments where non-admin users are permitted to create clusters for testing purposes can lead to alerts. Implement environment-specific exclusions to prevent unnecessary alerts.
+- Temporary permissions granted to non-admin users for specific projects can result in cluster creation alerts. Monitor and document these permissions, and adjust the detection rule to account for these temporary changes.
+
+### Response and remediation
+
+- Immediately isolate the Redshift cluster to prevent any unauthorized access or data exfiltration. This can be done by modifying the security group rules to restrict inbound and outbound traffic.
+- Review the IAM roles and permissions associated with the user who created the cluster. Revoke any unnecessary permissions and ensure that the principle of least privilege is enforced.
+- Conduct a thorough audit of recent CloudTrail logs to identify any other unauthorized activities or anomalies associated with the same user or related accounts.
+- If data exfiltration is suspected, initiate a data integrity check and consider restoring from a known good backup to ensure no data tampering has occurred.
+- Notify the security team and relevant stakeholders about the incident for further investigation and to determine if additional security measures are needed.
+- Implement additional monitoring and alerting for Redshift cluster creation events, especially focusing on non-administrative users, to quickly detect similar activities in the future.
+- Consider enabling multi-factor authentication (MFA) for all users with permissions to create or modify Redshift clusters to add an extra layer of security.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/redshift/latest/APIReference/API_CreateCluster.html"]
+risk_score = 21
+rule_id = "015cca13-8832-49ac-a01b-a396114809f6"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Redshift",
+    "Use Case: Asset Visibility",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:redshift.amazonaws.com and event.action:CreateCluster and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -2,7 +2,7 @@
 creation_date = "2020/06/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/07"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +26,6 @@ license = "Elastic License v2"
 name = "AWS CloudTrail Log Suspended"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS CloudTrail Log Suspended
 
 AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs API calls and related events, providing visibility into user activity. This rule identifies the suspension of an AWS log trail using the `StopLogging` API. Attackers can do this to cover their tracks and impact security monitoring that relies on this source.
@@ -36,7 +33,7 @@ AWS CloudTrail is a service that enables governance, compliance, and operational
 #### Possible investigation steps
 - **Actor & scope**
   - Identify `aws.cloudtrail.user_identity.arn`, `user_agent.original`, `source.ip`.
-  - Determine which trail stopped (`target.entity.id`) and whether it’s multi-region or organization-wide.
+  - Determine which trail stopped and whether it’s multi-region or organization-wide.
 - **Timing and impact**
   - When did logging stop and resume (if at all)? Are there overlapping detections indicating activity during the gap?
 - **Correlate activity**
@@ -111,7 +108,6 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",

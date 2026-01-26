@@ -39,7 +39,7 @@ class TestRemoteRules(BaseRuleTest):
         and aws.cloudtrail.user_identity.arn is not null
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.cloudtrail.user_identity.type, _id, _version, _index
         """
         rule = RuleCollection().load_dict(production_rule)
         related_integrations = rule.contents.to_api_format()["related_integrations"]
@@ -61,7 +61,7 @@ class TestRemoteRules(BaseRuleTest):
         user.id,
         gen_ai.request.model.id,
         cloud.account.id,
-        gen_ai.response.error_code
+        gen_ai.response.error_code, _id, _version, _index
         """
         rule = RuleCollection().load_dict(production_rule)
         related_integrations = rule.contents.to_api_format()["related_integrations"]
@@ -81,7 +81,7 @@ class TestRemoteRules(BaseRuleTest):
         and event.dataset in ("aws.billing")
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.cloudtrail.user_identity.type, _id, _version, _index
         """
         with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)
@@ -99,7 +99,7 @@ class TestRemoteRules(BaseRuleTest):
         and event.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.type == 5
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.cloudtrail.user_identity.type, _id, _version, _index
         """
         with pytest.raises(EsqlTypeMismatchError):
             _ = RuleCollection().load_dict(production_rule)
@@ -117,7 +117,7 @@ class TestRemoteRules(BaseRuleTest):
         and event.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.type = "IAMUser"
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.cloudtrail.user_identity.type, _id, _version, _index
         """
         with pytest.raises(EsqlSyntaxError):
             _ = RuleCollection().load_dict(production_rule)
@@ -134,7 +134,7 @@ class TestRemoteRules(BaseRuleTest):
         | where @timestamp > now() - 30 minutes
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.*
+        aws.*, _id, _version, _index
         """
         _ = RuleCollection().load_dict(production_rule)
 
@@ -150,7 +150,7 @@ class TestRemoteRules(BaseRuleTest):
         | where @timestamp > now() - 30 minutes
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.cloudtrail.user_identity.type
+        aws.cloudtrail.user_identity.type, _id, _version, _index
         """
         with pytest.raises(EsqlSchemaError):
             _ = RuleCollection().load_dict(production_rule)
@@ -167,7 +167,7 @@ class TestRemoteRules(BaseRuleTest):
         | where @timestamp > now() - 30 minutes
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
-        aws.*
+        aws.*, _id, _version, _index
         """
         _ = RuleCollection().load_dict(production_rule)
 
@@ -179,7 +179,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-endpoint.alerts-*
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null
-        | keep host.id, rule.name, event.code
+        | keep host.id, rule.name, event.code, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
         | where Esql.host_id_count_distinct >= 3
         """
@@ -193,7 +193,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-endpoint.fake-*
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null
-        | keep host.id, rule.name, event.code
+        | keep host.id, rule.name, event.code, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
         | where Esql.host_id_count_distinct >= 3
         """
@@ -209,7 +209,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-endpoint.alerts-*
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null and file.Ext.entry_modified > 0
-        | keep host.id, rule.name, event.code, file.Ext.entry_modified
+        | keep host.id, rule.name, event.code, file.Ext.entry_modified, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
@@ -228,7 +228,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-aws.billing* metadata _id, _version, _index
         | where @timestamp > now() - 30 minutes and aws.cloudtrail.user_identity.type == "IAMUser"
-        | keep host.id, rule.name, event.code
+        | keep host.id, rule.name, event.code, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
         | where Esql.host_id_count_distinct >= 3
         """
@@ -248,6 +248,6 @@ class TestRemoteRules(BaseRuleTest):
         and event.outcome == "success"
         and azure.signinlogs.properties.user_id is not null
         | keep
-        event.outcome
+        event.outcome, _id, _version, _index
         """
         _ = RuleCollection().load_dict(production_rule)
