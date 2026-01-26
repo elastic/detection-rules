@@ -75,6 +75,7 @@ tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
+    "Tactic: Initial Access",
     "Tactic: Lateral Movement",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
@@ -85,8 +86,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=1s
- [process where host.os.type == "linux" and event.type == "start" and event.action == "process_started" and process.name == "telnetd"] by process.pid
- [process where host.os.type == "linux" and event.type == "start" and event.action == "process_started" and process.name == "login" and process.args : "-*f*"] by process.parent.pid
+ [process where host.os.type == "linux" and event.type == "start" and event.action in ("process_started", "executed") and process.name == "telnetd"] by process.pid
+ [process where host.os.type == "linux" and event.type == "start" and event.action in ("process_started", "executed") and process.name == "login" and process.args : "-*f*"] by process.parent.pid
 '''
 
 
