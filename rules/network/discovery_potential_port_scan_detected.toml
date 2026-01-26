@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -46,7 +46,7 @@ from logs-network_traffic.*, packetbeat-*, logs-panw.panos*
     Esql.values_destination_ports = VALUES(destination.port),
     Esql.values_sensitive_ports = VALUES(destination.port) where sensitive_port == true
   by Esql.time_window, destination.ip, source.ip
-| where (Esql.count_distinct_destination_ports >= 50 or Esql.values_sensitive_ports >= 5)
+| where (Esql.count_distinct_destination_ports >= 50 or Esql.count_distinct_sensitive_ports >= 5)
 | keep source.ip, destination.ip, Esql.*
 '''
 note = """## Triage and analysis

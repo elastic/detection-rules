@@ -2,7 +2,7 @@
 creation_date = "2024/05/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/10/21"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -70,15 +70,16 @@ from logs-endpoint.events.file-* metadata _id, _version, _index
 
 // filter for file creation event done remotely over SMB with common user readable file types used to place ransomware notes
 | where event.category == "file" and host.os.type == "windows" and event.action == "creation" and process.pid == 4 and user.id != "S-1-5-18" and 
-  file.extension in ("txt", "htm", "html", "hta", "pdf", "jpg", "bmp", "png", "pdf")
+  file.extension in ("txt", "htm", "html", "hta", "pdf", "jpg", "bmp", "png") and
+  to_lower(file.path) like """c:\\*""" and not to_lower(file.path) like """c:\\temp\\*"""
 
 // truncate the timestamp to a 60-second window
 | eval Esql.time_window_date_trunc = date_trunc(60 seconds, @timestamp)
 
-| keep user.id, user.name, file.path, file.name, process.entity_id, Esql.time_window_date_trunc, host.name, host.ip
+| keep user.id, user.name, file.path, file.name, process.entity_id, Esql.time_window_date_trunc, host.name, host.ip, host.id
 
 // filter for same file name dropped in at least 3 unique paths by the System virtual process
-| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path), Esql.host_ip_values = values(host.ip) by host.name, user.name, user.id, process.entity_id , file.name, Esql.time_window_date_trunc
+| stats Esql.file_path_count_distinct = COUNT_DISTINCT(file.path),  Esql.file_path_values = VALUES(file.path), Esql.host_ip_values = values(host.ip) by host.id, host.name, user.name, user.id, process.entity_id , file.name, Esql.time_window_date_trunc
 | where Esql.file_path_count_distinct >= 3
 '''
 
