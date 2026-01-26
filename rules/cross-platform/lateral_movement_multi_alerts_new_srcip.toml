@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/01/14"
+maturity = "production"
+updated_date = "2026/01/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects source IPs that triggered their first lateral movement alert within the last 10 minutes (i.e., newly observed), while also triggering at least 2 distinct lateral movement detection rules. This surfaces new potentially malicious IPs exhibiting immediate lateral movement behavior.
+"""
+from = "now-7200m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Lateral Movement Alerts from a Newly Observed Source Address"
+risk_score = 73
+rule_id = "0e67f4f1-f683-43c0-8d45-c3293cf31e5d"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Tactic: Lateral Movement", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.* METADATA _index
+
+// Lateral Movement related rules with fields of interest
+| where kibana.alert.rule.threat.tactic.name is not null and
+        source.ip IS NOT NULL and destination.ip is not null and
+        host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" """)
+
+// aggregate stats by source.ip
+| stats  Esql.first_time_seen = MIN(@timestamp),
+         Esql.alerts_count = count(*),
+         Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
+         Esql.unique_count_host_id = COUNT_DISTINCT(host.id),
+         Esql.rule_name_values = VALUES(kibana.alert.rule.name),
+         Esql.user_name_values = VALUES(user.name),
+         Esql.host_id_values = VALUES(host.id),
+         Esql.host_ip_values = VALUES(host.ip),
+         Esql.tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name) by source.ip
+
+// values we will need for next filter
+| eval isLocal = locate(MV_CONCAT(to_string(Esql.host_ip_values), ","), to_string(source.ip)),
+       Esql.date_diff = DATE_DIFF("minute", Esql.first_time_seen, now())
+
+// at least 2 unique rules from same source.ip and that was first seen in last 5 days
+| where Esql.unique_rules_count >= 2 and
+        // matches are within 10m of the rule execution time to avoid alert duplicates
+        Esql.date_diff <= 10 and
+        // make sure source.ip is not equal to host.ip
+        not isLocal > 0 and
+        // reduce noise from SCCM, Nessus and alike
+        Esql.unique_count_host_id <= 3 and Esql.alerts_count <= 20
+| eval host.id = MV_FIRST(Esql.host_id_values), user.name = MV_FIRST(Esql.user_name_values)
+| KEEP Esql.*, source.ip, host.id, user.name
+'''
+note = """## Triage and analysis
+
+### Investigating Lateral Movement Alerts from a Newly Observed Source Address
+
+This rule surfaces newly observed, low-frequency source address triggering multiple lateral movement alerts.
+
+Because the alert has not been seen previously for this rule and host, it should be prioritized for validation to determine
+whether it represents a true compromise or rare benign activity.
+
+### Investigation Steps
+
+- Identify the source address, affected host, user and review the associated rule name to understand the behavior that triggered the alert.
+- Validate the source address and user context under which the activity occurred and assess whether it aligns with normal behavior for that address.
+- Refer to the specific rule investigation guide for further actions.
+
+### False Positive Considerations
+
+- Administrative scripts or automation tools can trigger behavior-based detections when first introduced.
+- Security tooling, IT management agents, or EDR integrations may generate new behavior alerts during updates or configuration changes.
+- Development or testing environments may produce one-off behaviors that resemble malicious techniques.
+
+### Response and Remediation
+
+- If the activity is confirmed malicious, isolate the affected host to prevent further execution or lateral movement.
+- Terminate malicious processes and remove any dropped files or persistence mechanisms.
+- Collect forensic artifacts to understand initial access and execution flow.
+- Patch or remediate any vulnerabilities or misconfigurations that enabled the behavior.
+- If benign, document the finding and consider tuning or exception handling to reduce future noise.
+- Continue monitoring the host and environment for recurrence of the behavior or related alerts."""
+references = ["https://www.elastic.co/docs/solutions/security/detect-and-alert/about-detection-rules"]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
