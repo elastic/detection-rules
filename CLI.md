@@ -161,8 +161,8 @@ Options:
   -h, --help                Show this message and exit.
 
 Commands:
-  export-rules   Export custom rules from Kibana.
-  import-rules   Import custom rules into Kibana.
+  export-rules   Export rules from Kibana.
+  import-rules   Import rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
   upload-rule    [Deprecated] Upload a list of rule .toml files to Kibana.
 ```
@@ -249,7 +249,7 @@ Options:
 
 Usage: detection_rules kibana import-rules [OPTIONS]
 
-  Import custom rules into Kibana.
+  Import rules into Kibana.
 
 Options:
   -f, --rule-file FILE
@@ -491,7 +491,7 @@ Options:
 
 Usage: detection_rules kibana export-rules [OPTIONS]
 
-  Export custom rules from Kibana.
+  Export rules from Kibana.
 
 Options:
   -d, --directory PATH            Directory to export rules to  [required]
