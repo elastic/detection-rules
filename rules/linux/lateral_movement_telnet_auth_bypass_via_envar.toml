@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/01/24"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2026/01/24"
 
@@ -12,7 +12,12 @@ telnetd. The vulnerability allows unauthenticated access by supplying a crafted 
 variable, resulting in a login process spawned with elevated privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Telnet Authentication Bypass (CVE-2026-24061)"
@@ -74,18 +79,18 @@ tags = [
     "Tactic: Lateral Movement",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and
- (
-  (process.name == "login" and process.parent.name == "telnetd" and process.args : "-*f*") or
-  (process.entry_leader.name == "xinetd" and
-   process.parent.name == "login" and process.parent.args : "-*f*")
-  )
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  (process.name == "login" and process.parent.name == "telnetd" and process.args : "-*f*")
 '''
 
 
