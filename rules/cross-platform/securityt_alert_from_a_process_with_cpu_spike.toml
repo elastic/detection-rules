@@ -10,8 +10,8 @@ This rule correlates security alerts with processes exhibiting unusually high CP
 ID within a short time window. This behavior may indicate malicious activity such as malware execution, cryptomining, exploit
 payload execution, or abuse of system resources following initial compromise.
 """
-from = "now-1h"
-interval = "45m"
+from = "now-9m"
+interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Detection Alert on a Process Exhibiting CPU Spike"
@@ -64,7 +64,6 @@ type = "esql"
 
 query = '''
 FROM metrics-*, .alerts-security.alerts*  METADATA _index
-| eval Esql.time_window = DATE_TRUNC(5 minute, @timestamp)
 | eval
        // processes with more than 70% total CPU use
        cpu_metrics_pids = CASE(_index like ".ds-metrics-system.process-*" and system.process.cpu.total.norm.pct >= 0.7, process.pid, null),
@@ -77,7 +76,7 @@ FROM metrics-*, .alerts-security.alerts*  METADATA _index
         process_path = VALUES(process.executable),
         parent_process_path = VALUES(process.parent.executable),
         user_name = VALUES(user.name),
-        cmdline = VALUES(process.command_line) by process.pid, process.name, host.id, Esql.time_window
+        cmdline = VALUES(process.command_line) by process.pid, process.name, host.id
 | where pid_with_cpu_spike > 0 and pid_with_alerts > 0
 // populate fields to use in rule exceptions
 | eval process.hash.sha256 = MV_FIRST(Esql.process_hash_sha256),
