@@ -2,13 +2,13 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the use of Win32 API Functions that can be used to capture user keystrokes in PowerShell scripts. Attackers use
-this technique to capture user input, looking for credentials and/or other valuable data.
+Detects PowerShell script block content that references Win32 keylogging primitives such as key state polling or
+low-level input hooks. Adversaries use keylogging to capture credentials and other sensitive user input.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -17,41 +17,80 @@ license = "Elastic License v2"
 name = "PowerShell Keylogging Script"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating PowerShell Keylogging Script
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This alert indicates that PowerShell Script Block Logging recorded code referencing Win32 API functions commonly used to capture keystrokes or register low-level keyboard or mouse hooks. These primitives are frequently used by offensive tooling and custom implants to collect credentials and other sensitive input.
 
-Attackers can abuse PowerShell capabilities to capture user keystrokes with the goal of stealing credentials and other valuable information as credit card data and confidential conversations.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine file or network events from the involved PowerShell process for suspicious behavior.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Determine whether the script stores the captured data locally.
-- Investigate whether the script contains exfiltration capabilities and identify the exfiltration server.
-- Assess network data to determine if the host communicated with the exfiltration server.
+- Identify the execution scope and prioritize response:
+  - Review `host.name` and `host.id` to understand where the activity occurred and whether the asset is high value.
+  - Review `user.name`, `user.domain`, and `user.id` to determine the executing account and whether the activity is expected for that user.
+  - Use `@timestamp` to establish when the script block executed and to anchor a timeline for related activity on the same host.
+
+- Analyze the script block content for intent and capability:
+  - Review `powershell.file.script_block_text` and note which capability is present:
+    - Key state polling: `GetAsyncKeyState`, `NtUserGetAsyncKeyState`, `GetKeyboardState`.
+    - Input hooking: `SetWindowsHookEx`, `SetWindowsHookExA`, `SetWindowsHookExW`, or `NtUserSetWindowsHookEx` with hook constants like `WM_KEYBOARD_LL`, `WH_KEYBOARD_LL`, or `WH_MOUSE_LL`, and hook flow indicators such as `LowLevelKeyboardProc` or `CallNextHookEx`.
+    - Foreground window context capture often used to label keystrokes: `GetForegroundWindow`, `GetWindowTextA`, `GetWindowTextW`.
+    - Commodity keylogging functions or modules: `Get-Keystrokes`.
+  - Determine whether the script block only defines helper functions or actively invokes hook registration or polling loops (higher confidence of active collection).
+  - Look for common interop patterns used to call Win32 APIs from PowerShell (for example, `Add-Type`, `DllImport`, or embedded C#) and for logic that maps virtual key codes to readable output.
+  - Identify any referenced output handling within the script text (for example, file writes, buffering, encoding, or remote transmission routines) and capture those strings for scoping.
+
+- Reconstruct the full script when content is split across multiple events:
+  - If `powershell.total` is greater than 1 or the content appears truncated, collect all events that share the same `powershell.file.script_block_id`.
+  - Rebuild the script by ordering fragments using `powershell.sequence` until the expected `powershell.total` is reached.
+  - If expected sequences are missing, widen the time range around `@timestamp` to account for ingestion delays or gaps before concluding reconstruction.
+  - Preserve the fully reconstructed script text as evidence and for further scoping.
+
+- Determine the source of the script and how it was introduced:
+  - If `file.path` and `file.name` are present, treat the script as file-backed and assess whether the location and name are consistent with approved tooling and change control.
+  - Prioritize review when `file.path` suggests a user-writable or transient location, or when `file.name` is unusual for your environment.
+  - If file origin fields are not present, treat the execution as inline or dynamically generated and focus on surrounding PowerShell activity from the same `user.id` and `host.id` around `@timestamp`.
+  - Correlate the alert time on the same host with available process telemetry to identify the PowerShell host process and its parent process, then evaluate whether the execution chain aligns with expected administrative behavior.
+
+- Check for evidence of collection, staging, or downstream actions:
+  - Within `powershell.file.script_block_text`, identify any referenced output locations, file names, or remote destinations that could indicate where captured input is stored or transmitted.
+  - Review nearby endpoint file and network telemetry (if available) for unexpected file creation/modification in user-writable locations and unusual outbound connections following the alert time.
+  - Review authentication telemetry around the alert time to understand which accounts may have been exposed on the affected host during the suspected collection window.
+  - Look for repeated executions from the same `host.id` and `user.id` over time, which can indicate persistence or scheduled collection.
+
+- Scope for additional executions and impacted hosts:
+  - Search for other alerts or script block events that match the same `powershell.file.script_block_id`, the same `file.name`, or distinctive substrings from `powershell.file.script_block_text` across the environment.
+  - Identify whether the same `user.id` executed similar script blocks on multiple hosts or whether multiple users are affected on the same host, which may indicate broader compromise.
+  - If multiple hosts show the same file-backed script (`file.name` and `file.path`), determine whether it is a legitimate deployment versus unauthorized propagation.
 
 ### False positive analysis
 
-- Regular users do not have a business justification for using scripting utilities to capture keystrokes, making false positives unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
-
-### Related rules
-
-- PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
+- Some legitimate PowerShell automation may reference low-level input or window APIs for specialized use cases such as accessibility utilities, kiosk or lab automation, macro/hotkey tooling, or authorized security testing.
+- False positives are more likely when the script is part of a known internal toolkit with a documented business purpose, runs on a limited and expected host scope, and lacks evidence of sustained collection loops or output handling.
+- Treat as higher risk when the script content includes continuous polling or hook registration combined with logic that records, formats, stores, or prepares data for transmission, or when the activity occurs on user workstations outside of expected maintenance windows.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Prioritize the response if this alert involves key executives or potentially valuable targets for espionage.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is unauthorized or suspicious:
+  - Contain the host to prevent further input collection and limit follow-on actions.
+  - Preserve evidence from the alert, including the complete `powershell.file.script_block_text` reconstructed via `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total`, and any associated `file.path` and `file.name` values.
+  - Use the script content to extract any indicators (for example, output file names, remote destinations, or unique strings) and scope for related activity on other hosts.
+  - Assume potential credential exposure on the affected host and follow incident response procedures for credential reset, session revocation, and review of privileged access activity during the suspected collection window.
+  - Remediate the initial access path and remove any persistence or secondary payloads identified during correlation, including removing unauthorized scripts referenced by `file.path`.
+
+- If the activity is confirmed benign:
+  - Document the legitimate script or tool, expected operators (`user.id`), and expected host scope (`host.id`).
+  - Apply narrowly scoped tuning based on stable, repeatable identifiers (for example, specific `file.path` and expected accounts) to reduce recurring noise while maintaining coverage for unauthorized keylogging behavior.
 """
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-Keystrokes.ps1",
@@ -61,21 +100,8 @@ risk_score = 73
 rule_id = "bd2c86a0-8b61-4457-ab38-96943984e889"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "high"
 tags = [
@@ -92,13 +118,16 @@ type = "query"
 query = '''
 event.category:process and host.os.type:windows and
   (
-   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or
-   powershell.file.script_block_text : (
-        (SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and
-        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL" or "WH_MOUSE_LL")
+    powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or
+    powershell.file.script_block_text : (
+      (SetWindowsHookEx or SetWindowsHookExA or SetWindowsHookExW or NtUserSetWindowsHookEx) and
+      (
+        GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL" or "WH_MOUSE_LL" or
+        "WH_KEYBOARD_LL" or "LowLevelKeyboardProc" or "CallNextHookEx"
+      )
    )
-   ) and not user.id : "S-1-5-18"
-  and not powershell.file.script_block_text : (
+  ) and not user.id : "S-1-5-18" and
+  not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint"
   )
 '''
@@ -143,4 +172,23 @@ reference = "https://attack.mitre.org/techniques/T1106/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 
