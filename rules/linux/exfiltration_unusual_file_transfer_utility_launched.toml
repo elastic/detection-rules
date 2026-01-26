@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/19"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -160,6 +160,12 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     Esql.agent_id_count_distinct == 1 and
     Esql.event_count < 5
 | sort Esql.event_count asc
+
+// Extract unique values to ECS fields for alerts exclusion
+| eval agent.id = mv_min(Esql.agent_id_values),
+       host.name = mv_min(Esql.host_name_values)
+
+| keep agent.id, host.name, process.executable, process.parent.executable, Esql.*
 '''
 
 [[rule.threat]]
