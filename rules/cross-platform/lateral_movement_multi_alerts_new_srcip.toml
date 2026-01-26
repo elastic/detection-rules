@@ -21,7 +21,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM .alerts-security.*
+FROM .alerts-security.* METADATA _index
 
 // Lateral Movement related rules with fields of interest
 | where kibana.alert.rule.threat.tactic.name is not null and
@@ -51,8 +51,8 @@ FROM .alerts-security.*
         not isLocal > 0 and
         // reduce noise from SCCM, Nessus and alike
         Esql.unique_count_host_id <= 3 and Esql.alerts_count <= 20
-
-| KEEP Esql.*, source.ip
+| eval host.id = MV_FIRST(Esql.host_id_values), user.name = MV_FIRST(Esql.user_name_values)
+| KEEP Esql.*, source.ip, host.id, user.name
 '''
 note = """## Triage and analysis
 
