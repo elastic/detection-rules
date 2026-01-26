@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/01/24"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential exploitation of a Telnet remote authentication bypass vulnerability (CVE-2026-24061) in GNU Inetutils
+telnetd. The vulnerability allows unauthenticated access by supplying a crafted `-f <username>` value via the `USER` environment
+variable, resulting in a login process spawned with elevated privileges.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Telnet Authentication Bypass (CVE-2026-24061)"
+note = """## Triage and analysis
+
+### Investigating Potential Telnet Authentication Bypass (CVE-2026-24061)
+
+CVE-2026-24061 is a critical authentication bypass vulnerability affecting `telnetd` in GNU Inetutils. By supplying a
+crafted `-f root` value through the USER environment variable, a remote attacker can bypass authentication and gain
+unauthorized root-level access. This exploit results in the `login` process being executed with attacker-controlled
+arguments, typically spawned by `telnetd` or via `xinetd`.
+
+This rule detects suspicious `login` executions associated with Telnet services that include the `-f` flag, which
+forces authentication as a specified user and is indicative of exploitation attempts.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for the suspicious `login` process.
+  - Confirm whether `login` was spawned by `telnetd` or indirectly via `xinetd`.
+  - Review the command-line arguments passed to `login`, paying special attention to the presence of `-f` and any
+    attempts to authenticate as `root` or other privileged users.
+- Validate whether the Telnet service is expected to be running on the affected host.
+  - Telnet is deprecated and should rarely be exposed or enabled in modern environments.
+- Investigate post-authentication activity originating from the compromised session.
+  - Look for command execution, file modifications, privilege escalation attempts, or persistence mechanisms.
+  - Review network connections initiated after the suspicious login event.
+- Check for additional alerts or suspicious activity on the same host within the past 48 hours.
+- Determine whether the system is running a vulnerable version of GNU Inetutils telnetd.
+
+### False positive analysis
+
+- Legitimate use of the `-f` flag with `login` is extremely rare and typically restricted to trusted, local workflows.
+- False positives may occur in highly customized or legacy environments where Telnet is still in use.
+- Any benign occurrences should be carefully validated and documented before adding exceptions.
+
+### Related Rules
+
+- Telnet Authentication Bypass via User Environment Variable - "eb3150eb-e9fb-4a64-a0fc-aa66cdd35632"
+
+### Response and remediation
+
+- Immediately isolate the affected host to prevent further unauthorized access or lateral movement.
+- Terminate suspicious Telnet sessions and collect volatile forensic data where possible.
+- Investigate for signs of credential access, persistence, or follow-on exploitation.
+- Patch or upgrade GNU Inetutils to a version that addresses CVE-2026-24061.
+- Disable the Telnet service entirely if it is not explicitly required.
+- Enforce the use of secure alternatives such as SSH for remote administration.
+- Rotate credentials for any accounts that may have been exposed or accessed.
+- Perform a full system integrity review and antimalware scan.
+- Update hardening, monitoring, and logging policies to improve detection of legacy remote access abuse.
+"""
+references = [
+    "https://www.safebreach.com/blog/safebreach-labs-root-cause-analysis-and-poc-exploit-for-cve-2026-24061/",
+    "https://security-tracker.debian.org/tracker/CVE-2026-24061"
+]
+risk_score = 99
+rule_id = "ab7795cc-0e0b-4f9d-a934-1f17a58f869a"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and
+  process.name == "login" and process.parent.name == "telnetd" and process.args : "-*f*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
