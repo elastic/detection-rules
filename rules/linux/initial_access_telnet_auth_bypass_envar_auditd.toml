@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/01/24"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+creation_date = "2026/01/26"
+integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2026/01/24"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,15 +12,10 @@ telnetd. The vulnerability allows unauthenticated access by supplying a crafted 
 variable, resulting in a login process spawned with elevated privileges.
 """
 from = "now-9m"
-index = [
-    "endgame-*",
-    "logs-endpoint.events.process*",
-    "logs-crowdstrike.fdr*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Telnet Authentication Bypass (CVE-2026-24061)"
+name = "Telnet Authentication Bypass via User Environment Variable"
 note = """## Triage and analysis
 
 ### Investigating Potential Telnet Authentication Bypass (CVE-2026-24061)
@@ -55,7 +50,7 @@ forces authentication as a specified user and is indicative of exploitation atte
 
 ### Related Rules
 
-- Telnet Authentication Bypass via User Environment Variable - "eb3150eb-e9fb-4a64-a0fc-aa66cdd35632"
+- Potential Telnet Authentication Bypass (CVE-2026-24061) - "ab7795cc-0e0b-4f9d-a934-1f17a58f869a"
 
 ### Response and remediation
 
@@ -74,7 +69,7 @@ references = [
     "https://security-tracker.debian.org/tracker/CVE-2026-24061"
 ]
 risk_score = 99
-rule_id = "ab7795cc-0e0b-4f9d-a934-1f17a58f869a"
+rule_id = "eb3150eb-e9fb-4a64-a0fc-aa66cdd35632"
 severity = "critical"
 tags = [
     "Domain: Endpoint",
@@ -83,18 +78,15 @@ tags = [
     "Tactic: Lateral Movement",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne"
+    "Data Source: Auditd Manager"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and
-  process.name == "login" and process.parent.name == "telnetd" and process.args : "-*f*"
+sequence by host.id with maxspan=1s
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "process_started" and process.name == "telnetd"] by process.pid
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "process_started" and process.name == "login" and process.args : "-*f*"] by process.parent.pid
 '''
 
 
