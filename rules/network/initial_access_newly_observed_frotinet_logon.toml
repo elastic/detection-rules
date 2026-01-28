@@ -23,15 +23,15 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-fortinet_* metadata _id
+FROM logs-fortinet_fortigate.* metadata _id
 
 | WHERE event.module == "fortinet" and
         event.category == "authentication" and event.action == "login" and
-        (event.outcome == "success" or event.reason == "none") and user.name is not null and source.ip is not null
+        (event.outcome == "success" or event.reason == "none") and source.user.name is not null and source.ip is not null
 | stats Esql.logon_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
         Esql.source_ip_values = VALUES(source.ip),
-        Esql.message_values = VALUES(message) by user.name
+        Esql.message_values = VALUES(message) by source.user.name
 
 // first time seen is within 6m of the rule execution time and for the last 5d of events history
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
@@ -40,7 +40,7 @@ FROM logs-fortinet_* metadata _id
 // move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(Esql.source_ip_values)
 
-| keep source.ip, user.name, Esql.*
+| keep source.ip, source.user.name, Esql.*
 '''
 note = """## Triage and Analysis
 
