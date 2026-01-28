@@ -68,7 +68,7 @@ query = '''
 FROM metrics-*
 // more than 90% CPU use
 | WHERE system.process.cpu.total.norm.pct >= 0.9 and process.name is not null
-| STATS Esql.alerts_count = count(*),
+| STATS Esql.total_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
         Esql.agent_id_values = COUNT_DISTINCT(agent.id),
         Esql.system_process_cpu_total_norm_pct_values = MAX(system.process.cpu.total.norm.pct),
@@ -76,7 +76,7 @@ FROM metrics-*
         Esql.host_id_values = values(host.id), 
         Esql.user_name_values = VALUES(user.name) by process.name
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
-// first time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule
+// first time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule and limited to 1 unique hostg
 | where Esql.recent <= 6 and Esql.agent_id_values == 1
 // populate fields for rule exception
 | eval host.id = MV_FIRST(Esql.host_id_values), 
