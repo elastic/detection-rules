@@ -76,7 +76,7 @@ FROM metrics-*
         host_ids = values(host.id), Esql.users = VALUES(user.name) by process.name
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
 // first time seen is within 10m of the rule execution time
-| where Esql.recent <= 10 and Esql.agents == 1 and Esql.alerts_count <= 3
+| where Esql.recent <= 6 and Esql.agents == 1 and Esql.alerts_count <= 3
 // populate fields for rule exception
 | eval host.id = MV_FIRST(host_ids), process.command_line = MV_FIRST(Esql.cmd_line)
 | keep process.*, Esql.*
