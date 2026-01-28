@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -1264,12 +1264,12 @@ class BaseRuleContents(ABC):
         if hashable_dict.get("language") != "esql":
             return False
 
-        query: Optional[str] = hashable_dict.get("query")
+        query: str | None = hashable_dict.get("query")
         if not isinstance(query, str) or not query:
             return False
 
         keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-        keep_match: Optional[re.Match[str]] = keep_pattern.search(query)
+        keep_match: re.Match[str] | None = keep_pattern.search(query)
         if keep_match:
             keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
             return "*" in keep_fields
