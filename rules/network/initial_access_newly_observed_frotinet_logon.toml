@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the first observed successful login of a user to the Fortinet management interface within the last 7 days.
+First-time logins can indicate newly provisioned accounts, misconfigurations, or unauthorized access using valid credentials and should be reviewed promptly.
+"""
+from = "now-7d"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "First-Time Fortinet User Login"
+risk_score = 47
+rule_id = "73f31e1d-a741-4e81-bf23-357bf9a09283"
+severity = "medium"
+tags = ["Use Case: Threat Detection", "Tactic: Initial Access", "Resources: Investigation Guide", "Domain: Network", "Domain: Identity", "Data Source: Fortinet"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_* metadata _id
+
+| WHERE event.module == "fortinet" and
+        event.category == "authentication" and event.action == "login" and
+        (event.outcome == "success" or event.reason == "none") and user.name is not null and source.ip is not null
+| stats Esql.logon_count = count(*),
+        Esql.first_time_seen = MIN(@timestamp),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.message_values = VALUES(message) by user.name
+
+// first time seen is within 6m of the rule execution time and for the last 5d of events history
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+| where Esql.recent <= 6 and Esql.logon_count == 1
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| eval source.ip = MV_FIRST(Esql.source_ip_values)
+
+| keep source.ip, user.name, Esql.*
+'''
+note = """## Triage and Analysis
+
+### Investigating First-Time Fortinet User Login
+
+This alert indicates that a user has successfully logged in to the Fortinet management interface for the first time within the last 7 days of observed data.
+
+Because access may provides some control over network security devices, any newly observed user login should be validated to confirm it is expected and authorized.
+
+### Investigation Steps
+
+- **Identify the account**
+  - Review `source.user.name` and confirm whether the account is known and officially provisioned.
+  - Determine whether this is a newly created administrator or an existing account logging in for the first time.
+
+- **Validate the source**
+  - Review `source.ip` and confirm whether it originates from a trusted management network, VPN, or jump host.
+  - Investigate geolocation or ASN if the source IP is external or unusual.
+
+- **Review login context**
+  - Examine associated FortiGate log messages for details such as login method, interface, or authentication source.
+  - Check for additional administrative actions following the login (policy changes, user creation, configuration exports).
+
+- **Correlate with recent changes**
+  - Verify whether there were recent change requests, onboarding activities, or maintenance windows that explain the login.
+  - Look for other authentication attempts (failed or successful) from the same source or user.
+
+### False Positive Considerations
+
+- Newly onboarded administrators or service accounts.
+- First-time logins after log retention changes or data source onboarding.
+- Automation, backup, or monitoring tools introduced recently.
+- Lab, development, or test FortiGate devices.
+
+### Response and Remediation
+
+- **If authorized**
+  - Document the activity and consider adding an exception if the behavior is expected.
+  - Ensure the account follows least-privilege and MFA best practices.
+
+- **If suspicious or unauthorized**
+  - Disable or restrict the administrator account immediately.
+  - Rotate credentials and review authentication sources.
+  - Audit recent FortiGate configuration changes.
+  - Review surrounding network activity for lateral movement or persistence attempts."""
+references = ["https://www.elastic.co/docs/reference/integrations/fortinet-intro"]
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
