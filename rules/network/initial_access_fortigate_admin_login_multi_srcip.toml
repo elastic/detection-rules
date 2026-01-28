@@ -41,7 +41,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 | where Esql.recent <= 6 and Esql.logon_count >= 2 and Esql.source_ip_count_distinct >= 2
 
 // move dynamic fields to ECS equivalent for rule exceptions
-| eval source.ip = MV_FIRST(Esql.source_ip_values),
+| eval source.ip = MV_FIRST(Esql.source_ip_values)
 
 | keep source.ip, source.user.name, Esql.*
 '''
