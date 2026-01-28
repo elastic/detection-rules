@@ -18,7 +18,7 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "FortiGate FortiCloud SSO Login from Unusual Source"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating First-Time FortiGate FortiCloud SSO Login from Unusual Source
 
@@ -26,45 +26,27 @@ This alert indicates that a FortiCloud SSO login was observed from a source IP a
 
 CVE-2026-24858 (FG-IR-26-060) allows attackers with a FortiCloud account and a registered device to craft SAML assertions that authenticate them as administrators on other FortiGate devices when FortiCloud SSO is enabled. This vulnerability has been actively exploited in the wild.
 
-### Investigation Steps
+### Possible investigation steps
 
-- Review the source IP
-  - Check `source.ip` against known corporate management networks, VPN egress points, and jump hosts.
-  - Investigate the IP's ASN and geolocation. Attacker IPs have been observed from The Constant Company LLC, BL Networks, Kaopu Cloud HK Limited, and Cloudflare-protected ranges.
-  - Determine whether this IP has been seen in any other authentication context across the environment.
+- Check `source.ip` against known corporate management networks, VPN egress points, and jump hosts. Investigate the IP's ASN and geolocation, as attacker IPs have been observed from The Constant Company LLC, BL Networks, Kaopu Cloud HK Limited, and Cloudflare-protected ranges.
+- Determine whether this IP has been seen in any other authentication context across the environment.
+- Check `Esql.user_values` for the SSO account name (typically an email address) and verify the account belongs to the organization. Compare against known attacker email IOCs: cloud-noc@mail.io, cloud-init@mail.io, heltaylor.12@tutamail.com, support@openmail.pro.
+- Check `Esql.observer_name_values` to identify which FortiGate device was accessed and confirm whether FortiCloud SSO is intentionally enabled on the device.
+- Look for local administrator account creation, configuration exports, firewall policy changes, or VPN user/group creation immediately following the SSO login. The observed attack pattern involves rogue admin creation within seconds of login.
 
-- Review the authenticated account
-  - Check `Esql.user_values` for the SSO account name (typically an email address).
-  - Verify the account belongs to the organization.
-  - Check against known attacker email IOCs: cloud-noc@mail.io, cloud-init@mail.io, heltaylor.12@tutamail.com, support@openmail.pro.
+### False positive analysis
 
-- Review the targeted device
-  - Check `Esql.observer_name_values` to identify which FortiGate device was accessed.
-  - Confirm whether FortiCloud SSO is intentionally enabled on the device.
+- Administrators connecting from a new office location, hotel, or home network for the first time may trigger this alert.
+- FortiCloud SSO access after IP address changes such as ISP rotation or VPN egress changes can appear as a new source IP.
+- First login after FortiCloud SSO is initially enabled on a device will fire since no historical SSO logins exist.
 
-- Review post-authentication activity
-  - Check for local administrator account creation immediately following the SSO login.
-  - Look for configuration exports, firewall policy changes, or VPN user/group creation.
-  - The observed attack pattern involves rogue admin creation within seconds of login.
+### Response and remediation
 
-### False Positive Considerations
-
-- Administrators connecting from a new office location, hotel, or home network for the first time.
-- FortiCloud SSO access after IP address changes (ISP rotation, VPN egress changes).
-- First login after FortiCloud SSO is initially enabled on a device.
-
-### Response and Remediation
-
-- If the activity is unauthorized
-  - Disable FortiCloud SSO immediately: `config system global` > `set admin-forticloud-sso-login disable`.
-  - Audit all administrator accounts for unauthorized additions.
-  - Review and restore configuration from a known-clean backup.
-  - Rotate all credentials including any LDAP/AD accounts connected to the device.
-  - Upgrade FortiOS to a patched version.
-
-- If the activity is expected
-  - Document the new source IP and consider adding an exception if it represents a new management location.
-  - Ensure FortiOS is running a patched firmware version."""
+- If the activity is unauthorized, disable FortiCloud SSO immediately using `config system global` > `set admin-forticloud-sso-login disable`.
+- Audit all administrator accounts for unauthorized additions and review and restore configuration from a known-clean backup.
+- Rotate all credentials including any LDAP/AD accounts connected to the device.
+- Upgrade FortiOS to a patched version.
+- If the activity is expected, document the new source IP and consider adding an exception if it represents a new management location."""
 references = [
     "https://www.fortiguard.com/psirt/FG-IR-26-060",
     "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",

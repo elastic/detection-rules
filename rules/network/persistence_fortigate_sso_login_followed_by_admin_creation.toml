@@ -16,7 +16,7 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "FortiGate SSO Login Followed by Administrator Account Creation"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating FortiGate SSO Login Followed by Administrator Account Creation
 
@@ -24,48 +24,25 @@ This alert indicates that both a FortiCloud SSO login and an administrator accou
 
 The attack flow is: authenticate via FortiCloud SSO using a crafted SAML assertion, then immediately create local administrator accounts to maintain access even after the SSO vulnerability is patched.
 
-### Investigation Steps
+### Possible investigation steps
 
-- Review the SSO login
-  - Check `Esql.sso_user_values` for the FortiCloud account used.
-  - Check `Esql.sso_source_ip_values` for the source IP of the SSO login.
-  - Determine whether the SSO account belongs to the organization.
+- Check `Esql.sso_user_values` for the FortiCloud account used and `Esql.sso_source_ip_values` for the source IP of the SSO login. Determine whether the SSO account belongs to the organization.
+- Check `Esql.admin_created_values` for the names of accounts created and examine `Esql.admin_cfgattr_values` for access profiles assigned (especially super_admin).
+- Assess the timing between events. In the observed campaign, admin creation occurs within seconds of SSO login. A tight time correlation is a strong indicator of compromise.
+- Review `observer.name` to identify the targeted device and verify whether FortiCloud SSO is intentionally enabled. Run `get system admin` to list all current administrator accounts.
+- Check whether the same SSO account or source IP targeted other devices. Look for configuration exports, firewall policy changes, or VPN modifications following the admin creation.
 
-- Review the created administrator accounts
-  - Check `Esql.admin_created_values` for the names of accounts created.
-  - Examine `Esql.admin_cfgattr_values` for access profiles assigned (especially super_admin).
-
-- Assess the timing
-  - In the observed campaign, admin creation occurs within seconds of SSO login.
-  - A tight time correlation between SSO login and admin creation is a strong indicator.
-
-- Check the affected device
-  - Review `observer.name` to identify the targeted device.
-  - Verify whether FortiCloud SSO is intentionally enabled.
-  - Run `get system admin` to list all current administrator accounts.
-
-- Investigate broader impact
-  - Check whether the same SSO account or source IP targeted other devices.
-  - Look for configuration exports, firewall policy changes, or VPN modifications following the admin creation.
-
-### False Positive Considerations
+### False positive analysis
 
 - An authorized administrator logging in via FortiCloud SSO and creating a new admin account as part of normal operations.
 - Initial device onboarding where SSO login and account setup occur in the same session.
 
-### Response and Remediation
+### Response and remediation
 
-- If the activity is unauthorized
-  - Delete all administrator accounts created during the session.
-  - Disable FortiCloud SSO immediately.
-  - Restore configuration from a known-clean backup.
-  - Rotate all credentials including LDAP/AD accounts connected to the device.
-  - Upgrade FortiOS to a patched version.
-  - Engage incident response for the affected device and any downstream systems.
-
-- If the activity is expected
-  - Document the administrative session and verify it was authorized.
-  - Consider creating accounts through a separate session to avoid triggering this correlation."""
+- If unauthorized, delete all administrator accounts created during the session and disable FortiCloud SSO immediately.
+- Restore configuration from a known-clean backup and rotate all credentials including LDAP/AD accounts connected to the device.
+- Upgrade FortiOS to a patched version and engage incident response for the affected device and any downstream systems.
+- If the activity is expected, document the administrative session and verify it was authorized. Consider creating accounts through a separate session to avoid triggering this correlation."""
 references = [
     "https://www.fortiguard.com/psirt/FG-IR-26-060",
     "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",

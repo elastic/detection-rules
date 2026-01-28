@@ -17,7 +17,7 @@ interval = "29m"
 language = "esql"
 license = "Elastic License v2"
 name = "FortiGate Multiple Administrator Accounts Created"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating FortiGate Multiple Administrator Accounts Created
 
@@ -25,46 +25,25 @@ This alert indicates that two or more administrator accounts were created on a s
 
 In the FG-IR-26-060 campaign, threat actors created multiple super_admin accounts (audit, backup, support, itadmin, secadmin, remoteadmin) within seconds of initial access to ensure persistent control even if individual accounts are discovered and removed.
 
-### Investigation Steps
+### Possible investigation steps
 
-- Review the scope of account creation
-  - Check `Esql.accounts_created` for the total number of new accounts.
-  - Review `Esql.created_accounts` for the names of all accounts created.
-  - Examine `Esql.cfgattr_values` to determine the access profiles assigned to each account.
+- Check `Esql.accounts_created` for the total number of new accounts and review `Esql.created_accounts` for the names of all accounts created. Examine `Esql.cfgattr_values` to determine the access profiles assigned to each account.
+- Review `source.user.name` to determine which account performed the bulk creation and `Esql.ui_values` for the source interface and IP address. Verify whether this administrator is authorized to provision multiple accounts.
+- Analyze the timing of account creation. Accounts created within seconds of each other strongly suggest automated or scripted activity. Check whether a login event occurred shortly before the account creation burst.
+- Check `observer.name` to identify the FortiGate device and run `get system admin` to get the current administrator list. Check other FortiGate devices in the fleet for the same account names.
 
-- Identify the creating administrator
-  - Review `source.user.name` to determine which account performed the bulk creation.
-  - Review `Esql.ui_values` for the source interface and IP address.
-  - Verify whether this administrator is authorized to provision multiple accounts.
-
-- Analyze the timing
-  - Accounts created within seconds of each other strongly suggest automated or scripted activity.
-  - Check whether a login event occurred shortly before the account creation burst.
-
-- Investigate the affected device
-  - Check `observer.name` to identify the FortiGate device.
-  - Run `get system admin` to get the current administrator list.
-  - Check other FortiGate devices in the fleet for the same account names.
-
-### False Positive Considerations
+### False positive analysis
 
 - Initial device provisioning where multiple administrators are created as part of setup.
 - Bulk account creation through automation or configuration management tools.
 - Migration or device replacement scenarios where accounts are replicated.
 
-### Response and Remediation
+### Response and remediation
 
-- If the activity is unauthorized
-  - Delete all unauthorized administrator accounts immediately.
-  - Audit the creating account for compromise.
-  - Treat the device configuration as compromised.
-  - Restore configuration from a known-clean backup.
-  - Check all FortiGate devices for similar bulk account creation.
-  - Upgrade FortiOS to a patched version.
-
-- If the activity is expected
-  - Document the provisioning activity and the business justification.
-  - Consider staggering account creation to avoid triggering this detection in the future."""
+- If unauthorized, delete all unauthorized administrator accounts immediately and audit the creating account for compromise.
+- Treat the device configuration as compromised and restore from a known-clean backup.
+- Check all FortiGate devices for similar bulk account creation and upgrade FortiOS to a patched version.
+- If the activity is expected, document the provisioning activity and the business justification. Consider staggering account creation to avoid triggering this detection in the future."""
 references = [
     "https://www.fortiguard.com/psirt/FG-IR-26-060",
     "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",

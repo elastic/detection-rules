@@ -17,7 +17,7 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "FortiGate Login with Known Attacker Administrator Account Name"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating FortiGate Login with Known Attacker Administrator Account Name
 
@@ -25,42 +25,25 @@ This alert indicates that an administrator account with a name matching known th
 
 The threat actor creates local admin accounts with generic operational names to blend in with legitimate accounts and maintain persistence after the initial SSO bypass.
 
-### Investigation Steps
+### Possible investigation steps
 
-- Verify the account in `source.user.name`
-  - Determine whether this account was provisioned through an authorized change process.
-  - Check when the account was created by reviewing configuration change logs for `cfgpath == "system.admin"` and `action == "Add"`.
+- Verify `source.user.name` to determine whether this account was provisioned through an authorized change process. Check when the account was created by reviewing configuration change logs for `cfgpath == "system.admin"` and `action == "Add"`.
+- Check `source.ip` against known threat infrastructure and internal management ranges. Compare against attacker IP IOCs from The Constant Company LLC, BL Networks, and Kaopu Cloud HK Limited.
+- Look for configuration exports, firewall policy modifications, or additional account creation following the login. Check for VPN user or group creation in post-login activity.
+- Run `get system admin` on the affected FortiGate to list all configured administrators and compare against the authorized administrator list for the device.
 
-- Review the source IP address
-  - Check `source.ip` against known threat infrastructure and internal management ranges.
-  - Compare against attacker IP IOCs from The Constant Company LLC, BL Networks, and Kaopu Cloud HK Limited.
-
-- Examine post-login activity
-  - Look for configuration exports, firewall policy modifications, or additional account creation.
-  - Check for VPN user or group creation following the login.
-
-- Audit all administrator accounts
-  - Run `get system admin` on the affected FortiGate to list all configured administrators.
-  - Compare against the authorized administrator list for the device.
-
-### False Positive Considerations
+### False positive analysis
 
 - Organizations that legitimately use generic names like "audit" or "backup" for administrator accounts.
 - Service accounts with these names created through authorized change management.
 - If any of these names are legitimately used in your environment, add exceptions for the specific device and account combination.
 
-### Response and Remediation
+### Response and remediation
 
-- If the activity is unauthorized
-  - Immediately disable or delete the suspicious administrator account.
-  - Treat the device configuration as compromised and restore from a known-clean backup.
-  - Rotate all credentials including LDAP/AD accounts connected to the device.
-  - Check other FortiGate devices in the fleet for the same account names.
-  - Review FortiGate firmware version and upgrade to a patched release.
-
-- If the activity is expected
-  - Document the account purpose and consider renaming to avoid confusion with IOCs.
-  - Add a rule exception for the specific account and device combination."""
+- If unauthorized, immediately disable or delete the suspicious administrator account and treat the device configuration as compromised.
+- Restore from a known-clean backup and rotate all credentials including LDAP/AD accounts connected to the device.
+- Check other FortiGate devices in the fleet for the same account names and upgrade FortiOS to a patched version.
+- If the activity is expected, document the account purpose and consider renaming to avoid confusion with IOCs. Add a rule exception for the specific account and device combination."""
 references = [
     "https://www.fortiguard.com/psirt/FG-IR-26-060",
     "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
