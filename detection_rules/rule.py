@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -1259,17 +1259,19 @@ class BaseRuleContents(ABC):
 
         return obj
 
-    def _uses_keep_star(self) -> bool:
+    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *`."""
-        if not hasattr(self.data, "language") or self.data.language != "esql":
+        if hashable_dict.get("language") != "esql":
             return False
-        if not hasattr(self.data, "query") or not self.data.query:
+
+        query: Optional[str] = hashable_dict.get("query")
+        if not isinstance(query, str) or not query:
             return False
 
         keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-        keep_match = keep_pattern.search(self.data.query)
+        keep_match: Optional[re.Match[str]] = keep_pattern.search(query)
         if keep_match:
-            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
             return "*" in keep_fields
         return False
 
@@ -1289,7 +1291,7 @@ class BaseRuleContents(ABC):
 
         # For ES|QL rules with `| keep *`, exclude required_fields since they're
         # non-deterministic (depend on integration schemas which vary by stack version)
-        if self._uses_keep_star():
+        if self._uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
 
         return hashable_dict
