@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a new administrator account with the super_admin access profile on a FortiGate device.
+The super_admin profile grants unrestricted access to all device functions. Threat actors exploiting CVE-2026-24858 have
+been observed creating super_admin accounts immediately after gaining access via FortiCloud SSO bypass to establish
+persistent administrative control.
+"""
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate Super Admin Account Creation"
+note = """## Triage and Analysis
+
+### Investigating FortiGate Super Admin Account Creation
+
+This alert indicates that a new administrator account with the `super_admin` access profile was created on a FortiGate device. The `super_admin` profile grants full unrestricted access to all device configuration and management functions.
+
+In the FG-IR-26-060 campaign, threat actors created multiple `super_admin` accounts within seconds of initial SSO login, using names like audit, backup, support, itadmin, secadmin, and remoteadmin.
+
+### Investigation Steps
+
+- Identify the account that performed the creation
+  - Review `source.user.name` to determine which administrator created the new account.
+  - Review `fortinet.firewall.ui` for the source interface and IP address of the session.
+  - Verify whether this administrator account is legitimate and authorized to create accounts.
+
+- Review the newly created account
+  - Check `fortinet.firewall.cfgobj` for the name of the new administrator.
+  - Determine whether the account was requested through a change management process.
+  - Compare the account name against known attacker IOCs: audit, backup, support, itadmin, secadmin, remoteadmin, backupadmin, deploy, security, sv.
+
+- Examine the timing and context
+  - Check whether the account creation occurred shortly after a login event, especially an SSO login.
+  - Look for multiple admin accounts created in rapid succession, which is a strong indicator of compromise.
+
+- Audit the affected device
+  - Run `get system admin` to list all configured administrators.
+  - Compare against the authorized administrator list.
+  - Check for other configuration changes made by the same user in the same session.
+
+### False Positive Considerations
+
+- Legitimate provisioning of new administrator accounts during onboarding.
+- Automation or orchestration tools that create service accounts with super_admin privileges.
+- Disaster recovery or break-glass account creation.
+
+### Response and Remediation
+
+- If the activity is unauthorized
+  - Immediately delete the rogue administrator account.
+  - Audit the creating account for compromise and rotate its credentials.
+  - Treat the device configuration as compromised.
+  - Check all FortiGate devices in the fleet for similar unauthorized accounts.
+  - Restore configuration from a known-clean backup.
+  - Upgrade FortiOS to a patched version.
+
+- If the activity is expected
+  - Document the change and ensure it was approved through change management.
+  - Consider using less-privileged access profiles where full super_admin is not required."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+]
+risk_score = 47
+rule_id = "a40b7c33-b4ba-4e5b-bdf1-2f75f2a477b8"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.* metadata _id, _version, _index
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.code == "0100044547" and
+        fortinet.firewall.cfgpath == "system.admin" and
+        fortinet.firewall.action == "Add" and
+        fortinet.firewall.cfgattr LIKE "*accprofile[super_admin]*"
+
+| keep @timestamp, source.user.name, fortinet.firewall.cfgobj, fortinet.firewall.cfgattr, fortinet.firewall.ui, observer.name, message, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

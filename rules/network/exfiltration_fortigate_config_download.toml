@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the download of a FortiGate device configuration file. Configuration exports contain sensitive data
+including administrator password hashes, LDAP bind credentials, VPN pre-shared keys, routing tables, and firewall
+policies. Threat actors exploiting CVE-2026-24858 have been observed exporting the full device configuration
+immediately after gaining access to harvest credentials and map the internal network.
+"""
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate Configuration File Downloaded"
+note = """## Triage and Analysis
+
+### Investigating FortiGate Configuration File Downloaded
+
+This alert indicates that a FortiGate device configuration file was downloaded. Configuration files contain highly sensitive information including administrator credentials, LDAP/RADIUS secrets, VPN pre-shared keys, certificate private keys, and the complete network topology.
+
+In the FG-IR-26-060 campaign, threat actors exported the full device configuration shortly after creating rogue administrator accounts, using the harvested credentials for lateral movement and to maintain access through alternative channels.
+
+### Investigation Steps
+
+- Identify the administrator who performed the download
+  - Review `source.user.name` to determine which account initiated the download.
+  - Review `fortinet.firewall.ui` for the source interface and IP address (e.g., GUI, CLI, or API).
+  - Verify whether this administrator is authorized to export device configurations.
+
+- Determine the context
+  - Check whether a scheduled backup process or configuration management tool performed this action.
+  - Look for preceding SSO login events or administrator account creation events on the same device.
+  - Determine whether the downloading account was recently created.
+
+- Assess the scope
+  - Check `observer.name` to identify which device had its configuration exported.
+  - Search for configuration download events across other FortiGate devices in the fleet.
+
+- Review post-download activity
+  - Check for firewall policy changes, VPN configuration modifications, or additional admin account creation after the download.
+  - Determine whether any credentials from the configuration have been used for lateral movement.
+
+### False Positive Considerations
+
+- Scheduled configuration backups performed by FortiManager, Ansible, or other automation tools.
+- Administrator-initiated backups during planned maintenance or before firmware upgrades.
+- Configuration audits or compliance checks that require config export.
+
+### Response and Remediation
+
+- If the activity is unauthorized
+  - Treat all credentials in the configuration as compromised.
+  - Rotate all passwords, pre-shared keys, LDAP bind credentials, and RADIUS secrets contained in the configuration.
+  - Revoke and reissue any certificates whose private keys were included in the export.
+  - Audit the administrator account that performed the download for compromise.
+  - Check for other indicators of compromise on the device (rogue admins, policy changes).
+
+- If the activity is expected
+  - Document the backup activity and verify it was performed through an authorized process.
+  - Ensure configuration backups are stored securely with appropriate access controls."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+]
+risk_score = 47
+rule_id = "b7e2a04d-4f8a-4e12-8c9a-1d5e6f7a8b9c"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.* metadata _id, _version, _index
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.code == "0100032095" and
+        fortinet.firewall.action == "download"
+
+| keep @timestamp, source.user.name, fortinet.firewall.ui, observer.name, message, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

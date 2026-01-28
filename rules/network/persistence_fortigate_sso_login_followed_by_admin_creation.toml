@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a FortiCloud SSO login followed by administrator account creation on the same FortiGate device within
+the rule lookback window. This sequence is a high-confidence indicator of the FG-IR-26-060 attack pattern, where threat
+actors authenticate via SAML-based SSO bypass and immediately create local administrator accounts for persistence.
+"""
+from = "now-30m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate SSO Login Followed by Administrator Account Creation"
+note = """## Triage and Analysis
+
+### Investigating FortiGate SSO Login Followed by Administrator Account Creation
+
+This alert indicates that both a FortiCloud SSO login and an administrator account creation event occurred on the same FortiGate device within the lookback window. This two-event sequence is the core attack pattern observed in the FG-IR-26-060 campaign.
+
+The attack flow is: authenticate via FortiCloud SSO using a crafted SAML assertion, then immediately create local administrator accounts to maintain access even after the SSO vulnerability is patched.
+
+### Investigation Steps
+
+- Review the SSO login
+  - Check `Esql.sso_user_values` for the FortiCloud account used.
+  - Check `Esql.sso_source_ip_values` for the source IP of the SSO login.
+  - Determine whether the SSO account belongs to the organization.
+
+- Review the created administrator accounts
+  - Check `Esql.admin_created_values` for the names of accounts created.
+  - Examine `Esql.admin_cfgattr_values` for access profiles assigned (especially super_admin).
+
+- Assess the timing
+  - In the observed campaign, admin creation occurs within seconds of SSO login.
+  - A tight time correlation between SSO login and admin creation is a strong indicator.
+
+- Check the affected device
+  - Review `observer.name` to identify the targeted device.
+  - Verify whether FortiCloud SSO is intentionally enabled.
+  - Run `get system admin` to list all current administrator accounts.
+
+- Investigate broader impact
+  - Check whether the same SSO account or source IP targeted other devices.
+  - Look for configuration exports, firewall policy changes, or VPN modifications following the admin creation.
+
+### False Positive Considerations
+
+- An authorized administrator logging in via FortiCloud SSO and creating a new admin account as part of normal operations.
+- Initial device onboarding where SSO login and account setup occur in the same session.
+
+### Response and Remediation
+
+- If the activity is unauthorized
+  - Delete all administrator accounts created during the session.
+  - Disable FortiCloud SSO immediately.
+  - Restore configuration from a known-clean backup.
+  - Rotate all credentials including LDAP/AD accounts connected to the device.
+  - Upgrade FortiOS to a patched version.
+  - Engage incident response for the affected device and any downstream systems.
+
+- If the activity is expected
+  - Document the administrative session and verify it was authorized.
+  - Consider creating accounts through a separate session to avoid triggering this correlation."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+]
+risk_score = 47
+rule_id = "e3a7b1c2-5d9f-4e8a-b6c3-2f1d4e5a6b7c"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.* metadata _id, _version, _index
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        (
+          (event.category == "authentication" and event.action == "login" and
+           event.outcome == "success" and fortinet.firewall.method == "sso")
+          OR
+          (event.code == "0100044547" and fortinet.firewall.cfgpath == "system.admin" and
+           fortinet.firewall.action == "Add")
+        )
+
+// tag each event type and capture timestamps conditionally
+| EVAL Esql.is_sso_login = CASE(event.category == "authentication" AND fortinet.firewall.method == "sso", 1, 0),
+       Esql.is_admin_creation = CASE(event.code == "0100044547" AND fortinet.firewall.cfgpath == "system.admin", 1, 0),
+       Esql.sso_timestamp = CASE(event.category == "authentication" AND fortinet.firewall.method == "sso", @timestamp),
+       Esql.admin_timestamp = CASE(event.code == "0100044547" AND fortinet.firewall.cfgpath == "system.admin", @timestamp)
+
+| STATS Esql.sso_login_count = SUM(Esql.is_sso_login),
+        Esql.admin_creation_count = SUM(Esql.is_admin_creation),
+        Esql.earliest_sso_login = MIN(Esql.sso_timestamp),
+        Esql.earliest_admin_creation = MIN(Esql.admin_timestamp),
+        Esql.sso_user_values = VALUES(source.user.name),
+        Esql.sso_source_ip_values = VALUES(source.ip),
+        Esql.admin_created_values = VALUES(fortinet.firewall.cfgobj),
+        Esql.admin_cfgattr_values = VALUES(fortinet.firewall.cfgattr),
+        Esql.message_values = VALUES(message) BY observer.name
+
+// both event types must be present and admin creation must follow SSO login
+| WHERE Esql.sso_login_count >= 1 AND Esql.admin_creation_count >= 1
+    AND Esql.earliest_admin_creation > Esql.earliest_sso_login
+
+| KEEP observer.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

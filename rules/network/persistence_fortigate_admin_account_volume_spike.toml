@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of multiple administrator accounts on a single FortiGate device within the rule lookback
+window. Creating several admin accounts in rapid succession is a behavioral indicator of compromise observed in the
+FG-IR-26-060 campaign, where threat actors created 5-6 super_admin accounts within seconds of gaining initial access via
+FortiCloud SSO bypass.
+"""
+from = "now-30m"
+interval = "29m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate Multiple Administrator Accounts Created"
+note = """## Triage and Analysis
+
+### Investigating FortiGate Multiple Administrator Accounts Created
+
+This alert indicates that two or more administrator accounts were created on a single FortiGate device within the rule lookback window. This behavioral pattern is a strong indicator of compromise.
+
+In the FG-IR-26-060 campaign, threat actors created multiple super_admin accounts (audit, backup, support, itadmin, secadmin, remoteadmin) within seconds of initial access to ensure persistent control even if individual accounts are discovered and removed.
+
+### Investigation Steps
+
+- Review the scope of account creation
+  - Check `Esql.accounts_created` for the total number of new accounts.
+  - Review `Esql.created_accounts` for the names of all accounts created.
+  - Examine `Esql.cfgattr_values` to determine the access profiles assigned to each account.
+
+- Identify the creating administrator
+  - Review `source.user.name` to determine which account performed the bulk creation.
+  - Review `Esql.ui_values` for the source interface and IP address.
+  - Verify whether this administrator is authorized to provision multiple accounts.
+
+- Analyze the timing
+  - Accounts created within seconds of each other strongly suggest automated or scripted activity.
+  - Check whether a login event occurred shortly before the account creation burst.
+
+- Investigate the affected device
+  - Check `observer.name` to identify the FortiGate device.
+  - Run `get system admin` to get the current administrator list.
+  - Check other FortiGate devices in the fleet for the same account names.
+
+### False Positive Considerations
+
+- Initial device provisioning where multiple administrators are created as part of setup.
+- Bulk account creation through automation or configuration management tools.
+- Migration or device replacement scenarios where accounts are replicated.
+
+### Response and Remediation
+
+- If the activity is unauthorized
+  - Delete all unauthorized administrator accounts immediately.
+  - Audit the creating account for compromise.
+  - Treat the device configuration as compromised.
+  - Restore configuration from a known-clean backup.
+  - Check all FortiGate devices for similar bulk account creation.
+  - Upgrade FortiOS to a patched version.
+
+- If the activity is expected
+  - Document the provisioning activity and the business justification.
+  - Consider staggering account creation to avoid triggering this detection in the future."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+]
+risk_score = 47
+rule_id = "cbbe0523-33f3-4420-b88d-5c940d9e72c1"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.* metadata _id, _version, _index
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.code == "0100044547" and
+        fortinet.firewall.cfgpath == "system.admin" and
+        fortinet.firewall.action == "Add"
+| STATS Esql.accounts_created = COUNT(*),
+        Esql.created_accounts = VALUES(fortinet.firewall.cfgobj),
+        Esql.cfgattr_values = VALUES(fortinet.firewall.cfgattr),
+        Esql.ui_values = VALUES(fortinet.firewall.ui),
+        Esql.message_values = VALUES(message) BY observer.name, source.user.name
+
+| WHERE Esql.accounts_created >= 2
+
+| keep source.user.name, observer.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
