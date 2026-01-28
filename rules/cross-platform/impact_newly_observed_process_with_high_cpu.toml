@@ -70,16 +70,18 @@ FROM metrics-*
 | WHERE system.process.cpu.total.norm.pct >= 0.9 and process.name is not null
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
-        Esql.agents = COUNT_DISTINCT(agent.id),
-        Esql.cpu_max_values = MAX(system.process.cpu.total.norm.pct),
-        Esql.cmd_line = VALUES(process.command_line),
-        host_ids = values(host.id), Esql.users = VALUES(user.name) by process.name
+        Esql.agent_id_values = COUNT_DISTINCT(agent.id),
+        Esql.system_process_cpu_total_norm_pct_values = MAX(system.process.cpu.total.norm.pct),
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.host_id_values = values(host.id), 
+        Esql.user_name_values = VALUES(user.name) by process.name
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
-// first time seen is within 10m of the rule execution time
-| where Esql.recent <= 6 and Esql.agents == 1 and Esql.alerts_count <= 3
+// first time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule
+| where Esql.recent <= 6 and Esql.agent_id_values == 1
 // populate fields for rule exception
-| eval host.id = MV_FIRST(host_ids), process.command_line = MV_FIRST(Esql.cmd_line)
-| keep process.*, Esql.*
+| eval host.id = MV_FIRST(Esql.host_id_values), 
+       process.command_line = MV_FIRST(Esql.process_command_line_values)
+| keep host.id, process.name, process.command_line, Esql.*
 '''
 note = """## Triage and analysis
 
