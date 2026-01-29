@@ -14,7 +14,8 @@ immediately after gaining access to harvest credentials and map the internal net
 """
 from = "now-9m"
 interval = "5m"
-language = "esql"
+index = ["logs-fortinet_fortigate.*"]
+language = "eql"
 license = "Elastic License v2"
 name = "FortiGate Configuration File Downloaded"
 note = """## Triage and analysis
@@ -62,16 +63,12 @@ tags = [
     "Data Source: Fortinet FortiGate",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-FROM logs-fortinet_fortigate.* metadata _id, _version, _index
-
-| WHERE event.dataset == "fortinet_fortigate.log" and
-        event.code == "0100032095" and
-        fortinet.firewall.action == "download"
-
-| keep @timestamp, source.user.name, fortinet.firewall.ui, observer.name, message, _id, _index, _version
+any where event.dataset == "fortinet_fortigate.log" and
+    event.code == "0100032095" and
+    fortinet.firewall.action == "download"
 '''
 
 
