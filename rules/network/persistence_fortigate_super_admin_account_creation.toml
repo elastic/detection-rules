@@ -13,7 +13,8 @@ super_admin accounts immediately after gaining initial access via FortiCloud SSO
 """
 from = "now-9m"
 interval = "5m"
-language = "esql"
+index = ["logs-fortinet_fortigate.*"]
+language = "eql"
 license = "Elastic License v2"
 name = "FortiGate Super Admin Account Creation"
 note = """## Triage and analysis
@@ -61,18 +62,14 @@ tags = [
     "Data Source: Fortinet FortiGate",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-FROM logs-fortinet_fortigate.* metadata _id, _version, _index
-
-| WHERE event.dataset == "fortinet_fortigate.log" and
-        event.code == "0100044547" and
-        fortinet.firewall.cfgpath == "system.admin" and
-        fortinet.firewall.action == "Add" and
-        fortinet.firewall.cfgattr LIKE "*accprofile[super_admin]*"
-
-| keep @timestamp, source.user.name, observer.name, fortinet.firewall.cfgobj, fortinet.firewall.cfgattr, fortinet.firewall.ui, message, _id, _index, _version
+any where event.dataset == "fortinet_fortigate.log" and
+    event.code == "0100044547" and
+    fortinet.firewall.cfgpath == "system.admin" and
+    fortinet.firewall.action == "Add" and
+    fortinet.firewall.cfgattr like~ "*accprofile[super_admin]*"
 '''
 
 
