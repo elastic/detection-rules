@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/01/15"
+updated_date = "2026/01/29"
 
 [transform]
 [[transform.osquery]]
@@ -123,67 +123,14 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and
-process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and
-
-  not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211"
+process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and process.command_line :* and 
+  not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211" and 
+  not process.args:(*.cmd* or *.bat* or *.BAT* or *.CMD* or "taskkill" or "C:\\Program" or "hptpsmarthealthservice" or "w32tm" or ".\\inetsrv\\iissetup.exe /keygen " or 
+                    "C:\\Program Files (x86)\\Sentry\\SA\\adluminupdater.exe" or "C:\\Program Files (x86)\\Kaspersky Lab\\NetworkAgent\\klmover.exe" or 
+                    "C:\\Program Files\\WinRAR\\uninstall.exe" or "C:\\Program Files\\WinRAR" or "hpdiags://BatteryStatusTest" or "icacls")
 '''
 
 
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*SysVol*WindowsDefenderATPOnboardingScript.cmd*"
-
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "\"cmd.exe\" /d /c C:\\\\???????\\\\system32\\\\hpatchmonTask.cmd"
-
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "\"C:\\\\???????\\\\system32\\\\cmd.exe\" /d /c C:\\\\???????\\\\system32\\\\hpatchmonTask.cmd"
-
-
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.args"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\system32\\\\silcollector.cmd"
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*?:\\\\Program Files\\\\Npcap\\\\CheckStatus.bat*"
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*?:\\\\Program Files*\\\\Pulseway\\\\watchdog.bat*"
-[[rule.filters]]
-
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = """
-cmd /C ".\\inetsrv\\iissetup.exe /keygen "
-"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
