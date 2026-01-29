@@ -70,9 +70,9 @@ FROM logs-fortinet_fortigate.* metadata _id, _version, _index
         event.code == "0100044547" and
         fortinet.firewall.cfgpath == "firewall.policy" and
         fortinet.firewall.action IN ("Add", "Edit") and
-        fortinet.firewall.cfgattr LIKE "*srcaddr[all]*" and
-        fortinet.firewall.cfgattr LIKE "*dstaddr[all]*" and
-        fortinet.firewall.cfgattr LIKE "*service[ALL]*"
+        TO_LOWER(fortinet.firewall.cfgattr) LIKE "*srcaddr[all]*" and
+        TO_LOWER(fortinet.firewall.cfgattr) LIKE "*dstaddr[all]*" and
+        TO_LOWER(fortinet.firewall.cfgattr) LIKE "*service[all]*"
 
 | keep @timestamp, source.user.name, fortinet.firewall.cfgobj, fortinet.firewall.cfgattr, fortinet.firewall.ui, observer.name, message, _id, _index, _version
 '''

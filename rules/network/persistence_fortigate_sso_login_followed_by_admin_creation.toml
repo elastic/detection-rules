@@ -7,27 +7,28 @@ updated_date = "2026/01/28"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects a FortiCloud SSO login followed by administrator account creation on the same FortiGate device within
-the rule lookback window. This sequence is a high-confidence indicator of the FG-IR-26-060 attack pattern, where threat
+This rule detects a FortiCloud SSO login followed by administrator account creation on the same FortiGate device
+within 15 minutes. This sequence is a high-confidence indicator of the FG-IR-26-060 attack pattern, where threat
 actors authenticate via SAML-based SSO bypass and immediately create local administrator accounts for persistence.
 """
 from = "now-30m"
+index = ["logs-fortinet_fortigate.*"]
 interval = "5m"
-language = "esql"
+language = "eql"
 license = "Elastic License v2"
 name = "FortiGate SSO Login Followed by Administrator Account Creation"
 note = """## Triage and analysis
 
 ### Investigating FortiGate SSO Login Followed by Administrator Account Creation
 
-This alert indicates that both a FortiCloud SSO login and an administrator account creation event occurred on the same FortiGate device within the lookback window. This two-event sequence is the core attack pattern observed in the FG-IR-26-060 campaign.
+This alert indicates that a FortiCloud SSO login was followed by an administrator account creation event on the same FortiGate device within 15 minutes. This two-event sequence is the core attack pattern observed in the FG-IR-26-060 campaign.
 
 The attack flow is: authenticate via FortiCloud SSO using a crafted SAML assertion, then immediately create local administrator accounts to maintain access even after the SSO vulnerability is patched.
 
 ### Possible investigation steps
 
-- Check `Esql.sso_user_values` for the FortiCloud account used and `Esql.sso_source_ip_values` for the source IP of the SSO login. Determine whether the SSO account belongs to the organization.
-- Check `Esql.admin_created_values` for the names of accounts created and examine `Esql.admin_cfgattr_values` for access profiles assigned (especially super_admin).
+- Review the SSO login event for the FortiCloud account used and the source IP. Determine whether the SSO account belongs to the organization.
+- Check the admin creation event for the names of accounts created and the access profiles assigned (especially super_admin).
 - Assess the timing between events. In the observed campaign, admin creation occurs within seconds of SSO login. A tight time correlation is a strong indicator of compromise.
 - Review `observer.name` to identify the targeted device and verify whether FortiCloud SSO is intentionally enabled. Run `get system admin` to list all current administrator accounts.
 - Check whether the same SSO account or source IP targeted other devices. Look for configuration exports, firewall policy changes, or VPN modifications following the admin creation.
@@ -48,9 +49,9 @@ references = [
     "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
     "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "e3a7b1c2-5d9f-4e8a-b6c3-2f1d4e5a6b7c"
-severity = "medium"
+severity = "high"
 tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
@@ -61,41 +62,17 @@ tags = [
     "Data Source: Fortinet FortiGate",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-FROM logs-fortinet_fortigate.* metadata _id, _version, _index
-
-| WHERE event.dataset == "fortinet_fortigate.log" and
-        (
-          (event.category == "authentication" and event.action == "login" and
-           event.outcome == "success" and fortinet.firewall.method == "sso")
-          OR
-          (event.code == "0100044547" and fortinet.firewall.cfgpath == "system.admin" and
-           fortinet.firewall.action == "Add")
-        )
-
-// tag each event type and capture timestamps conditionally
-| EVAL Esql.is_sso_login = CASE(event.category == "authentication" AND fortinet.firewall.method == "sso", 1, 0),
-       Esql.is_admin_creation = CASE(event.code == "0100044547" AND fortinet.firewall.cfgpath == "system.admin", 1, 0),
-       Esql.sso_timestamp = CASE(event.category == "authentication" AND fortinet.firewall.method == "sso", @timestamp),
-       Esql.admin_timestamp = CASE(event.code == "0100044547" AND fortinet.firewall.cfgpath == "system.admin", @timestamp)
-
-| STATS Esql.sso_login_count = SUM(Esql.is_sso_login),
-        Esql.admin_creation_count = SUM(Esql.is_admin_creation),
-        Esql.earliest_sso_login = MIN(Esql.sso_timestamp),
-        Esql.earliest_admin_creation = MIN(Esql.admin_timestamp),
-        Esql.sso_user_values = VALUES(source.user.name),
-        Esql.sso_source_ip_values = VALUES(source.ip),
-        Esql.admin_created_values = VALUES(fortinet.firewall.cfgobj),
-        Esql.admin_cfgattr_values = VALUES(fortinet.firewall.cfgattr),
-        Esql.message_values = VALUES(message) BY observer.name
-
-// both event types must be present and admin creation must follow SSO login
-| WHERE Esql.sso_login_count >= 1 AND Esql.admin_creation_count >= 1
-    AND Esql.earliest_admin_creation > Esql.earliest_sso_login
-
-| KEEP observer.name, Esql.*
+sequence by observer.name with maxspan=15m
+  [authentication where event.dataset == "fortinet_fortigate.log" and
+    event.action == "login" and event.outcome == "success" and
+    fortinet.firewall.method == "sso"]
+  [any where event.dataset == "fortinet_fortigate.log" and
+    event.code == "0100044547" and
+    fortinet.firewall.cfgpath == "system.admin" and
+    fortinet.firewall.action == "Add"]
 '''
 
 
@@ -116,4 +93,3 @@ reference = "https://attack.mitre.org/techniques/T1136/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
