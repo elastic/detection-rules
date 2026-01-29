@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/01/29"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/01/29"
+min_stack_version = "9.1.0"
+min_stack_comments = "The esql match operator was introduced in version 9.1.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to masquerade as a commonly seen Linux system service to evade detection and blend in
+with normal system activity. By leveraging the fuzziness parameter, the rule is able to match similar service names
+to the ones seen in the query.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Service Masquerading"
+risk_score = 47
+rule_id = "bd26bd1b-2fbc-4346-8e80-afb7e7c1b301"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.events.file-*, logs-endgame.events.file-*, logs-crowdstrike.fdr-*, logs-sentinel_one_cloud_funnel.* metadata _id, _version, _index
+| where event.type == "creation" and file.extension == "service" and (
+  match(file.name, "cron.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "crond.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "sshd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "ssh.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd-logind.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd-journald.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd-udevd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd-resolved.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "systemd-timesyncd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "dbus-daemon.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "rsyslogd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "syslogd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "NetworkManager.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "wpa_supplicant.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "polkitd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "cupsd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "avahi-daemon.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "auditd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "fail2ban.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "sssd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "nscd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "ntpd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "chronyd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "dhclient.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "dhcpcd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "nginx.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "apache2.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "httpd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "php-fpm.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "mysqld.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "mariadbd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "postgres.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "redis-server.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "containerd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "dockerd.service", { "fuzziness": 1, "max_expansions": 10 }) or
+  match(file.name, "docker.service", { "fuzziness": 1, "max_expansions": 10 })
+) and
+not file.name in (
+  "cron.service", "crond.service",
+  "sshd.service", "ssh.service",
+  "systemd.service", "systemd-logind.service", "systemd-journald.service", "systemd-udevd.service", "systemd-resolved.service", "systemd-timesyncd.service",
+  "dbus-daemon.service",
+  "rsyslogd.service", "syslogd.service", "syslog.service", "rsyslog.service",
+  "NetworkManager.service",
+  "wpa_supplicant.service",
+  "polkitd.service", "polkit.service",
+  "cupsd.service", "cups.service",
+  "avahi-daemon.service",
+  "auditd.service",
+  "fail2ban.service",
+  "sssd.service",
+  "nscd.service",
+  "ntpd.service", "chronyd.service", "ntp.service", "chrony.service",
+  "dhclient.service", "dhcpcd.service",
+  "nginx.service", "apache2.service", "httpd.service",
+  "php-fpm.service",
+  "mysqld.service", "mysql.service", "mariadbd.service", "mariadb.service", "postgres.service",
+  "redis-server.service",
+  "containerd.service", "dockerd.service", "docker.service"
+) and not file.name like "*@.service"
+| keep event.dataset, host.name, host.id, user.id, user.name, process.executable, file.path, file.name, file.extension, _id, _version, _index
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Resource Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
