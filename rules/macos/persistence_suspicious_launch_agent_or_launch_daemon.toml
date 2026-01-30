@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a launch agent or daemon property list file containing abnormal or suspicious 
+values. An adversary may establish persistence by installing a new launch agent or daemon which executes 
+at login. This rule looks for plist files created in LaunchAgents/LaunchDaemons directories with paths 
+commonly used by malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Persistence via Suspicious Launch Agent or Launch Daemon"
+references = [
+    "https://medium.com/red-teaming-with-a-blue-team-mentality/a-brief-look-at-macos-detections-and-post-infection-analysis-b0ede7ecfeb9",
+    "https://objective-see.org/blog",
+    "https://www.elastic.co/security-labs/DPRK-strikes-using-a-new-variant-of-rustbucket"
+]
+risk_score = 73
+rule_id = "q6r8s39n-2109-8t7u-3p5o-6s9t0u1v2w3x"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+file where host.os.type == "macos" and event.type != "deletion" and 
+  file.extension == "plist" and
+  file.path like ("/Library/LaunchAgents/*", "/Library/LaunchDaemons/*", 
+                  "/Users/*/Library/LaunchAgents/*", "/System/Library/LaunchAgents/*",
+                  "/System/Library/LaunchDaemons/*") and
+  (process.executable like ("/private/tmp/*", "/private/var/root/Library/*", "/var/tmp/*", 
+                            "/tmp/*", "/var/folders/*", "/Users/Shared/*", "/var/root/*",
+                            "/Library/WebServer/*", "/Library/Graphics/*", "/Library/Fonts/*") or
+   process.name like~ ("python*", "osascript", "bash", "zsh", "sh", "curl", "wget", "java")) and
+  not process.executable like ("/System/*", "/Library/PrivilegedHelperTools/*") and
+  not process.code_signature.signing_id in ("com.apple.vim", "com.apple.cat", "com.apple.cfprefsd",
+                                            "com.jetbrains.toolbox", "com.apple.pico", "com.apple.shove",
+                                            "com.sublimetext.4", "com.apple.ditto")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Boot or Logon Autostart Execution"
+  id = "T1547"
+  reference = "https://attack.mitre.org/techniques/T1547/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Plist Modification"
+    id = "T1547.011"
+    reference = "https://attack.mitre.org/techniques/T1547/011/"
+
+  [[rule.threat.technique]]
+  name = "Create or Modify System Process"
+  id = "T1543"
+  reference = "https://attack.mitre.org/techniques/T1543/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Agent"
+    id = "T1543.001"
+    reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Daemon"
+    id = "T1543.004"
+    reference = "https://attack.mitre.org/techniques/T1543/004/"

@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious creation or modification of the Apple Mail SyncedRules plist file by a non-Mail application. 
+An adversary could establish persistence by creating or modifying an Apple Mail rule to point to a script file 
+on disk, which will execute when an email matching the trigger is received.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Apple Mail Rule Plist Modification"
+references = [
+    "https://www.n00py.io/2016/10/using-email-for-persistence-on-os-x/"
+]
+risk_score = 47
+rule_id = "d7b57cbd-de03-4c3b-8278-daa1ee4a6772"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+file where host.os.type == "macos" and event.type != "deletion" and
+  file.name == "SyncedRules.plist" and
+  file.path like ("/Users/*/Library/Mail/*/MailData/SyncedRules.plist",
+                  "/Users/*/Library/Mobile Documents/com.apple.mail/Data/*/MailData/SyncedRules.plist") and
+  not process.executable like ("/System/Applications/Mail.app/Contents/MacOS/Mail",
+                               "/Applications/Mail.app/Contents/MacOS/Mail",
+                               "/System/Library/CoreServices/backupd.bundle/Contents/Resources/backupd",
+                               "/usr/libexec/xpcproxy",
+                               "/System/Library/Frameworks/FileProvider.framework/Support/fileproviderd",
+                               "/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird",
+                               "/sbin/launchd",
+                               "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Event Triggered Execution"
+  id = "T1546"
+  reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "User Execution"
+  id = "T1204"
+  reference = "https://attack.mitre.org/techniques/T1204/"

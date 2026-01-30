@@ -1,0 +1,70 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects executable file downloads via wget to suspicious locations such as /tmp or /Users/Shared. Threat 
+actors commonly use wget to download malicious payloads and additional tools for post-exploitation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Executable File Download via Wget"
+references = [
+    "https://attack.mitre.org/techniques/T1105/"
+]
+risk_score = 47
+rule_id = "d3e5f06a-9876-5g4h-0c2b-3f6g7h8i9j0k"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=30s
+  [network where host.os.type == "macos" and event.type == "start" and process.name == "wget"]
+  [file where host.os.type == "macos" and event.action == "modification" and 
+    process.name == "wget" and 
+    file.path like ("/tmp/*", "/private/tmp/*", "/private/var/tmp/*", "/var/tmp/*", "/Users/Shared/*") and
+    file.Ext.header_bytes like~ ("cffaedfe*", "cafebabe*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Ingress Tool Transfer"
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "User Execution"
+  id = "T1204"
+  reference = "https://attack.mitre.org/techniques/T1204/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Malicious File"
+    id = "T1204.002"
+    reference = "https://attack.mitre.org/techniques/T1204/002/"

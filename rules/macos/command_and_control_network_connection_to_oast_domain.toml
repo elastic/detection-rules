@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a package service such as npm, gems, or a script interpreter makes an outbound network connection 
+to an OAST (Out-of-band Application Security Testing) domain. Threat actors have been using OAST domains to 
+exfiltrate sensitive data from compromised systems via malicious packages.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection to OAST Domain via Script Interpreter"
+references = [
+    "https://socket.dev/blog/weaponizing-oast-how-malicious-packages-exploit-npm-pypi-and-rubygems"
+]
+risk_score = 73
+rule_id = "54214c47-be7c-4f6b-8ef2-78832f9f8f42"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=1m
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    (process.name in ("node", "perl") or process.name like ("python*", "ruby*"))]
+  [network where host.os.type == "macos" and event.type == "start" and destination.domain like "*.oast*"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration Over Web Service"
+  id = "T1567"
+  reference = "https://attack.mitre.org/techniques/T1567/"

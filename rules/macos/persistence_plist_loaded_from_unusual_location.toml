@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects launchctl loading plist files from non-standard locations outside LaunchAgents/LaunchDaemons 
+directories. This technique is used by malware to establish persistence while evading detection by 
+loading plists from unexpected locations.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Plist Loaded by Launchctl from Unusual Location"
+references = [
+    "https://hunt.io/blog/sparkrat-server-detection-macos-activity-and-malicious-connections"
+]
+risk_score = 73
+rule_id = "k0l2m73h-6543-2n1o-7j9i-0m3n4o5p6q7r"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=10s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 
+    process.name == "launchctl" and process.args == "load"] as event0
+  [file where host.os.type == "macos" and event.action == "modification" and file.extension == "plist" and 
+    stringcontains~(event0.process.command_line, file.path) and
+    not file.path like ("/Library/LaunchAgents/*", "/Library/LaunchDaemons/*", 
+                        "/Users/*/Library/Launch*", "/Users/*/Library/Saved Application State/*", 
+                        "/Library/Application Support/*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Boot or Logon Autostart Execution"
+  id = "T1547"
+  reference = "https://attack.mitre.org/techniques/T1547/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Plist Modification"
+    id = "T1547.011"
+    reference = "https://attack.mitre.org/techniques/T1547/011/"
+
+  [[rule.threat.technique]]
+  name = "Create or Modify System Process"
+  id = "T1543"
+  reference = "https://attack.mitre.org/techniques/T1543/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Agent"
+    id = "T1543.001"
+    reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Daemon"
+    id = "T1543.004"
+    reference = "https://attack.mitre.org/techniques/T1543/004/"

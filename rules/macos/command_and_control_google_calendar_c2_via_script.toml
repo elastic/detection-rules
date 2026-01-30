@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a two-stage Google Calendar C2 pattern where a scripting runtime (Node.js, Python, osascript) first 
+connects to calendar.app.google to retrieve a hidden C2 address, then initiates a secondary connection to the 
+decoded C2 host. This sequence is characteristic of packages using Unicode steganography in Google Calendar 
+events to stage dynamic command-and-control endpoints.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Google Calendar C2 via Script Interpreter"
+references = [
+    "https://www.veracode.com/resources/sophisticated-npm-attack-leveraging-unicode-steganography-and-google-calendar-c2",
+    "https://www.koi.ai/blog/glassworm-first-self-propagating-worm-using-invisible-code-hits-openvsx-marketplace"
+]
+risk_score = 73
+rule_id = "abc7a2be-479e-428b-b0b3-1d22bda46dd9"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=20s
+  [network where host.os.type == "macos" and event.type == "start" and
+    (process.name in ("node", "osascript") or process.name like "python*" or
+     process.code_signature.trusted == false or process.code_signature.exists == false) and
+    destination.domain like "calendar.app.google*"]
+  [network where host.os.type == "macos" and event.type == "start" and destination.domain == null]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Bidirectional Communication"
+    id = "T1102.002"
+    reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "JavaScript"
+    id = "T1059.007"
+    reference = "https://attack.mitre.org/techniques/T1059/007/"

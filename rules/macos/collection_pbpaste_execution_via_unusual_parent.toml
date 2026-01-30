@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an unusual parent process like Node.js, Python, or osascript executes the pbpaste binary to 
+access clipboard data. This technique has been used by malware like OtterCookie to steal passwords and 
+seed phrases from the clipboard.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Pbpaste Execution via Unusual Parent Process"
+references = [
+    "https://jp.security.ntt/tech_blog/contagious-interview-ottercookie"
+]
+risk_score = 73
+rule_id = "d7182e12-df8f-4ecf-b8f8-7cc0adcec425"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence with maxspan=15s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    (process.name in ("node", "osascript") or process.name like "python*")] by process.entity_id
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name == "pbpaste" and process.args_count == 1 and
+    not process.parent.executable like "/Users/*/.pyenv/versions/*/bin/python3*"] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Clipboard Data"
+  id = "T1115"
+  reference = "https://attack.mitre.org/techniques/T1115/"

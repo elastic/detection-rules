@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when macOS Gatekeeper is overridden followed by execution of the same binary from a suspicious 
+location. This behavior indicates an attempt to bypass Apple's security controls and execute potentially 
+malicious software downloaded from the internet.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Gatekeeper Override and Execution"
+risk_score = 73
+rule_id = "8154d01d-04d1-4695-bcbb-95a1bb606355"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence with maxspan=1m
+  [file where host.os.type == "macos" and event.action == "extended_attribute_delete" and
+    file.Ext.header_bytes like ("cffaedfe*", "cafebabe*")] by file.path
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.executable like ("/Volumes/*", "/Users/*/Downloads/*", "/Users/*/Desktop/*",
+                              "/Users/*/Documents/*", "/tmp/*", "/private/tmp/*",
+                              "/var/tmp/*", "/private/var/tmp/*", "/Users/Shared/*")] by process.executable
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Impair Defenses"
+  id = "T1562"
+  reference = "https://attack.mitre.org/techniques/T1562/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Disable or Modify Tools"
+    id = "T1562.001"
+    reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+  [[rule.threat.technique]]
+  name = "Subvert Trust Controls"
+  id = "T1553"
+  reference = "https://attack.mitre.org/techniques/T1553/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Gatekeeper Bypass"
+    id = "T1553.001"
+    reference = "https://attack.mitre.org/techniques/T1553/001/"

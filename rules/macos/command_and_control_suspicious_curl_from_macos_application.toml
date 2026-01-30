@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the use of curl by a macOS application binary to connect to a raw IP URI and download a second 
+stage payload. Threat actors often utilize a benign looking or legitimate application as a first stage 
+dropper. Curl is commonly used as it doesn't enforce Gatekeeper checks.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Curl from macOS Application"
+references = [
+    "https://objective-see.org/blog/blog_0x71.html#-vpn-trojan-covid",
+    "https://attack.mitre.org/techniques/T1105/"
+]
+risk_score = 73
+rule_id = "e4f6g17b-0987-6h5i-1d3c-4g7h8i9j0k1l"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 
+  process.name in ("curl", "nscurl") and 
+  process.args in ("-o", "--output", "--download", "-dl", "-dir", "--directory") and
+  process.args regex~ """http.*:\/\/[0-9]{2,3}.[0-9]{2,3}.[0-9]{2,3}.[0-9]{2,3}\/.*""" and 
+  process.parent.name like~ ("bash", "sh", "zsh", "osascript", "tclsh*", "python*") and
+  process.Ext.effective_parent.executable like "/Applications/*" and
+  process.args_count <= 10 and 
+  not process.args like "/Applications/*" and
+  not process.Ext.effective_parent.executable in ("/Applications/iTerm.app/Contents/MacOS/iTerm2",
+                                                   "/Applications/Visual Studio Code.app/Contents/MacOS/Electron", 
+                                                   "/Applications/Warp.app/Contents/MacOS/stable")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Ingress Tool Transfer"
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105/"

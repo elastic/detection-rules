@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the SystemConfiguration preferences plist file is accessed by an unusual or suspicious 
+process. This may indicate an attempt to gain situational awareness on a target system by reading 
+network configuration details.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "System and Network Configuration Check"
+risk_score = 47
+rule_id = "o4p6q17l-0987-6r5s-1n3m-4q7r8s9t0u1v"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+file where host.os.type == "macos" and event.action == "open" and 
+  file.path like "/Library/Preferences/SystemConfiguration/preferences.plist" and
+  (process.name like~ ("python*", "osascript", "perl", "ruby") or 
+   process.executable like ("/Users/Shared/*", "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*")) and
+  not Effective_process.executable like "/Applications/Docker.app/Contents/MacOS/Docker"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Information Discovery"
+  id = "T1082"
+  reference = "https://attack.mitre.org/techniques/T1082/"
+
+  [[rule.threat.technique]]
+  name = "System Network Configuration Discovery"
+  id = "T1016"
+  reference = "https://attack.mitre.org/techniques/T1016/"

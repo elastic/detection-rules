@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the manual loading of a Chromium-based browser extension via command line arguments. This activity 
+is suspicious and could indicate a threat actor loading a malicious extension to persist or collect browsing 
+secrets such as cookies and authentication tokens.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Manual Loading of a Suspicious Chromium Extension"
+references = [
+    "https://cedowens.medium.com/remotely-dumping-chrome-cookies-revisited-b25343257209",
+    "https://github.com/cedowens/Dump-Chrome-Cookies"
+]
+risk_score = 73
+rule_id = "f1f3070e-045c-4e03-ae58-d11d43d2ee51"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.action == "exec" and
+  process.name in ("Google Chrome", "Brave Browser", "Microsoft Edge") and
+  process.args like "--load-extension=/*" and
+  not (process.args like "--load-extension=/Users/*/Library/Application Support/Cypress/*" and
+       process.parent.executable like ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                                        "/Users/*/Library/Caches/Cypress/*/Cypress.app/Contents/MacOS/Cypress")) and
+  not process.parent.executable in ("/opt/homebrew/Caskroom/chromedriver/*/chromedriver",
+                                    "/Applications/Cypress.app/Contents/MacOS/Cypress",
+                                    "/usr/local/bin/chromedriver")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Browser Extensions"
+  id = "T1176"
+  reference = "https://attack.mitre.org/techniques/T1176/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Credential Access"
+  id = "TA0006"
+  reference = "https://attack.mitre.org/tactics/TA0006/"
+
+  [[rule.threat.technique]]
+  name = "Steal Web Session Cookie"
+  id = "T1539"
+  reference = "https://attack.mitre.org/techniques/T1539/"

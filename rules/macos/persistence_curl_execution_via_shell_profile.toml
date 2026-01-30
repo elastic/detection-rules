@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when curl is executed via a shell profile upon login. This indicates a curl command was added to the 
+user's shell profile (like .zshrc or .bashrc) and is executed automatically at login, which could be used for 
+persistence and payload delivery.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Curl Execution via Shell Profile"
+risk_score = 73
+rule_id = "afdca1e0-0f8a-4fcf-9e1e-95e09791e3cd"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence with maxspan=10s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name in ("bash", "zsh", "sh") and
+    process.args in ("-zsh", "-sh", "-bash") and process.args_count == 1 and
+    process.parent.name == "login"] by process.entity_id
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name in ("curl", "nscurl") and
+    process.args in ("-o", "--output", "--download", "-dl", "-dir", "--directory", "-F", "--form") and
+    not process.args like ("https://upload.elastic.co*", "https://vault-ci-prod.elastic.dev", "https://artifacts.elastic.co*")] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Event Triggered Execution"
+  id = "T1546"
+  reference = "https://attack.mitre.org/techniques/T1546/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell Configuration Modification"
+    id = "T1546.004"
+    reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Ingress Tool Transfer"
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105/"

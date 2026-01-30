@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of grep to discover known third-party macOS security tools, such as antivirus software 
+or host firewalls. This reconnaissance activity is commonly performed by malware to identify security 
+products before proceeding with malicious actions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Security Software Discovery via Grep"
+references = [
+    "https://objective-see.com/blog/blog_0x4F.html"
+]
+risk_score = 47
+rule_id = "6b1ea24a-54e6-4c0e-980a-141c3d31586d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and
+  ((process.name in ("grep", "egrep", "pgrep")) or
+   (process.name in ("bash", "sh", "zsh") and process.args == "-c")) and
+  process.args in ("Little Snitch", "CbOsxSensorService", "CbDefense", "ESET", "Littlesnitch",
+                   "elastic-endpoint", "falcond", "SentinelOne", "lulu", "WhatsYourSign",
+                   "KnockKnock", "reikey", "OverSight", "KextViewr", "blockblock",
+                   "Netiquette", "processmonitor", "filemonitor") and
+  not process.parent.executable like "/Library/Application Support/*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "Software Discovery"
+  id = "T1518"
+  reference = "https://attack.mitre.org/techniques/T1518/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Security Software Discovery"
+    id = "T1518.001"
+    reference = "https://attack.mitre.org/techniques/T1518/001/"

@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a Python process loads an unusual library from within the user's home directory where the file 
+is not a standard .so or .dylib file. This technique has been observed in APT campaigns by the Lazarus Group 
+and Slow Pisces to load malicious payloads.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.library-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Library Load via Python"
+references = [
+    "https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/",
+    "https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34"
+]
+risk_score = 73
+rule_id = "ab9a334a-f2c3-4f49-879f-480de71020d3"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+library where host.os.type == "macos" and event.action == "load" and
+  dll.path like "/Users/*" and
+  process.name like "python*" and
+  not dll.name like ("*.so", "*.dylib", "Python", "*.*_extension", "*.dylib.*") and
+  not dll.path like ("*/site-packages/*/Qt*/lib/Qt*.framework/Versions/*/Qt*",
+                     "/Users/*/.pyenv/versions/*/lib/python*/site-packages/*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"

@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a hidden launch agent or daemon property list file. An adversary may establish 
+persistence by installing a new launch agent or daemon which executes at login. Hidden plist files with 
+filenames starting with a dot are particularly suspicious.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Persistence via a Hidden Plist Filename"
+references = [
+    "https://www.welivesecurity.com/2022/07/19/i-see-what-you-did-there-look-cloudmensis-macos-spyware/",
+    "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html"
+]
+risk_score = 73
+rule_id = "j9k1l62g-5432-1m0n-6i8h-9l2m3n4o5p6q"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+file where host.os.type == "macos" and event.type != "deletion" and
+  file.path like~ (
+    "/System/Library/LaunchAgents/.*.plist",
+    "/Library/LaunchAgents/.*.plist",
+    "/Users/*/Library/LaunchAgents/.*.plist",
+    "/System/Library/LaunchDaemons/.*.plist",
+    "/Library/LaunchDaemons/.*.plist"
+  ) and
+  not (file.name like ".chef-com*.plist" and process.executable like "/opt/chef/embedded/bin/ruby") and
+  not (process.executable in ("/usr/bin/sed", "/bin/bash") and file.name like ".!*!*.plist")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Boot or Logon Autostart Execution"
+  id = "T1547"
+  reference = "https://attack.mitre.org/techniques/T1547/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Plist Modification"
+    id = "T1547.011"
+    reference = "https://attack.mitre.org/techniques/T1547/011/"
+
+  [[rule.threat.technique]]
+  name = "Create or Modify System Process"
+  id = "T1543"
+  reference = "https://attack.mitre.org/techniques/T1543/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Agent"
+    id = "T1543.001"
+    reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Hide Artifacts"
+  id = "T1564"
+  reference = "https://attack.mitre.org/techniques/T1564/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Hidden Files and Directories"
+    id = "T1564.001"
+    reference = "https://attack.mitre.org/techniques/T1564/001/"

@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when TCC access is granted for multiple user folders like Desktop, Downloads and Documents 
+in quick succession. Many information stealers require TCC permissions to access these locations and 
+will prompt users to grant access for data exfiltration.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious TCC Access Granted for User Folders"
+risk_score = 73
+rule_id = "p5q7r28m-1098-7s6t-2o4n-5r8s9t0u1v2w"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by Effective_process.entity_id with maxspan=45s
+  [configuration where host.os.type == "macos" and event.action == "tcc_modify" and Tcc.right == "allowed" and 
+    Effective_process.name like~ ("bash", "zsh", "sh", "osascript", "python*", "perl", "ruby", "node", "Terminal", "iTerm2", "ghostty") and
+    Tcc.update_type == "create" and Tcc.service in ("SystemPolicyDocumentsFolder", "SystemPolicyDownloadsFolder", "SystemPolicyDesktopFolder")]
+  [configuration where host.os.type == "macos" and event.action == "tcc_modify" and Tcc.right == "allowed" and 
+    Effective_process.name like~ ("bash", "zsh", "sh", "osascript", "python*", "perl", "ruby", "node", "Terminal", "iTerm2", "ghostty") and
+    Tcc.update_type == "create" and Tcc.service in ("SystemPolicyDocumentsFolder", "SystemPolicyDownloadsFolder", "SystemPolicyDesktopFolder")]
+  [configuration where host.os.type == "macos" and event.action == "tcc_modify" and Tcc.right == "allowed" and 
+    Effective_process.name like~ ("bash", "zsh", "sh", "osascript", "python*", "perl", "ruby", "node", "Terminal", "iTerm2", "ghostty") and
+    Tcc.update_type == "create" and Tcc.service in ("SystemPolicyDocumentsFolder", "SystemPolicyDownloadsFolder", "SystemPolicyDesktopFolder")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Abuse Elevation Control Mechanism"
+  id = "T1548"
+  reference = "https://attack.mitre.org/techniques/T1548/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "TCC Manipulation"
+    id = "T1548.006"
+    reference = "https://attack.mitre.org/techniques/T1548/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data from Local System"
+  id = "T1005"
+  reference = "https://attack.mitre.org/techniques/T1005/"

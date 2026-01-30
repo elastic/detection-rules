@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious access to the /Library/Preferences/com.apple.TimeMachine.plist file, indicating a potential 
+attempt to verify or exploit Full Disk Access (FDA) permissions. This file is often checked by malware to 
+confirm FDA privileges, which allow unrestricted access to sensitive user data.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Full Disk Access Permission Check"
+risk_score = 47
+rule_id = "e26c0f76-2e80-445b-9e98-ab5532ccc46f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+file where host.os.type == "macos" and event.action == "open" and
+  file.path == "/Library/Preferences/com.apple.TimeMachine.plist" and
+  (process.name in ("osascript", "perl", "node", "ruby", "bash", "sh", "Terminal") or
+   process.name like "python*" or
+   process.code_signature.trusted == false or
+   process.code_signature.exists == false)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "File and Directory Discovery"
+  id = "T1083"
+  reference = "https://attack.mitre.org/techniques/T1083/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Abuse Elevation Control Mechanism"
+  id = "T1548"
+  reference = "https://attack.mitre.org/techniques/T1548/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "TCC Manipulation"
+    id = "T1548.006"
+    reference = "https://attack.mitre.org/techniques/T1548/006/"

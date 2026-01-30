@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a sensitive file is accessed followed by the immediate creation of a compressed file in a 
+suspicious location. This activity can indicate an attempt to collect sensitive local data and stage it 
+for exfiltration.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Sensitive File Access followed by Compression"
+risk_score = 73
+rule_id = "m2n4o95j-8765-4p3q-9l1k-2o5p6q7r8s9t"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=30s
+  [file where host.os.type == "macos" and event.action == "open" and 
+    not file.name in~ ("System.keychain", "login.keychain-db", "preferences.plist", "com.apple.TimeMachine.plist")]
+  [file where host.os.type == "macos" and event.action == "modification" and 
+    file.extension in ("zip", "gzip", "gz") and
+    file.path like~ ("/Users/Shared/*", "/Library/WebServer/*", "/Users/*/Library/WebServer/*",
+                     "/Library/Graphics/*", "/Users/*/Library/Graphics/*", "/Library/Fonts/*",
+                     "/Users/*/Library/Fonts/*", "/private/var/root/Library/HTTPStorages/*",
+                     "/tmp/*", "/var/tmp/*", "/private/tmp/*") and
+    not file.path like~ ("/Library/Logs/CrashReporter/*", "/private/tmp/publish.*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data Staged"
+  id = "T1074"
+  reference = "https://attack.mitre.org/techniques/T1074/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Local Data Staging"
+    id = "T1074.001"
+    reference = "https://attack.mitre.org/techniques/T1074/001/"
+
+  [[rule.threat.technique]]
+  name = "Archive Collected Data"
+  id = "T1560"
+  reference = "https://attack.mitre.org/techniques/T1560/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"

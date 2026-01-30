@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a DNS request is made for an IP lookup service to determine the external IP address of the 
+system via an unsigned or untrusted binary. This is commonly used by malware for reconnaissance before 
+establishing C2 connections.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS Request for IP Lookup Service via Unsigned Binary"
+risk_score = 47
+rule_id = "n3o5p06k-9876-5q4r-0m2l-3p6q7r8s9t0u"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+dns where host.os.type == "macos" and event.action == "lookup_result" and 
+  (process.code_signature.trusted == false or process.code_signature.exists == false) and
+  dns.question.name like~ ("*ip-api.com*", "*ipwho.is*", "*checkip.dyndns.org*", "*api.ipify.org*",
+                           "*api.npoint.io*", "*whatismyip.akamai.com*", "*bot.whatismyipaddress.com*",
+                           "*ifcfg.me*", "*ifconfig.me*", "*ident.me*", "*ipof.in*", "*ip.tyk.nu*",
+                           "*ipwhois.app*", "*freeipapi.com*", "*icanhazip.com*", "*curlmyip.com*",
+                           "*wgetip.com*", "*eth0.me*", "*ipecho.net*", "*ip.appspot.com*",
+                           "*api.myip.com*", "*geoiptool.com*", "*api.2ip.ua*", "*api.ip.sb*",
+                           "*ipinfo.io*", "*checkip.amazonaws.com*", "*wtfismyip.com*", "*iplogger.*",
+                           "*freegeoip.net*", "*freegeoip.app*", "*myip.ipip.net*", "*geoplugin.net*",
+                           "*myip.dnsomatic.com*", "*www.geoplugin.net*", "*api64.ipify.org*",
+                           "*ip4.seeip.org*", "*.geojs.io*", "*portmap.io*", "*api.db-ip.com*",
+                           "*geolocation-db.com*", "*inet-ip.info*", "*httpbin.org*", "*myip.opendns.com*") and
+  not process.executable like "/Users/*/Library/Developer/CoreSimulator/*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Network Configuration Discovery"
+  id = "T1016"
+  reference = "https://attack.mitre.org/techniques/T1016/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Internet Connection Discovery"
+    id = "T1016.001"
+    reference = "https://attack.mitre.org/techniques/T1016/001/"

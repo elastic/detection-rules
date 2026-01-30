@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the unusual use of csrutil by a macOS application to check System Integrity Protection (SIP) status. 
+While not malicious in itself, this activity is highly indicative of malware verifying it is not running 
+in a virtual machine or protected environment prior to executing its payload.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious SIP Check by macOS Application"
+risk_score = 47
+rule_id = "1615230f-beb7-48d8-9b3f-6d10674703bf"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.command_line like "*csrutil*status*" and
+  process.command_line like "*enabled*" and
+  (process.parent.executable like "/*.app/*" or
+   process.parent.executable like "/Applications/*.app/*" or
+   process.parent.executable like "/Volumes/*.app/*") and
+  not process.parent.executable == "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Information Discovery"
+  id = "T1082"
+  reference = "https://attack.mitre.org/techniques/T1082/"
+
+  [[rule.threat.technique]]
+  name = "Virtualization/Sandbox Evasion"
+  id = "T1497"
+  reference = "https://attack.mitre.org/techniques/T1497/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "System Checks"
+    id = "T1497.001"
+    reference = "https://attack.mitre.org/techniques/T1497/001/"

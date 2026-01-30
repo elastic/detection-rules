@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects curl requests to JAMF Pro endpoints from suspicious processes like unsigned binaries or scripting 
+interpreters. This indicates potential abuse of stolen JAMF credentials for lateral movement in enterprise 
+macOS environments.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Curl to Jamf Endpoint"
+risk_score = 73
+rule_id = "a8256685-9736-465b-b159-f25a172d08e8"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name in ("curl", "nscurl") and process.command_line like "*https://jamf.*" and
+  ((process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false) or
+   process.parent.name in ("osascript", "node", "perl", "ruby") or
+   process.parent.name like "python*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Lateral Movement"
+  id = "TA0008"
+  reference = "https://attack.mitre.org/tactics/TA0008/"
+
+  [[rule.threat.technique]]
+  name = "Software Deployment Tools"
+  id = "T1072"
+  reference = "https://attack.mitre.org/techniques/T1072/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Software Deployment Tools"
+  id = "T1072"
+  reference = "https://attack.mitre.org/techniques/T1072/"
