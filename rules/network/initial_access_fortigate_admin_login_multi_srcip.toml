@@ -7,44 +7,15 @@ updated_date = "2026/01/29"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects successful logins to the FortiGate management interface using the same Administrator account from multiple distinct source IP addresses within an 24-hour period.
-Administrator logins from multiple locations in a short time window may indicate credential sharing, compromised credentials, or unauthorized access and should be investigated.
+This rule detects successful logins to the FortiGate management interface using the same Administrator account from
+multiple distinct source IP addresses within an 24-hour period. Administrator logins from multiple locations in a short
+time window may indicate credential sharing, compromised credentials, or unauthorized access and should be investigated.
 """
 from = "now-24h"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "FortiGate Administrator Login from Multiple IP Addresses"
-risk_score = 73
-rule_id = "8a556117-3f05-430e-b2eb-7df0100b4e3b"
-severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Initial Access", "Resources: Investigation Guide", "Domain: Network", "Domain: Identity", "Data Source: Fortinet"]
-timestamp_override = "event.ingested"
-type = "esql"
-
-query = '''
-FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
-
-| WHERE event.dataset == "fortinet_fortigate.log" and
-        event.category == "authentication" and event.action == "login" and
-        event.outcome == "success" and source.user.roles == "Administrator" and
-        source.user.name is not null and source.ip is not null
-| stats Esql.logon_count = count(*),
-        Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
-        Esql.max_timestamp = MAX(@timestamp),
-        Esql.source_ip_values = VALUES(source.ip),
-        Esql.message_values = VALUES(message),
-        Esql.source_geo_country_name_values = VALUES(source.geo.country_name) by source.user.name
-
-// last logon event timestamp is within 6m of the rule execution time to avoid duplicates
-| eval Esql.recent = DATE_DIFF("minute", Esql.max_timestamp, now())
-| where Esql.recent <= 6 and Esql.logon_count >= 2 and Esql.source_ip_count_distinct >= 2
-
-// move dynamic fields to ECS equivalent for rule exceptions
-| eval source.ip = MV_FIRST(Esql.source_ip_values)
-
-| keep source.ip, source.user.name, Esql.*
-'''
 note = """## ## Triage and Analysis
 
 ### Investigating FortiGate Administrator Login from Multiple IP Addresses
@@ -100,6 +71,44 @@ references = [
     "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
     "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
 ]
+risk_score = 73
+rule_id = "8a556117-3f05-430e-b2eb-7df0100b4e3b"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.category == "authentication" and event.action == "login" and
+        event.outcome == "success" and source.user.roles == "Administrator" and
+        source.user.name is not null and source.ip is not null
+| stats Esql.logon_count = count(*),
+        Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
+        Esql.max_timestamp = MAX(@timestamp),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.message_values = VALUES(message),
+        Esql.source_geo_country_name_values = VALUES(source.geo.country_name) by source.user.name
+
+// last logon event timestamp is within 6m of the rule execution time to avoid duplicates
+| eval Esql.recent = DATE_DIFF("minute", Esql.max_timestamp, now())
+| where Esql.recent <= 6 and Esql.logon_count >= 2 and Esql.source_ip_count_distinct >= 2
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| eval source.ip = MV_FIRST(Esql.source_ip_values)
+
+| keep source.ip, source.user.name, Esql.*
+'''
 
 
 [[rule.threat]]
@@ -114,3 +123,4 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+

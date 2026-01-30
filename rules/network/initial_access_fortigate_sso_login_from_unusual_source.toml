@@ -74,7 +74,7 @@ FROM logs-fortinet_fortigate.* metadata _id, _version, _index
 | WHERE event.dataset == "fortinet_fortigate.log" and
         event.category == "authentication" and event.action == "login" and
         event.outcome == "success" and
-        fortinet.firewall.method == "sso" and
+        (fortinet.firewall.method == "sso" or fortinet.firewall.ui like "sso*") and
         source.ip is not null
 | STATS Esql.logon_count = COUNT(*),
         Esql.first_time_seen = MIN(@timestamp),
