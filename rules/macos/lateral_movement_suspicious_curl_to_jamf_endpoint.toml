@@ -27,7 +27,36 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Curl to Jamf Endpoint
+
+This rule detects suspicious processes making curl requests to Jamf endpoints. Threat actors may target Jamf infrastructure for lateral movement, attempting to identify managed devices or exploit management capabilities.
+
+### Possible investigation steps
+
+- Identify the process making requests to the Jamf endpoint.
+- Verify if the Jamf endpoint is your organization's legitimate server.
+- Review the authentication and activity logs on the Jamf server.
+- Check for unauthorized device enrollment or policy changes.
+
+### False positive analysis
+
+- Legitimate Jamf management scripts may use curl for API calls.
+- IT automation tools may interact with Jamf endpoints.
+
+### Response and remediation
+
+- Investigate the source of unauthorized Jamf API access.
+- Rotate Jamf API credentials if compromise is suspected.
+- Review Jamf audit logs for malicious activity.
+- Strengthen Jamf server access controls.
+"""
 query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
   process.name in ("curl", "nscurl") and process.command_line like "*https://jamf.*" and

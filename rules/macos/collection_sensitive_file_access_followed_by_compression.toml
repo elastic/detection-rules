@@ -27,6 +27,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Sensitive File Access followed by Compression
+
+This rule detects when sensitive files like SSH keys, AWS credentials, or browser data are accessed and then compressed. This behavior is commonly seen in data exfiltration attacks where threat actors stage collected data for transfer.
+
+### Possible investigation steps
+
+- Identify the user account and process that accessed the sensitive files.
+- Review the compression target to understand what data was staged.
+- Check for any subsequent network connections that could indicate exfiltration.
+- Examine the process lineage to identify the initial access vector.
+
+### False positive analysis
+
+- Legitimate backup operations may access and compress sensitive files.
+- System administrators may perform manual archiving of configuration files.
+
+### Response and remediation
+
+- Isolate the affected system to prevent data exfiltration.
+- Identify and contain any exfiltrated data.
+- Rotate any compromised credentials immediately.
+- Conduct forensic analysis to determine the scope of the breach.
+"""
 query = '''
 sequence by process.entity_id with maxspan=30s
   [file where host.os.type == "macos" and event.action == "open" and 

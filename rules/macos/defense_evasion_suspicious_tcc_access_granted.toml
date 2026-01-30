@@ -28,6 +28,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious TCC Access Granted for User Folders
+
+This rule detects when access is granted to protected user folders via the TCC (Transparency, Consent, and Control) database. Malware may modify TCC to gain access to sensitive data without user consent.
+
+### Possible investigation steps
+
+- Review the TCC database for unauthorized access grants.
+- Identify the application that was granted access.
+- Check if the access grant matches expected user behavior.
+- Review system logs for TCC manipulation attempts.
+
+### False positive analysis
+
+- Legitimate applications request TCC access during installation.
+- System utilities may require elevated TCC permissions.
+
+### Response and remediation
+
+- Revoke unauthorized TCC access grants.
+- Remove or quarantine the suspicious application.
+- Reset TCC permissions to default state.
+- Monitor for additional TCC manipulation attempts.
+"""
 query = '''
 sequence by Effective_process.entity_id with maxspan=45s
   [configuration where host.os.type == "macos" and event.action == "tcc_modify" and Tcc.right == "allowed" and 

@@ -31,7 +31,36 @@ tags = [
     "Tactic: Credential Access",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Manual Loading of a Suspicious Chromium Extension
+
+This rule detects manual loading of browser extensions via command line arguments. This technique is used by threat actors to load malicious extensions that can steal cookies, credentials, and browsing data.
+
+### Possible investigation steps
+
+- Identify the extension being loaded and analyze its source code.
+- Review the extension's permissions and capabilities.
+- Check for exfiltrated browser data like cookies or passwords.
+- Examine the parent process that launched the browser with the extension.
+
+### False positive analysis
+
+- Automated testing frameworks like Cypress use extension loading.
+- Developer debugging may require manual extension loading.
+
+### Response and remediation
+
+- Remove the malicious browser extension.
+- Reset browser session data and credentials.
+- Block the extension from being loaded via policy.
+- Scan for data exfiltration indicators.
+"""
 query = '''
 process where host.os.type == "macos" and event.action == "exec" and
   process.name in ("Google Chrome", "Brave Browser", "Microsoft Edge") and
@@ -53,7 +82,7 @@ framework = "MITRE ATT&CK"
   reference = "https://attack.mitre.org/tactics/TA0003/"
 
   [[rule.threat.technique]]
-  name = "Browser Extensions"
+  name = "Software Extensions"
   id = "T1176"
   reference = "https://attack.mitre.org/techniques/T1176/"
 

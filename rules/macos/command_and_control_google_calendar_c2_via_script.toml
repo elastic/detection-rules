@@ -33,6 +33,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Google Calendar C2 via Script Interpreter
+
+This rule detects script interpreters connecting to Google Calendar API, which can be abused as a covert command and control channel. Threat actors use legitimate services to evade detection and bypass network restrictions.
+
+### Possible investigation steps
+
+- Identify the script or application making the connection to Google Calendar.
+- Review the content of any calendar events that may contain encoded commands.
+- Check for patterns in timing that might indicate automated C2 polling.
+- Examine the parent process to understand how the script was launched.
+
+### False positive analysis
+
+- Legitimate calendar integrations may use the Google Calendar API.
+- Custom productivity scripts may access calendar data.
+
+### Response and remediation
+
+- Block the malicious script or application from executing.
+- Revoke any OAuth tokens associated with the compromised account.
+- Review Google Workspace audit logs for additional malicious activity.
+- Scan the system for additional persistence mechanisms.
+"""
 query = '''
 sequence by process.entity_id with maxspan=20s
   [network where host.os.type == "macos" and event.type == "start" and

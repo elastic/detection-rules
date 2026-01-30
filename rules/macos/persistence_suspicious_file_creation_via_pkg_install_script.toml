@@ -30,6 +30,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious File Creation via Pkg Install Script
+
+This rule detects when a macOS package installer creates files in persistence locations like LaunchAgents or LaunchDaemons. Malicious packages may abuse the installer process to establish persistence during what appears to be legitimate software installation.
+
+### Possible investigation steps
+
+- Identify the package that was installed and its source.
+- Examine the plist file created for malicious commands.
+- Review the package's pre and post-install scripts.
+- Check the package's signature and notarization status.
+
+### False positive analysis
+
+- Legitimate software packages install LaunchAgents for auto-start functionality.
+- Enterprise software deployment may create LaunchDaemons.
+
+### Response and remediation
+
+- Remove the suspicious plist and associated binaries.
+- Uninstall the malicious package if possible.
+- Report the malicious package to Apple for notarization revocation.
+- Review other systems that may have installed the same package.
+"""
 query = '''
 sequence by process.entity_id with maxspan=30s
   [process where host.os.type == "macos" and event.type == "start" and process.name in ("bash", "sh", "zsh") and

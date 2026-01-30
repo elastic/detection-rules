@@ -31,6 +31,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Etherhiding C2 via Blockchain Connection
+
+This rule detects connections to blockchain APIs that may be used for the Etherhiding technique, where threat actors store C2 configuration or commands in blockchain transactions. This provides a resilient and censorship-resistant C2 infrastructure.
+
+### Possible investigation steps
+
+- Identify the process making blockchain API requests and determine if it is expected.
+- Review the specific blockchain addresses or contracts being queried.
+- Check for any decoded data that may reveal C2 instructions.
+- Examine the timing patterns of blockchain queries.
+
+### False positive analysis
+
+- Cryptocurrency wallet applications legitimately access blockchain APIs.
+- Web3 development tools may query blockchain data during testing.
+
+### Response and remediation
+
+- Isolate the affected system and terminate the suspicious process.
+- Analyze the blockchain data being retrieved for malicious payloads.
+- Block the specific blockchain API endpoints if not needed.
+- Conduct a full malware analysis of the responsible application.
+"""
 query = '''
 sequence by process.entity_id with maxspan=15s
   [network where host.os.type == "macos" and event.type == "start" and

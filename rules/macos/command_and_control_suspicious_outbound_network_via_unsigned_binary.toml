@@ -27,6 +27,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Outbound Network Connection via Unsigned Binary
+
+This rule detects unsigned or untrusted binaries making outbound network connections on non-standard ports. Unsigned binaries with network activity are a strong indicator of malware attempting to establish C2 communication.
+
+### Possible investigation steps
+
+- Investigate the unsigned binary's origin, hash, and behavior.
+- Analyze the destination IP and port for known malicious infrastructure.
+- Review the process execution chain to understand how the binary was launched.
+- Check for file creation or modification events associated with the binary.
+
+### False positive analysis
+
+- Custom internal tools may be unsigned and require network access.
+- Development builds may not be signed during testing.
+
+### Response and remediation
+
+- Terminate the unsigned process and block the destination IP.
+- Quarantine the binary for further analysis.
+- Investigate the delivery mechanism of the unsigned binary.
+- Implement application allowlisting to prevent unauthorized binaries.
+"""
 query = '''
 sequence by process.entity_id with maxspan=1m
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 

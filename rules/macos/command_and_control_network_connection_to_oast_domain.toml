@@ -30,6 +30,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connection to OAST Domain
+
+This rule detects connections to Out-of-Band Application Security Testing (OAST) domains like interact.sh or burpcollaborator. While used legitimately for security testing, these services are also abused by threat actors for data exfiltration and command execution.
+
+### Possible investigation steps
+
+- Determine if authorized security testing is currently in progress.
+- Identify the application making the OAST connection.
+- Review DNS logs for the specific OAST subdomain being accessed.
+- Check for any data that may have been exfiltrated via the OAST channel.
+
+### False positive analysis
+
+- Security researchers may use OAST services during authorized penetration testing.
+- Bug bounty programs may trigger these alerts during vulnerability assessments.
+
+### Response and remediation
+
+- If unauthorized, block the OAST domain at the network perimeter.
+- Identify and remediate the vulnerable application being exploited.
+- Investigate the scope of potential data exposure.
+- Review other systems for similar activity.
+"""
 query = '''
 sequence by process.entity_id with maxspan=1m
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and

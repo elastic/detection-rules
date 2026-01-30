@@ -31,7 +31,36 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via a Hidden Plist Filename
+
+This rule detects the creation of plist files with hidden filenames (starting with a dot) in LaunchAgent or LaunchDaemon directories. Threat actors use this technique to hide their persistence mechanisms from users and administrators.
+
+### Possible investigation steps
+
+- Examine the hidden plist file's contents for malicious commands.
+- Identify the binary or script the plist is configured to execute.
+- Review the process that created the hidden plist.
+- Check for corresponding hidden executables.
+
+### False positive analysis
+
+- Some legitimate applications may use dot-prefixed plists.
+- System utilities occasionally create hidden configuration files.
+
+### Response and remediation
+
+- Remove the hidden plist and associated malicious binaries.
+- Unload the LaunchAgent or LaunchDaemon if currently loaded.
+- Investigate how the hidden plist was created.
+- Monitor for recreation of the hidden persistence mechanism.
+"""
 query = '''
 file where host.os.type == "macos" and event.type != "deletion" and
   file.path like~ (

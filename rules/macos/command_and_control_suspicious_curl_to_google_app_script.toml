@@ -31,6 +31,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Curl to Google App Script Endpoint
+
+This rule detects curl requests to Google Apps Script endpoints, which can be abused as a simple C2 channel. Threat actors use these legitimate Google services to host malicious scripts that evade network filtering.
+
+### Possible investigation steps
+
+- Identify the process and user making the Google Apps Script request.
+- Review the specific Apps Script URL being accessed.
+- Check if the Apps Script deployment is associated with your organization.
+- Analyze any response data for C2 commands or payloads.
+
+### False positive analysis
+
+- Legitimate automation may use Google Apps Script for workflows.
+- Business applications may integrate with Google services.
+
+### Response and remediation
+
+- Block access to unauthorized Google Apps Script deployments.
+- Investigate the script to understand the malicious functionality.
+- Report the malicious Apps Script to Google for takedown.
+- Search for similar activity across other endpoints.
+"""
 query = '''
 sequence by process.entity_id with maxspan=15s
   [process where host.os.type == "macos" and event.type == "start" and process.name in ("curl", "nscurl") and

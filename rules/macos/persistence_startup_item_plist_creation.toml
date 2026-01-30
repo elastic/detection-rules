@@ -30,7 +30,36 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious StartupItem Plist Creation
+
+This rule detects the creation of StartupItem plist files, which is a deprecated but still functional persistence mechanism on macOS. Threat actors may use this technique to establish persistence as it is less commonly monitored than LaunchAgents.
+
+### Possible investigation steps
+
+- Examine the StartupItem plist contents and associated scripts.
+- Identify the binary or command configured to execute at startup.
+- Review the process that created the StartupItem.
+- Check for other persistence mechanisms on the system.
+
+### False positive analysis
+
+- Legacy applications may still use StartupItems for compatibility.
+- Some enterprise software uses deprecated startup mechanisms.
+
+### Response and remediation
+
+- Remove the malicious StartupItem plist and associated files.
+- Reboot to verify the persistence was successfully removed.
+- Investigate the initial access vector.
+- Monitor for recreation of the StartupItem.
+"""
 query = '''
 file where host.os.type == "macos" and event.type != "deletion" and
   file.path like ("/System/Library/StartupItems/*/StartupParameters.plist",

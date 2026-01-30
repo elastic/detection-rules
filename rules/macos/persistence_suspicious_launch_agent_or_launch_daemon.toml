@@ -32,7 +32,36 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Suspicious Launch Agent or Launch Daemon
+
+This rule detects the creation of LaunchAgent or LaunchDaemon plist files by suspicious processes. These persistence mechanisms are commonly abused by malware to maintain access across system reboots.
+
+### Possible investigation steps
+
+- Examine the plist file contents for the executable or command it runs.
+- Identify the process that created the plist and its parent.
+- Locate and analyze the binary referenced in the plist.
+- Review the timing of the plist creation relative to other events.
+
+### False positive analysis
+
+- Legitimate software installers create LaunchAgents during setup.
+- System updates may create or modify LaunchDaemons.
+
+### Response and remediation
+
+- Remove the malicious plist and associated executable.
+- Use launchctl to unload the persistence mechanism.
+- Investigate the initial access vector.
+- Monitor for recreation of similar persistence mechanisms.
+"""
 query = '''
 file where host.os.type == "macos" and event.type != "deletion" and 
   file.extension == "plist" and

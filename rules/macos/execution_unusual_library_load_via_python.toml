@@ -30,7 +30,36 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Library Load via Python
+
+This rule detects when Python loads libraries from suspicious locations like temp directories or hidden folders. This behavior is common in Python-based malware that dynamically loads malicious modules.
+
+### Possible investigation steps
+
+- Examine the library being loaded from the suspicious location.
+- Review the Python script or application initiating the load.
+- Check for other files in the same directory.
+- Analyze the loaded library for malicious code.
+
+### False positive analysis
+
+- Some Python applications extract libraries to temp directories during execution.
+- Development environments may use unconventional library paths.
+
+### Response and remediation
+
+- Terminate the Python process if malicious.
+- Remove the suspicious library and investigate its origin.
+- Check for Python-based persistence mechanisms.
+- Review other systems for similar library loading patterns.
+"""
 query = '''
 library where host.os.type == "macos" and event.action == "load" and
   dll.path like "/Users/*" and

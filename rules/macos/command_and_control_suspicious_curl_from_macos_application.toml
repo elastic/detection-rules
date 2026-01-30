@@ -30,7 +30,36 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend"
 ]
+timestamp_override = "event.ingested"
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Curl from macOS Application
+
+This rule detects when a macOS application uses curl to connect to a raw IP address to download a payload. This technique is commonly used by trojanized applications that bypass Gatekeeper by using curl instead of direct downloads.
+
+### Possible investigation steps
+
+- Identify the parent application that spawned curl and verify its legitimacy.
+- Analyze the destination IP address and any downloaded content.
+- Check the application's code signature and verify it against known good versions.
+- Review the application's origin and installation method.
+
+### False positive analysis
+
+- Some legitimate applications may use curl for update checks or telemetry.
+- Development tools may download dependencies via curl.
+
+### Response and remediation
+
+- Quarantine the suspicious application immediately.
+- Block the destination IP address at the network perimeter.
+- Scan the system for any downloaded payloads.
+- Report the trojanized application to security vendors.
+"""
 query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 
   process.name in ("curl", "nscurl") and 

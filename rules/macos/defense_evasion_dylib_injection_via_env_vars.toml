@@ -33,6 +33,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Dylib Injection via Process Environment Variables
+
+This rule detects the use of DYLD environment variables to inject malicious dynamic libraries into processes. This technique allows threat actors to hook legitimate application functionality for credential theft or code execution.
+
+### Possible investigation steps
+
+- Identify the process using DYLD injection environment variables.
+- Locate and analyze the injected dylib file.
+- Determine the target application being hijacked.
+- Review the parent process to understand the injection context.
+
+### False positive analysis
+
+- Development and debugging tools may use DYLD variables legitimately.
+- Security research tools may inject libraries for analysis.
+
+### Response and remediation
+
+- Terminate the process using malicious dylib injection.
+- Remove the injected dylib file from the system.
+- Investigate how the dylib was placed on the system.
+- Review System Integrity Protection status on the affected system.
+"""
 query = '''
 sequence by process.entity_id with maxspan=15s
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and

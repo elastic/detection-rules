@@ -30,6 +30,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Pbpaste Execution via Unusual Parent Process
+
+This rule detects when scripting interpreters like Node.js, Python, or osascript execute pbpaste to access clipboard data. This technique is used by malware such as OtterCookie to steal sensitive information like passwords and cryptocurrency seed phrases.
+
+### Possible investigation steps
+
+- Review the parent process that spawned pbpaste to determine if it is expected behavior for that application.
+- Check for any network connections made by the parent process around the same time.
+- Examine the clipboard contents if available and determine if sensitive data was present.
+- Review user activity to determine if this was user-initiated or automated.
+
+### False positive analysis
+
+- Legitimate automation tools may use pbpaste for clipboard operations.
+- Development environments may trigger this during normal testing.
+
+### Response and remediation
+
+- Isolate the affected host if malicious activity is confirmed.
+- Terminate the suspicious process and investigate the parent application.
+- Reset any credentials that may have been exposed.
+- Scan the system for additional malware indicators.
+"""
 query = '''
 sequence with maxspan=15s
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and

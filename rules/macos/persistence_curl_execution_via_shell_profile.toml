@@ -28,6 +28,34 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Curl Execution via Shell Profile
+
+This rule detects curl execution that originates from shell profile scripts like .zshrc or .bash_profile. Threat actors modify these files to achieve persistence and download additional payloads each time a shell is opened.
+
+### Possible investigation steps
+
+- Review the shell profile file for unauthorized modifications.
+- Analyze the curl destination URL for malicious indicators.
+- Check the modification timestamp of the shell profile.
+- Identify when the malicious entry was added.
+
+### False positive analysis
+
+- Some users add curl commands to shell profiles for convenience.
+- Development environments may include curl-based tooling in profiles.
+
+### Response and remediation
+
+- Remove the malicious curl command from the shell profile.
+- Block the destination URL at the network perimeter.
+- Scan the system for downloaded payloads.
+- Review other shell profiles on the system for similar modifications.
+"""
 query = '''
 sequence with maxspan=10s
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
