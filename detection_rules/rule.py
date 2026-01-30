@@ -1259,6 +1259,22 @@ class BaseRuleContents(ABC):
 
         return obj
 
+    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
+        """Check if this is an ES|QL rule that uses `| keep *`."""
+        if hashable_dict.get("language") != "esql":
+            return False
+
+        query: str | None = hashable_dict.get("query")
+        if not isinstance(query, str) or not query:
+            return False
+
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match: re.Match[str] | None = keep_pattern.search(query)
+        if keep_match:
+            keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
+            return "*" in keep_fields
+        return False
+
     @abstractmethod
     def to_api_format(self, include_version: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
@@ -1272,6 +1288,11 @@ class BaseRuleContents(ABC):
         # drop related integrations if present
         if not include_integrations:
             hashable_dict.pop("related_integrations", None)
+
+        # For ES|QL rules with `| keep *`, exclude required_fields since they're
+        # non-deterministic (depend on integration schemas which vary by stack version)
+        if self._uses_keep_star(hashable_dict):
+            hashable_dict.pop("required_fields", None)
 
         return hashable_dict
 

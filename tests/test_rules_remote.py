@@ -177,7 +177,7 @@ class TestRemoteRules(BaseRuleTest):
         original_production_rule = load_rule_contents(file_path)
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["rule"]["query"] = """
-        from logs-endpoint.alerts-*
+        from logs-endpoint.alerts-* METADATA _id, _version, _index
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null
         | keep host.id, rule.name, event.code, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
@@ -207,7 +207,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = []
         production_rule["rule"]["query"] = """
-        from logs-endpoint.alerts-*
+        from logs-endpoint.alerts-* METADATA _id, _version, _index
         | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null and file.Ext.entry_modified > 0
         | keep host.id, rule.name, event.code, file.Ext.entry_modified, _id, _version, _index
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
