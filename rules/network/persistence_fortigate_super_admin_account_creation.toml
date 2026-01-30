@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of an administrator account on a FortiGate device. Administrator account creation on
+these devices should be infrequent and tightly controlled. In the FG-IR-26-060 campaign, threat actors created
+super_admin accounts immediately after gaining initial access via FortiCloud SSO bypass to establish persistence.
+"""
+from = "now-9m"
+interval = "5m"
+index = ["logs-fortinet_fortigate.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "FortiGate Super Admin Account Creation"
+note = """## Triage and analysis
+
+### Investigating FortiGate Super Admin Account Creation
+
+This alert indicates that an administrator account was created on a FortiGate device. Administrator creation events on these devices are generally rare and should be closely scrutinized, as they are a key persistence mechanism used in the FG-IR-26-060 campaign.
+
+In the observed campaign, threat actors created multiple super_admin accounts (audit, backup, support, itadmin, secadmin, remoteadmin) within seconds of initial access to ensure persistent control even if individual accounts are discovered and removed.
+
+### Possible investigation steps
+
+- Review `fortinet.firewall.cfgobj` for the name of the newly created account and examine `fortinet.firewall.cfgattr` to determine the access profile assigned to the account (especially super_admin).
+- Review `source.user.name` to determine which account performed the creation and `fortinet.firewall.ui` for the source interface and IP address. Verify whether this administrator is authorized to provision accounts.
+- Check whether a login event (especially via SSO) occurred shortly before the account creation. Analyze the timing between events.
+- Check `observer.name` to identify the FortiGate device and run `get system admin` to get the current administrator list. Check other FortiGate devices in the fleet for the same account name.
+
+### False positive analysis
+
+- Authorized provisioning of a new administrator account through an approved change management process.
+- Initial device setup where administrator accounts are created as part of deployment.
+- Migration or device replacement scenarios where accounts are replicated from another device.
+
+### Response and remediation
+
+- If unauthorized, delete the administrator account immediately and audit the creating account for compromise.
+- Treat the device configuration as compromised and restore from a known-clean backup.
+- Check all FortiGate devices for similar account creation and upgrade FortiOS to a patched version.
+- If the activity is expected, document the provisioning activity and the business justification."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
+]
+risk_score = 47
+rule_id = "cbbe0523-33f3-4420-b88d-5c940d9e72c1"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.dataset == "fortinet_fortigate.log" and
+    event.code == "0100044547" and
+    fortinet.firewall.cfgpath == "system.admin" and
+    fortinet.firewall.action == "Add" and
+    fortinet.firewall.cfgattr like~ "*accprofile[super_admin]*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
