@@ -57,9 +57,6 @@ tags = [
     "Domain: Endpoint",
     "Domain: LLM",
     "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Discovery",
-    "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
     "Rule Type: Higher-Order Rule",
@@ -68,7 +65,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from .alerts-security.alerts-default* METADATA _id, _version, _index
+from .alerts-security.* METADATA _id, _version, _index
 
 | where kibana.alert.workflow_status == "open" and
         event.kind == "signal" and
@@ -121,13 +118,4 @@ from .alerts-security.alerts-default* METADATA _id, _version, _index
 | where (Esql.verdict == "TP" or Esql.verdict == "SUSPICIOUS") and TO_DOUBLE(Esql.confidence) > 0.7
 | keep host.name, agent.id, Esql.*
 '''
-
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
