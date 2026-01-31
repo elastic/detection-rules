@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a Python process loads an unusual library from within the user's home directory where the file 
+is not a standard .so or .dylib file. This technique has been observed in APT campaigns by the Lazarus Group 
+and Slow Pisces to load malicious payloads.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.library-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Library Load via Python"
+references = [
+    "https://unit42.paloaltonetworks.com/slow-pisces-new-custom-malware/",
+    "https://slowmist.medium.com/cryptocurrency-apt-intelligence-unveiling-lazarus-groups-intrusion-techniques-a1a6efda7d34"
+]
+risk_score = 73
+rule_id = "ab9a334a-f2c3-4f49-879f-480de71020d3"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Library Load via Python
+
+Python's dynamic library loading capabilities allow code to import and execute shared libraries at runtime. Sophisticated threat actors, including APT groups like Lazarus and Slow Pisces, abuse this functionality to load malicious payloads disguised as Python modules from user directories. This detection rule identifies when Python loads libraries from user home directories that don't follow standard naming conventions (.so or .dylib), indicating potential malicious module loading.
+
+### Possible investigation steps
+
+- Examine the dll.path field to identify the full path of the library being loaded and determine if it is in an expected location for legitimate Python packages.
+- Analyze the dll.name to assess whether the file extension matches known malicious patterns or unusual naming conventions not typical for Python modules.
+- Calculate the hash of the loaded library file and search threat intelligence databases for known malicious indicators associated with Lazarus or Slow Pisces campaigns.
+- Review the process.executable and process.command_line to understand which Python script or application initiated the library load.
+- Examine the parent process hierarchy using process.parent.executable to trace back to the initial execution vector that launched the Python process.
+- Check for other files in the same directory as the loaded library that may be additional malware components or supporting payloads.
+- Review file creation timestamps to determine when the suspicious library was placed on the system and correlate with other security events.
+
+### False positive analysis
+
+- Some Python applications dynamically extract or compile extension modules during runtime, particularly scientific computing packages. Verify if the application is known to exhibit this behavior.
+- Development environments and IDEs may use unconventional library paths during testing and debugging. Confirm with development teams if such activities are expected.
+- PyQt and similar UI frameworks may load additional framework files from user directories. These are partially excluded in the query but may require additional tuning.
+- Pyenv and virtual environment setups may have libraries in non-standard locations. Review the paths against known virtual environment structures.
+
+### Response and remediation
+
+- Immediately terminate the Python process if the loaded library is confirmed or suspected to be malicious.
+- Quarantine the suspicious library file for forensic analysis and malware reverse engineering.
+- Scan the system for additional indicators of compromise associated with the identified threat actor campaign.
+- Review the Python script or application that loaded the library and assess whether it has been modified or replaced.
+- Check for persistence mechanisms that may reload the malicious library on system restart or user login.
+- Search for similar library loading patterns across other systems in the environment to identify potential lateral movement.
+- Reset any credentials or tokens that may have been exposed through the compromised Python process.
+- Escalate to the incident response team if APT-level compromise is suspected.
+"""
+query = '''
+library where host.os.type == "macos" and event.action == "load" and
+  dll.path like "/Users/*" and
+  process.name like "python*" and
+  not dll.name like ("*.so", "*.dylib", "Python", "*.*_extension", "*.dylib.*") and
+  not dll.path like ("*/site-packages/*/Qt*/lib/Qt*.framework/Versions/*/Qt*",
+                     "/Users/*/.pyenv/versions/*/lib/python*/site-packages/*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"

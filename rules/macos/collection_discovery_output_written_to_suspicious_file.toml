@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a discovery command is executed followed by the immediate modification of a suspicious file via 
+the same process. Many types of malware execute discovery commands, save the output to a file, and then 
+exfiltrate that file via their C2 channel.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Discovery Command Output Written to Suspicious File"
+risk_score = 47
+rule_id = "60da1bd7-c0b9-4ba2-b487-50a672274c04"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=15s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.parent.name in ("bash", "sh", "zsh") and
+    process.name in ("whoami", "ifconfig", "system_profiler", "dscl", "arch", "csrutil") and
+    process.args_count == 1]
+  [file where host.os.type == "macos" and event.action == "modification" and
+    file.path like ("/Users/Shared/*", "/tmp/*", "/private/tmp/*", "/Library/WebServer/*",
+                    "/Library/Graphics/*", "/Library/Fonts/*", "/private/var/root/Library/HTTPStorages/*", "/*/.*") and
+    not file.path like ("/private/tmp/*.fifo", "/private/tmp/tcl-tk*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data Staged"
+  id = "T1074"
+  reference = "https://attack.mitre.org/techniques/T1074/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Local Data Staging"
+    id = "T1074.001"
+    reference = "https://attack.mitre.org/techniques/T1074/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Information Discovery"
+  id = "T1082"
+  reference = "https://attack.mitre.org/techniques/T1082/"

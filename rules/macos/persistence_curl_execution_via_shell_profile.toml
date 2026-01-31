@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when curl is executed via a shell profile upon login. This indicates a curl command was added to the 
+user's shell profile (like .zshrc or .bashrc) and is executed automatically at login, which could be used for 
+persistence and payload delivery.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Curl Execution via Shell Profile"
+risk_score = 73
+rule_id = "afdca1e0-0f8a-4fcf-9e1e-95e09791e3cd"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Curl Execution via Shell Profile
+
+Shell profile scripts (.zshrc, .bashrc, .bash_profile, .zprofile) execute automatically when users open new terminal sessions, making them valuable persistence mechanisms. Threat actors inject curl commands into these profiles to download and execute additional payloads each time the user opens a terminal, creating a reliable beacon mechanism that persists across system reboots. This detection rule identifies curl execution with download flags that originates directly from shell profile execution at login.
+
+### Possible investigation steps
+
+- Review the shell profile files (.zshrc, .bashrc, .bash_profile, .zprofile) for the affected user to identify the injected curl command and its destination URL.
+- Analyze the process.args to determine the full curl command including output destination (-o, --output) and any other flags used.
+- Investigate the destination URL in threat intelligence databases to determine if it is associated with known malicious infrastructure.
+- Review the file modification timestamps of the shell profile files to determine when the malicious entry was added.
+- Check browser history, email attachments, and download logs to understand how the attacker initially gained access to modify the profile.
+- Examine the user.name associated with the modified profile to assess the scope of potential data access.
+- Search for downloaded files on the system that may have been retrieved by the curl command and analyze their contents.
+
+### False positive analysis
+
+- Developers may add curl commands to shell profiles for convenience, such as fetching daily updates or checking API endpoints. Verify the URL destination and purpose with the user.
+- Some shell customization frameworks and plugins use curl to update themselves on shell startup. Review common frameworks like Oh My Zsh for expected behavior.
+- Enterprise tools may configure shell profiles for authentication or environment setup. Confirm with IT operations if such configurations are expected.
+- Elastic infrastructure URLs are already excluded in the query to reduce noise from legitimate Elastic tooling.
+
+### Response and remediation
+
+- Remove the malicious curl command from the affected shell profile file immediately.
+- Block the destination URL at the network perimeter to prevent payload delivery.
+- Search for any files that were downloaded by the curl command and quarantine or remove them.
+- Review user credentials and tokens that may have been exposed, as shell sessions often contain sensitive environment variables.
+- Investigate how the shell profile was modified to identify the initial access vector.
+- Check other user accounts on the system for similar shell profile modifications.
+- Reset the user's shell profile from a known-good backup or template if available.
+- Monitor for curl execution from shell profiles across the environment to identify additional compromised systems.
+"""
+query = '''
+sequence with maxspan=10s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name in ("bash", "zsh", "sh") and
+    process.args in ("-zsh", "-sh", "-bash") and process.args_count == 1 and
+    process.parent.name == "login"] by process.entity_id
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name in ("curl", "nscurl") and
+    process.args in ("-o", "--output", "--download", "-dl", "-dir", "--directory", "-F", "--form") and
+    not process.args like ("https://upload.elastic.co*", "https://vault-ci-prod.elastic.dev", "https://artifacts.elastic.co*")] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Event Triggered Execution"
+  id = "T1546"
+  reference = "https://attack.mitre.org/techniques/T1546/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell Configuration Modification"
+    id = "T1546.004"
+    reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Ingress Tool Transfer"
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105/"
