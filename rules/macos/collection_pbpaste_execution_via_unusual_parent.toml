@@ -37,26 +37,33 @@ note = """## Triage and analysis
 
 ### Investigating Pbpaste Execution via Unusual Parent Process
 
-This rule detects when scripting interpreters like Node.js, Python, or osascript execute pbpaste to access clipboard data. This technique is used by malware such as OtterCookie to steal sensitive information like passwords and cryptocurrency seed phrases.
+The pbpaste utility on macOS retrieves data from the system clipboard, making it a target for malware seeking to steal sensitive information such as passwords, cryptocurrency seed phrases, or authentication tokens. Threat actors, particularly those behind campaigns like OtterCookie, leverage scripting interpreters such as Node.js, Python, or osascript to programmatically access clipboard contents. This detection rule identifies suspicious process chains where these interpreters spawn pbpaste, indicating potential credential theft or data harvesting activity.
 
 ### Possible investigation steps
 
-- Review the parent process that spawned pbpaste to determine if it is expected behavior for that application.
-- Check for any network connections made by the parent process around the same time.
-- Examine the clipboard contents if available and determine if sensitive data was present.
-- Review user activity to determine if this was user-initiated or automated.
+- Review the process.parent.name and process.parent.executable fields to identify which scripting interpreter spawned pbpaste and determine if this is expected behavior for the user or application context.
+- Examine the process.parent.command_line field to understand what script or command initiated the clipboard access and assess whether it appears malicious or legitimate.
+- Check for any network connections made by the parent process around the same time by correlating with network events, as clipboard data is often exfiltrated shortly after collection.
+- Investigate the user account associated with the activity using the user.name field to determine if the behavior aligns with their typical work patterns.
+- Review the process.parent.code_signature fields to verify whether the parent application is signed and trusted, as unsigned or untrusted interpreters are more suspicious.
+- Search for related alerts or events on the same host within a short time window to identify if this is part of a larger attack chain.
 
 ### False positive analysis
 
-- Legitimate automation tools may use pbpaste for clipboard operations.
-- Development environments may trigger this during normal testing.
+- Legitimate automation tools and productivity applications may use pbpaste for clipboard operations as part of normal workflows. Verify the parent application and its purpose before escalating.
+- Development and testing environments may trigger this detection when developers test clipboard functionality. Consider adding exclusions for known development tools after verification.
+- Some password managers or clipboard utilities may spawn pbpaste for legitimate purposes. Document these applications and create targeted exceptions if confirmed safe.
+- System administration scripts that manage clipboard data should be reviewed and allowlisted if they are part of approved IT operations.
 
 ### Response and remediation
 
-- Isolate the affected host if malicious activity is confirmed.
-- Terminate the suspicious process and investigate the parent application.
-- Reset any credentials that may have been exposed.
-- Scan the system for additional malware indicators.
+- Immediately isolate the affected macOS device from the network to prevent potential data exfiltration if malicious activity is confirmed.
+- Terminate the suspicious parent process and any child processes to stop ongoing clipboard harvesting activity.
+- Conduct a forensic review of the clipboard history if available, and identify what sensitive data may have been exposed.
+- Reset any credentials, API keys, or tokens that may have been present in the clipboard during the timeframe of the alert.
+- Perform a full malware scan on the affected system using endpoint security tools to identify additional indicators of compromise.
+- Review the origin of the parent script or application to understand the initial access vector and prevent reinfection.
+- Escalate to the security operations team if the activity appears to be part of a coordinated campaign affecting multiple endpoints.
 """
 query = '''
 sequence with maxspan=15s

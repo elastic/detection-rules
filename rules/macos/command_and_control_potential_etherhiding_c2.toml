@@ -38,26 +38,34 @@ note = """## Triage and analysis
 
 ### Investigating Potential Etherhiding C2 via Blockchain Connection
 
-This rule detects connections to blockchain APIs that may be used for the Etherhiding technique, where threat actors store C2 configuration or commands in blockchain transactions. This provides a resilient and censorship-resistant C2 infrastructure.
+Etherhiding is an advanced command and control technique where threat actors store malicious configurations, commands, or payload URLs within blockchain transactions on platforms like Ethereum or Binance Smart Chain. This approach provides a highly resilient and censorship-resistant C2 infrastructure since blockchain data cannot be taken down or modified. This detection rule identifies script interpreters or suspicious processes connecting to blockchain API endpoints that may be retrieving attacker-controlled data from the blockchain.
 
 ### Possible investigation steps
 
-- Identify the process making blockchain API requests and determine if it is expected.
-- Review the specific blockchain addresses or contracts being queried.
-- Check for any decoded data that may reveal C2 instructions.
-- Examine the timing patterns of blockchain queries.
+- Review the process.name and process.executable fields to identify which application is making blockchain API requests and assess whether cryptocurrency or Web3 functionality is expected on this system.
+- Examine the destination.domain and dns.question.name fields to identify the specific blockchain API endpoint being queried, such as Infura, Alchemy, or public RPC endpoints.
+- Analyze the process.command_line and process.args to understand what code or script is executing and look for hardcoded contract addresses or wallet addresses that may be querying blockchain data.
+- Investigate the process.parent.executable and parent process chain to determine how the blockchain-querying process was launched and identify the initial execution vector.
+- Review network connection payloads if available to identify the specific blockchain queries being made and extract any contract addresses or transaction hashes being queried.
+- Search threat intelligence sources for the identified contract addresses or wallet addresses to determine if they are associated with known malicious campaigns.
+- Correlate with file modification events on the same host to identify if the blockchain data is being written to disk or used to configure malware.
 
 ### False positive analysis
 
-- Cryptocurrency wallet applications legitimately access blockchain APIs.
-- Web3 development tools may query blockchain data during testing.
+- Cryptocurrency wallet applications and browser extensions legitimately access blockchain APIs to display balances and transaction history. Verify if the user has approved cryptocurrency applications.
+- Web3 developers and blockchain application developers may use blockchain APIs during development and testing. Confirm with development teams if such activities are expected.
+- Decentralized application (dApp) browsers and related tools access blockchain data as part of normal operations. Verify if these tools are sanctioned for business use.
+- NFT marketplaces and related applications may query blockchain data for asset verification. Confirm if such applications are approved.
 
 ### Response and remediation
 
-- Isolate the affected system and terminate the suspicious process.
-- Analyze the blockchain data being retrieved for malicious payloads.
-- Block the specific blockchain API endpoints if not needed.
-- Conduct a full malware analysis of the responsible application.
+- Immediately isolate the affected macOS system from the network to prevent further C2 communication or payload retrieval.
+- Terminate the suspicious process making blockchain API connections and prevent it from restarting.
+- Extract and analyze the blockchain contract addresses or transaction data being queried to understand the malicious payload or configuration.
+- Conduct a thorough malware analysis of the responsible application to identify its full capabilities and persistence mechanisms.
+- Block the identified blockchain API endpoints at the network perimeter if they are not required for legitimate business purposes.
+- Search for similar blockchain API connections across other endpoints to identify potential lateral movement or additional compromised systems.
+- Escalate to the security operations team for comprehensive incident response if the activity confirms an active Etherhiding-based attack.
 """
 query = '''
 sequence by process.entity_id with maxspan=15s

@@ -40,26 +40,35 @@ note = """## Triage and analysis
 
 ### Investigating Google Calendar C2 via Script Interpreter
 
-This rule detects script interpreters connecting to Google Calendar API, which can be abused as a covert command and control channel. Threat actors use legitimate services to evade detection and bypass network restrictions.
+Threat actors increasingly abuse legitimate cloud services to establish covert command and control channels that blend with normal traffic and bypass traditional network security controls. Google Calendar has been weaponized as a C2 mechanism where attackers store encoded commands in calendar event descriptions, which malware then polls and executes. This detection rule identifies script interpreters connecting to Google Calendar API endpoints, which may indicate this living-off-the-land technique.
 
 ### Possible investigation steps
 
-- Identify the script or application making the connection to Google Calendar.
-- Review the content of any calendar events that may contain encoded commands.
-- Check for patterns in timing that might indicate automated C2 polling.
-- Examine the parent process to understand how the script was launched.
+- Review the process.name and process.executable fields to identify which script interpreter is making the Google Calendar API connection and assess whether it is expected for the user or application context.
+- Examine the process.command_line and process.args fields to understand what script or code is being executed that initiated the calendar connection.
+- Check the process.parent.executable and process.parent.command_line to trace the process lineage and identify how the script interpreter was launched.
+- Investigate the Google Workspace audit logs for the associated user account to review calendar events that may contain encoded commands or suspicious content.
+- Review network connection details including dns.question.name and destination.ip to understand the specific Google API endpoints being accessed.
+- Correlate with authentication events to identify which user account or service account OAuth tokens are being used for the calendar access.
+- Search for similar activity across other endpoints to determine if this is an isolated incident or part of a broader campaign.
 
 ### False positive analysis
 
-- Legitimate calendar integrations may use the Google Calendar API.
-- Custom productivity scripts may access calendar data.
+- Legitimate productivity applications may integrate with Google Calendar for scheduling and automation purposes. Verify the application's purpose and whether it is approved by IT.
+- Custom automation scripts built by employees may access Google Calendar API for workflow automation. Review with the script owner to confirm legitimacy.
+- Development and testing environments may trigger this detection when building calendar integrations. Document known development activities and create targeted exceptions.
+- Third-party calendar sync applications may use script interpreters to interface with Google Calendar. Verify these are sanctioned applications.
 
 ### Response and remediation
 
-- Block the malicious script or application from executing.
-- Revoke any OAuth tokens associated with the compromised account.
-- Review Google Workspace audit logs for additional malicious activity.
-- Scan the system for additional persistence mechanisms.
+- Immediately terminate the suspicious script interpreter process to stop any ongoing C2 communication.
+- Revoke OAuth tokens and API credentials associated with the compromised Google account to prevent further unauthorized access.
+- Review Google Workspace admin console for any unauthorized calendar events or modifications that may contain malicious content.
+- Isolate the affected macOS system from the network while conducting forensic analysis.
+- Perform a comprehensive scan for additional malware, persistence mechanisms, or lateral movement indicators.
+- Reset the affected user's credentials and enable multi-factor authentication if not already in place.
+- Implement application allowlisting to prevent unauthorized script interpreters from executing.
+- Escalate to the security operations team for further investigation into potential data exfiltration or broader compromise.
 """
 query = '''
 sequence by process.entity_id with maxspan=20s

@@ -40,26 +40,35 @@ note = """## Triage and analysis
 
 ### Investigating Persistence via a Hidden Plist Filename
 
-This rule detects the creation of plist files with hidden filenames (starting with a dot) in LaunchAgent or LaunchDaemon directories. Threat actors use this technique to hide their persistence mechanisms from users and administrators.
+LaunchAgents and LaunchDaemons are macOS persistence mechanisms that automatically execute programs at login or system startup. Files with names starting with a dot (.) are hidden from standard directory listings in macOS, making them less visible to users and administrators. Threat actors combine these techniques by creating hidden plist files in LaunchAgent/LaunchDaemon directories to establish stealthy persistence that survives reboots while evading casual inspection. This behavior was notably observed in the CloudMensis macOS spyware campaign.
 
 ### Possible investigation steps
 
-- Examine the hidden plist file's contents for malicious commands.
-- Identify the binary or script the plist is configured to execute.
-- Review the process that created the hidden plist.
-- Check for corresponding hidden executables.
+- Examine the file.path to identify the full path of the hidden plist file and determine whether it is in a user-specific or system-wide LaunchAgent/LaunchDaemon directory.
+- Use plutil or defaults to read the plist contents and identify the executable path, arguments, and execution conditions configured in the ProgramArguments or Program keys.
+- Locate the binary or script referenced in the plist file and calculate its hash for threat intelligence lookups.
+- Analyze the binary's code signature using codesign -dvvv to determine if it is signed, and by whom.
+- Review the process.executable that created the plist file to understand the initial delivery mechanism.
+- Check file creation timestamps to determine when the hidden plist was created and correlate with other security events.
+- Search for other hidden files in LaunchAgent and LaunchDaemon directories across the system.
 
 ### False positive analysis
 
-- Some legitimate applications may use dot-prefixed plists.
-- System utilities occasionally create hidden configuration files.
+- Chef configuration management may create hidden plists matching .chef-com* patterns. These are already excluded in the query.
+- Some legitimate applications may temporarily create dot-prefixed files during installation. Verify the process that created the file and its signature.
+- Backup and synchronization tools occasionally create hidden configuration files. Confirm the tool's legitimacy and expected behavior.
+- System processes like sed may create temporary hidden files during in-place editing operations. These are partially excluded in the query.
 
 ### Response and remediation
 
-- Remove the hidden plist and associated malicious binaries.
-- Unload the LaunchAgent or LaunchDaemon if currently loaded.
-- Investigate how the hidden plist was created.
-- Monitor for recreation of the hidden persistence mechanism.
+- Immediately unload the hidden LaunchAgent or LaunchDaemon using launchctl unload with the plist path.
+- Remove the hidden plist file from the LaunchAgent or LaunchDaemon directory.
+- Locate and remove the malicious binary or script referenced in the plist's Program or ProgramArguments keys.
+- Search for related hidden files, configuration files, or staging directories that may be part of the same malware deployment.
+- Review system logs for evidence of the hidden persistence mechanism executing and what actions it performed.
+- Check for data exfiltration or command and control communication if the behavior matches known spyware patterns like CloudMensis.
+- Reset credentials that may have been accessed while the persistence mechanism was active.
+- Monitor for recreation of hidden plist files in LaunchAgent and LaunchDaemon directories.
 """
 query = '''
 file where host.os.type == "macos" and event.type != "deletion" and

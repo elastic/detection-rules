@@ -39,26 +39,34 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Curl from macOS Application
 
-This rule detects when a macOS application uses curl to connect to a raw IP address to download a payload. This technique is commonly used by trojanized applications that bypass Gatekeeper by using curl instead of direct downloads.
+Trojanized macOS applications often use curl to download second-stage payloads from attacker-controlled infrastructure. By leveraging curl instead of direct downloads, these malicious applications can bypass Gatekeeper quarantine checks and evade built-in macOS security mechanisms. This detection rule identifies when applications from the /Applications directory spawn curl to connect to raw IP addresses, which is highly indicative of malicious payload retrieval activity.
 
 ### Possible investigation steps
 
-- Identify the parent application that spawned curl and verify its legitimacy.
-- Analyze the destination IP address and any downloaded content.
-- Check the application's code signature and verify it against known good versions.
-- Review the application's origin and installation method.
+- Review the process.Ext.effective_parent.executable field to identify which application spawned the curl process and assess whether this application is expected to make network downloads.
+- Examine the process.args fields to extract the destination IP address and URL path being accessed, and research these indicators in threat intelligence databases.
+- Analyze the process.parent.command_line to understand the full context of how curl was invoked, including any output file paths that may indicate where payloads were written.
+- Check the code signature of the parent application using the process.code_signature fields to determine if it is validly signed and if the signature matches known good versions.
+- Investigate the origin of the suspicious application by reviewing installation logs, download history, and any recent DMG or PKG files that may have delivered the trojanized application.
+- Search for any files created on disk around the time of the curl execution to identify downloaded payloads that may have been staged for execution.
+- Correlate with other events on the same host to identify if the downloaded payload was subsequently executed.
 
 ### False positive analysis
 
-- Some legitimate applications may use curl for update checks or telemetry.
-- Development tools may download dependencies via curl.
+- Some legitimate applications may use curl for software updates or telemetry data collection. Verify the destination IP against the application vendor's known infrastructure.
+- Development tools and IDEs may download dependencies or packages via curl during normal operations. Review the context and confirm with development teams.
+- Homebrew and package managers may spawn curl from application contexts during installations. Verify if package management activities were expected.
+- Add verified legitimate applications to the exclusion list in the query after confirming their behavior is expected.
 
 ### Response and remediation
 
-- Quarantine the suspicious application immediately.
-- Block the destination IP address at the network perimeter.
-- Scan the system for any downloaded payloads.
-- Report the trojanized application to security vendors.
+- Immediately quarantine the suspicious application by moving it to a secure location and removing it from /Applications to prevent further execution.
+- Block the destination IP address at the network perimeter and on endpoint firewalls to prevent additional downloads.
+- Search the file system for any payloads that may have been downloaded and quarantine them for analysis.
+- Conduct a full malware scan on the affected system to identify any persistence mechanisms or additional malware components.
+- Report the trojanized application to Apple Security and relevant threat intelligence sharing platforms.
+- Review other systems in the environment for the same trojanized application to determine the scope of potential compromise.
+- Investigate the delivery mechanism to understand how the trojanized application was installed and prevent future infections.
 """
 query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 

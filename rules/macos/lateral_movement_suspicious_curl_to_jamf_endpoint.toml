@@ -36,26 +36,35 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Curl to Jamf Endpoint
 
-This rule detects suspicious processes making curl requests to Jamf endpoints. Threat actors may target Jamf infrastructure for lateral movement, attempting to identify managed devices or exploit management capabilities.
+Jamf Pro is a widely-used enterprise Apple device management platform that controls software deployment, security policies, and device configurations across macOS fleets. Threat actors who compromise Jamf credentials can leverage this access for devastating lateral movement, deploying malicious payloads to all managed devices or exfiltrating sensitive device inventory data. This detection rule identifies curl requests to Jamf endpoints originating from suspicious processes like unsigned binaries or scripting interpreters, which is inconsistent with legitimate Jamf management workflows.
 
 ### Possible investigation steps
 
-- Identify the process making requests to the Jamf endpoint.
-- Verify if the Jamf endpoint is your organization's legitimate server.
-- Review the authentication and activity logs on the Jamf server.
-- Check for unauthorized device enrollment or policy changes.
+- Examine the process.command_line to identify the specific Jamf API endpoint being accessed and determine if it matches your organization's Jamf Pro server URL.
+- Review the process.parent.executable and parent process details to understand how the curl request was initiated and trace back to the initial execution vector.
+- Analyze the process.parent.code_signature fields to confirm whether the parent process is unsigned or has an untrusted signature.
+- Correlate with Jamf Pro server logs to review authentication attempts, API calls, and any configuration changes made around the time of the alert.
+- Check if any Jamf API credentials, tokens, or certificates were recently accessed or exfiltrated from the affected system.
+- Review the user.name associated with the process to determine if the behavior is consistent with their role and normal activities.
+- Search for similar curl requests to Jamf endpoints across other systems in the environment to identify potential widespread credential abuse.
 
 ### False positive analysis
 
-- Legitimate Jamf management scripts may use curl for API calls.
-- IT automation tools may interact with Jamf endpoints.
+- Legitimate IT automation scripts may use curl to interact with Jamf APIs for approved management tasks. Verify the script ownership and purpose with IT operations.
+- MDM troubleshooting by administrators may involve manual curl commands to test API connectivity. Confirm with IT staff if such activities were planned.
+- Third-party integrations with Jamf may use scripting languages to automate device management. Review the integration documentation and verify legitimacy.
+- Security testing and penetration testing activities may trigger this detection. Coordinate with security teams to document expected testing windows.
 
 ### Response and remediation
 
-- Investigate the source of unauthorized Jamf API access.
-- Rotate Jamf API credentials if compromise is suspected.
-- Review Jamf audit logs for malicious activity.
-- Strengthen Jamf server access controls.
+- Immediately revoke or rotate the Jamf API credentials that may have been compromised.
+- Block the source IP or endpoint from accessing the Jamf Pro server pending investigation.
+- Review Jamf Pro audit logs for any unauthorized configuration changes, script deployments, or policy modifications.
+- Check all managed devices for unauthorized software deployments or policy changes that may have been pushed via the compromised access.
+- Terminate the suspicious process and quarantine any associated scripts or binaries for analysis.
+- Implement IP allowlisting or certificate-based authentication for Jamf API access to prevent future unauthorized access.
+- Reset credentials for any user accounts that may have had access to Jamf management credentials.
+- Escalate to the incident response team for comprehensive investigation of potential enterprise-wide compromise.
 """
 query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and

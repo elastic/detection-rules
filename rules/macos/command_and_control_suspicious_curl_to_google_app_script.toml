@@ -38,26 +38,35 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Curl to Google App Script Endpoint
 
-This rule detects curl requests to Google Apps Script endpoints, which can be abused as a simple C2 channel. Threat actors use these legitimate Google services to host malicious scripts that evade network filtering.
+Google Apps Script is a cloud-based development platform that allows users to extend Google Workspace functionality with custom scripts. Threat actors abuse this legitimate service to host malicious scripts that serve as command and control endpoints, taking advantage of the trusted domain reputation and SSL certificates. This detection rule identifies curl connections to Google Apps Script endpoints from macOS systems, which may indicate C2 communication or payload retrieval from attacker-controlled scripts.
 
 ### Possible investigation steps
 
-- Identify the process and user making the Google Apps Script request.
-- Review the specific Apps Script URL being accessed.
-- Check if the Apps Script deployment is associated with your organization.
-- Analyze any response data for C2 commands or payloads.
+- Review the process.parent.executable and process.command_line fields to understand what application or script initiated the curl request to Google Apps Script.
+- Extract the full URL from process.args to identify the specific Apps Script deployment being accessed and determine if it belongs to your organization.
+- Analyze the process.Ext.effective_parent.executable to trace the execution chain and identify the root cause of the suspicious activity.
+- Check Google Workspace admin logs if available to review the Apps Script deployment and its contents for malicious code.
+- Investigate the user.name associated with the activity to determine if the behavior aligns with their normal duties.
+- Review network response data if captured to identify any commands, payloads, or exfiltrated data transmitted via the Apps Script endpoint.
+- Search for similar curl to Google Apps Script activity across other endpoints to assess the scope of potential compromise.
 
 ### False positive analysis
 
-- Legitimate automation may use Google Apps Script for workflows.
-- Business applications may integrate with Google services.
+- Legitimate business automation may use Google Apps Script for workflow integrations. Verify with the script owner and confirm the Apps Script belongs to your organization.
+- MDM and management tools like Kandji may interact with Google services legitimately. These are already excluded in the query but verify if additional tools should be added.
+- Marketing and analytics platforms may use Apps Script for data collection. Confirm these are sanctioned business applications.
+- Development and testing activities may involve Apps Script integrations. Coordinate with development teams to understand expected activities.
 
 ### Response and remediation
 
-- Block access to unauthorized Google Apps Script deployments.
-- Investigate the script to understand the malicious functionality.
-- Report the malicious Apps Script to Google for takedown.
-- Search for similar activity across other endpoints.
+- Immediately block the suspicious Google Apps Script URL at the proxy or web filter to prevent ongoing C2 communication.
+- Terminate the curl process and any parent processes that initiated the suspicious activity.
+- Isolate the affected macOS system from the network while conducting forensic analysis.
+- Report the malicious Apps Script to Google through their abuse reporting mechanisms to initiate takedown.
+- Conduct a thorough scan of the affected system for additional malware, persistence mechanisms, or exfiltrated data.
+- Review authentication logs for the affected user account and reset credentials if compromise is suspected.
+- Search for similar activity across the environment to identify additional affected systems.
+- Implement enhanced monitoring for connections to script.google.com from unexpected applications.
 """
 query = '''
 sequence by process.entity_id with maxspan=15s
