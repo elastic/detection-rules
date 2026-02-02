@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the OpenClaw, Moltbot, or Clawdbot AI agent gateway server is started via Node.js with port binding
+arguments. These tools are personal AI coding assistants that run a local gateway server (default port 18789) which
+lacks authentication by default. Malicious skills from public registries like ClawHub have been observed executing
+obfuscated download-and-execute commands. The gateway server provides direct access to execute shell commands,
+read/write files, and interact with external services, making it a high-value target for abuse.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "OpenClaw Gateway Server Startup"
+note = """## Triage and analysis
+
+### Investigating OpenClaw or Moltbot Gateway Server Startup
+
+OpenClaw (formerly Clawdbot, rebranded to Moltbot) is a personal AI coding assistant that runs a local gateway server 
+for handling AI agent requests. The gateway binds to port 18789 by default and lacks built-in authentication, making 
+exposed instances vulnerable to unauthorized access.
+
+### Possible investigation steps
+
+- Verify if OpenClaw/Moltbot is an approved application in your organization.
+- Check the `--bind` argument to determine if the gateway is exposed beyond localhost (0.0.0.0 or specific IPs indicate broader exposure).
+- Review the `--port` argument to identify the listening port (default 18789).
+- Examine child processes spawned by the gateway for suspicious activity (download cradles, reconnaissance commands).
+- Check for recently installed "skills" from ClawHub that may contain malicious code.
+- Review network connections from the gateway process for connections to unknown external hosts.
+
+### False positive analysis
+
+- Developers legitimately using OpenClaw/Moltbot for AI-assisted coding may trigger this rule.
+- If the tool is approved, consider adding the specific user or host to an exception list.
+- Gateway startup with `--bind 127.0.0.1` (localhost only) is lower risk than broader network exposure.
+
+### Response and remediation
+
+- If unauthorized, terminate the gateway process and investigate how it was installed.
+- If the gateway was exposed to non-localhost addresses, audit for potential unauthorized access.
+- Review any skills/extensions installed in the OpenClaw configuration for malicious content.
+- Block known typosquat domains (moltbot.you, clawbot.ai, clawdbot.you) at the network level.
+"""
+references = [
+    "https://www.malwarebytes.com/blog/threat-intel/2026/01/clawdbots-rename-to-moltbot-sparks-impersonation-campaign",
+    "https://www.tomshardware.com/tech-industry/cyber-security/malicious-moltbot-skill-targets-crypto-users-on-clawhub",
+    "https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare",
+]
+risk_score = 47
+rule_id = "a7c3e8f2-4b19-4d6a-9e5c-8f1a2b3c4d5e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: LLM",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  process.name : ("node", "node.exe") and 
+  process.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
+  process.command_line : ("*gateway*", "*--port*", "*--bind*", "*server*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "JavaScript"
+    id = "T1059.007"
+    reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"
