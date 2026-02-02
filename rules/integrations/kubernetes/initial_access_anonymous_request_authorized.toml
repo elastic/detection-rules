@@ -2,14 +2,15 @@
 creation_date = "2022/09/13"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2026/02/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when an unauthenticated user request is authorized within the cluster. Attackers may attempt to use
-anonymous accounts to gain initial access to the cluster or to avoid attribution of their activities within the cluster.
-This rule excludes the /healthz, /livez and /readyz endpoints which are commonly accessed anonymously.
+This rule detects when an unauthenticated user request is authorized within the cluster via an unusual user agent.
+Attackers may attempt to use anonymous accounts to gain initial access to the cluster or to avoid attribution of
+their activities within the cluster. This rule excludes the /healthz, /livez, /version and /.well-known/oauth-authorization-server
+endpoints which are commonly accessed anonymously.
 """
 false_positives = [
     """
@@ -21,13 +22,13 @@ false_positives = [
 index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Kubernetes Anonymous Request Authorized"
+name = "Kubernetes Anonymous Request Authorized by Unusual User Agent"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Kubernetes Anonymous Request Authorized
+### Investigating Kubernetes Anonymous Request Authorized by Unusual User Agent
 
 Kubernetes, a container orchestration platform, manages workloads and services. It uses authentication to control access. Adversaries might exploit anonymous access to perform unauthorized actions without leaving traces. The detection rule identifies unauthorized access by monitoring audit logs for anonymous requests that are allowed, excluding common health check endpoints, to flag potential misuse.
 
@@ -66,33 +67,46 @@ references = [
 risk_score = 47
 rule_id = "63c057cc-339a-11ed-a261-0242ac120002"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Initial Access", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Initial Access",
+  "Tactic: Defense Evasion",
+  "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "new_terms"
 query = '''
-event.dataset:kubernetes.audit_logs
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:allow
-  and kubernetes.audit.user.username:("system:anonymous" or "system:unauthenticated" or not *)
-  and not kubernetes.audit.requestURI:(/healthz* or /livez* or /readyz*)
+event.dataset:"kubernetes.audit_logs" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.user.username:("system:anonymous" or "system:unauthenticated" or not *) and
+kubernetes.audit.userAgent:(* and not (*kubernetes/$Format)) and
+not kubernetes.audit.requestURI:(/healthz* or /livez* or /readyz* or /version or /.well-known/oauth-authorization-server)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.001"
 name = "Default Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["kubernetes.audit.userAgent"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

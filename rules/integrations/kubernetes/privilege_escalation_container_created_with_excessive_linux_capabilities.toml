@@ -2,7 +2,7 @@
 creation_date = "2022/09/20"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2026/02/02"
 
 [rule]
 author = ["Elastic"]
@@ -56,42 +56,53 @@ references = [
 risk_score = 47
 rule_id = "7164081a-3930-11ed-a261-0242ac120002"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation", "Resources: Investigation Guide"]
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Execution",
+  "Tactic: Privilege Escalation",
+  "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
-
 query = '''
-event.dataset: kubernetes.audit_logs
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.verb: create
-  and kubernetes.audit.objectRef.resource: pods
-  and kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG")
-  and not kubernetes.audit.requestObject.spec.containers.image : ("docker.elastic.co/beats/elastic-agent:8.4.0" or "rancher/klipper-lb:v0.3.5" or "")
+event.dataset: kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.verb: create and kubernetes.audit.objectRef.resource: pods and
+kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG") and
+not (
+  kubernetes.audit.requestObject.spec.containers.image : ("docker.elastic.co/beats/elastic-agent:8.4.0" or "rancher/klipper-lb:v0.3.5" or "") or
+  kubernetes.audit.objectRef.namespace:"kube-system" or
+  (kubernetes.audit.objectRef.namespace:datadog and kubernetes.audit.requestObject.spec.containers.image:*datadog-agent*) or
+  (kubernetes.audit.objectRef.namespace:kubearmor and kubernetes.audit.requestObject.spec.containers.image:(*kubearmor\:kubearmor* or kubearmor/kubearmor-snitch*)) or
+  (kubernetes.audit.objectRef.namespace:defender and kubernetes.audit.requestObject.spec.containers.image:*fp-prisma\:defender-defender*) or
+  (kubernetes.audit.objectRef.namespace:metallb-system and kubernetes.audit.requestObject.spec.containers.image:(quay.io/frrouting* or quay.io/metallb/speaker*)) or
+  (kubernetes.audit.objectRef.namespace:longhorn-system and kubernetes.audit.requestObject.spec.containers.image:rancher/mirrored-longhornio*)
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1610"
 name = "Deploy Container"
 reference = "https://attack.mitre.org/techniques/T1610/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
