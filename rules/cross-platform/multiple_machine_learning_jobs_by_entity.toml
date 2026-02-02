@@ -24,11 +24,11 @@ type = "esql"
 
 query = '''
 from .alerts-security.*
-| where kibana.alert.rule.type == "machine_learning" and kibana.alert.rule.parameters.rule_source.is_customized == false
+| where kibana.alert.rule.type == "machine_learning"
 | stats Esql.count_distinct_rule_name = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.count_distinct_job_id = COUNT_DISTINCT(job_id),
         Esql.job_id_values = VALUES(job_id),
-        Esql_rule_name_values = VALUES(kibana.alert.rule.name),
+        Esql.rule_name_values = VALUES(kibana.alert.rule.name),
         Esql.influencer_field_values = VALUES(influencers.influencer_field_values),
         Esql.influencer_field_name = VALUES(influencers.influencer_field_name) by influencers.influencer_field_values, process.name, host.name
 | where Esql.count_distinct_rule_name >= 3 and not influencers.influencer_field_values in ("root", "SYSTEM")
