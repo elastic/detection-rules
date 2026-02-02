@@ -1,17 +1,18 @@
 [metadata]
-creation_date = "2026/01/29"
+creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/29"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule correlates multiple endpoint security alerts from the same agent and uses an LLM to analyze command lines,
-parent processes, and MITRE ATT&CK tactics progression to determine if they form a coherent attack chain. The LLM
-provides a verdict (TP/FP/SUSPICIOUS) with confidence score and summary explanation, enabling analysts to prioritize
-hosts exhibiting corroborated malicious behavior while filtering out benign activity.
+This rule correlates multiple endpoint security alerts from the same host and uses an LLM to analyze command lines,
+parent processes, file operations, DNS queries, registry modifications, and MITRE ATT&CK tactics progression to
+determine if they form a coherent attack chain. The LLM provides a verdict (TP/FP/SUSPICIOUS) with confidence score
+and summary explanation, helping analysts to prioritize hosts exhibiting corroborated malicious behavior while
+filtering out benign activity.
 """
 from = "now-60m"
 interval = "30m"
@@ -25,14 +26,17 @@ note = """## Triage and analysis
 Start by reviewing the `Esql.summary` field which contains the LLM's assessment of why these alerts were flagged. The
 `Esql.confidence` score (0.7-1.0) indicates the LLM's certainty, scores above 0.9 warrant immediate attention. Focus
 on validating the specific indicators mentioned in the summary, such as suspicious domains, download-and-execute 
-patterns, or unusual process chains.
+patterns, unusual process chains, suspicious file operations, DNS queries to malicious domains, or registry modifications.
 
 ### Possible investigation steps
 
 - Examine `Esql.command_line_values` for suspicious patterns such as encoded commands, download-and-execute sequences,
   or reconnaissance tools.
 - Check `Esql.parent_command_line_values` to understand process lineage and identify unusual parent-child relationships.
-- Query the alerts index for `agent.id` to retrieve the full details of each correlated alert.
+- Review `Esql.file_path_values` for suspicious file drops, DLL side-loading attempts, or persistence mechanisms.
+- Analyze `Esql.dns_question_name_values` for connections to suspicious or known-malicious domains.
+- Inspect `Esql.registry_path_values` and `Esql.registry_data_strings_values` for persistence or configuration changes.
+- Query the alerts index for `host.id` to retrieve the full details of each correlated alert.
 - Check if the affected user (`Esql.user_values`) has legitimate access and whether the activity aligns with their role.
 
 ### False positive analysis
@@ -40,6 +44,8 @@ patterns, or unusual process chains.
 - Security testing frameworks indicate threat emulation testing.
 - Software package managers (Homebrew, apt, yum, pip) may trigger discovery alerts during normal updates.
 - System initialization or cloud instance bootstrapping (EC2 user-data, cloud-init) may trigger account creation alerts.
+- Adversaries aware of LLM-based analysis may attempt to inject testing-related keywords (e.g., Nessus, SCCM references)
+  in command lines to influence the model toward FP verdicts. Validate suspicious content regardless of testing indicators.
 
 ### Response and remediation
 
@@ -80,33 +86,41 @@ type = "esql"
 query = '''
 from .alerts-security.* METADATA _id, _version, _index
 
+// SIEM alerts with status open and enough context for the LLM layer to proceed
 | where kibana.alert.workflow_status == "open" and
         event.kind == "signal" and
         kibana.alert.rule.name is not null and
-        agent.id is not null and
-        process.name is not null and
+        host.id is not null and
+        process.executable is not null and
+        kibana.alert.risk_score > 21 and
+        (process.command_line is not null or dns.question.name is not null or file.path is not null or registry.data.strings is not null) and
 
         // excluding noisy rule types and deprecated rules
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and
         not kibana.alert.rule.name like "Deprecated - *" 
 
-// aggregate alerts by agent and host
+// aggregate alerts by host
 | stats Esql.alerts_count = COUNT(*),
+        Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
         Esql.rule_name_values = VALUES(kibana.alert.rule.name),
         Esql.tactic_values = VALUES(kibana.alert.rule.threat.tactic.name),
         Esql.technique_values = VALUES(kibana.alert.rule.threat.technique.name),
         Esql.max_risk_score = MAX(kibana.alert.risk_score),
-        Esql.process_name_values = VALUES(process.name),
+        Esql.process_executable_values = VALUES(process.executable),
         Esql.command_line_values = VALUES(process.command_line),
-        Esql.parent_name_values = VALUES(process.parent.name),
+        Esql.parent_executable_values = VALUES(process.parent.executable),
         Esql.parent_command_line_values = VALUES(process.parent.command_line),
+        Esql.file_path_values = VALUES(file.path),
+        Esql.dns_question_name_values = VALUES(dns.question.name),
+        Esql.registry_data_strings_values = VALUES(registry.data.strings),
+        Esql.registry_path_values = VALUES(registry.path),
         Esql.user_values = VALUES(user.name),
         Esql.earliest_timestamp = MIN(@timestamp),
         Esql.latest_timestamp = MAX(@timestamp)
-    by agent.id, host.name
+    by host.id, host.name
 
-// filter for hosts with multiple alerts, exclude extremely noisy patterns
-| where Esql.alerts_count >= 3
+// filter for hosts with at least 3 unique alerts
+| where Esql.unique_rules_count >= 3
 | limit 10
 
 // build context for LLM analysis
@@ -116,11 +130,14 @@ from .alerts-security.* METADATA _id, _version, _index
 | eval Esql.techniques_str = COALESCE(MV_CONCAT(Esql.technique_values, ", "), "unknown")
 | eval Esql.cmdlines_str = COALESCE(MV_CONCAT(Esql.command_line_values, "; "), "n/a")
 | eval Esql.parent_cmdlines_str = COALESCE(MV_CONCAT(Esql.parent_command_line_values, "; "), "n/a")
+| eval Esql.files_str = COALESCE(MV_CONCAT(Esql.file_path_values, "; "), "n/a")
+| eval Esql.dns_str = COALESCE(MV_CONCAT(Esql.dns_question_name_values, "; "), "n/a")
+| eval Esql.registry_str = COALESCE(MV_CONCAT(Esql.registry_path_values, "; "), "n/a")
 | eval Esql.users_str = COALESCE(MV_CONCAT(Esql.user_values, ", "), "n/a")
-| eval alert_summary = CONCAT("Host: ", host.name, " | Alert count: ", TO_STRING(Esql.alerts_count), " | Time window: ", Esql.time_window_minutes, " minutes | Max risk score: ", TO_STRING(Esql.max_risk_score), " | Rules triggered: ", Esql.rules_str, " | MITRE Tactics: ", Esql.tactics_str, " | MITRE Techniques: ", Esql.techniques_str, " | Command lines: ", Esql.cmdlines_str, " | Parent command lines: ", Esql.parent_cmdlines_str, " | Users: ", Esql.users_str)
+| eval alert_summary = CONCAT("Host: ", host.name, " | Alert count: ", TO_STRING(Esql.alerts_count), " | Unique rules: ", TO_STRING(Esql.unique_rules_count), " | Time window: ", Esql.time_window_minutes, " minutes | Max risk score: ", TO_STRING(Esql.max_risk_score), " | Rules triggered: ", Esql.rules_str, " | MITRE Tactics: ", Esql.tactics_str, " | MITRE Techniques: ", Esql.techniques_str, " | Command lines: ", Esql.cmdlines_str, " | Parent command lines: ", Esql.parent_cmdlines_str, " | Files: ", Esql.files_str, " | DNS queries: ", Esql.dns_str, " | Registry: ", Esql.registry_str, " | Users: ", Esql.users_str)
 
 // LLM analysis
-| eval instructions = " Analyze if these alerts form an attack chain (TP), are benign/false positives (FP), or need investigation (SUSPICIOUS). Consider: suspicious domains, encoded payloads, download-and-execute patterns, recon followed by exploitation, testing frameworks in parent processes. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 50 words> without any other response statements on a single line."
+| eval instructions = " Analyze if these alerts form an attack chain (TP), are benign/false positives (FP), or need investigation (SUSPICIOUS). Consider: suspicious domains, encoded payloads, download-and-execute patterns, recon followed by exploitation, DLL side-loading, suspicious file drops, malicious DNS queries, registry persistence, testing frameworks in parent processes. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 50 words> without any other response statements on a single line."
 | eval prompt = CONCAT("Security alerts to triage: ", alert_summary, instructions)
 | COMPLETION triage_result = prompt WITH { "inference_id": ".gp-llm-v2-completion"}
 
@@ -129,6 +146,6 @@ from .alerts-security.* METADATA _id, _version, _index
 
 // filter to surface attack chains or suspicious activity
 | where (Esql.verdict == "TP" or Esql.verdict == "SUSPICIOUS") and TO_DOUBLE(Esql.confidence) > 0.7
-| keep host.name, agent.id, Esql.*
+| keep host.name, host.id, Esql.*
 '''
 
