@@ -81,19 +81,18 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-event.dataset : "kubernetes.audit_logs" and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.objectRef.resource:"pods" and kubernetes.audit.verb:("create" or "update" or "patch") and
+event.dataset:kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:allow and
+kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:(create or patch or update) and
 kubernetes.audit.requestObject.spec.hostNetwork:true and
 not (
-  kubernetes.audit.requestObject.spec.containers.image: (
-    *elastic-agent* or rancher/system-agent* or quay.io/calico/node* or quay.io/metallb/speaker* or quay.io/frrouting/frr* or
-    quay.io/prometheus/node-exporter* or *eks/observability/cloudwatch-agent* or *eks/observability/aws-for-fluent-bit* or
-    registry.crowdstrike.com/falcon-sensor* or registry.k8s.io/sig-storage/csi-node-driver-registrar* or quay.io/cephcsi/cephcsi* or
-    *quay/tigera* or *tigera/operator* or docker.io/rancher/mirrored-calico-operator* or docker.io/bitnami/node-exporter*
+  kubernetes.audit.requestObject.spec.containers.image:(
+    *eks/observability/aws-for-fluent-bit* or *eks/observability/cloudwatch-agent* or *elastic-agent* or *quay/tigera* or *tigera/operator* or
+    docker.io/bitnami/node-exporter* or docker.io/rancher/mirrored-calico-operator* or quay.io/calico/node* or quay.io/cephcsi/cephcsi* or
+    quay.io/frrouting/frr* or quay.io/metallb/speaker* or quay.io/prometheus/node-exporter* or rancher/system-agent* or
+    registry.crowdstrike.com/falcon-sensor* or registry.k8s.io/sig-storage/csi-node-driver-registrar*
   ) or
-  kubernetes.audit.objectRef.namespace:"kube-system" or
   kubernetes.audit.objectRef.namespace:(
-    ingress-nginx or noname-security-posture or sysdig-agent or openebs or calico-system or cilium or elastic or calico
+    calico or calico-system or cilium or elastic or ingress-nginx or kube-system or noname-security-posture or openebs or sysdig-agent
   )
 )
 '''
