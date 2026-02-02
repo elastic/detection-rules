@@ -8,10 +8,9 @@ updated_date = "2026/02/02"
 author = ["Elastic"]
 description = """
 This rule detects potential endpoint enumeration attempts by a single user and source IP address. By looking for a
-combination of failed/successful API requests, across multiple endpoints, and a limited number of documents, this rule
+combination of failed/successful API requests across multiple endpoints and a limited number of documents, this rule
 can detect automated permission enumeration attempts. This behavior is uncommon for regular Kubernetes clusters.
 """
-index = ["logs-kubernetes.audit_logs-*"]
 language = "esql"
 license = "Elastic License v2"
 name = "Kubernetes Potential Endpoint Permission Enumeration Attempt Detected"
@@ -47,6 +46,7 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
   Esql.kubernetes_audit_user_username_values = values(kubernetes.audit.user.username),
   Esql.kubernetes_audit_user_groups_values = values(kubernetes.audit.user.groups),
   Esql.kubernetes_audit_requestURI_values = values(kubernetes.audit.requestURI),
+  Esql.kubernetes_audit_userAgent_values = values(kubernetes.audit.userAgent),
   Esql.data_stream_namespace_values = values(data_stream.namespace)
   
   by kubernetes.audit.user.username, kubernetes.audit.sourceIPs
