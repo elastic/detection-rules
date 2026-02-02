@@ -7,7 +7,7 @@ updated_date = "2026/02/02"
 author = ["Elastic"]
 description = """
 This rule uses alerts data to determine when multiple unique machine learning jobs involving the same influencer field are triggered.
-Analysts can use this to prioritize triage and response.
+Analysts can use this to prioritize triage and response machine learning alerts.
 """
 from = "now-45m"
 interval = "30m"
@@ -25,13 +25,12 @@ type = "esql"
 query = '''
 from .alerts-security.*
 | where kibana.alert.rule.type == "machine_learning"
-| stats Esql.count_distinct_rule_name = COUNT_DISTINCT(kibana.alert.rule.name),
-        Esql.count_distinct_job_id = COUNT_DISTINCT(job_id),
+| stats Esql.count_distinct_job_id = COUNT_DISTINCT(job_id),
         Esql.job_id_values = VALUES(job_id),
         Esql.rule_name_values = VALUES(kibana.alert.rule.name),
         Esql.influencer_field_values = VALUES(influencers.influencer_field_values),
         Esql.influencer_field_name = VALUES(influencers.influencer_field_name) by influencers.influencer_field_values, process.name, host.name
-| where Esql.count_distinct_rule_name >= 3 and not influencers.influencer_field_values in ("root", "SYSTEM")
+| where Esql.count_distinct_job_id >= 3 and not influencers.influencer_field_values in ("root", "SYSTEM")
 | KEEP influencers.influencer_field_values, process.name, host.name, Esql.*
 '''
 note = """## Triage and analysis
