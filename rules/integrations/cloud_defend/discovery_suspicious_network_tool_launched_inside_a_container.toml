@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
-deprecation_date = "2025/03/14"
-maturity = "deprecated"
-updated_date = "2025/03/14"
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -21,45 +22,19 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend*"]
+index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - Suspicious Network Tool Launched Inside A Container"
-risk_score = 47
-rule_id = "1a289854-5b78-49fe-9440-8a8096b1ab50"
-severity = "medium"
-tags = [
-    "Data Source: Elastic Defend for Containers",
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Tactic: Command and Control",
-    "Tactic: Reconnaissance",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where container.id: "*" and event.type== "start" and
-(
-(process.name: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap", "masscan", "zgrab")) or
-/*account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg*/
-(process.args: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap", "masscan", "zgrab"))
-)
-'''
+name = "Suspicious Network Tool Launch Detected via Defend for Containers"
 note = """## Setup
-
-This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
 
 ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - Suspicious Network Tool Launched Inside A Container
+### Investigating Suspicious Network Tool Launch Detected via Defend for Containers
 
 Containers are lightweight, portable units that encapsulate applications and their dependencies, often used to ensure consistent environments across development and production. Adversaries exploit network tools within containers for reconnaissance or lateral movement, leveraging utilities like `nc` or `nmap` to map networks or intercept traffic. The detection rule identifies these tools' execution by monitoring process starts and arguments, flagging potential misuse for further investigation.
 
@@ -88,42 +63,96 @@ Containers are lightweight, portable units that encapsulate applications and the
 - Implement network segmentation to limit the container's access to sensitive resources and reduce the potential impact of similar threats in the future.
 - Enhance monitoring and alerting for the execution of network utilities within containers, ensuring that any future occurrences are detected promptly.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems or containers have been compromised."""
-
+risk_score = 21
+rule_id = "1a289854-5b78-49fe-9440-8a8096b1ab50"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Command and Control",
+    "Tactic: Reconnaissance",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in (
+    "nc.traditional", "nc", "ncat", "netcat", "nmap", "tcpdump", "tshark", "ngrep", "telnet",  "mitmproxy", "socat",
+    "zmap", "masscan", "zgrab"
+  ) or
+  (
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+    process.args in (
+      "nc.traditional", "/bin/nc.traditional", "/usr/bin/nc.traditional", "/usr/local/bin/nc.traditional",
+      "nc", "/bin/nc", "/usr/bin/nc", "/usr/local/bin/nc",
+      "ncat", "/bin/ncat", "/usr/bin/ncat", "/usr/local/bin/ncat",
+      "netcat", "/bin/netcat", "/usr/bin/netcat", "/usr/local/bin/netcat",
+      "nmap", "/bin/nmap", "/usr/bin/nmap", "/usr/local/bin/nmap",
+      "tcpdump", "/bin/tcpdump", "/usr/bin/tcpdump", "/usr/local/bin/tcpdump",
+      "tshark", "/bin/tshark", "/usr/bin/tshark", "/usr/local/bin/tshark",
+      "ngrep", "/bin/ngrep", "/usr/bin/ngrep", "/usr/local/bin/ngrep",
+      "telnet", "/bin/telnet", "/usr/bin/telnet", "/usr/local/bin/telnet",
+      "mitmproxy", "/bin/mitmproxy", "/usr/bin/mitmproxy", "/usr/local/bin/mitmproxy",
+      "socat", "/bin/socat", "/usr/bin/socat", "/usr/local/bin/socat",
+      "zmap", "/bin/zmap", "/usr/bin/zmap", "/usr/local/bin/zmap",
+      "masscan", "/bin/masscan", "/usr/bin/masscan", "/usr/local/bin/masscan",
+      "zgrab", "/bin/zgrab", "/usr/bin/zgrab", "/usr/local/bin/zgrab"
+    ) and 
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and process.interactive == true and container.id like "*" and
+not (
+  process.name in ("nc.traditional", "nc", "ncat", "netcat") and
+  process.args like ("-*z*", "localhost", "127.0.0.1")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1105"
 name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
 
-
 [rule.threat.tactic]
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
-

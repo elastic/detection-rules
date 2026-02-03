@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
-deprecation_date = "2025/03/14"
-maturity = "deprecated"
-updated_date = "2025/03/14"
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -21,39 +22,19 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend*"]
+index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic Licence v2"
-name = "Deprecated - Container Management Utility Run Inside A Container"
-risk_score = 21
-rule_id = "6c6bb7ea-0636-44ca-b541-201478ef6b50"
-severity = "low"
-tags = [
-    "Data Source: Elastic Defend for Containers",
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where container.id: "*" and event.type== "start"
-  and process.name: ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "runc", "systemd", "crictl")
-'''
+name = "Container Management Utility Execution Detected via Defend for Containers"
 note = """## Setup
-
-This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
 
 ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - Container Management Utility Run Inside A Container
+### Investigating Container Management Utility Execution Detected via Defend for Containers
 
 Container management utilities like Docker and Kubernetes are essential for orchestrating and managing containerized applications. They facilitate tasks such as deployment, scaling, and networking. However, adversaries can exploit these tools to execute unauthorized commands within containers, potentially leading to system compromise. The detection rule identifies suspicious execution of these utilities within containers, signaling possible misuse or misconfiguration, by monitoring specific process activities and event types.
 
@@ -83,18 +64,61 @@ Container management utilities like Docker and Kubernetes are essential for orch
 - Patch and update the container image and underlying host system to address any known vulnerabilities that may have been exploited.
 - Implement stricter access controls and monitoring on container management utilities to ensure they are only accessible by authorized users and processes.
 - Escalate the incident to the security operations team for further investigation and to assess the need for broader security measures across the container environment."""
-
+risk_score = 21
+rule_id = "6c6bb7ea-0636-44ca-b541-201478ef6b50"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") or
+  (
+    /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+    process.args in (
+      "dockerd", "/bin/dockerd", "/usr/bin/dockerd", "/usr/local/bin/dockerd",
+      "kubelet", "/bin/kubelet", "/usr/bin/kubelet", "/usr/local/bin/kubelet",
+      "kube-proxy", "/bin/kube-proxy", "/usr/bin/kube-proxy", "/usr/local/bin/kube-proxy",
+      "kubectl", "/bin/kubectl", "/usr/bin/kubectl", "/usr/local/bin/kubectl",
+      "containerd", "/bin/containerd", "/usr/bin/containerd", "/usr/local/bin/containerd",
+      "systemd", "/bin/systemd", "/usr/bin/systemd", "/usr/local/bin/systemd",
+      "crictl", "/bin/crictl", "/usr/bin/crictl", "/usr/local/bin/crictl"
+    ) and 
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and
+process.interactive == true and container.id like "*" and
+not (
+  process.parent.executable in ("/sbin/init", "/usr/bin/dockerd", "/usr/bin/runc", "/usr/bin/containerd-shim-runc-v2") or
+  process.working_directory == "/aws" or
+  (process.parent.args == "init" and process.parent.args == "runc") or
+  (process.parent.name == "busybox" and process.name == "kubectl")
+)
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

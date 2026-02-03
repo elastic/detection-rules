@@ -2,7 +2,7 @@
 creation_date = "2022/05/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/01/19"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,8 @@ type = "eql"
 query = '''
 any where event.dataset == "kubernetes.audit_logs" and
 kubernetes.audit.verb in ("get", "create") and kubernetes.audit.objectRef.subresource == "exec" and
-kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow"
+kubernetes.audit.stage in ("ResponseComplete", "ResponseStarted") and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow"
+and kubernetes.audit.level == "Request"
 '''
 
 [[rule.threat]]

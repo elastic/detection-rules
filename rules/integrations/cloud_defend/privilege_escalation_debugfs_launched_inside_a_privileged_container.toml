@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
-deprecation_date = "2025/03/14"
-maturity = "deprecated"
-updated_date = "2025/03/14"
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,45 +16,19 @@ sensitive host level files which could be used for further privilege escalation 
 machine.
 """
 from = "now-6m"
-index = ["logs-cloud_defend*"]
+index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - File System Debugger Launched Inside a Privileged Container"
-references = [
-    "https://cyberark.wistia.com/medias/ygbzkzx93q?wvideo=ygbzkzx93q",
-    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
-]
-risk_score = 47
-rule_id = "97697a52-4a76-4f0a-aa4f-25c178aae6eb"
-severity = "medium"
-tags = [
-    "Data Source: Elastic Defend for Containers",
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where event.module == "cloud_defend" and
-  event.type == "start" and process.name == "debugfs" and
-  process.args : "/dev/sd*" and not process.args == "-R" and
-  container.security_context.privileged == true
-'''
+name = "DebugFS Execution Detected via Defend for Containers"
 note = """## Setup
-
-This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
 
 ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - File System Debugger Launched Inside a Privileged Container
+### Investigating DebugFS Execution Detected via Defend for Containers
 
 DebugFS is a Linux utility for direct file system manipulation, often used for debugging. In a privileged container, which has extensive access to the host, adversaries can exploit DebugFS to access sensitive host files, potentially leading to privilege escalation or container escape. The detection rule identifies suspicious DebugFS usage by monitoring process initiation with specific arguments in privileged containers, flagging potential misuse.
 
@@ -82,18 +57,54 @@ DebugFS is a Linux utility for direct file system manipulation, often used for d
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected. Provide them with all relevant logs and findings.
 - Implement additional monitoring and alerting for similar activities across other containers and hosts to detect any recurrence of this threat.
 - Review and update container deployment policies to enforce the principle of least privilege, ensuring containers only have the necessary permissions to perform their intended functions."""
-
+references = [
+    "https://cyberark.wistia.com/medias/ygbzkzx93q?wvideo=ygbzkzx93q",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
+]
+risk_score = 47
+rule_id = "97697a52-4a76-4f0a-aa4f-25c178aae6eb"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.name == "debugfs" or
+  (
+    /* account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+    process.args in (
+      "debugfs", "/bin/debugfs", "/usr/bin/debugfs", "/usr/local/bin/debugfs"
+    ) and
+    /* default exclusion list to not FP on default multi-process commands */
+    not process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )
+) and
+process.args like "/dev/sd*" and not process.args == "-R" and
+container.security_context.privileged == true and process.interactive == true and container.id like "*"
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

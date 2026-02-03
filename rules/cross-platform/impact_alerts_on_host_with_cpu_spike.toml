@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/01/26"
+maturity = "production"
+updated_date = "2026/01/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule correlates multiple security alerts from a host exhibiting unusually high CPU utilization within a short time window.
+This behavior may indicate malicious activity such as malware execution, cryptomining, exploit payload execution,
+or abuse of system resources following initial compromise.
+"""
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Alerts on a Host Exhibiting CPU Spike"
+setup = """## Setup
+
+This rule requires host CPU metrics collected via the Elastic Agent **System** integration.
+
+### System Metrics Integration Setup
+The System integration collects host-level metrics such as CPU usage, load, memory, and process statistics and sends them to Elasticsearch using Elastic Agent.
+
+#### Prerequisite Requirements:
+- Elastic Agent managed by Fleet
+- A Fleet Server configured and reachable
+  Refer to the Fleet Server setup guide:
+  https://www.elastic.co/guide/en/fleet/current/fleet-server.html
+
+#### The following steps should be executed in order to enable CPU metrics collection:
+- Go to the Kibana home page and click **Add integrations**.
+- In the search bar, enter **System** and select the **System** integration.
+- Click **Add System**.
+- Configure an integration name and optionally add a description.
+- Under **Metrics**, ensure the following datasets are enabled:
+  - `system.cpu`
+  - `system.load` (optional but recommended)
+  - `system.process` (optional, if process-level CPU is required)
+- Review optional and advanced settings as needed.
+- Add the integration to an existing agent policy or create a new agent policy.
+- Deploy the Elastic Agent to the hosts from which CPU metrics should be collected.
+- Click **Save and Continue** to finalize the setup.
+
+#### Validation
+After deployment, verify CPU metrics ingestion by confirming the presence of documents in:
+- `metrics-system.cpu-*`
+- `metrics-system.load-*` (if enabled)
+
+For more details on the System integration and available metrics, refer to the documentation:
+https://docs.elastic.co/integrations/system
+"""
+risk_score = 99
+rule_id = "b7f77c3c-1bcb-4afc-9ace-49357007947b"
+severity = "critical"
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Domain: Endpoint",
+    "Tactic: Impact"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM metrics-*, .alerts-security.*  METADATA _index
+| eval
+       // hosts with more than 90% total CPU use
+       cpu_metrics_host_ids = CASE(_index like ".ds-metrics-system.cpu-*" and system.cpu.total.norm.pct >= 0.9, host.id, null),
+       // hosts with high severity security alerts
+       alerts_host_ids = CASE(_index like ".internal.alerts-security.*" and kibana.alert.rule.name is not null and host.id is not null and kibana.alert.risk_score >= 73, host.id, null)
+| stats host_with_cpu_spike = COUNT_DISTINCT(cpu_metrics_host_ids),
+        host_with_alerts = COUNT_DISTINCT(alerts_host_ids),
+        Esql.max_cpu_pct = MAX(system.cpu.total.norm.pct),
+        Esql.unique_alerts_count = COUNT_DISTINCT(kibana.alert.rule.name),
+        Esql.unique_process_count = COUNT_DISTINCT(process.entity_id),
+        Esql.alerts = VALUES(kibana.alert.rule.name),
+        Esql.process_hash_sha256 = VALUES(process.hash.sha256),
+        process_path = VALUES(process.executable),
+        parent_process_path = VALUES(process.parent.executable),
+        user_name = VALUES(user.name),
+        cmdline = VALUES(process.command_line) by host.id
+// at least 3 unique high severity alerts and from a host with 90% CPU use
+| where host_with_cpu_spike > 0 and host_with_alerts > 0 and Esql.unique_alerts_count >= 3
+| eval process.hash.sha256 = MV_FIRST(Esql.process_hash_sha256),
+       process.executable = MV_FIRST(process_path),
+       process.parent.executable = MV_FIRST(parent_process_path),
+       process.command_line = MV_FIRST(cmdline),
+       user.name = MV_FIRST(user_name)
+| KEEP user.name, host.id, process.*, Esql.*
+'''
+note = """## Triage and analysis
+
+### Investigating Multiple Alerts on a Host Exhibiting CPU Spike
+
+This rule identifies hosts that both triggered multiple security alerts and exhibited unusually high CPU utilization on the
+within a short time window. This combination may indicate malicious execution, resource abuse, or post-compromise activity.
+
+### Possible investigation steps
+- Review the correlated alert(s) to understand why the host was flagged by the detection alerts.
+- Examine the involved process name, command line, and SHA-256 hash to determine whether those processes are expected or known to be malicious.
+- Validate the observed CPU usage and duration to determine whether the spike is abnormal for this process and host.
+- Check for related process activity such as parent/child processes, suspicious process spawning, or privilege escalation attempts.
+- Review additional host telemetry including:
+  - Network connections initiated by the process
+  - File creation or modification events
+  - Persistence mechanisms (services, scheduled tasks, registry keys)
+- Determine whether similar activity is observed on other hosts, which may indicate a broader compromise.
+
+### False positive analysis
+- Legitimate high-CPU processes such as software updates, backup agents, security scans, or system maintenance tasks.
+- Resource-intensive but benign applications (e.g., compilers, video encoding, data processing jobs).
+- Security tools or monitoring agents temporarily consuming high CPU.
+
+### Response and remediation
+- If malicious activity is confirmed, isolate the affected host to prevent further impact.
+- Terminate the offending process if safe to do so.
+- Remove any identified malicious binaries or artifacts and eliminate persistence mechanisms.
+- Apply relevant patches or configuration changes to remediate the root cause.
+- Monitor the environment for recurrence of similar high-CPU processes combined with security alerts.
+- Escalate the incident if multiple hosts or indicators suggest coordinated or widespread activity."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

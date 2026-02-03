@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
-deprecation_date = "2025/03/14"
-maturity = "deprecated"
-updated_date = "2025/03/14"
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -25,51 +26,19 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend*"]
+index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - Interactive Exec Command Launched Against A Running Container"
-references = [
-    "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
-    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
-]
-risk_score = 73
-rule_id = "420e5bb4-93bf-40a3-8f4a-4cc1af90eca1"
-severity = "high"
-tags = [
-    "Data Source: Elastic Defend for Containers",
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where container.id : "*" and event.type== "start" and
-
-/* use of kubectl exec to enter a container */
-process.entry_leader.entry_meta.type : "container" and
-
-/* process is the inital process run in a container */
-process.entry_leader.same_as_process== true and
-
-/* interactive process */
-process.interactive == true
-'''
+name = "Interactive Exec Into Container Detected via Defend for Containers"
 note = """## Setup
-
-This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
 
 ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - Interactive Exec Command Launched Against A Running Container
+### Investigating Interactive Exec Into Container Detected via Defend for Containers
 
 In containerized environments, the 'exec' command is used to run processes inside a running container, often for debugging or administrative tasks. Adversaries may exploit this to gain shell access, potentially leading to further compromise or container escape. The detection rule identifies such activities by monitoring for interactive 'exec' sessions, focusing on initial processes within containers, and flagging high-risk interactions.
 
@@ -100,28 +69,54 @@ In containerized environments, the 'exec' command is used to run processes insid
 - Implement network segmentation and access controls to limit the ability of users to execute 'exec' commands on containers, especially for high-risk or production environments.
 - Escalate the incident to the security operations team for further investigation and to determine if additional containers or systems have been compromised.
 - Enhance monitoring and alerting for similar activities by ensuring that all interactive 'exec' commands are logged and reviewed, and consider implementing stricter access controls for container management tools like kubectl."""
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
+]
+risk_score = 21
+rule_id = "420e5bb4-93bf-40a3-8f4a-4cc1af90eca1"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+process.entry_leader.entry_meta.type == "container" and
 
+/* process is the inital process run in a container */
+process.entry_leader.same_as_process == true and
+
+/* interactive process */
+process.interactive == true and container.id like "*"
+'''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
-
 
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
