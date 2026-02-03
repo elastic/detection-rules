@@ -9,7 +9,7 @@ updated_date = "2026/02/03"
 author = ["Elastic"]
 description = """
 This rule correlates multiple endpoint security alerts from the same host and uses an LLM to analyze command lines,
-parent processes, file operations, DNS queries, registry modifications, and MITRE ATT&CK tactics progression to
+parent processes, file operations, DNS queries, registry modifications, modules load and MITRE ATT&CK tactics progression to
 determine if they form a coherent attack chain. The LLM provides a verdict (TP/FP/SUSPICIOUS) with confidence score
 and summary explanation, helping analysts to prioritize hosts exhibiting corroborated malicious behavior while
 filtering out benign activity.
@@ -58,7 +58,7 @@ references = [
     "https://www.elastic.co/docs/reference/query-languages/esql/esql-commands#esql-completion",
     "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
-risk_score = 73
+risk_score = 99
 rule_id = "f236cca1-e887-4d14-9ba9-bb8dd3e16cf1"
 setup = """## Setup
 
@@ -71,7 +71,7 @@ To use a different LLM provider (Azure OpenAI, Amazon Bedrock, OpenAI, or Google
 following the [LLM connector documentation](https://www.elastic.co/docs/explore-analyze/ai-features/llm-guides/llm-connectors)
 and update the `inference_id` parameter in the query to reference your configured connector.
 """
-severity = "high"
+severity = "critical"
 tags = [
     "Domain: Endpoint",
     "Domain: LLM",
@@ -93,7 +93,7 @@ from .alerts-security.* METADATA _id, _version, _index
         host.id is not null and
         process.executable is not null and
         kibana.alert.risk_score > 21 and
-        (process.command_line is not null or dns.question.name is not null or file.path is not null or registry.data.strings is not null) and
+        (process.command_line is not null or process.parent.command_line is not null or dns.question.name is not null or file.path is not null or registry.data.strings is not null or dll.path is not null) and
 
         // excluding noisy rule types and deprecated rules
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and
@@ -111,6 +111,7 @@ from .alerts-security.* METADATA _id, _version, _index
         Esql.parent_executable_values = VALUES(process.parent.executable),
         Esql.parent_command_line_values = VALUES(process.parent.command_line),
         Esql.file_path_values = VALUES(file.path),
+        Esql.dll_path_values = VALUES(dll.path),
         Esql.dns_question_name_values = VALUES(dns.question.name),
         Esql.registry_data_strings_values = VALUES(registry.data.strings),
         Esql.registry_path_values = VALUES(registry.path),
@@ -131,10 +132,11 @@ from .alerts-security.* METADATA _id, _version, _index
 | eval Esql.cmdlines_str = COALESCE(MV_CONCAT(Esql.command_line_values, "; "), "n/a")
 | eval Esql.parent_cmdlines_str = COALESCE(MV_CONCAT(Esql.parent_command_line_values, "; "), "n/a")
 | eval Esql.files_str = COALESCE(MV_CONCAT(Esql.file_path_values, "; "), "n/a")
+| eval Esql.dlls_str = COALESCE(MV_CONCAT(Esql.dll_path_values, "; "), "n/a")
 | eval Esql.dns_str = COALESCE(MV_CONCAT(Esql.dns_question_name_values, "; "), "n/a")
 | eval Esql.registry_str = COALESCE(MV_CONCAT(Esql.registry_path_values, "; "), "n/a")
 | eval Esql.users_str = COALESCE(MV_CONCAT(Esql.user_values, ", "), "n/a")
-| eval alert_summary = CONCAT("Host: ", host.name, " | Alert count: ", TO_STRING(Esql.alerts_count), " | Unique rules: ", TO_STRING(Esql.unique_rules_count), " | Time window: ", Esql.time_window_minutes, " minutes | Max risk score: ", TO_STRING(Esql.max_risk_score), " | Rules triggered: ", Esql.rules_str, " | MITRE Tactics: ", Esql.tactics_str, " | MITRE Techniques: ", Esql.techniques_str, " | Command lines: ", Esql.cmdlines_str, " | Parent command lines: ", Esql.parent_cmdlines_str, " | Files: ", Esql.files_str, " | DNS queries: ", Esql.dns_str, " | Registry: ", Esql.registry_str, " | Users: ", Esql.users_str)
+| eval alert_summary = CONCAT("Host: ", host.name, " | Alert count: ", TO_STRING(Esql.alerts_count), " | Unique rules: ", TO_STRING(Esql.unique_rules_count), " | Time window: ", Esql.time_window_minutes, " minutes | Max risk score: ", TO_STRING(Esql.max_risk_score), " | Rules triggered: ", Esql.rules_str, " | MITRE Tactics: ", Esql.tactics_str, " | MITRE Techniques: ", Esql.techniques_str, " | Command lines: ", Esql.cmdlines_str, " | Parent command lines: ", Esql.parent_cmdlines_str, " | Files: ", Esql.files_str, " | DLLs: ", Esql.dlls_str, " | DNS queries: ", Esql.dns_str, " | Registry: ", Esql.registry_str, " | Users: ", Esql.users_str)
 
 // LLM analysis
 | eval instructions = " Analyze if these alerts form an attack chain (TP), are benign/false positives (FP), or need investigation (SUSPICIOUS). Consider: suspicious domains, encoded payloads, download-and-execute patterns, recon followed by exploitation, DLL side-loading, suspicious file drops, malicious DNS queries, registry persistence, testing frameworks in parent processes. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 50 words> without any other response statements on a single line."

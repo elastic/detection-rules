@@ -58,7 +58,7 @@ references = [
     "https://www.elastic.co/docs/reference/query-languages/esql/esql-commands#esql-completion",
     "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
-risk_score = 73
+risk_score = 99
 rule_id = "3dc4e312-346b-4a10-b05f-450e1eeab91c"
 setup = """## Setup
 
@@ -71,7 +71,7 @@ To use a different LLM provider (Azure OpenAI, Amazon Bedrock, OpenAI, or Google
 following the [LLM connector documentation](https://www.elastic.co/docs/explore-analyze/ai-features/llm-guides/llm-connectors)
 and update the `inference_id` parameter in the query to reference your configured connector.
 """
-severity = "high"
+severity = "critical"
 tags = [
     "Domain: Identity",
     "Domain: LLM",
@@ -107,8 +107,9 @@ from .alerts-security.* METADATA _id, _version, _index
         Esql.max_risk_score = MAX(kibana.alert.risk_score),
         Esql.host_name_values = VALUES(host.name),
         Esql.source_ip_values = VALUES(source.ip),
+        Esql.destination_ip_values = VALUES(destination.ip),
         Esql.event_dataset_values = VALUES(event.dataset),
-        Esql.process_name_values = VALUES(process.name),
+        Esql.process_executable_values = VALUES(process.executable),
         Esql.earliest_timestamp = MIN(@timestamp),
         Esql.latest_timestamp = MAX(@timestamp)
     by user.name, user.id
@@ -126,8 +127,10 @@ from .alerts-security.* METADATA _id, _version, _index
 | eval Esql.techniques_str = COALESCE(MV_CONCAT(Esql.technique_values, ", "), "unknown")
 | eval Esql.hosts_str = COALESCE(MV_CONCAT(Esql.host_name_values, ", "), "unknown")
 | eval Esql.source_ips_str = COALESCE(MV_CONCAT(TO_STRING(Esql.source_ip_values), ", "), "unknown")
+| eval Esql.destination_ips_str = COALESCE(MV_CONCAT(TO_STRING(Esql.destination_ip_values), ", "), "unknown")
 | eval Esql.datasets_str = COALESCE(MV_CONCAT(Esql.event_dataset_values, ", "), "unknown")
-| eval alert_summary = CONCAT("User: ", user.name, " | Alerts: ", TO_STRING(Esql.alerts_count), " | Distinct rules: ", TO_STRING(Esql.rule_name_distinct_count), " | Hosts affected: ", TO_STRING(Esql.host_count), " | Time window: ", Esql.time_window_minutes, " min | Max risk: ", TO_STRING(Esql.max_risk_score), " | Rules: ", Esql.rules_str, " | Tactics: ", Esql.tactics_str, " | Techniques: ", Esql.techniques_str, " | Hosts: ", Esql.hosts_str, " | Source IPs: ", Esql.source_ips_str, " | Data sources: ", Esql.datasets_str)
+| eval Esql.processes_str = COALESCE(MV_CONCAT(Esql.process_executable_values, ", "), "unknown")
+| eval alert_summary = CONCAT("User: ", user.name, " | Alerts: ", TO_STRING(Esql.alerts_count), " | Distinct rules: ", TO_STRING(Esql.rule_name_distinct_count), " | Hosts affected: ", TO_STRING(Esql.host_count), " | Time window: ", Esql.time_window_minutes, " min | Max risk: ", TO_STRING(Esql.max_risk_score), " | Rules: ", Esql.rules_str, " | Tactics: ", Esql.tactics_str, " | Techniques: ", Esql.techniques_str, " | Hosts: ", Esql.hosts_str, " | Source IPs: ", Esql.source_ips_str, " | Destination IPs: ", Esql.destination_ips_str, " | Data sources: ", Esql.datasets_str,  " | Processes: ",  Esql.processes_str)
 
 // LLM analysis
 | eval instructions = " Analyze if these alerts indicate a compromised user account (TP), are benign activity (FP), or need investigation (SUSPICIOUS). Consider: multi-host activity suggesting lateral movement, credential access alerts, unusual source IPs suggesting stolen credentials, MITRE tactic progression from initial access through lateral movement. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 50 words> without any other response statements on a single line."
