@@ -52,6 +52,7 @@ references = [
     "https://www.malwarebytes.com/blog/threat-intel/2026/01/clawdbots-rename-to-moltbot-sparks-impersonation-campaign",
     "https://www.tomshardware.com/tech-industry/cyber-security/malicious-moltbot-skill-targets-crypto-users-on-clawhub",
     "https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare",
+    "https://blog.virustotal.com/2026/02/from-automation-to-infection-how.html"
 ]
 risk_score = 47
 rule_id = "a7c3e8f2-4b19-4d6a-9e5c-8f1a2b3c4d5e"
@@ -73,9 +74,9 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-  process.name : ("node", "node.exe") and 
-  process.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
-  process.command_line : ("*gateway*", "*--port*", "*--bind*", "*server*")
+  process.parent.name : ("node", "node.exe") and 
+  process.parent.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
+   process.name : ("bash", "sh", "zsh", "bash.exe", "cmd.exe", "powershell.exe", "curl.exe", "curl", "base64", "xattr", "osascript", "python*", "chmod", "certutil.exe", "rundll32.exe")
 '''
 
 [[rule.threat]]
