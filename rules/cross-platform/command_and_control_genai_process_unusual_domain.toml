@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/08"
+updated_date = "2026/01/30"
 
 [rule]
 author = ["Elastic"]
@@ -73,13 +73,16 @@ type = "new_terms"
 
 query = '''
 event.category:network and host.os.type:macos and event.action:connection_attempted and
-process.name:(
+(
+  process.name:(
     Claude or "Claude Helper" or "Claude Helper (Plugin)" or Copilot or Cursor or
     "Cursor Helper" or "Cursor Helper (Plugin)" or GPT4All or Jan or "Jan Helper" or
     KoboldCpp or "LM Studio" or Ollama or Windsurf or "Windsurf Helper" or
     "Windsurf Helper (Plugin)" or bunx or claude or codex or copilot or cursor or deno or
     gemini-cli or genaiscript or gpt4all or grok or jan or koboldcpp or llama-cli or
     llama-server or lmstudio or npx or ollama or pnpm or qwen or textgen or windsurf or yarn
+  ) or
+  (process.name:(node or node.exe) and process.command_line:(*openclaw* or *moltbot* or *clawdbot*))
 ) and destination.domain:(* and not (
     aka.ms or anthropic.com or atlassian.com or cursor.com or cursor.sh or github.com or
     gpt4all.io or hf.co or huggingface.co or lmstudio.ai or localhost or ollama.ai or
