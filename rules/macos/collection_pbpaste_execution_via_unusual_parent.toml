@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
@@ -67,12 +67,10 @@ The pbpaste utility on macOS retrieves data from the system clipboard, making it
 - Escalate to the security operations team if the activity appears to be part of a coordinated campaign affecting multiple endpoints.
 """
 query = '''
-sequence with maxspan=15s
-  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
-    (process.name in ("node", "osascript") or process.name like "python*")] by process.entity_id
-  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
-    process.name == "pbpaste" and process.args_count == 1 and
-    not process.parent.executable like "/Users/*/.pyenv/versions/*/bin/python3*"] by process.parent.entity_id
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "pbpaste" and process.args_count == 1 and
+  (process.parent.name in ("node", "osascript") or process.parent.name like "python*") and
+  not process.parent.executable like "/Users/*/.pyenv/versions/*/bin/python3*"
 '''
 
 [[rule.threat]]

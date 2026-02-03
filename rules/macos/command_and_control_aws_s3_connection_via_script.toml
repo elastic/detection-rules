@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
@@ -13,8 +13,7 @@ and data exfiltration. Script interpreters connecting to cloud storage should be
 malicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "Suspicious AWS S3 Connection via Script Interpreter"
 risk_score = 47
@@ -27,14 +26,21 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend"
 ]
-type = "eql"
+type = "esql"
 query = '''
-sequence by process.entity_id with maxspan=1m
-  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
-    (process.name in ("osascript", "node") or process.name like "python*") and
-    process.args_count == 1]
-  [network where host.os.type == "macos" and event.type == "start" and
-    destination.domain like ("s3.*.amazonaws.com", "*.s3*.amazonaws.com", "*.cloudfront.net")]
+FROM logs-endpoint.events.network-*
+| WHERE host.os.type == "macos" 
+    AND event.type == "start"
+    AND (process.name == "osascript" 
+         OR process.name == "node" 
+         OR process.name LIKE "python*")
+    AND (destination.domain LIKE "s3.*.amazonaws.com" 
+         OR destination.domain LIKE "*.s3*.amazonaws.com" 
+         OR destination.domain LIKE "*.cloudfront.net")
+| STATS connection_count = COUNT(*), 
+        unique_domains = COUNT_DISTINCT(destination.domain)
+  BY process.executable, user.name, host.name
+| WHERE connection_count >= 5
 '''
 
 [[rule.threat]]

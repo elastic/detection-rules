@@ -2,38 +2,44 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the execution of Node followed by an outbound network connection to a raw IP address on a 
-non-standard port. Many Node.js initial access scripts will connect directly to C2 or a payload server 
-using non-standard ports.
+Detects the execution of a script interpreter followed by an outbound network connection to a raw IP address 
+on a non-standard port. Many initial access scripts and malware implants connect directly to C2 or payload 
+servers using non-standard ports to avoid detection.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Outbound Network Connection via Node"
+name = "Script Interpreter Connection to Non-Standard Port"
+references = [
+    "https://github.com/blackorbird/APT_REPORT/blob/master/lazarus/2024-10-14%20Lazarus%20InvisibleFerret.pdf"
+]
 risk_score = 47
-rule_id = "f1e1d362-326f-41c1-b81a-1426de657619"
+rule_id = "aa1e007a-2997-4247-b048-dd9344742560"
 severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
+    "Tactic: Execution",
     "Data Source: Elastic Defend"
 ]
 type = "eql"
 query = '''
-sequence with maxspan=1m
+sequence by process.entity_id with maxspan=1m
   [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 
-    process.name == "node" and process.args_count == 2]
+    (process.name like~ "python*" or process.name in ("node", "ruby", "perl")) and 
+    process.args_count == 2]
   [network where host.os.type == "macos" and event.type == "start" and 
-    process.name == "node" and destination.domain == null and 
-    not destination.port in (443, 80, 53, 22, 25, 587, 465, 8080, 8200, 9200) and 
+    (process.name like~ "python*" or process.name in ("node", "ruby", "perl")) and 
+    destination.domain == null and 
+    not destination.port in (443, 80, 53, 22, 25, 587, 465, 8080, 8089, 8200, 9200) and 
     destination.port < 49152 and
     not cidrmatch(destination.ip, "240.0.0.0/4", "233.252.0.0/24", "224.0.0.0/4", "198.19.0.0/16", 
                   "192.18.0.0/15", "192.0.0.0/24", "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", 
@@ -67,6 +73,11 @@ framework = "MITRE ATT&CK"
   name = "Command and Scripting Interpreter"
   id = "T1059"
   reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"
 
     [[rule.threat.technique.subtechnique]]
     name = "JavaScript"
