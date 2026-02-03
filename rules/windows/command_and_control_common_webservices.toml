@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/02/02"
 
 [transform]
 [[transform.investigate]]
@@ -128,8 +128,9 @@ This rule looks for processes outside known legitimate program locations communi
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-"https://www.elastic.co/security-labs/operation-bleeding-bear", 
-"https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry"
+"https://www.elastic.co/security-labs/operation-bleeding-bear",
+"https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry",
+"https://specterops.io/blog/2026/01/30/weaponizing-whitelists-an-azure-blob-storage-mythic-c2-profile/"
 ]
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
@@ -233,8 +234,10 @@ network where host.os.type == "windows" and
         "www.googleapis.com", 
         "googleapis.com",
         "global.rel.tunnels.api.visualstudio.com",
-        "*.devtunnels.ms", 
-        "api.github.com") and
+        "*.devtunnels.ms",
+        "api.github.com",
+        "*.blob.core.windows.net",
+        "*.blob.storage.azure.net") and
         
     /* Insert noisy false positives here */
     not (
@@ -288,7 +291,8 @@ network where host.os.type == "windows" and
       ) or 
 
       (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
-       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com")
+       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com",
+                            "*.blob.core.windows.net", "*.blob.storage.azure.net")
       ) or
 
       (process.code_signature.subject_name : ("Python Software Foundation", "Anaconda, Inc.") and
