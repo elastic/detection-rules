@@ -2,7 +2,7 @@
 creation_date = "2025/06/18"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/01/19"
+updated_date = "2026/01/30"
 
 [rule]
 author = ["Elastic"]
@@ -57,17 +57,23 @@ risk_score = 21
 rule_id = "8a1db198-da6f-4500-b985-7fe2457300af"
 severity = "low"
 tags = [
+    "Data Source: Kubernetes",
     "Domain: Kubernetes",
     "Domain: Container",
     "Use Case: Threat Detection",
-    "Data Source: Kubernetes",
     "Tactic: Execution",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and user_agent.original:*
+event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and
+kubernetes.audit.userAgent:(* and not (*kubernetes/$Format)) and
+not (
+  kubernetes.audit.userAgent:kubelet* and
+  not kubernetes.audit.objectRef.resource:(pods or nodes or csinodes or csidrivers or configmaps or secrets or events or leases or runtimeclasses) and
+  kubernetes.audit.verb:(get or list or watch or patch)
+)
 '''
 
 [[rule.threat]]
@@ -80,7 +86,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]
+value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "kubernetes.audit.userAgent"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
