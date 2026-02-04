@@ -1074,7 +1074,7 @@ class TestRuleMetadata(BaseRuleTest):
         stack_map = load_etc_dump(["stack-schema-map.yaml"])
 
         # Get the minimum supported stack version as version object
-        min_supported = min(stack_map.keys(), key=lambda v: Version.parse(v))
+        min_supported = min(stack_map.keys(), key=Version.parse)
         # Load all production rules
         for rule in self.all_rules:
             min_stack_version = rule.contents.metadata.get("min_stack_version")
