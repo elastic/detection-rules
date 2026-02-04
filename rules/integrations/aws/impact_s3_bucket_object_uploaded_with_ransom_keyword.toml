@@ -121,14 +121,7 @@ file where
   event.outcome == "success" and
   /* Apply regex to match patterns only after the bucket name */
   /* common ransom note file name keywords */
-  (
   aws.cloudtrail.resources.arn regex~ "arn:aws:s3:::[^/]+/.*?(how|decrypt|restor|help|instruct|read|get|recov|save|encrypt|info|ransom).*"
-  or
-  /* combination of common keywords plus file|back */
-  (aws.cloudtrail.resources.arn regex~ "arn:aws:s3:::[^/]+/.*?(how|decrypt|restor|help|instruct|read|get|recov|save|encrypt|info|ransom).*"
-  and 
-  aws.cloudtrail.resources.arn regex~ "arn:aws:s3:::[^/]+/.*?(file|back).*")
-  ) 
   and not aws.cloudtrail.resources.arn regex~ ".*(AWSLogs|CloudTrail|access-logs).*"
 '''
 
