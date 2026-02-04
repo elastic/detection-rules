@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/02/02"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/02/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential endpoint enumeration attempts by an anonymous user. An anonymous user is a user that
+is not authenticated or authorized to access the Kubernetes API server. By looking for a series of failed API requests,
+on multiple endpoints, and a limited number of documents, this rule can detect automated permission enumeration attempts.
+This behavior is uncommon for regular Kubernetes clusters.
+"""
+language = "esql"
+license = "Elastic License v2"
+name = "Kubernetes Potential Endpoint Permission Enumeration Attempt by Anonymous User Detected"
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access"
+]
+risk_score = 47
+rule_id = "2dd0d4fd-0cc9-4d18-8b46-1a507e28bbc0"
+severity = "medium"
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-kubernetes.audit_logs-* metadata _id, _index, _version
+| where (
+    kubernetes.audit.user.username in ("system:anonymous", "system:unauthenticated") or
+    kubernetes.audit.user.username is null or
+    kubernetes.audit.user.username == ""
+  ) and
+  kubernetes.audit.level in ("RequestResponse", "ResponseComplete", "Request")
+
+| eval Esql.decision = `kubernetes.audit.annotations.authorization_k8s_io/decision`
+| eval Esql.code = kubernetes.audit.responseStatus.code
+
+| eval Esql.outcome = case(
+    Esql.decision == "allow", "authz_allow",
+    Esql.decision == "forbid", "authz_forbid",
+
+    // fallback: infer from status when decision is missing
+    Esql.code in (401, 403), "authn_authz_failed",
+    (Esql.code >= 200 and Esql.code < 300), "success",
+    Esql.code == 404, "not_found",
+    Esql.code is null, "unknown",
+    true, "other_error"
+  )
+
+| stats
+    Esql.document_count = count(),
+
+    Esql.authz_allow_count = sum(case(Esql.outcome == "authz_allow", 1, 0)),
+    Esql.authz_forbid_count = sum(case(Esql.outcome == "authz_forbid", 1, 0)),
+
+    Esql.status_fail_count = sum(case(Esql.outcome == "authn_authz_failed", 1, 0)),
+    Esql.success_count = sum(case(Esql.outcome == "success", 1, 0)),
+    Esql.not_found_count = sum(case(Esql.outcome == "not_found", 1, 0)),
+    Esql.other_error_count = sum(case(Esql.outcome == "other_error", 1, 0)),
+    Esql.unknown_count = sum(case(Esql.outcome == "unknown", 1, 0)),
+
+    Esql.kubernetes_audit_verb_count_distinct = count_distinct(kubernetes.audit.verb),
+    Esql.kubernetes_audit_requestURI_count_distinct = count_distinct(kubernetes.audit.requestURI),
+    Esql.kubernetes_audit_objectRef_resource_count_distinct = count_distinct(kubernetes.audit.objectRef.resource),
+
+    Esql.kubernetes_audit_outcome_values = values(Esql.outcome),
+    Esql.kubernetes_audit_decision_values = values(Esql.decision),
+    Esql.kubernetes_audit_responseStatus_code_values = values(Esql.code),
+    Esql.kubernetes_audit_responseStatus_message_values = values(kubernetes.audit.responseStatus.message),
+
+    Esql.kubernetes_audit_verb_values = values(kubernetes.audit.verb),
+    Esql.kubernetes_audit_objectRef_resource_values = values(kubernetes.audit.objectRef.resource),
+    Esql.kubernetes_audit_objectRef_namespace_values = values(kubernetes.audit.objectRef.namespace),
+    Esql.kubernetes_audit_user_username_values = values(kubernetes.audit.user.username),
+    Esql.kubernetes_audit_user_groups_values = values(kubernetes.audit.user.groups),
+    Esql.kubernetes_audit_requestURI_values = values(kubernetes.audit.requestURI),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  BY kubernetes.audit.sourceIPs, kubernetes.audit.userAgent
+
+| where
+    Esql.kubernetes_audit_requestURI_count_distinct > 5 and
+    Esql.kubernetes_audit_objectRef_resource_count_distinct > 3 and
+    Esql.document_count < 50 and
+    (Esql.authz_forbid_count >= 1 or Esql.status_fail_count >= 1 or Esql.not_found_count >= 3)
+
+| keep Esql.*, kubernetes.audit.sourceIPs, kubernetes.audit.userAgent
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
