@@ -72,12 +72,13 @@ FROM logs-endpoint.events.*
     AND Tcc.right == "allowed"
     AND Tcc.update_type == "create"
     AND Tcc.service IN ("SystemPolicyDocumentsFolder", "SystemPolicyDownloadsFolder", "SystemPolicyDesktopFolder")
-    AND Effective_process.name RLIKE "(bash|zsh|sh|osascript|python.*|perl|ruby|node|Terminal|iTerm2|ghostty)"
+    AND Effective_process.name RLIKE "(bash|zsh|sh|osascript|python.*|perl.*|ruby.*|node|Terminal|iTerm2|ghostty)"
 | STATS 
-    grant_count = COUNT(*),
-    unique_folders = COUNT_DISTINCT(Tcc.service)
+    Esql.grant_count = COUNT(*),
+    Esql.unique_folders = COUNT_DISTINCT(Tcc.service)
   BY Effective_process.entity_id, Effective_process.executable, host.name, user.name
-| WHERE unique_folders >= 2
+| WHERE Esql.unique_folders >= 2
+| KEEP Esql.*, Effective_process.entity_id, Effective_process.executable, host.name, user.name
 '''
 
 [[rule.threat]]
