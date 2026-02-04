@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2026/02/02"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential direct Kubelet access via process arguments. An adversary may need to access the
+Kubelet API to gain access to the Kubernetes API server or other resources within the cluster. These requests
+are often used to enumerate or execute commands on the Kubernetes API server or other resources within the
+cluster, and may indicate an attempt to move laterally within the cluster.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Direct Kubelet Access via Process Arguments Detected via Defend for Containers"
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#kubelet-api",
+    "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
+    "https://www.aquasec.com/blog/kubernetes-exposed-exploiting-the-kubelet-api/"
+]
+risk_score = 47
+rule_id = "b4bd186b-69c6-45ad-8bef-5c35bbadeaef"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.args like "http*:10250*" and process.interactive == true and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
