@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw"]
+integration = ["network_traffic", "panw", "fortinet_fortigate", "sonicwall_firewall", "suricata"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
@@ -22,34 +22,19 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
+index = [
+    "packetbeat-*",
+    "auditbeat-*",
+    "filebeat-*",
+    "logs-network_traffic.*",
+    "logs-panw.panos*",
+    "logs-fortinet_fortigate.log-*",
+    "logs-sonicwall_firewall.log-*",
+    "logs-suricata.*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "Accepted Default Telnet Port Connection"
-risk_score = 47
-rule_id = "34fde489-94b0-4500-a76f-b8a157cf9269"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Tactic: Lateral Movement",
-    "Tactic: Initial Access",
-    "Data Source: PAN-OS",
-    "Resources: Investigation Guide"
-]
-timeline_id = "300afc76-072d-4261-864d-4149714bf3f1"
-timeline_title = "Comprehensive Network Timeline"
-timestamp_override = "event.ingested"
-type = "query"
-
-query = '''
-(event.dataset:network_traffic.flow or event.category:(network or network_traffic))
-    and event.type:connection and not event.action:(
-        flow_dropped or flow_denied or denied or deny or
-        flow_terminated or timeout or Reject or network_flow)
-    and destination.port:23
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -85,6 +70,35 @@ Telnet, a protocol for remote command-line access, is often used in legacy syste
 - Implement network segmentation to restrict Telnet access to only necessary internal systems, ensuring it is not exposed to the internet.
 - Deploy encryption protocols such as SSH to replace Telnet for remote command-line access, enhancing security for remote management.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the need for additional security measures."""
+risk_score = 47
+rule_id = "34fde489-94b0-4500-a76f-b8a157cf9269"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Lateral Movement",
+    "Tactic: Initial Access",
+    "Data Source: PAN-OS",
+    "Data Source: Fortinet",
+    "Data Source: SonicWall",
+    "Data Source: Suricata",
+    "Resources: Investigation Guide",
+]
+timeline_id = "300afc76-072d-4261-864d-4149714bf3f1"
+timeline_title = "Comprehensive Network Timeline"
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+(event.dataset:(fortinet_fortigate.log or network_traffic.flow
+        or sonicwall_firewall.log or suricata.eve or panw.panos)
+    or event.category:(network or network_traffic))
+    and event.type:connection and not event.action:(
+        flow_dropped or flow_denied or denied or deny or
+        flow_terminated or timeout or Reject or network_flow)
+    and destination.port:23
+'''
 
 
 [[rule.threat]]
