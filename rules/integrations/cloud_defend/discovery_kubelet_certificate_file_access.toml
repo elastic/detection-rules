@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2026/02/02"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the access of the Kubelet certificate file inside a container. The Kubelet certificate file is
+used to authenticate the container to the Kubernetes API server, and may be used by an adversary to gain access
+to the Kubernetes API server or other resources within the cluster. These files are a common target for adversaries
+to gain access to the cluster. There is a current limitation in the defend for containers file sensor that prevents
+file open events from being logged for file open events without write intent. 
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.file*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Kubelet Certificate File Access Detected via Defend for Containers"
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#kubelet-api",
+    "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
+    "https://www.aquasec.com/blog/kubernetes-exposed-exploiting-the-kubelet-api/"
+]
+risk_score = 21
+rule_id = "42de0740-8ed8-4b8b-995c-635b56a8bbf4"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "change" and event.action == "open" and
+file.path like "/var/lib/kubelet/pki/*" and process.interactive == true and container.id like "?*" 
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
