@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2026/02/04"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/02/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a sequence where a principal creates or modifies a Role/ClusterRole to include high-risk permissions
+(e.g., wildcard access or escalation verbs) and then creates or patches a workload resource (DaemonSet,
+Deployment, or CronJob) shortly after, which may indicate RBAC-based privilege escalation followed by payload
+deployment. This pattern is often used by adversaries to gain unauthorized access to sensitive resources and
+deploy malicious payloads.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Sensitive RBAC Change Followed by Workload Modification"
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
+]
+risk_score = 47
+rule_id = "3c82bf84-5941-495b-ac41-0302f28e1a90"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by user.name with maxspan=5m
+  [any where event.dataset == "kubernetes.audit_logs" and
+   `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+    kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
+    kubernetes.audit.verb in ("create", "update", "patch")]
+  [any where event.dataset == "kubernetes.audit_logs" and
+   `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+    kubernetes.audit.objectRef.resource in ("daemonsets", "deployments", "cronjobs") and
+    kubernetes.audit.verb in ("create", "patch") and
+    /* reduce control-plane / bootstrap noise */
+    not kubernetes.audit.user.groups == "system:masters"
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
