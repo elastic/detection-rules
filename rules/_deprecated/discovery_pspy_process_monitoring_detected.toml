@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2023/07/20"
+deprecation_date = "2026/02/04"
+integration = ["auditd_manager"]
+maturity = "deprecated"
+updated_date = "2026/02/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages auditd to monitor for processes scanning different processes within the /proc directory using the
+openat syscall. This is a strong indication for the usage of the pspy utility. Attackers may leverage the pspy process
+monitoring utility to monitor system processes without requiring root permissions, in order to find potential privilege
+escalation vectors.
+"""
+from = "now-9m"
+index = ["logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Deprecated - Potential Pspy Process Monitoring Detected"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - Potential Pspy Process Monitoring Detected
+
+Auditd is a Linux auditing system that tracks system calls, providing insights into process activities. Adversaries exploit tools like pspy to monitor processes via the /proc directory, seeking privilege escalation opportunities without root access. The detection rule identifies suspicious openat syscalls targeting /proc, excluding benign processes, to flag potential misuse of pspy for process discovery.
+
+### Possible investigation steps
+
+- Review the process details associated with the alert, focusing on the process.pid and process.name fields to identify the process attempting to access the /proc directory.
+- Investigate the host.id to determine if this activity is isolated to a single host or part of a broader pattern across multiple systems.
+- Examine the process tree and parent processes of the flagged process to understand how it was initiated and if it is part of a legitimate workflow or potentially malicious activity.
+- Check for any recent changes or installations on the host that might explain the presence of a tool like pspy, such as new software installations or updates.
+- Correlate the timing of the alert with any other suspicious activities or alerts on the same host to identify potential lateral movement or privilege escalation attempts.
+- Verify if the process name is a known benign process that might have been mistakenly excluded from the query, ensuring that the exclusion list is up-to-date and accurate.
+
+### False positive analysis
+
+- Frequent scanning by legitimate monitoring tools can trigger the rule. Identify and whitelist these tools by adding their process names to the exclusion list.
+- System management scripts that regularly access the /proc directory may cause false positives. Review these scripts and exclude their process names if they are verified as non-threatening.
+- Automated backup or security software that interacts with the /proc directory might be flagged. Confirm their legitimacy and add them to the exception list to prevent unnecessary alerts.
+- Custom applications developed in-house that require access to the /proc directory for performance monitoring should be reviewed and excluded if they are deemed safe.
+- Regularly update the exclusion list to reflect changes in legitimate software and tools used within the organization to minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified as using the pspy utility to halt further unauthorized process monitoring.
+- Conduct a thorough review of the affected system's /proc directory access logs to identify any other unauthorized access attempts or anomalies.
+- Reset credentials and review permissions for any accounts that may have been compromised or used in the attack to prevent further unauthorized access.
+- Apply patches and updates to the affected system to address any vulnerabilities that may have been exploited for privilege escalation.
+- Enhance monitoring and logging on the affected host to detect any future attempts to access the /proc directory using similar methods.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected."""
+references = ["https://github.com/DominicBreuker/pspy"]
+risk_score = 21
+rule_id = "bdb04043-f0e3-4efa-bdee-7d9d13fa9edc"
+setup = """## Setup
+
+This rule requires data coming in from Auditd Manager.
+
+### Auditd Manager Integration Setup
+The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
+Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux System:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
+- Click “Add Auditd Manager”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+
+#### Rule Specific Setup Note
+Auditd Manager subscribes to the kernel and receives events as they occur without any additional configuration.
+However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+- For this detection rule the following additional audit rules are required to be added to the integration:
+  -- "-w /proc/ -p r -k audit_proc"
+"""
+severity = "low"
+tags = [
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by process.pid, host.id with maxspan=5s
+  [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
+   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") and
+   not process.name in ("agentbeat", "packetbeat")
+  ] with runs=10
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
