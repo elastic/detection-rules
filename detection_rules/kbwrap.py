@@ -109,7 +109,7 @@ def kibana_import_rules(  # noqa: PLR0915
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
 ) -> tuple[dict[str, Any], list[RuleResource]]:
-    """Import custom rules into Kibana."""
+    """Import rules into Kibana."""
 
     def _handle_response_errors(response: dict[str, Any]) -> None:
         """Handle errors from the import response."""
@@ -277,7 +277,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     export_query: str | None = None,
     load_rule_loading: bool = False,
 ) -> list[TOMLRule]:
-    """Export custom rules from Kibana."""
+    """Export rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors or custom_rules_only or export_query
 
