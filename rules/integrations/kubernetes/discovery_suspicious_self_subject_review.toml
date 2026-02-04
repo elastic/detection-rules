@@ -2,13 +2,13 @@
 creation_date = "2022/06/30"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2026/01/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a service account or node attempts to enumerate their own permissions via the
-selfsubjectaccessreview or selfsubjectrulesreview APIs. This is highly unusual behavior for non-human identities like
+This rule detects when a service account or node attempts to enumerate their own permissions via the selfsubjectaccessreview
+or selfsubjectrulesreview APIs via an unusual user agent. This is highly unusual behavior for non-human identities like
 service accounts and nodes. An adversary may have gained access to credentials/tokens and this could be an attempt to
 determine what privileges they have to facilitate further movement or execution within the cluster.
 """
@@ -22,13 +22,13 @@ false_positives = [
 index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Kubernetes Suspicious Self-Subject Review"
+name = "Kubernetes Suspicious Self-Subject Review via Unusual User Agent"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Kubernetes Suspicious Self-Subject Review
+### Investigating Kubernetes Suspicious Self-Subject Review via Unusual User Agent
 
 Kubernetes uses APIs like selfsubjectaccessreview and selfsubjectrulesreview to allow entities to check their own permissions. While useful for debugging, adversaries can exploit these APIs to assess their access level after compromising service accounts or nodes. The detection rule identifies unusual API calls by non-human identities, flagging potential unauthorized privilege enumeration attempts.
 
@@ -66,33 +66,45 @@ references = [
     "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
     "https://techcommunity.microsoft.com/t5/microsoft-defender-for-cloud/detecting-identity-attacks-in-kubernetes/ba-p/3232340",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "12a2f15d-597e-4334-88ff-38a02cb1330b"
-severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Discovery", "Resources: Investigation Guide"]
+severity = "low"
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "new_terms"
 query = '''
-event.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.verb:"create"
-  and kubernetes.audit.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews")
-  and (kubernetes.audit.user.username:(system\:serviceaccount\:* or system\:node\:*)
-  or kubernetes.audit.impersonatedUser.username:(system\:serviceaccount\:* or system\:node\:*))
+event.dataset : "kubernetes.audit_logs" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.verb:"create" and
+kubernetes.audit.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and (
+  kubernetes.audit.user.username:(system\:serviceaccount\:* or system\:node\:*) or
+  kubernetes.audit.impersonatedUser.username:(system\:serviceaccount\:* or system\:node\:*)
+) and kubernetes.audit.userAgent:(* and not (*kubernetes/$Format))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["kubernetes.audit.userAgent"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
