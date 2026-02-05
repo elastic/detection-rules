@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2023/08/23"
+deprecation_date = "2026/02/04"
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2025/12/17"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [transform]
 [[transform.osquery]]
@@ -28,6 +29,7 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
+
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +87,7 @@ This rule looks for a sequence of command line arguments that are consistent wit
 
 ### False positive analysis
 
-- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- If this activity is related to new benign software installation activity, consider adding exceptions - preferably with a combination of user and command line conditions.
 - If this activity is related to a system administrator or developer who uses port tunneling for benign purposes, consider adding exceptions for specific user accounts or hosts. 
 - Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
 
@@ -145,6 +147,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
@@ -157,15 +160,17 @@ sequence by host.id, process.entity_id with maxspan=1m
      "ftp", "socat", "curl", "wget", "dpkg", "docker", "dockerd", "yum", "apt", "rpm", "dnf", "ssh", "sshd", "hugo")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
