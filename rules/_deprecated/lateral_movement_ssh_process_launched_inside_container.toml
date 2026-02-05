@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2025/03/12"
+deprecation_date = "2026/02/04"
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2025/12/19"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -22,13 +23,13 @@ from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - SSH Process Launched From Inside A Container"
+name = "Deprecated - SSH Process Launched From Inside A Container via Elastic Defend"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Deprecated - SSH Process Launched From Inside A Container
+### Investigating Deprecated - SSH Process Launched From Inside A Container via Elastic Defend
 
 SSH (Secure Shell) is a protocol used for secure remote access and management of systems. Within container environments, SSH usage is atypical and can signal potential security risks. Adversaries may exploit SSH to move laterally between containers or escape to the host system. The detection rule identifies SSH processes initiated within containers, flagging potential unauthorized access or persistence attempts by monitoring process events and container identifiers.
 
@@ -101,38 +102,40 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.entry_leader.entry_meta.type == "container" and process.name in ("sshd", "ssh", "autossh")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.004"
 name = "SSH"
 reference = "https://attack.mitre.org/techniques/T1021/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1133"
 name = "External Remote Services"
 reference = "https://attack.mitre.org/techniques/T1133/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

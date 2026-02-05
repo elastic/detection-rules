@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2024/01/15"
+deprecation_date = "2026/02/04"
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2025/12/23"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -88,6 +89,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sudo" and not (
@@ -106,30 +108,32 @@ sequence by host.id, process.entity_id with maxspan=5s
   )]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1055"
 name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1055.008"
 name = "Ptrace System Calls"
 reference = "https://attack.mitre.org/techniques/T1055/008/"
 
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
