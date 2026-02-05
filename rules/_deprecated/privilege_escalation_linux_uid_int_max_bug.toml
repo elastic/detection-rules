@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2023/07/27"
+deprecation_date = "2026/02/04"
 integration = ["endpoint", "crowdstrike"]
-maturity = "production"
-updated_date = "2025/12/23"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -95,21 +96,24 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "ProcessRollup2") and
   process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
