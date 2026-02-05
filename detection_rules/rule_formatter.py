@@ -308,7 +308,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
     f = None
     if out_file_path:
-        f = out_file_path.open("w")
+        f = out_file_path.open("w", encoding="utf-8")
 
     try:
         for data in ("metadata", "transform", "rule"):
