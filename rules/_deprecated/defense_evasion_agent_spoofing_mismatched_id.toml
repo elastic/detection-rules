@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2021/07/14"
-maturity = "production"
-updated_date = "2026/01/12"
+deprecation_date = "2026/02/04"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -21,16 +22,6 @@ index = ["logs-*", "metrics-*", "traces-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Deprecated - Agent Spoofing - Mismatched Agent ID"
-risk_score = 73
-rule_id = "3115bd2c-0baa-4df0-80ea-45e474b5ef93"
-severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
-timestamp_override = "event.ingested"
-type = "query"
-
-query = '''
-event.agent_id_status:agent_id_mismatch and not host.name:agentless-*
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -66,16 +57,28 @@ In security environments, agent IDs uniquely identify software agents that repor
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat actor has compromised other parts of the network.
 - Review and update access controls and authentication mechanisms to ensure that only legitimate agents can report events. Consider implementing multi-factor authentication for added security.
 - Document the incident, including all actions taken, and conduct a post-incident review to identify any gaps in detection or response. Use this information to enhance future threat detection and response capabilities."""
+risk_score = 73
+rule_id = "3115bd2c-0baa-4df0-80ea-45e474b5ef93"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.agent_id_status:agent_id_mismatch and not host.name:agentless-*
+'''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
