@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2023/07/20"
+deprecation_date = "2026/02/04"
 integration = ["auditd_manager"]
-maturity = "production"
-updated_date = "2025/12/18"
+maturity = "deprecated"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -64,13 +65,13 @@ The Auditd Manager Integration receives audit events from the Linux Audit Framew
 Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
 
 #### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux System:
-- Go to the Kibana home page and click “Add integrations”.
-- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
-- Click “Add Auditd Manager”.
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Auditd Manager" and select the integration to see more details about it.
+- Click "Add Auditd Manager".
 - Configure the integration name and optionally add a description.
 - Review optional and advanced settings accordingly.
-- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
-- Click “Save and Continue”.
+- Add the newly installed "auditd manager" to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click "Save and Continue".
 - For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
@@ -89,6 +90,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 type = "eql"
+
 query = '''
 sequence by process.pid, host.id with maxspan=5s
   [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
@@ -97,9 +99,9 @@ sequence by process.pid, host.id with maxspan=5s
   ] with runs=10
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
@@ -110,7 +112,9 @@ id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
