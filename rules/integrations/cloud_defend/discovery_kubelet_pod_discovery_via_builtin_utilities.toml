@@ -1,0 +1,67 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of built-in utilities to discover running pods on a Kubernetes cluster. The utilities used
+are du, nice, find, locate, and ls. These utilities are commonly used to discover running pods on a Kubernetes cluster.
+The "/var/lib/kubelet/pods" directory is the default location for Kubelet pod information.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.file*", "logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Kubelet Pod Discovery via Built-In Utilities Detected via Defend for Containers"
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#kubelet-api",
+    "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
+    "https://www.aquasec.com/blog/kubernetes-exposed-exploiting-the-kubelet-api/"
+]
+risk_score = 21
+rule_id = "f596175f-b8fd-43ac-b9e9-ea2a96bb55d8"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by container.id, user.id with maxspan=5s
+  [any where host.os.type == "linux" and event.category in ("file", "process") and process.interactive == true and container.id like "*" and (
+    (event.category == "file" and event.type == "change" and event.action == "open" and file.path like "/var/lib/kubelet/pods/*") or
+    (event.category == "process" and event.type == "start" and event.action == "exec" and (
+      (process.name in ("du", "nice", "find", "locate", "ls")) or
+      (process.args in (
+        "du", "/bin/du", "/usr/bin/du", "/usr/local/bin/du",
+        "nice", "/bin/nice", "/usr/bin/nice", "/usr/local/bin/nice",
+        "find", "/bin/find", "/usr/bin/find", "/usr/local/bin/find",
+        "locate", "/bin/locate", "/usr/bin/locate", "/usr/local/bin/locate",
+        "ls", "/bin/ls", "/usr/bin/ls", "/usr/local/bin/ls"
+      ))
+    ) and process.args like "*/var/lib/kubelet/pods/*")
+  )] with runs=5
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

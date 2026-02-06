@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when an interactive process creates a file inside of a system binary location, inside of a running
+container. The system binary locations are /etc, /root, /bin, /usr/bin, /usr/local/bin, and /entrypoint. Adversaries
+may use these locations to create files that can be used to execute commands on the underlying host, or to evade
+detection by security controls.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.file*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "File Creation via Interactive Process in System Binary Locations Detected via Defend for Containers"
+risk_score = 47
+rule_id = "05a50000-9886-4695-ad33-3f990dc142e2"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and file.path like (
+  "/etc/*", "/root/*", "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/entrypoint*"
+) and (
+  process.name like ("wget", "curl") or
+  (process.name == "busybox" and process.args == "wget") or
+  process.executable like ("/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*")
+) and container.id like "?*" and process.interactive == true
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when an interactive process executes a suspicious interpreter command inside a container.
+These commands are commonly used by attackers to execute malicious code or exfiltrate data.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Interactive Interpreter Command Execution Detected via Defend for Containers"
+risk_score = 47
+rule_id = "cd24c340-b778-44bd-ab69-2f739bd70ce1"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and (
+  (
+    process.executable like ("/bin/perl*", "/usr/bin/perl*", "/usr/local/bin/perl*") and
+    process.args == "-e" and process.args like~ (
+      "*system(*", "*exec(*", "*IO.popen(*", "*Open3.popen3(*", "*spawn(*", "*eval(*",
+      "*load(*IO::*", "*load(*Marshal*", "*load(*Fiddle*", "*load(*Zlib*", "*load(*Base64*",
+      "*zlib.inflate(*", "*zlib.deflate(*", "*zlib.decompress(*", "*zlib.uncompress(*", "*zlib.compress(*",
+      "*Marshal.load(*", "*Fiddle.dlopen(*", "*Fiddle::Function.new(*", "*base64*", "*zlib*", 
+      "*net/http*", "*socket.new*", "*open-uri*", "*pack(*"
+    )
+  ) or
+  process.executable like ("/bin/php*", "/usr/bin/php*", "/usr/local/bin/php*") and
+  process.args == "-r" and process.args like~ (
+    "*exec(*", "*system(*", "*shell_exec(*", "*passthru(*", "*proc_open(*", "*pcntl_exec(*", "*popen(*", 
+    "*eval(*", "*assert(*", "*create_function(*", "*preg_replace(*e*", "*include(*", "*require(*",
+    "*base64_decode(*", "*gzinflate(*", "*gzuncompress(*", "*str_rot13(*", "*urldecode(*", "*chr(*", 
+    "*ord(*", "*strrev(*", "*strtr(*", "*pack(*", "*unpack(*", "*curl_exec(*", "*curl_multi_exec(*",
+    "*file_get_contents(*", "*fopen(*", "*fsockopen(*", "*pfsockopen(*", "*stream_socket_client(*",
+    "*socket_create(*", "*socket_connect(*", "*socket_write(*", "*socket_read(*", "*mail(*",
+    "*move_uploaded_file(*"
+  ) or
+  process.executable like ("/bin/lua*", "/usr/bin/lua*", "/usr/local/bin/lua*") and
+  process.args == "-e" and process.args like~ (
+    "*os.execute(*", "*io.popen(*", "*load(*", "*loadstring(*", "*require(*", "*dofile(*",
+    "*package.loadlib(*", "*base64.decode(*", "*base64.encode(*", "*zlib.inflate(*",
+    "*zlib.deflate(*", "*zlib.decompress(*", "*zlib.compress(*", "*socket.bind(*",
+    "*socket.connect(*", "*socket.receive(*", "*socket.send(*", "*socket.tcp(*",
+    "*socket.udp(*", "*socket.listen(*", "*socket.accept(*", "*net.http.request(*",
+    "*net.http.get(*", "*net.http.post(*", "*http.request(*", "*http.get(*", "*http.post(*"
+  ) or
+  process.executable like ("/bin/python*", "/usr/bin/python*", "/usr/local/bin/python*") and
+  process.args == "-c" and process.args like~ (
+    "*exec(*base64*", "*exec(*decode(*", "*exec(*marshal*", "*exec(*pickle*", "*eval(*exec(*",
+    "*eval(*", "*subprocess.popen(*", "*subprocess.run(*", "*pickle.loads(*", "*marshal.loads(*",
+    "*binascii*", "*os.system(*", "*os.popen(*", "*pty.*", "*dup2*", "*fileno()*", "*connect(*",
+    "*bind(*", "*execve(*", "*base64*", "*base32*", "*base16*", "*base85*", "*decode(*",
+    "*zlib.*", "*[::-1]*", "*socket.socket(*", "*socket.connect(*", "*socket.bind(*"
+  ) or
+  process.executable like ("/bin/ruby*", "/usr/bin/ruby*", "/usr/local/bin/ruby*") and
+  process.args like "-e*" and process.args like~ (
+    "*system(*", "*exec(*", "*IO.popen(*", "*Open3.popen3(*", "*spawn(*", "*eval(*", "*load(*",
+    "*Marshal.load(*", "*Fiddle.dlopen(*", "*Fiddle::Function.new(*", "*base64*", "*zlib*", 
+    "*net/http*", "*socket*", "*open-uri*", "*pack(*", "*unpack(*"
+  )
+) and container.id like "?*" and process.interactive == true
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Lua"
+    id = "T1059.011"
+    reference = "https://attack.mitre.org/techniques/T1059/011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"

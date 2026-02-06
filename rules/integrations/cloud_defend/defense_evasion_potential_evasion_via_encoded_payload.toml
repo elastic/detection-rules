@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the interactive execution of potential defense evasion techniques via encoded payloads
+inside a container. Attackers may use base64 encoding/decoding to obfuscate data, such as command and
+control traffic or payloads, to evade detection by host- or network-based security controls.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Defense Evasion via Encoded Payload Detected via Defend for Containers"
+risk_score = 47
+rule_id = "227cf26a-88d1-4bcb-bf4c-925e5875abcf"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.args like "*-*d*") or
+  (process.name == "xxd" and process.args like ("-*r*", "-*p*")) or
+  (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
+  (process.name like "python*" and (
+    (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
+    (process.args == "-c" and process.args like "*base64*" and process.args like "*b64decode*")
+  )) or
+  (process.name like "perl*" and process.args like "*decode_base64*") or
+  (process.name like "ruby*" and process.args == "-e" and process.args like "*Base64.decode64*")
+) and container.id like "?*" and process.interactive == true
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

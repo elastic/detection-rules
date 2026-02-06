@@ -1,0 +1,81 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the deletion of shell command-line history files inside a container. The shell command-line history
+files are used to store the command-line history for the shell. Adversaries may delete these files to cover their tracks
+or evade detection.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.file*", "logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Shell Command-Line History Deletion Detected via Defend for Containers"
+risk_score = 73
+rule_id = "cebabc1e-1145-4e39-b04b-34d621ee1e2c"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where host.os.type == "linux" and event.category in ("file", "process") and container.id like "?*" and process.interactive == true and (
+  (event.category == "file" and event.type == "deletion" and file.path like (
+    ".bash_history", "/root/.bash_history", "/home/*/.bash_history",
+    ".sh_history", "/root/.sh_history", "/home/*/.sh_history",
+    ".zsh_history", "/root/.zsh_history", "/home/*/.zsh_history"
+  )) or
+  (event.category == "process" and event.type == "start" and event.action == "exec" and (
+    (
+      (
+        process.args in (
+          "rm", "/bin/rm", "/usr/bin/rm", "/usr/local/bin/rm",
+          "echo", "/bin/echo", "/usr/bin/echo", "/usr/local/bin/echo"
+        ) or
+        (process.args in ("ln", "/bin/ln", "/usr/bin/ln", "/usr/local/bin/ln") and process.args == "-sf" and process.args == "/dev/null") or
+        (process.args in ("truncate", "/bin/truncate", "/usr/bin/truncate", "/usr/local/bin/truncate") and process.args == "-s0")
+      ) and process.args like (
+          ".bash_history", "/root/.bash_history", "/home/*/.bash_history",
+          ".sh_history", "/root/.sh_history", "/home/*/.sh_history",
+          ".zsh_history", "/root/.zsh_history", "/home/*/.zsh_history"
+        )
+    ) or
+    (process.name == "history" and process.args == "-c") or
+    (process.args == "export" and process.args in ("HISTFILE=/dev/null", "HISTFILESIZE=0")) or
+    (process.args == "unset" and process.args == "HISTFILE") or
+    (process.args == "set" and process.args == "history" and process.args == "+o")
+  )
+ )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Indicator Removal"
+  id = "T1070"
+  reference = "https://attack.mitre.org/techniques/T1070/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Clear Command History"
+    id = "T1070.003"
+    reference = "https://attack.mitre.org/techniques/T1070/003/"

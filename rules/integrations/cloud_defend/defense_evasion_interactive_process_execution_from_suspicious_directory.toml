@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of an interactive process from a suspicious directory inside a container.
+The suspicious directories are /tmp, /dev/shm, /var/tmp, /run, /var/run, /mnt, /media, and /boot.
+Adversaries may use these directories to execute malicious code or exfiltrate data.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Interactive Process Execution from Suspicious Directory Detected via Defend for Containers"
+risk_score = 73
+rule_id = "279e272a-91d9-4780-878c-bfcac76e6e31"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and process.executable like (
+  "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*", "/boot/*"
+) and container.id like "?*" and process.interactive == true
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+name = "Reflective Code Loading"
+id = "T1620"
+reference = "https://attack.mitre.org/techniques/T1620/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
