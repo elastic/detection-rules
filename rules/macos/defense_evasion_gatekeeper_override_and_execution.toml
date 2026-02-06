@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when macOS Gatekeeper is overridden followed by execution of the same binary from a suspicious 
+location. This behavior indicates an attempt to bypass Apple's security controls and execute potentially 
+malicious software downloaded from the internet.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Gatekeeper Override and Execution"
+risk_score = 73
+rule_id = "8154d01d-04d1-4695-bcbb-95a1bb606355"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Gatekeeper Override and Execution
+
+macOS Gatekeeper uses the quarantine extended attribute (com.apple.quarantine) to track files downloaded from the internet and enforce signature verification before execution. Threat actors commonly use xattr to remove this quarantine flag before executing malicious binaries, effectively bypassing Gatekeeper protections. This detection rule identifies the suspicious pattern of quarantine removal followed by immediate execution of files from typical download or staging locations.
+
+### Possible investigation steps
+
+- Review the file.path field from the first event to identify which file had its quarantine attribute removed and assess whether this file is expected on the system.
+- Examine the file.Ext.header_bytes to confirm the file type (Mach-O binary indicated by cffaedfe or cafebabe magic bytes) and determine if it is a legitimate application.
+- Analyze the process.executable from the execution event to verify it matches the file that had quarantine removed and investigate its purpose.
+- Check the process.parent.executable and process.command_line to understand how the xattr removal and execution were triggered.
+- Investigate the download source by reviewing browser history, email attachments, or other delivery mechanisms that may have placed the file in the staging location.
+- Calculate the hash of the executed binary and search threat intelligence databases for known malicious indicators.
+- Review the user.name associated with the activity to determine if the behavior is consistent with their normal operations.
+
+### False positive analysis
+
+- Users may manually remove quarantine from legitimate applications downloaded from trusted sources that macOS incorrectly flags. Verify the application source and purpose before dismissing.
+- Developers may bypass Gatekeeper during local testing of unsigned builds. Confirm with development teams if such activities are expected.
+- Enterprise software deployment may involve removing quarantine from applications before installation. Verify if IT operations were performing expected deployments.
+- Some legitimate installer packages may remove quarantine as part of their installation process. Review the installer's origin and signing status.
+
+### Response and remediation
+
+- Immediately quarantine or remove the suspicious executable that was launched after quarantine removal.
+- Block the file hash at the endpoint level to prevent re-execution across the environment.
+- Conduct a comprehensive malware scan on the affected system to identify additional malicious components or persistence mechanisms.
+- Investigate the delivery mechanism to understand how the malicious file reached the system and prevent similar infections.
+- Review other systems for the same file hash or similar patterns of quarantine bypass.
+- Educate users about the risks of bypassing Gatekeeper and removing quarantine attributes from downloaded files.
+- Consider implementing additional controls such as application allowlisting to prevent execution of unauthorized binaries.
+- Escalate to the incident response team if the executed binary is confirmed malicious.
+"""
+query = '''
+configuration where host.os.type == "macos" and event.action == "gatekeeper_override" and
+  file.path like ("/Volumes/*", "/Users/*/Applications/*", "/Applications/*",
+                  "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/Users/Shared/*",
+                  "/Users/*/Downloads/*", "/Users/*/Desktop/*", "/Users/*/Documents/*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Impair Defenses"
+  id = "T1562"
+  reference = "https://attack.mitre.org/techniques/T1562/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Disable or Modify Tools"
+    id = "T1562.001"
+    reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+  [[rule.threat.technique]]
+  name = "Subvert Trust Controls"
+  id = "T1553"
+  reference = "https://attack.mitre.org/techniques/T1553/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Gatekeeper Bypass"
+    id = "T1553.001"
+    reference = "https://attack.mitre.org/techniques/T1553/001/"
