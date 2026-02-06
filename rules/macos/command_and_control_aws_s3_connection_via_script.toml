@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a script interpreter (osascript, Node.js, Python) with minimal arguments makes an outbound 
+connection to AWS S3 or CloudFront domains. Threat actors have used S3 buckets for both command and control 
+and data exfiltration. Script interpreters connecting to cloud storage should be investigated for potential 
+malicious activity.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious AWS S3 Connection via Script Interpreter"
+risk_score = 47
+rule_id = "05f2b649-dc03-4e9a-8c4e-6762469e8249"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend"
+]
+type = "esql"
+query = '''
+FROM logs-endpoint.events.network-*
+| WHERE host.os.type == "macos" 
+    AND event.type == "start"
+    AND (process.name == "osascript" 
+         OR process.name == "node" 
+         OR process.name LIKE "python*")
+    AND (destination.domain LIKE "s3.*.amazonaws.com" 
+         OR destination.domain LIKE "*.s3*.amazonaws.com" 
+         OR destination.domain LIKE "*.cloudfront.net")
+| STATS Esql.connection_count = COUNT(*) 
+  BY process.executable, user.name, host.name, destination.domain
+| WHERE Esql.connection_count >= 5
+| KEEP Esql.*, process.executable, user.name, host.name, destination.domain
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration Over Web Service"
+  id = "T1567"
+  reference = "https://attack.mitre.org/techniques/T1567/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Exfiltration to Cloud Storage"
+    id = "T1567.002"
+    reference = "https://attack.mitre.org/techniques/T1567/002/"

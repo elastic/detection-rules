@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Perl makes an outbound network connection to a non-private IP address. Perl is a scripting 
+language that comes pre-installed on macOS and offers extensive capabilities for adversaries. Its use for 
+network connections on macOS systems is uncommon and potentially suspicious.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Perl Outbound Network Connection"
+risk_score = 47
+rule_id = "aba3bc11-e02f-4a03-8889-d86ea1a44f76"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=30s
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    process.name == "perl" and not process.args like "/usr/bin/xpath"]
+  [network where host.os.type == "macos" and event.type == "start" and process.name == "perl" and
+    not cidrmatch(destination.ip, 
+        "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", 
+        "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "192.88.99.0/24",
+        "224.0.0.0/4", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
