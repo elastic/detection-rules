@@ -70,10 +70,11 @@ StartupItems are a deprecated macOS persistence mechanism that predates LaunchDa
 - Consider implementing file integrity monitoring on persistence directories to detect future modifications.
 """
 query = '''
-file where host.os.type == "macos" and event.type != "deletion" and
-  file.path like ("/System/Library/StartupItems/*/StartupParameters.plist",
-                  "/Library/StartupItems/*/StartupParameters.plist") and
-  not process.code_signature.signing_id == "com.apple.shove"
+file where host.os.type == "macos" and event.type != "deletion" and 
+  file.name == "StartupParameters.plist" and 
+  file.path like ("/System/Library/StartupItems/*/StartupParameters.plist", 
+  "/Library/StartupItems/*/StartupParameters.plist") and
+  not (process.code_signature.signing_id == "com.apple.shove" and process.code_signature.trusted == true)
 '''
 
 [[rule.threat]]
