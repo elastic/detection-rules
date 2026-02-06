@@ -37,7 +37,7 @@ FROM logs-endpoint.events.network-*
     AND (destination.domain LIKE "s3.*.amazonaws.com" 
          OR destination.domain LIKE "*.s3*.amazonaws.com" 
          OR destination.domain LIKE "*.cloudfront.net")
-| STATS Esql.connection_count = COUNT(*), 
+| STATS Esql.connection_count = COUNT(*) 
   BY process.executable, user.name, host.name, destination.domain
 | WHERE Esql.connection_count >= 5
 | KEEP Esql.*, process.executable, user.name, host.name, destination.domain
