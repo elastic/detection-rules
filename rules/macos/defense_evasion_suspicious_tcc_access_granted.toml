@@ -75,7 +75,8 @@ FROM logs-endpoint.events.*
     AND Effective_process.name RLIKE "(bash|zsh|sh|osascript|python.*|perl.*|ruby.*|node|Terminal|iTerm2|ghostty)"
 | STATS 
     Esql.grant_count = COUNT(*),
-    Esql.unique_folders = COUNT_DISTINCT(Tcc.service)
+    Esql.unique_folders = COUNT_DISTINCT(Tcc.service),  
+    Esql.folders = VALUES(Tcc.service)
   BY Effective_process.entity_id, Effective_process.executable, host.name, user.name
 | WHERE Esql.unique_folders >= 2
 | KEEP Esql.*, Effective_process.entity_id, Effective_process.executable, host.name, user.name
