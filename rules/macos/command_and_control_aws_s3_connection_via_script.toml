@@ -38,7 +38,6 @@ FROM logs-endpoint.events.network-*
          OR destination.domain LIKE "*.s3*.amazonaws.com" 
          OR destination.domain LIKE "*.cloudfront.net")
 | STATS Esql.connection_count = COUNT(*), 
-        Esql.unique_domains = COUNT_DISTINCT(destination.domain)
   BY process.executable, user.name, host.name
 | WHERE Esql.connection_count >= 5
 | KEEP Esql.*, process.executable, user.name, host.name
