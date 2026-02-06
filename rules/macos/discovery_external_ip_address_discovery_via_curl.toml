@@ -1,0 +1,61 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects applications making a curl request to a known public IP address lookup web service. Malware commonly 
+performs this action during reconnaissance to assess potential targets and identify the victim's external 
+IP address.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "External IP Address Discovery via Curl"
+risk_score = 21
+rule_id = "3ad362a9-40cb-4536-8f8b-6a8b5cc24d3c"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  ((process.parent.executable like ("/Applications/*", "/Volumes/*", "/private/var/folders/*")) or
+   (process.parent.name in ("bash", "sh", "zsh") and process.parent.command_line like "*http*") or
+   (process.parent.code_signature.trusted == false or process.code_signature.exists == false)) and
+  process.name in ("curl", "nscurl") and
+  process.args_count <= 5 and
+  process.command_line like ("*ip-api.com*", "*ipwho.is*", "*checkip.dyndns.org*", "*api.ipify.org*",
+                             "*whatismyip.akamai.com*", "*ifcfg.me*", "*ifconfig.me*", "*ident.me*",
+                             "*icanhazip.com*", "*ipecho.net*", "*api.myip.com*", "*checkip.amazonaws.com*",
+                             "*wtfismyip.com*", "*iplogger.*", "*freegeoip.net*", "*ipinfo.io*",
+                             "*geoplugin.net*", "*httpbin.org*", "*myip.opendns.com*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Network Configuration Discovery"
+  id = "T1016"
+  reference = "https://attack.mitre.org/techniques/T1016/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Internet Connection Discovery"
+    id = "T1016.001"
+    reference = "https://attack.mitre.org/techniques/T1016/001/"
