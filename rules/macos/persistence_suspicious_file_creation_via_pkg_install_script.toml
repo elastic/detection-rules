@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an installer package executes a pre or post install script that immediately copies a file 
+to suspicious locations on the filesystem. This activity is not common and usually indicates a malicious 
+package attempting to install persistence or establish a working directory for malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious File Creation via Pkg Install Script"
+references = [
+    "https://objective-see.org/blog/blog_0x51.html"
+]
+risk_score = 73
+rule_id = "1955e925-6679-4535-9c1b-28ebf369f35f"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious File Creation via Pkg Install Script
+
+macOS installer packages (.pkg) can include pre-install and post-install scripts that execute with elevated privileges during installation. While legitimate software uses these scripts for proper setup, threat actors abuse this capability to deploy malware, establish persistence, or stage additional payloads under the guise of legitimate software installation. This detection rule identifies when pkg install scripts copy executables or scripts to suspicious locations outside standard installation directories.
+
+### Possible investigation steps
+
+- Examine the process.args to identify the specific pkg install script path and determine which package triggered the alert.
+- Review the file.path to understand where files were copied and assess whether the destination is a known malware staging location or persistence directory.
+- Analyze the file.Ext.header_bytes to confirm the file type (Mach-O binary indicated by cffaedfe or cafebabe, or script files like .py, .sh, .js).
+- Locate the original installer package if still available and examine its contents, including the preinstall and postinstall scripts using pkgutil --expand.
+- Check the package's code signature and notarization status using pkgutil --check-signature and spctl --assess to determine if it passed Apple's security review.
+- Review the download source or delivery mechanism for the installer package to understand how it reached the system.
+- Search for the same package hash across other systems in the environment to identify potential widespread deployment.
+
+### False positive analysis
+
+- Legitimate software installers may deploy helper tools or scripts to /usr/local/bin/ or other locations. Verify the package's origin and signing status.
+- Development tools and frameworks may install additional components to various directories during setup. Confirm with development teams if installations were expected.
+- Enterprise software deployment may use installer scripts that deploy files to custom locations. Review with IT operations to document expected installation patterns.
+- Temporary files during complex installations may appear in /tmp/ or /var/folders/ briefly. These typically don't persist after installation completes.
+
+### Response and remediation
+
+- Terminate any suspicious processes that were spawned by the malicious installer script.
+- Remove the files that were copied to suspicious locations, including any persistence mechanisms like LaunchAgents or LaunchDaemons.
+- Quarantine the original installer package for forensic analysis and submission to Apple for notarization revocation if appropriate.
+- Review system logs for all actions taken during the malicious installation to identify the full scope of changes.
+- Scan the system for additional malware components or persistence mechanisms that may have been deployed.
+- Report the malicious package to Apple at reportaproblem.apple.com to request notarization revocation.
+- Check other systems that may have installed the same package and remediate accordingly.
+- Review endpoint security policies to prevent future execution of unsigned or revoked installer packages.
+"""
+query = '''
+sequence by process.entity_id with maxspan=30s
+  [process where host.os.type == "macos" and event.type == "start" and process.name in ("bash", "sh", "zsh") and
+    process.args like~ ("/tmp/PKInstallSandbox.*/Scripts/com.*/preinstall", 
+                        "/tmp/PKInstallSandbox.*/Scripts/*/postinstall") and
+    process.args like ("/Users/*", "/Volumes/*") and 
+    not process.args like~ "/Users/*/Library/Caches/*"]
+  [file where host.os.type == "macos" and event.action != "deletion" and process.name in ("mv", "cp") and
+    (file.extension in ("py", "js", "sh", "scpt", "terminal", "tcl", "app", "pkg", "dmg", "command") or
+      file.Ext.header_bytes like~ ("cffaedfe*", "cafebabe*")) and
+    file.path like ("/private/etc/*", "/var/tmp/*", "/tmp/*", "/var/folders/*", "/Users/Shared/*",
+                    "/Library/Graphics/*", "/Library/Containers/*", "/Users/*/Library/Containers/*", 
+                    "/Users/*/Library/Services/*", "/Users/*/Library/Preferences/*", "/var/root/*",
+                    "/Library/WebServer/*", "/Library/Fonts/*", "/usr/local/bin/*") and 
+    not file.name == "CodeResources"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Event Triggered Execution"
+  id = "T1546"
+  reference = "https://attack.mitre.org/techniques/T1546/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Installer Packages"
+    id = "T1546.016"
+    reference = "https://attack.mitre.org/techniques/T1546/016/"
