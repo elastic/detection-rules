@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/02/09"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of the QEMU hardware emulator to potentially tunnel network traffic between Virtual machines. This
+can be used by attackers to enable routing of network packets that would otherwise not reach their intended destination.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Traffic Tunneling using QEMU"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Traffic Tunneling using QEMU
+
+QEMU is a legitimate virtualization and emulation platform used for system testing and development. However, its advanced networking features can be abused to tunnel network traffic, forward ports, and create covert communication channels between systems. The detection rule identifies suspicious QEMU executions using networking-related arguments that are commonly associated with traffic forwarding and tunneling behavior.
+
+### Possible investigation steps
+
+- Review the process command line for the presence of networking arguments such as `-netdev`, `hostfwd=`, `connect=`, `restrict=off`, and `-nographic`.
+- Confirm whether QEMU is legitimately installed and expected to run on the affected system.
+- Check the parent process to determine how QEMU was launched and whether the execution chain appears suspicious.
+- Investigate the user account and host context to assess whether virtualization activity is normal for that environment.
+- Analyze related network activity for signs of traffic forwarding, tunneling, or unauthorized external connections.
+- Correlate the event with other telemetry (process creation, persistence mechanisms, or VM artifacts) for additional context.
+
+### False positive analysis
+
+- Legitimate developer or research environments using QEMU for virtualization and testing may trigger this rule.
+- Approved lab systems, malware analysis sandboxes, or CI/CD pipelines may use similar networking configurations.
+- Internal training or testing environments may generate similar activity.
+
+### Response and remediation
+
+- Isolate the affected system and terminate unauthorized QEMU processes.
+- Investigate for signs of lateral movement or command-and-control activity.
+- Remove unauthorized VM images, configurations, and persistence mechanisms.
+- Rotate credentials and assess scope of impact if tunneling activity is confirmed.
+- Escalate to the SOC or incident response team for further investigation."""
+references = [
+    "https://securelist.com/network-tunneling-with-qemu/111803/",
+    "https://blog.xpnsec.com/bring-your-own-vm-mac-edition/",
+    "https://www.huntress.com/blog/active-exploitation-solarwinds-web-help-desk-cve-2025-26399"
+]
+risk_score = 73
+rule_id = "b29b7652-219f-468b-aa1f-5da7bcc24b03"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.args : "-netdev" and
+ (
+  (process.args : "-nographic" and process.command_line : "*connect=*" and process.command_line : "*restrict=off*") or
+   process.command_line : "*hostfwd=*"
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
