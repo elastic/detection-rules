@@ -63,11 +63,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 any where host.os.type == "linux" and event.category in ("file", "process") and container.id like "?*" and process.interactive == true and (
-  (event.category == "file" and event.type == "deletion" and file.path like (
-    ".bash_history", "/root/.bash_history", "/home/*/.bash_history",
-    ".sh_history", "/root/.sh_history", "/home/*/.sh_history",
-    ".zsh_history", "/root/.zsh_history", "/home/*/.zsh_history"
-  )) or
+  (event.category == "file" and event.type == "deletion" and file.name in (".bash_history", ".sh_history",  ".zsh_history")) or
   (event.category == "process" and event.type == "start" and event.action == "exec" and (
     (
       (
@@ -77,11 +73,7 @@ any where host.os.type == "linux" and event.category in ("file", "process") and 
         ) or
         (process.args in ("ln", "/bin/ln", "/usr/bin/ln", "/usr/local/bin/ln") and process.args == "-sf" and process.args == "/dev/null") or
         (process.args in ("truncate", "/bin/truncate", "/usr/bin/truncate", "/usr/local/bin/truncate") and process.args == "-s0")
-      ) and process.args like (
-          ".bash_history", "/root/.bash_history", "/home/*/.bash_history",
-          ".sh_history", "/root/.sh_history", "/home/*/.sh_history",
-          ".zsh_history", "/root/.zsh_history", "/home/*/.zsh_history"
-        )
+      ) and process.args like ("*.bash_history*", "*.sh_history*", "*.zsh_history*")
     ) or
     (process.name == "history" and process.args == "-c") or
     (process.args == "export" and process.args in ("HISTFILE=/dev/null", "HISTFILESIZE=0")) or
