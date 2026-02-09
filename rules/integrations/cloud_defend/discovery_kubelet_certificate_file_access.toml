@@ -16,7 +16,7 @@ to gain access to the cluster. There is a current limitation in the defend for c
 file open events from being logged for file open events without write intent. 
 """
 from = "now-6m"
-index = ["logs-cloud_defend.file*"]
+index = ["logs-cloud_defend.file*", "logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
@@ -71,8 +71,22 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.type == "change" and event.action == "open" and
-file.path like "/var/lib/kubelet/pki/*" and process.interactive == true and container.id like "?*" 
+any where host.os.type == "linux" and process.interactive == true and container.id like "*" and (
+  (event.category == "file" and event.type == "change" and event.action == "open" and file.path like "/var/lib/kubelet/pki/*") or
+  (event.category == "process" and event.type == "start" and event.action == "exec" and
+  (
+    process.name in ("cat", "head", "tail", "more", "less", "sed", "awk") or
+    process.args in (
+      "cat", "/bin/cat", "/usr/bin/cat", "/usr/local/bin/cat",
+      "head", "/bin/head", "/usr/bin/head", "/usr/local/bin/head",
+      "tail", "/bin/tail", "/usr/bin/tail", "/usr/local/bin/tail",
+      "more", "/bin/more", "/usr/bin/more", "/usr/local/bin/more",
+      "less", "/bin/less", "/usr/bin/less", "/usr/local/bin/less",
+      "sed", "/bin/sed", "/usr/bin/sed", "/usr/local/bin/sed",
+      "awk", "/bin/awk", "/usr/bin/awk", "/usr/local/bin/awk"
+    )
+  ) and process.args like "*/var/lib/kubelet/pki/*")
+)
 '''
 
 [[rule.threat]]
