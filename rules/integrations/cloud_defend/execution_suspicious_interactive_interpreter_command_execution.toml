@@ -63,7 +63,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.executable != null and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and
+process.parent.executable != null and (
   (
     process.executable like ("/bin/perl*", "/usr/bin/perl*", "/usr/local/bin/perl*") and
     process.args == "-e" and process.args like~ (
@@ -107,7 +108,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     "*Marshal.load(*", "*Fiddle.dlopen(*", "*Fiddle::Function.new(*", "*base64*", "*zlib*", 
     "*net/http*", "*socket*", "*open-uri*", "*pack(*", "*unpack(*"
   )
-) and container.id like "?*" and process.interactive == true
+) and container.id like "?*"
 '''
 
 [[rule.threat]]

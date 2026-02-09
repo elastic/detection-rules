@@ -65,13 +65,14 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.type == "creation" and file.path like (
+file where host.os.type == "linux" and event.type == "creation" and process.interactive == true and
+file.path like (
   "/etc/*", "/root/*", "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/entrypoint*"
 ) and (
   process.name like ("wget", "curl") or
   (process.name == "busybox" and process.args == "wget") or
   process.executable like ("/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*")
-) and container.id like "?*" and process.interactive == true
+) and container.id like "?*"
 '''
 
 [[rule.threat]]

@@ -63,9 +63,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.args like "*-*d*") or
-  (process.name == "xxd" and process.args like ("-*r*", "-*p*")) or
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
+  (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.args like~ "*-*d*") or
+  (process.name == "xxd" and process.args like~ ("-*r*", "-*p*")) or
   (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
   (process.name like "python*" and (
     (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
@@ -73,7 +73,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   )) or
   (process.name like "perl*" and process.args like "*decode_base64*") or
   (process.name like "ruby*" and process.args == "-e" and process.args like "*Base64.decode64*")
-) and container.id like "?*" and process.interactive == true
+) and container.id like "?*"
 '''
 
 [[rule.threat]]

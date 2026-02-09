@@ -71,7 +71,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
   (process.name in ("id", "whoami", "capsh", "getcap", "lsns")) or
   (process.args in (
      "id", "/bin/id", "/usr/bin/id", "/usr/local/bin/id",
@@ -87,7 +87,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
       "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
     )
   )
-) and container.id like "?*" and process.interactive == true
+) and container.id like "?*"
 '''
 
 [[rule.threat]]

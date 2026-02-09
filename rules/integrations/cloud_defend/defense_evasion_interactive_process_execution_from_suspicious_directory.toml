@@ -63,9 +63,10 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.executable like (
+process where event.type == "start" and event.action == "exec" and process.interactive == true and
+process.executable like (
   "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*", "/boot/*"
-) and container.id like "?*" and process.interactive == true
+) and container.id like "?*"
 '''
 
 [[rule.threat]]

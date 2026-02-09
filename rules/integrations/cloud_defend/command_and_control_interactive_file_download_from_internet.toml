@@ -78,18 +78,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by container.id, process.entity_id with maxspan=10s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-    process.name in ("curl", "wget") or
-    process.args in (
-      "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
-      "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget"
-    )
-  ) and (
-    process.args like~ "*http*" or
-    process.args regex~ ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}[:/]{1}.*"
-  ) and container.id like "?*" and process.interactive == true]
-  [file where host.os.type == "linux" and event.type == "creation" and process.name in ("curl", "wget") and
-   container.id like "?*" and process.interactive == true]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.interactive == true and (
+     process.name in ("curl", "wget") or
+     process.args in (
+       "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
+       "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget"
+     )
+   ) and (
+     process.args like~ "*http*" or
+     process.args regex~ ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}[:/]{1}.*"
+   ) and container.id like "?*"]
+  [file where host.os.type == "linux" and event.type == "creation" and process.interactive == true and 
+   process.name in ("curl", "wget") and container.id like "?*"]
 '''
 
 [[rule.threat]]

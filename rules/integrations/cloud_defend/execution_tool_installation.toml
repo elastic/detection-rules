@@ -70,7 +70,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
   (process.name in ("apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf") and process.args == "install") or
   (process.name == "apk" and process.args == "add") or
   (process.name == "pacman" and process.args like "-*S*") or
@@ -80,7 +80,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   "netcat", "netcat-openbsd", "netcat-traditional", "ncat", "tor",
   "python*", "perl", "node", "nodejs", "ruby", "lua", "bash", "sh",
   "dash", "zsh", "fish", "tcsh", "csh", "ksh"
-) and process.interactive == true and container.id like "*"
+) and container.id like "?*"
 '''
 
 [[rule.threat]]
