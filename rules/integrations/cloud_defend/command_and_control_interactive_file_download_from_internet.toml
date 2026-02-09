@@ -22,17 +22,17 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend.process*", "logs-cloud_defend.file*"]
+index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Interactive File Download Detected via Defend for Containers"
+name = "File Download Detected via Defend for Containers"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Interactive File Download Detected via Defend for Containers
+### Investigating File Download Detected via Defend for Containers
 
 This rule flags an interactive session inside a Linux container that runs curl or wget to pull content from a URL or IP and immediately writes a new file, signaling hands-on retrieval of tools, payloads, or data. It matters because attackers often use on-demand downloads to stage second-phase execution and establish application-layer command-and-control without baking artifacts into images. A common pattern is an operator execing into a running container, fetching a script or binary from paste/CDN infrastructure, then saving it for rapid follow-on execution.
 
@@ -77,20 +77,28 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by container.id, process.entity_id with maxspan=10s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.interactive == true and (
-     process.name in ("curl", "wget") or
-     process.args in (
-       "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
-       "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget"
-     )
-   ) and (
-     process.args like~ "*http*" or
-     process.args regex~ ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}[:/]{1}.*"
-   ) and container.id like "?*"]
-  [file where host.os.type == "linux" and event.type == "creation" and process.interactive == true and 
-   process.name in ("curl", "wget") and container.id like "?*"]
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
+  (
+    (process.name == "curl" or process.args in ("curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl")) and
+    process.args in ("-o", "-O", "--output", "--remote-name", "--remote-name-all", "--output-dir")
+  ) or
+  (
+    (process.name == "wget" or process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget")) and
+    (
+      process.args like ("-*O*", "--output-document=*", "--output-file=*") or
+      /* to address for wget without any flags (storing in CWD), where wget is the process name */
+      process.args_count == 2
+    )
+  ) or
+  /* to address for wget without any flags (storing in CWD), where wget isn't the process name */
+  (
+    (process.name != "wget" and process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget")) and
+    process.args_count in (2, 3)
+  )
+) and (
+ process.args like~ "*http*" or
+ process.args regex~ ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}[:/]{1}.*"
+) and container.id like "?*"
 '''
 
 [[rule.threat]]
