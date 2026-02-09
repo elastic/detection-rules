@@ -73,7 +73,7 @@ type = "esql"
 query = '''
 from logs-azure.auditlogs-* metadata _id, _version, _index
 | where event.action == "Update application"
-| where azure.auditlogs.properties.target_resources.`0`.modified_properties.`0`.display_name == "FederatedIdentityCredentials"
+| where `azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "FederatedIdentityCredentials"
 | eval Esql.target_resources_old_value_clean = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
 | eval Esql.target_resources_new_value_clean = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
 | dissect Esql.target_resources_old_value_clean "%{}\"Issuer\":\"%{Esql.external_idp_old_issuer}\"%{}"
