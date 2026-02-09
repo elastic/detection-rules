@@ -20,6 +20,7 @@ index = [
     "logs-system.security*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "auditbeat-*"
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -60,12 +61,14 @@ references = [
     "https://blog.xpnsec.com/bring-your-own-vm-mac-edition/",
     "https://www.huntress.com/blog/active-exploitation-solarwinds-web-help-desk-cve-2025-26399"
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "b29b7652-219f-468b-aa1f-5da7bcc24b03"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
+    "OS: Linux",
+    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Endgame",
@@ -81,7 +84,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
+process where event.type == "start" and
  process.args : "-netdev" and
  (
   (process.args : "-nographic" and process.command_line : "*connect=*" and process.command_line : "*restrict=off*") or
