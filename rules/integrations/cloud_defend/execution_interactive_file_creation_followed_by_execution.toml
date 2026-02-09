@@ -65,6 +65,7 @@ type = "eql"
 query = '''
 sequence by container.id, user.id with maxspan=3s
   [file where host.os.type == "linux" and event.type == "creation" and process.interactive == true and container.id like "?*" and
+   file.path like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") and
    not process.name in ("apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf", "apk", "pacman", "rpm", "dpkg")] by file.path
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.interactive == true and container.id like "?*"] by process.executable
