@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of an interactive process from a suspicious directory inside a container.
+The suspicious directories are /tmp, /dev/shm, /var/tmp, /run, /var/run, /mnt, /media, and /boot.
+Adversaries may use these directories to execute malicious code or exfiltrate data.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Interactive Process Execution Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Interactive Process Execution Detected via Defend for Containers
+
+This alert flags an interactive program launched inside a container from transient or low-trust locations such as tmpfs-backed or runtime directories, common staging points for hands-on misuse, data theft, or persistence that avoids the image filesystem. A frequent pattern is an attacker gaining a shell via kubectl exec, fetching a static reverse shell or tunneling tool into /dev/shm or /tmp, and running it interactively to pivot or siphon data. Such behavior signals live operator control and attempts to evade forensics and policy controls.
+
+### Possible investigation steps
+
+- Pivot to Kubernetes API server audit logs to find pod/exec or attach events around the alert and map them to the initiating user, source IP, and service account.
+- Determine if the binary or script was introduced post-deploy by listing transient directories in the container and comparing artifacts against the image layers or build manifest.
+- Review process lineage and TTY/PTY session details to confirm an interactive shell and identify the parent or invocation method, such as a shell or reverse-shell stager.
+- Capture live network activity from the container to spot external callbacks, tunnels, or exfil destinations, and isolate the pod if suspicious connections are present.
+- Assess the pod’s service account, RBAC permissions, and security context for elevated privileges or host namespace access to gauge impact and prioritize containment.
+
+### False positive analysis
+
+- An engineer performing authorized troubleshooting opens an interactive shell and runs a known diagnostic binary staged in /tmp or /dev/shm to avoid altering the image, leading to an interactive exec from a transient path.
+- A mounted volume under /mnt or /media holds legitimate utilities, and an authorized user starts one interactively for maintenance or configuration, triggering the rule despite expected operations.
+
+### Response and remediation
+
+- Immediately contain by applying a deny-all egress NetworkPolicy to the affected pod, killing the interactive process whose executable resides under /tmp, /dev/shm, /var/tmp, /run, /var/run, /mnt, /media, or /boot, and blocking further kubectl exec/attach to it.
+- Eradicate by terminating and redeploying the pod from a trusted image, scanning and cleaning any mounted volumes under /mnt or /media, and removing staged binaries or scripts found in transient paths like /tmp, /var/tmp, /run, and /var/run.
+- Recover by rotating credentials the pod could access (service account token, mounted secrets, API keys), validating application behavior post-redeploy, and restoring network access only to approved destinations.
+- Escalate to incident response immediately if you observe a shell or tunneling tool launched from /tmp or /dev/shm, evidence of exfiltration via outbound connections, privileged or hostPID/hostNetwork settings, or writes touching /boot.
+- Harden by disabling kubectl exec for production workloads, enforcing readOnlyRootFilesystem with seccomp and AppArmor, mounting /tmp and /dev/shm with noexec,nodev,nosuid, and using admission policy to allowlist executable paths and deny interactive TTYs."""
+risk_score = 73
+rule_id = "279e272a-91d9-4780-878c-bfcac76e6e31"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and process.interactive == true and
+process.executable like (
+  "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*", "/boot/*"
+) and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+name = "Reflective Code Loading"
+id = "T1620"
+reference = "https://attack.mitre.org/techniques/T1620/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
