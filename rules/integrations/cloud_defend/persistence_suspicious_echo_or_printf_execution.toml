@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of the echo/printf command to write data to potential persistence files, decode base64/32/16 and
+hex content or establish connections to a potential C2. The echo/printf commands are used to display a line of text or write data
+to a file. Threat actors may abuse the echo/printf commands to write data to files or file descriptors that are executed (by
+other processes or services) to establish persistence or escalate privileges.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Echo or Printf Execution Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "d9bfa475-270d-4b07-93cb-b1f49abe13da"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and process.interactive == true and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.args == "-c" and process.args like ("*echo *", "*printf *") and process.args like (
+  "*/etc/cron*", "*/etc/rc.local*", "*/dev/tcp/*", "*/etc/init.d*", "*/etc/update-motd.d*",
+  "*/etc/ld.so*", "*/etc/sudoers*", "*base64 *", "*base32 *", "*base16 *", "*/etc/profile*",
+  "*/dev/shm/*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*" , "*~/.ssh/*", "*xxd *",
+  "*/etc/shadow*", "* /tmp/*", "* /var/tmp/*", "* /dev/shm/* ", "* ~/*", "* /home/*",
+  "* /run/*", "* /var/run/*", "*|*sh", "*|*python*", "*|*php*", "*|*perl*", "*|*busybox*",
+  "*/var/www/*", "*>*", "*;*", "*chmod *", "*rm *" 
+) and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

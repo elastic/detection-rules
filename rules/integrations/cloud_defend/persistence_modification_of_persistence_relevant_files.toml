@@ -1,0 +1,173 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts from within a Linux container to create or modify files commonly used for
+persistence on native Linux systems, including cron jobs, systemd units, sudoers files, and shell
+profile configurations. While many of these mechanisms do not provide reliable persistence in typical
+containerized workloads, such modifications are unusual and may indicate persistence attempts, privilege
+abuse, or preparation for container escape, especially when performed outside normal image build or
+package management processes.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Modification of Persistence Relevant Files Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 21
+rule_id = "f246e70e-5e20-4006-8460-d72b023d6adf"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+/* open events currently only log file opens with write intent */
+event.action in ("creation", "rename", "open") and (
+  file.path like (
+
+	  // Cron & Anacron Jobs
+	  "/etc/cron.allow", "/etc/cron.deny", "/etc/cron.d/*", "/etc/cron.hourly/*", "/etc/cron.daily/*",
+	  "/etc/cron.weekly/*", "/etc/cron.monthly/*", "/etc/crontab", "/var/spool/cron/crontabs/*",
+	  "/var/spool/anacron/*",
+
+	  // At Job
+	  "/var/spool/cron/atjobs/*", "/var/spool/atjobs/*",
+
+	  // Sudoers
+	  "/etc/sudoers*"
+  ) or
+  (
+  	// Systemd Service/Timer
+    file.path like (
+	  "/etc/systemd/system/*", "/etc/systemd/user/*", "/usr/local/lib/systemd/system/*",
+  	  "/lib/systemd/system/*", "/usr/lib/systemd/system/*", "/usr/lib/systemd/user/*",
+      "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
+      "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*"
+    ) and
+    file.extension in ("service", "timer")
+  ) or
+  (
+	// Shell Profile Configuration
+	file.path like ("/etc/profile.d/*", "/etc/zsh/*") or (
+	  file.path like ("/home/*/*", "/etc/*", "/root/*") and
+	  file.name in (
+  	    "profile", "bash.bashrc", "bash.bash_logout", "csh.cshrc", "csh.login", "config.fish", "ksh.kshrc",
+  	    ".bashrc", ".bash_login", ".bash_logout", ".bash_profile", ".bash_aliases", ".zprofile", ".zshrc",
+  	    ".cshrc", ".login", ".logout", ".kshrc"
+      )
+    )
+  )
+) and container.id like "?*" and
+not process.name in ("apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf", "apk", "pacman", "rpm", "dpkg")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

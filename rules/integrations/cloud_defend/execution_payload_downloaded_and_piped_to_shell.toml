@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a payload is downloaded and piped to a shell inside a running container. This
+could indicate a threat actor downloaded a payload and executed it using a shell without the payload
+being stored on the filesystem.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Payload Downloaded and Piped to Shell Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 47
+rule_id = "a750bbcc-863f-41ef-9924-fd8224e23694"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.parent.entity_id, container.id with maxspan=5s
+  [process where event.type == "start" and event.action == "exec" and
+   process.name in ("curl", "wget") and process.interactive == true]
+  [process where event.type == "start" and event.action == "exec" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   process.interactive == true] 
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"

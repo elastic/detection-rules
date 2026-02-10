@@ -1,0 +1,78 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of tunneling and/or port forwarding tools inside a container. This
+could indicate a threat actor is using these tools to communicate with a C2 server, is attempting
+to exfiltrate data from the container, or is attempting to pivot within the container network.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Tunneling and/or Port Forwarding Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 47
+rule_id = "9d94d61b-9476-41ff-a8d3-3d24b4bb8158"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (
+    // Tunneling and/or Port Forwarding via process args
+    (process.args regex """.*[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,5}:[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,5}.*""") or
+    // gost
+    (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or
+    // ssh
+    (process.name == "ssh" and (process.args like ("-*R*", "-*L*", "-*D*", "-*w*") and 
+     not (process.args == "chmod" or process.args like "*rungencmd*"))) or
+    // ssh Tunneling and/or Port Forwarding via SSH option
+    (process.name == "ssh" and process.args == "-o" and process.args like~(
+      "*ProxyCommand*", "*LocalForward*", "*RemoteForward*", "*DynamicForward*", "*Tunnel*", "*GatewayPorts*", "*ExitOnForwardFailure*", "*ProxyCommand*", "*ProxyJump*"
+    )) or
+    // sshuttle
+    (process.name == "sshuttle" and process.args in ("-r", "--remote", "-l", "--listen")) or
+    // earthworm
+    (process.args == "-s" and process.args == "-d" and process.args == "rssocks") or
+    // socat
+    (process.name == "socat" and process.args : ("TCP4-LISTEN:*", "SOCKS*")) or
+    // chisel
+    (process.name : "chisel*" and process.args in ("client", "server")) or
+    // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
+    (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok", "wstunnel", "pivotnacci", "frps", "proxychains"))
+  )
+) and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
