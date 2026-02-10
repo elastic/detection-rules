@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,37 @@ index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "External IP Address Discovery via Curl"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating External IP Address Discovery via Curl
+
+This rule detects macOS processes launching curl (or nscurl) to query common public “what is my IP” and geolocation services, often from unusual parent applications or untrusted/unsigned code. Attackers use this to learn the victim’s outward-facing address and network context to guide follow-on targeting, routing, or staging decisions. A typical pattern is a script or dropped binary spawning curl with a short command that hits ipify/ipinfo/ifconfig-style endpoints immediately after execution.
+
+### Possible investigation steps
+
+- Review the full process tree and timeline around the curl execution to identify the initiating app/script, preceding download or execution activity, and any rapid follow-on discovery or persistence commands.  
+- Examine the curl/nscurl command line and stdout/stderr capture (if available) to confirm the external-IP lookup intent and whether results were written to disk, environment variables, or passed to subsequent processes.  
+- Correlate with network telemetry for the same host and time window to verify the outbound connection, destination IP/ASN, DNS resolution, TLS/SNI details, and any additional unexpected egress to non-lookup infrastructure.  
+- Validate the provenance of the parent executable by checking its path, quarantine/notarization status, signature trust, and recent file creation/modification events to assess whether it was dropped or launched from a user-writable location.  
+- Hunt for repeat occurrences across the endpoint (and fleet) that share the same parent, script content, or destination services, then check for associated indicators like new launch agents/daemons, cron jobs, or suspicious login items.
+
+### False positive analysis
+
+- A user or admin runs a short shell one-liner (bash/zsh with an http-containing command line) that uses curl to quickly confirm the Mac’s external IP during routine troubleshooting, VPN verification, or connectivity checks.  
+- A legitimate but unsigned/not-yet-trusted macOS app launched from /Applications, a mounted /Volumes installer/dmg, or a temporary /private/var/folders path performs an external IP lookup via curl as part of initialization, telemetry, or network diagnostics.
+
+### Response and remediation
+
+- Isolate the affected Mac from the network if the curl/nscurl external-IP lookup is spawned by an unsigned/untrusted parent or from user-writable paths (e.g., /private/var/folders, mounted /Volumes) to prevent follow-on command-and-control.  
+- Quarantine and remove the initiating artifact (app/script/binary) and any associated installers or DMGs, then block its hash and the specific lookup domains contacted (e.g., ipinfo.io, api.ipify.org, ifconfig.me) at egress/DNS to stop repeat discovery.  
+- Hunt for and delete persistence created around the event (LaunchAgents/LaunchDaemons, login items, cron entries) and terminate any remaining suspicious processes that inherit environment/output from the curl call.  
+- Reset exposed credentials and invalidate active sessions if the same parent process also accessed browsers, keychain, SSH keys, or configuration files shortly before/after the lookup, and rotate VPN/API tokens used on the host.  
+- Reimage or restore the endpoint from a known-good snapshot if additional unknown binaries, repeated external-IP lookups, or unexpected outbound connections are observed after cleanup, then validate with a follow-up scan and a clean process baseline.  
+- Escalate to IR leadership immediately if the external-IP lookup is followed by downloads/execution, persistence creation, or connections to newly registered/rare domains, and harden by restricting curl execution for non-admin contexts and tightening macOS app execution controls (Gatekeeper/notarization).
+"""
 risk_score = 21
 rule_id = "3ad362a9-40cb-4536-8f8b-6a8b5cc24d3c"
 severity = "low"
@@ -24,7 +55,8 @@ tags = [
     "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
