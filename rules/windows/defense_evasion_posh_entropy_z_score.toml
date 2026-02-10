@@ -1,10 +1,10 @@
 [metadata]
-creation_date = "2026/01/08"
+creation_date = "2026/02/10"
 integration = ["windows"]
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/08"
+updated_date = "2026/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -40,10 +40,15 @@ Because the rule relies on statistically derived baselines, interpretation is be
 
 #### Key alert fields to review
 
-- `powershell.file.script_block_text`: The script block content that triggered the alert.
-- `powershell.file.script_block_length`: Used to focus on larger scripts where entropy is more meaningful.
-- `powershell.file.script_block_entropy_bits`: The raw entropy value being scored.
-- `powershell.file.script_block_surprisal_stdev`: Secondary feature used to reduce noise and emphasize uneven character distributions often seen in obfuscation/encoding patterns.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
 - `Esql.entropy_score`: Final blended robust z-score used for thresholding.
 - `Esql.host_z`, `Esql.global_z`: Per-host and global robust z-scores (helpful to understand whether this is a host-local anomaly, a population-wide anomaly, or both).
 - `Esql.w_host`: Host weighting factor (higher means the score is more driven by the host baseline; lower means the global baseline dominates).
@@ -107,23 +112,10 @@ risk_score = 21
 rule_id = "23826d38-92a0-4d14-91ca-d43c265ec153"
 setup = """## Setup
 
-This rule requires the Elastic Windows integration v3.1.3 or later, which adds the new fields used by this detection (powershell.file.script_block_entropy_bits and powershell.file.script_block_surprisal_stdev).
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+This rule uses the following fields that require the Windows Integration v3.3.0 and up: `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, and `powershell.file.script_block_length`.
 """
 severity = "low"
 tags = [
