@@ -988,13 +988,27 @@ class ESQLRuleData(QueryRuleData):
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
             )
 
-        # Enforce KEEP command for ESQL rules
+        # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
         # Match | followed by optional whitespace/newlines and then 'keep'
-        keep_pattern = re.compile(r"\|\s*keep\b", re.IGNORECASE | re.DOTALL)
-        if not keep_pattern.search(query_lower):
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match = keep_pattern.search(query_lower)
+        if not keep_match:
             raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
+
+        # Ensure that keep clause includes metadata fields on non-aggregate queries
+        aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
+        if not aggregate_pattern.search(query_lower):
+            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            if "*" not in keep_fields:
+                required_metadata = {"_id", "_version", "_index"}
+                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
+                    raise EsqlSemanticError(
+                        f"Rule: {data['name']} contains a keep clause without"
+                        f" metadata fields '_id', '_version', and '_index' ->"
+                        f" Add '_id', '_version', '_index' to the keep command."
+                    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1245,6 +1259,22 @@ class BaseRuleContents(ABC):
 
         return obj
 
+    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
+        """Check if this is an ES|QL rule that uses `| keep *`."""
+        if hashable_dict.get("language") != "esql":
+            return False
+
+        query: str | None = hashable_dict.get("query")
+        if not isinstance(query, str) or not query:
+            return False
+
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match: re.Match[str] | None = keep_pattern.search(query)
+        if keep_match:
+            keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
+            return "*" in keep_fields
+        return False
+
     @abstractmethod
     def to_api_format(self, include_version: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
@@ -1258,6 +1288,11 @@ class BaseRuleContents(ABC):
         # drop related integrations if present
         if not include_integrations:
             hashable_dict.pop("related_integrations", None)
+
+        # For ES|QL rules with `| keep *`, exclude required_fields since they're
+        # non-deterministic (depend on integration schemas which vary by stack version)
+        if self._uses_keep_star(hashable_dict):
+            hashable_dict.pop("required_fields", None)
 
         return hashable_dict
 
@@ -1298,7 +1333,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @classmethod
     def all_rule_types(cls) -> set[str]:
@@ -1710,7 +1745,7 @@ class DeprecatedRuleContents(BaseRuleContents):
             )
 
         # circumvent frozen class
-        self.__dict__["_version_lock"] = value
+        self.__dict__["_version_lock"] = value  # type: ignore[reportIndexIssue]
 
     @property
     def id(self) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]

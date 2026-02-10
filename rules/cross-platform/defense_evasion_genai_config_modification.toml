@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/04"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ note = """## Triage and analysis
 
 ### Investigating Unusual Process Modifying GenAI Configuration File
 
-Configuration files for GenAI tools like Cursor, Claude, Copilot, and Ollama control which MCP servers, plugins, and extensions are loaded. Attackers target these files to inject malicious MCP servers that execute arbitrary commands, exfiltrate data, or establish persistence. Threats include external processes (malware, compromised scripts, supply chain attacks) directly modifying configs, as well as prompt injection attacks that abuse the AI tool's own file access capabilities. 
+Configuration files for GenAI tools like Cursor, Claude, Copilot, and Ollama control which MCP servers, plugins, and extensions are loaded. Attackers target these files to inject malicious MCP servers that execute arbitrary commands, exfiltrate data, or establish persistence. Threats include external processes (malware, compromised scripts, supply chain attacks) directly modifying configs, as well as prompt injection attacks that abuse the AI tool's own file access capabilities.
 
 ### Possible investigation steps
 
@@ -36,9 +36,10 @@ Configuration files for GenAI tools like Cursor, Claude, Copilot, and Ollama con
 
 ### False positive analysis
 
-- Novel but legitimate configuration changes will trigger this rule when the process/file combination hasn't been seen in 7 days. Review the modified file content to determine legitimacy.
+- Novel but legitimate configuration changes will trigger this rule when the process hasn't been seen modifying these files within the configured history window. Review the modified file content to determine legitimacy.
 - GenAI tool updates may modify config files in new ways; correlate with recent software updates.
 - IDE extensions integrating with GenAI tools may modify configs as part of initial setup.
+- Developer tools (git, go, npm) checking out or downloading projects containing `.gemini/` or `.claude/` directories may trigger alerts. These are project-level configs, not user configs - verify by checking if the path is within a project directory.
 
 ### Response and remediation
 
@@ -80,7 +81,17 @@ file.path : (
     */.gemini/* or */AppData/Roaming/gemini-cli/* or
     */.grok/* or */AppData/Roaming/Grok/* or
     */.windsurf/* or */AppData/Roaming/Windsurf/* or
-    */.vscode/extensions/*mcp*
+    */.vscode/extensions/*mcp* or
+    */.openclaw/* or */AppData/Roaming/OpenClaw/* or
+    */.moltbot/* or */AppData/Roaming/Moltbot/* or
+    */.config/openclaw/*
+) and not (
+  file.extension : (lck or lock) or
+  (
+    file.path : */.config/github-copilot/* and 
+    file.name : (apps.json or versions.json or copilot*nitrite.db)
+    
+  )
 )
 '''
 
@@ -116,5 +127,3 @@ value = ["process.executable"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
-
-

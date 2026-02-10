@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/02/02"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential endpoint enumeration attempts by an anonymous user. An anonymous user is a user that
+is not authenticated or authorized to access the Kubernetes API server. By looking for a series of failed API requests,
+on multiple endpoints, and a limited number of documents, this rule can detect automated permission enumeration attempts.
+This behavior is uncommon for regular Kubernetes clusters.
+"""
+language = "esql"
+license = "Elastic License v2"
+name = "Kubernetes Potential Endpoint Permission Enumeration Attempt by Anonymous User Detected"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Potential Endpoint Permission Enumeration Attempt by Anonymous User Detected
+
+This detects a burst of Kubernetes API requests from an unauthenticated identity that probes many different endpoints and resource types, producing mostly forbidden/unauthorized/not found responses within a small window. It matters because this pattern maps the cluster’s exposed surface and reveals which APIs might be reachable before an attacker commits to credential theft or exploitation. A common usage pattern is scripted GET/LIST sweeps across core and custom resources (for example pods, secrets, namespaces, and CRDs) from one source IP and user agent.
+
+### Possible investigation steps
+
+- Review the specific request URIs and resource types queried and their sequence to fingerprint common reconnaissance tooling and whether high-value endpoints (e.g., secrets, tokenreviews, subjectaccessreviews, CRDs) were probed.  
+- Determine whether the apparent source IP is internal or Internet-routable and confirm the true originating client by correlating load balancer/ingress/firewall logs (including X-Forwarded-For) with the audit event timestamps.  
+- Validate Kubernetes API server authentication/authorization posture during the window to identify misconfiguration that permits anonymous access and confirm whether any requests returned successful responses that indicate real data exposure.  
+- Hunt for follow-on activity from the same origin or user agent such as authenticated requests, service account token usage, RBAC/ClusterRoleBinding changes, pod exec, or secret/configmap reads to assess escalation beyond discovery.  
+- If the API endpoint is publicly reachable, apply immediate containment by restricting network access to the API server (allowlisting, VPN/private endpoint, temporary IP blocks) while preserving relevant audit and network logs for forensics.
+
+### False positive analysis
+
+- Misconfigured or transitional API server authentication (e.g., anonymous auth briefly enabled or a failing authn proxy/fronting component) can cause legitimate clients to appear as `system:anonymous` and generate multiple 401/403/404 responses across several endpoints during normal cluster access attempts.
+- Internal cluster health checks or component discovery behavior that hits multiple API paths without presenting credentials (or uses requests that the audit log records with empty/null usernames) can resemble enumeration when it produces a short burst of failed requests across diverse resources from a single source IP and user agent.
+
+### Response and remediation
+
+- Immediately restrict Kubernetes API server network exposure by allowlisting known admin/VPN IPs and temporarily blocking the observed source IP(s) and user agent at the load balancer/firewall while preserving audit logs and reverse-proxy access logs for the timeframe.  
+- Eradicate the anonymous access path by disabling anonymous authentication on the API server, fixing any misconfigured auth proxy that forwards unauthenticated traffic, and removing any RBAC bindings that grant permissions to `system:anonymous` or `system:unauthenticated`.  
+- Validate whether any requests from the same source returned successful responses (especially reads of secrets/configmaps, tokenreviews/subjectaccessreviews, or CRDs) and, if so, rotate impacted service account tokens and credentials and perform a targeted review of recently issued tokens and new ClusterRoleBindings.  
+- Recover by re-enabling API access in a controlled manner (private endpoint/VPN, bastion, or mTLS), confirming expected kubectl and controller functionality, and monitoring for renewed bursts of failed requests across many request URIs from unauthenticated identities.  
+- Escalate to the incident response lead and platform security team if any anonymous request succeeded, if the probing repeats from multiple external IPs, or if follow-on activity appears (new privileged RBAC, pod exec, or secret reads) within 24 hours of the enumeration attempt.  
+- Harden by enforcing least-privilege RBAC, enabling and retaining full audit logging for authn/authz failures, applying API server rate limits/WAF rules for repeated 401/403/404 sweeps, and continuously validating that the API endpoint is not publicly reachable.
+"""
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access"
+]
+risk_score = 47
+rule_id = "2dd0d4fd-0cc9-4d18-8b46-1a507e28bbc0"
+severity = "medium"
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-kubernetes.audit_logs-* metadata _id, _index, _version
+| where (
+    kubernetes.audit.user.username in ("system:anonymous", "system:unauthenticated") or
+    kubernetes.audit.user.username is null or
+    kubernetes.audit.user.username == ""
+  ) and
+  kubernetes.audit.level in ("RequestResponse", "ResponseComplete", "Request")
+
+| eval Esql.decision = `kubernetes.audit.annotations.authorization_k8s_io/decision`
+| eval Esql.code = kubernetes.audit.responseStatus.code
+
+| eval Esql.outcome = case(
+    Esql.decision == "allow", "authz_allow",
+    Esql.decision == "forbid", "authz_forbid",
+
+    // fallback: infer from status when decision is missing
+    Esql.code in (401, 403), "authn_authz_failed",
+    (Esql.code >= 200 and Esql.code < 300), "success",
+    Esql.code == 404, "not_found",
+    Esql.code is null, "unknown",
+    true, "other_error"
+  )
+
+| stats
+    Esql.document_count = count(),
+
+    Esql.authz_allow_count = sum(case(Esql.outcome == "authz_allow", 1, 0)),
+    Esql.authz_forbid_count = sum(case(Esql.outcome == "authz_forbid", 1, 0)),
+
+    Esql.status_fail_count = sum(case(Esql.outcome == "authn_authz_failed", 1, 0)),
+    Esql.success_count = sum(case(Esql.outcome == "success", 1, 0)),
+    Esql.not_found_count = sum(case(Esql.outcome == "not_found", 1, 0)),
+    Esql.other_error_count = sum(case(Esql.outcome == "other_error", 1, 0)),
+    Esql.unknown_count = sum(case(Esql.outcome == "unknown", 1, 0)),
+
+    Esql.kubernetes_audit_verb_count_distinct = count_distinct(kubernetes.audit.verb),
+    Esql.kubernetes_audit_requestURI_count_distinct = count_distinct(kubernetes.audit.requestURI),
+    Esql.kubernetes_audit_objectRef_resource_count_distinct = count_distinct(kubernetes.audit.objectRef.resource),
+
+    Esql.kubernetes_audit_outcome_values = values(Esql.outcome),
+    Esql.kubernetes_audit_decision_values = values(Esql.decision),
+    Esql.kubernetes_audit_responseStatus_code_values = values(Esql.code),
+    Esql.kubernetes_audit_responseStatus_message_values = values(kubernetes.audit.responseStatus.message),
+
+    Esql.kubernetes_audit_verb_values = values(kubernetes.audit.verb),
+    Esql.kubernetes_audit_objectRef_resource_values = values(kubernetes.audit.objectRef.resource),
+    Esql.kubernetes_audit_objectRef_namespace_values = values(kubernetes.audit.objectRef.namespace),
+    Esql.kubernetes_audit_user_username_values = values(kubernetes.audit.user.username),
+    Esql.kubernetes_audit_user_groups_values = values(kubernetes.audit.user.groups),
+    Esql.kubernetes_audit_requestURI_values = values(kubernetes.audit.requestURI),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+
+  BY kubernetes.audit.sourceIPs, kubernetes.audit.userAgent
+
+| where
+    Esql.kubernetes_audit_requestURI_count_distinct > 5 and
+    Esql.kubernetes_audit_objectRef_resource_count_distinct > 3 and
+    Esql.document_count < 50 and
+    (Esql.authz_forbid_count >= 1 or Esql.status_fail_count >= 1 or Esql.not_found_count >= 3)
+
+| keep Esql.*, kubernetes.audit.sourceIPs, kubernetes.audit.userAgent
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
