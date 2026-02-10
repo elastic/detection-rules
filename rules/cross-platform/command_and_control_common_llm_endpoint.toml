@@ -58,6 +58,7 @@ severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
+    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
@@ -70,7 +71,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and dns.question.name != null and
+network where host.os.type in ("macos", "windows") and dns.question.name != null and
 (
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
   "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
