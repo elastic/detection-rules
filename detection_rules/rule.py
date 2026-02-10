@@ -1001,10 +1001,7 @@ class ESQLRuleData(QueryRuleData):
         aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
             keep_fields = [
-                field.strip()
-                for part in keep_match.group(1).split(",")
-                for field in part.splitlines()
-                if field.strip()
+                field.strip() for part in keep_match.group(1).split(",") for field in part.splitlines() if field.strip()
             ]
             if "*" not in keep_fields:
                 required_metadata = {"_id", "_version", "_index"}
