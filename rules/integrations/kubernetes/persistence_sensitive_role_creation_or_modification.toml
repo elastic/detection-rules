@@ -2,7 +2,7 @@
 creation_date = "2026/02/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/02/04"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,37 @@ privilege escalation or unauthorized access within the cluster.
 language = "esql"
 license = "Elastic License v2"
 name = "Kubernetes Creation or Modification of Sensitive Role"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Creation or Modification of Sensitive Role
+
+This rule detects allowed create, update, or patch actions on Roles and ClusterRoles that introduce high-risk RBAC permissions, including wildcard access and escalation verbs like bind, escalate, or impersonate. These changes matter because they can silently expand privileges and enable persistence or lateral movement across the cluster. Attackers commonly add a new ClusterRole with `*` verbs/resources and then use it to bind themselves or a service account to cluster-admin–equivalent access.
+
+### Possible investigation steps
+
+- Identify the responsible identity and origin by reviewing the audit event’s user/service account, userAgent, and source IPs, then confirm whether the action came from approved automation (e.g., GitOps/CI) or an interactive session.  
+- Retrieve and diff the Role/ClusterRole manifest before vs after the change to pinpoint newly added wildcards, escalation verbs (bind/escalate/impersonate), or permissions over RBAC resources that enable privilege escalation.  
+- Enumerate RoleBindings/ClusterRoleBindings that reference the modified role and determine which users/groups/service accounts gained effective permissions, prioritizing bindings created/changed near the same time.  
+- Validate authorization intent by correlating the change with a change ticket/PR and the expected namespace/cluster scope, and flag any out-of-band edits (kubectl apply/edit) that bypass the normal workflow.  
+- If suspicious, contain by reverting the role and removing or disabling newly privileged bindings/subjects, then hunt for follow-on activity from the same identity (e.g., creation of new service accounts, secrets access, or additional RBAC changes) within the incident window.
+
+### False positive analysis
+
+- Cluster administrators or platform automation legitimately create or update Roles/ClusterRoles to include wildcard verbs/resources or escalation-related verbs (bind/escalate/impersonate) during initial cluster bootstrapping, feature enablement, or maintenance, especially when enabling broad operational access for system components.  
+- Routine RBAC refactoring such as consolidating multiple granular roles into a single reusable role, migrating permissions across namespaces, or adjusting access for incident response can temporarily add permissions over RBAC resources (roles/rolebindings/clusterroles/clusterrolebindings) and trigger the rule even when the change is approved and tracked.
+
+### Response and remediation
+
+- Immediately locate and quarantine the changed Role/ClusterRole by reverting it to the last known-good manifest (from Git/GitOps) or deleting it if unauthorized, and remove any new RoleBinding/ClusterRoleBinding subjects that reference it.  
+- Contain the actor by disabling or rotating credentials for the responsible user/service account (and its tokens), and if the change came from a workload, isolate the namespace/workload (scale down, deny egress) until provenance is confirmed.  
+- Eradicate persistence by searching for and removing additional RBAC changes made in the same window (new roles, bindings, service accounts) and by revoking any newly granted access to secrets or cluster-scoped resources discovered during review.  
+- Recover by redeploying RBAC from a controlled pipeline, validating effective permissions for impacted subjects, and monitoring for re-creation of the same role name or re-binding attempts after rollback.  
+- Escalate to platform security/incident response immediately if the role grants wildcard permissions, includes `impersonate`/`escalate`/`bind`, is cluster-scoped, or is bound to non-admin subjects or external identities without an approved change record.  
+- Harden by enforcing RBAC guardrails (OPA Gatekeeper/Kyverno policies blocking wildcard/escalation verbs except for approved groups), restricting who can create/update RBAC objects, and requiring all RBAC changes to flow through code review and signed GitOps automation.
+"""
 references = [
     "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
 ]
@@ -26,6 +57,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
