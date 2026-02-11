@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,37 @@ index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Full Disk Access Permission Check"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Full Disk Access Permission Check
+
+This rule detects suspicious reads of the Time Machine preferences plist that adversaries use as a quick litmus test for Full Disk Access, a permission that unlocks broad visibility into user and system data. Attackers commonly launch a scriptable or unsigned helper (for example via Python or AppleScript) to open this file, confirm FDA is present, then proceed to enumerate and collect protected artifacts like browser stores, messages, or backups.
+
+### Possible investigation steps
+
+- Validate the opening process lineage (parent/child chain, launch method, user session) to determine whether the access originated from an interactive admin action or an unexpected background helper.  
+- Review the process code-signing identity (signer, notarization, team ID) and binary provenance (download attributes, install source, first-seen time) to distinguish legitimate tooling from potentially dropped or trojanized executables.  
+- Pivot to other file and directory access by the same process around the alert time to identify follow-on discovery/collection of protected user data (e.g., browser profiles, keychain-related paths, Messages, Mail, backups).  
+- Check recent and concurrent macOS privacy permission changes and TCC/FDA-related events for the user and process to see if FDA was newly granted, prompted, or bypassed preceding the access.  
+- Correlate with network activity from the same process or host after the check (new outbound connections, uploads, DNS to uncommon domains) to assess whether the FDA verification preceded staging or exfiltration.
+
+### False positive analysis
+
+- An administrator or power user running an interactive shell (Terminal, bash/sh, python) executes a local audit or troubleshooting script that reads /Library/Preferences/com.apple.TimeMachine.plist to confirm Time Machine configuration and permissions.  
+- A developer or IT engineer uses a scripting runtime (osascript, node, ruby, perl, python) during endpoint diagnostics to check whether the current session/app context has Full Disk Access by attempting to open the Time Machine preference plist.
+
+### Response and remediation
+
+- Isolate the Mac from the network or apply host firewall blocks if the plist access comes from an unexpected/unsigned process or occurs outside an active user session to prevent follow-on collection and exfiltration.  
+- Terminate the offending process and remove its persistence (LaunchAgents/LaunchDaemons, cron, login items) and any newly dropped executables or scripts found in user-writable paths that launched the plist check.  
+- Revoke Full Disk Access for the suspicious app in Privacy & Security settings, reset TCC permissions if tampering is suspected, and rotate credentials/tokens exposed on the host (browser sessions, SSH keys, API keys) if protected data access is likely.  
+- Collect and preserve evidence (the binary and its hash, quarantine/xattr info, parent process, relevant unified logs, and a copy of the accessed plist) before cleanup, then run a full endpoint malware scan and validate no additional sensitive files were accessed immediately after the check.  
+- Restore system integrity by updating macOS and security tools, reinstalling or re-imaging if core components were modified, and confirm normal Time Machine configuration after remediation to ensure operational recovery.  
+- Escalate to IR/SECOPS immediately if the process is unsigned/notarization-missing, shows persistence, or makes outbound connections after the plist read, and harden by enforcing MDM controls that restrict FDA grants and block execution of untrusted scripting runtimes where feasible.
+"""
 risk_score = 47
 rule_id = "e26c0f76-2e80-445b-9e98-ab5532ccc46f"
 severity = "medium"
@@ -24,7 +55,8 @@ tags = [
     "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
