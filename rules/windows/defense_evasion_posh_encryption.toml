@@ -2,13 +2,13 @@
 creation_date = "2023/01/23"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of Cmdlets and methods related to encryption/decryption of files in PowerShell scripts, which malware
-and offensive security tools can abuse to encrypt data or decrypt payloads to bypass security solutions.
+Identifies PowerShell script block content that uses .NET cryptography APIs for file encryption or decryption.
+Attackers abuse these routines to encrypt data for impact or decrypt staged payloads to evade defenses.
 """
 false_positives = ["Legitimate PowerShell Scripts which makes use of encryption."]
 from = "now-9m"
@@ -18,33 +18,81 @@ license = "Elastic License v2"
 name = "PowerShell Script with Encryption/Decryption Capabilities"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating PowerShell Script with Encryption/Decryption Capabilities
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, making it available for use in various environments, creating an attractive way for attackers to execute code.
+This rule identifies PowerShell script block content that implements cryptographic encryption or decryption using .NET APIs. Matching script blocks commonly include symmetric cryptography classes (for example, AES/Rijndael or the SymmetricAlgorithm base type), key derivation helpers (for example, PasswordDeriveBytes or Rfc2898DeriveBytes), explicit cipher configuration (CipherMode and PaddingMode), and calls that create an encryptor or decryptor.
 
-PowerShell offers encryption and decryption functionalities that attackers can abuse for various purposes, such as concealing payloads, C2 communications, and encrypting data as part of ransomware operations.
+This behavior can be legitimate (protecting configuration values, packaging content, or controlled encryption for business workflows). It can also indicate malicious activity such as encrypting local data for impact or decrypting staged content to reduce static visibility before follow-on execution. Prioritize determining what data is being transformed, where outputs are written, and whether the user/host/script origin aligns with expected activity.
+
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine file or network events from the involved PowerShell process for suspicious behavior.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
+- Review `powershell.file.script_block_text` to understand the cryptographic intent and data flow:
+  - Identify whether the logic is primarily encrypting, decrypting, or doing both.
+  - Note which cryptographic primitives are used (for example, AES/Rijndael, hashing helpers, and key derivation routines) and how keys/IVs are produced (hard-coded values, derived from passwords, generated randomly, or passed in).
+  - Identify the transformed data source and destination:
+    - File-oriented operations: look for path construction, directory traversal patterns, repeated read/write loops, file extension changes, renames, or deletion of originals.
+    - In-memory operations: look for large embedded blobs, byte arrays, stream usage, or logic that converts decrypted content into executable form or writes it to a new artifact.
+  - Extract and preserve any embedded secrets or deterministic derivation parameters (password strings, salts, iteration counts, static IVs, or key material), as these can be critical for impact assessment and recovery.
+
+- Determine whether the alert contains the full implementation or only a fragment:
+  - Use `powershell.file.script_block_length` to gauge whether this is a complete routine (larger blocks) versus a wrapper or function invocation (smaller blocks).
+  - If the script appears incomplete, pivot on `powershell.file.script_block_id` and use `powershell.sequence` / `powershell.total` to retrieve and order all fragments before concluding intent.
+
+- Validate execution context and provenance:
+  - Review `user.name`, `user.domain`, and `user.id` to determine whether this account typically performs encryption/decryption tasks and whether the account scope matches the host role.
+  - Review `host.name` and `host.id` to determine asset criticality and whether similar activity is expected on this system (for example, administrative hosts may have more automation than standard endpoints).
+  - If `file.path` / `file.name` is present, evaluate whether the script origin is expected:
+    - Compare the path and name to approved automation locations and naming conventions.
+    - Treat unexpected paths, user-writable directories, or newly observed script locations as higher risk.
+
+- Scope the activity using alert fields:
+  - On the same host, search for additional script blocks tied to the same `powershell.file.script_block_id` to find related functions or setup code not visible in the initial alert fragment.
+  - Search across hosts for repeating patterns in `powershell.file.script_block_text` and for the same `file.name` to determine whether this is a widely deployed administrative script or isolated activity.
+  - Pivot on `user.id` to identify whether similar script blocks appear on multiple hosts, which may indicate coordinated activity.
+
+- Correlate with adjacent telemetry around `@timestamp` for the same `host.id` and `user.id` (if available in your environment):
+  - Process execution telemetry to identify the PowerShell host process and what initiated it, helping distinguish interactive use from automation or remotely initiated activity.
+  - File activity telemetry to identify bursts of file modifications/creations consistent with bulk encryption/decryption and to determine which directories and file types were affected.
+  - Network telemetry to identify connections that could support retrieval of encrypted content, exchange of key material, or staging/downloading of additional payloads.
+  - Authentication telemetry to identify unusual logons or session types for the user preceding execution.
+
+- Determine disposition and urgency:
+  - Treat as higher severity if the script indicates broad file processing, writes many outputs, modifies user data locations, or includes embedded key material/blobs associated with staged content.
+  - Treat as lower severity if the script is clearly tied to approved operations, originates from a known `file.path`, is executed by expected accounts, and shows consistent recurrence patterns with expected scope.
 
 ### False positive analysis
 
-- This is a dual-use mechanism, meaning its usage is not inherently malicious. Analysts can dismiss the alert if the script doesn't contain malicious functions or potential for abuse, no other suspicious activity was identified, and there are justifications for the execution.
+- Legitimate PowerShell automation may implement encryption/decryption for secure configuration handling, packaging, data protection, or interoperability with other systems.
+- Benign activity is more likely to have consistent `file.path` / `file.name` values, execute under expected administrative accounts, and recur on appropriate hosts with stable script content.
+- If the script is determined to be benign, document what data it protects, where it is expected to run, which accounts execute it, and what normal recurrence looks like to reduce future triage time.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is suspicious or malicious:
+  - Contain the host to prevent further encryption/decryption activity and reduce the risk of spread or data impact.
+  - Preserve evidence from the alert, including the full `powershell.file.script_block_text` and any reconstructed fragments correlated via `powershell.file.script_block_id`.
+  - If `file.path` is present, collect the referenced script from disk and preserve it for forensic review and scoping.
+  - Identify impacted systems and data:
+    - If file-impact is suspected, prioritize backup protection, incident response escalation, and recovery planning.
+    - If payload staging is suspected, prioritize identifying the decrypted output or follow-on execution artifacts.
+  - Scope and hunt across the environment for related activity using `user.id`, `host.id`, recurring `file.name`, and distinctive fragments of `powershell.file.script_block_text`.
+  - Remediate the associated account and access path: validate legitimacy, reset credentials if compromise is suspected, and apply least-privilege controls where appropriate.
+  - Remove or block the identified script and any related artifacts discovered during analysis, and monitor for recurrence.
+
+- If the activity is confirmed benign:
+  - Record the expected `file.path` / `file.name`, the responsible `user.id`, and normal execution patterns to support consistent future triage and tuning decisions.
 """
 risk_score = 47
 rule_id = "1d9aeb0b-9549-46f6-a32d-05e2a001b7fd"
@@ -107,4 +155,23 @@ reference = "https://attack.mitre.org/techniques/T1140/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 
