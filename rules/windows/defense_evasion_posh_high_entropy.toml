@@ -31,7 +31,7 @@ note = """## Triage and analysis
 
 ### Investigating Potential PowerShell Obfuscated Script via High Entropy
 
-This alert indicates a large PowerShell script block whose character-level statistics are consistent with packed or obfuscated content (for example, encoded, compressed, or encrypted data embedded in a script). Triage should focus on establishing execution context (who/where), reconstructing the full script content, and determining whether the high-entropy portion is a legitimate embedded resource or a staged payload.
+This alert flags a large PowerShell script block with statistical characteristics consistent with obfuscated content (for example, encoded, compressed, or encrypted data embedded in a script). Triage should focus on establishing execution context (who/where), reconstructing the complete script content, identifying whether the high-entropy data is a benign embedded resource or a staged payload, and scoping for related activity.
 
 #### Key alert fields to review
 
@@ -47,68 +47,65 @@ This alert indicates a large PowerShell script block whose character-level stati
 
 #### Possible investigation steps
 
-- Establish scope and priority using alert context:
-  - Review `host.name` / `host.id` to identify the affected endpoint and its role (workstation, server, jump host).
-  - Review `user.name` / `user.domain` / `user.id` to determine whether the account is expected to run PowerShell on this host and whether it is privileged or widely used.
-  - Check whether this user-host pairing is common or rare in your environment to help prioritize.
+- Triage the execution context and initial severity:
+  - Review `@timestamp` to identify when the script block executed and align pivots to the same timeframe.
+  - Review `host.name` and `host.id` to identify the endpoint and validate whether PowerShell use is expected for its role.
+  - Review `user.name`, `user.domain`, and `user.id` to determine whether the account is expected to run PowerShell on this host and whether it is privileged, shared, or an automation/service identity.
+  - Review `powershell.file.script_block_length`, `powershell.file.script_block_entropy_bits`, and `powershell.file.script_block_surprisal_stdev` to understand whether the alert is driven by a large embedded blob (often staging) or more mixed script content (often a wrapper/loader plus embedded data).
 
-- Identify script provenance and how it was introduced:
-  - Review `file.path`, `file.directory`, and `file.name` to determine whether the script block was sourced from an on-disk file.
-  - If `file.path` is present, assess whether the location aligns with normal administrative or automation activity for this host, or whether it appears user-writable, temporary, or otherwise unusual for the account and system role.
-  - If `file.path` is not present or is not informative, treat the content as potentially interactive or dynamically generated and prioritize reconstructing full script content.
+- Determine script provenance (file-backed vs. dynamic/interactive):
+  - If `file.path` is present, review `file.directory` and `file.name` to understand where the script originated.
+  - Assess whether `file.directory` is consistent with approved administrative tooling locations for this host and user, or whether it appears user-writable, temporary, or otherwise unusual.
+  - If `file.path` is absent, treat the script block as potentially interactive or dynamically generated and prioritize reconstructing the full script content and identifying the launch source via process correlation.
 
-- Interpret the entropy indicators to guide analysis focus:
-  - Use `powershell.file.script_block_length` with `powershell.file.script_block_entropy_bits` to understand whether the alert is driven by a large embedded blob versus smaller obfuscation fragments.
-  - Use `powershell.file.script_block_surprisal_stdev` to distinguish between:
-    - Uniformly random-looking blocks (often consistent with compressed/encrypted data).
-    - Mixed content (often consistent with a readable wrapper that transforms and then executes an embedded payload).
-  - Use `powershell.file.script_block_unique_symbols` to identify whether the content resembles a limited alphabet encoding (for example, Base64-like) versus broader character sets.
-
-- Review and reconstruct script content before making a determination:
-  - Review `powershell.file.script_block_text` to identify:
-    - Large contiguous encoded strings, byte arrays, or character arrays.
-    - Transform routines (decode, decrypt, decompress) that produce secondary content.
-    - Secondary execution patterns where transformed content is immediately evaluated or invoked.
-    - Embedded external references (URLs, domains, IPs) or instructions to write content to disk.
-
-- Rebuild full content when script blocks are split across events:
-  - Pivot on `powershell.file.script_block_id` to collect all related fragments.
+- Reconstruct the full script content when fragmented:
+  - Pivot on `powershell.file.script_block_id` to collect all fragments associated with the script block.
   - Order fragments using `powershell.sequence` and validate completeness using `powershell.total`.
-  - Perform content review on the reconstructed output, not on individual fragments, to avoid missing loader logic or the embedded payload boundaries.
+  - Analyze the reconstructed content as a whole to avoid missing small loader logic that precedes a large encoded/encrypted payload.
 
-- Extract indicators and correlate with adjacent telemetry to confirm impact:
-  - From `powershell.file.script_block_text` (and any safely decoded or decompressed content), extract indicators such as domains, URLs, IPs, file names/paths, and distinctive strings.
-  - Correlate on the same `host.id` and approximate timeframe with available endpoint telemetry to identify the PowerShell host process and its launch source (parent process or initiating mechanism). Use that context to assess whether execution is user-initiated, automation-driven, or suspicious.
-  - Correlate on the same `host.id` and timeframe with available network, file, registry, and authentication telemetry to identify follow-on activity consistent with script execution (downloads, file writes, persistence changes, or unusual sign-ins).
+- Perform structured content review of `powershell.file.script_block_text`:
+  - Identify large contiguous strings, byte arrays, or character arrays that may represent encoded or packed data; use `powershell.file.script_block_unique_symbols` to help distinguish limited-alphabet encodings from broader character sets.
+  - Look for transformation and staging patterns (for example, decode/decrypt/decompress routines) and whether transformed content is immediately executed (for example, dynamic invocation, in-memory loading, or secondary script evaluation).
+  - Extract any embedded indicators (domains, URLs, IPs, file paths/names, registry paths, scheduled task/service names, or distinctive strings) and retain them for scoping and containment.
 
-- Expand scope to detect related activity:
-  - Search for additional high-entropy script blocks on the same `host.id` and `user.id` before and after the alert.
-  - Identify other hosts where the same `file.name` / `file.path` appears with similar suspicious content characteristics.
-  - Look for repeated substrings or structural similarities in `powershell.file.script_block_text` across different alerts to identify shared tooling or campaigns.
+- Establish the execution chain and initiating source:
+  - Use `process.pid` with `host.id` and `@timestamp` to pivot to process telemetry for the PowerShell host instance that generated the script block.
+  - Identify the parent process and initiating mechanism (interactive shell, scheduled execution, remote management, document/script host, or other launcher). Treat unexpected launch sources or unusual timing for the host role as higher risk.
+  - Check whether the same `process.pid` generated additional suspicious script blocks around the alert time, and whether `user.id` and `host.id` align with expected administrative behavior.
+
+- Correlate for follow-on activity on the same host and account:
+  - Correlate on `host.id` and `@timestamp` to identify adjacent events that indicate impact (outbound connections, file writes, module downloads, persistence changes, or unusual authentication activity).
+  - When `file.path` is present, correlate on that path and timeframe for file creation/modification patterns that may indicate initial staging or subsequent cleanup.
+
+- Scope the activity across the environment:
+  - Search for other high-entropy script blocks on the same `host.id` and `user.id` before and after the alert to identify repeated execution or iterative staging.
+  - Search across hosts for the same `file.name` and `file.path` (when present) and compare `powershell.file.script_block_text` structure to identify reuse.
+  - Use distinctive substrings from `powershell.file.script_block_text` as pivots to find related script blocks even when paths or accounts differ.
 
 ### False positive analysis
 
-- Benign activity can produce high-entropy script blocks when scripts embed packaged resources or data blobs (for example, installers, large configuration payloads, certificates, or compressed content used by administrative tooling).
-- Indicators that support a benign determination:
-  - Consistent `file.path` / `file.name` associated with a known internal automation package or vendor tool across many hosts.
-  - Stable and expected `user.name` / `user.id` usage (for example, dedicated automation accounts) with predictable host targeting.
-  - Repeated, consistent script structure over time where decoding or decompression results in recognizable administrative logic rather than staging or secondary execution.
-- If the alert is verified benign:
-  - Document the owning team/tool, expected hosts, and typical execution cadence.
-  - Suppress recurring noise by scoping on stable attributes available in the alert (for example, `user.id`, `host.id`, and `file.path`) while preserving visibility for new or unusual sources.
+- Benign scripts can trigger this alert when they legitimately embed packed data (for example, compressed resources, serialized configuration blobs, embedded certificates/keys, or packaged modules) that increase entropy and appear non-uniform.
+- Indicators supporting a benign determination:
+  - `file.path` and `file.name` consistently map to an approved internal tool or vendor-managed automation across multiple hosts.
+  - `user.id` represents an expected administrative or automation identity with predictable host targeting and execution timing.
+  - Reconstructed `powershell.file.script_block_text` shows a stable, repeatable structure over time, and any decoded content aligns with known operational functionality rather than staging and immediate secondary execution.
+- Indicators supporting suspicion:
+  - Unusual `file.directory` for the host role or account, or absence of `file.path` combined with evidence of dynamic staging behavior.
+  - Reconstructed content includes clear execution of transformed data, in-memory loading patterns, or embedded external destinations not associated with known tooling.
+- If determined benign, document the owning tool/team, expected `user.id` usage, and expected `file.path`/`file.name` (when present). Use those stable attributes for future baselining and noise reduction while preserving detection for new paths, new users, or materially different script structures.
 
 ### Response and remediation
 
-- If malicious or suspicious activity is confirmed:
-  - Contain the affected host to limit further execution and lateral movement.
-  - Preserve evidence from the alert, including `powershell.file.script_block_text`, reconstructed content (using `powershell.file.script_block_id` / `powershell.sequence` / `powershell.total`), and associated context (`user.*`, `host.*`, `file.*`, and entropy metrics).
-  - Use extracted indicators from the script content to hunt for related activity across the environment and to identify additional affected hosts or accounts.
-  - Remediate any identified persistence or staging artifacts associated with the activity and remove malicious content from affected systems.
-  - If account compromise is suspected, reset credentials for `user.id` / `user.name` and review access paths and recent authentication activity for that account.
+- If suspicious or malicious activity is confirmed:
+  - Contain the affected host to prevent further execution and lateral movement.
+  - Preserve relevant evidence from the alert, including full reconstructed script content (via `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`), and associated context (`@timestamp`, `host.*`, `user.*`, `file.*`, `process.pid`, and entropy metrics).
+  - Use extracted indicators from `powershell.file.script_block_text` to hunt across hosts and accounts, and to identify additional affected systems.
+  - Investigate and remediate follow-on activity identified during correlation (downloaded payloads, dropped files, persistence mechanisms, or unauthorized network access) and remove malicious artifacts from affected endpoints.
+  - If account compromise is suspected for `user.id` / `user.name`, initiate credential reset and review recent authentication activity and access paths associated with that identity.
 
 - If benign activity is confirmed:
-  - Record the business justification and expected behavior for the script source, including the relevant `file.path` (when present) and the associated `user.id`.
-  - Monitor for deviations from the established benign baseline, such as new script sources, new hosts, or materially different `powershell.file.script_block_text` structure or entropy characteristics.
+  - Record the justification and expected behavior (who runs it, where it runs, and expected `file.path` when present).
+  - Monitor for deviations from the established baseline, including new `user.id`, new `host.id`, new `file.path`, or significant changes in `powershell.file.script_block_text` structure or entropy characteristics.
 """
 setup = """## Setup
 
