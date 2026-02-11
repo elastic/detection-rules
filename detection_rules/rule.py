@@ -1377,7 +1377,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     items_to_update: list[dict[str, Any]] = [
                         item
                         for item in value  # type: ignore[reportUnknownVariableType]
-                        if isinstance(item, dict) and get_nested_value(item, sub_key) is None
+                        if isinstance(item, dict)
+                        and get_nested_value(item, sub_key) is None
+                        and get_nested_value(item, "action_type_id") not in definitions.SYSTEM_ACTION_TYPE_IDS
                     ]
                     for item in items_to_update:
                         set_nested_value(item, sub_key, None)
