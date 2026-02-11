@@ -213,7 +213,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             for i, v in enumerate(obj):  # type: ignore[reportUnknownMemberType]
                 if isinstance(v, dict | list):
                     obj[i] = order_rule(v)
-            obj = sorted(obj, key=lambda x: json.dumps(x))  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+            obj = sorted(obj, key=json.dumps)  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
 
         return obj
 
@@ -308,7 +308,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
     f = None
     if out_file_path:
-        f = out_file_path.open("w")
+        f = out_file_path.open("w", encoding="utf-8")
 
     try:
         for data in ("metadata", "transform", "rule"):

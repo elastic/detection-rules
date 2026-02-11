@@ -249,7 +249,7 @@ def find_latest_compatible_version(
         if not compatible_versions:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
 
-        highest_compatible_version = Version.parse(max(compatible_versions, key=lambda x: Version.parse(x)))
+        highest_compatible_version = Version.parse(max(compatible_versions, key=Version.parse))
 
         if highest_compatible_version > rule_stack_version:
             # generate notice message that a later integration version is available
