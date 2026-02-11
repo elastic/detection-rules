@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/02"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +20,37 @@ interval = "5m"
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Direct Kubelet Access via Process Arguments Detected via Defend for Containers"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Direct Kubelet Access via Process Arguments Detected via Defend for Containers
+
+This detection flags an interactive process started inside a Linux container that includes an HTTP request targeting the Kubelet API on port 10250, a common pivot point for gaining execution and visibility across nodes. Attackers use direct Kubelet access to enumerate pods, fetch logs, or run commands that can lead to broader cluster access and lateral movement. A typical pattern is invoking curl or wget from a container shell against `https://<node-ip>:10250/` endpoints to probe or execute actions.
+
+### Possible investigation steps
+
+- Identify the originating pod/workload and container image for the interactive session, then determine whether the container was expected to provide diagnostic tooling or shell access and whether it recently changed.  
+- Extract the full command line and reconstruct the requested Kubelet endpoint path (for example `/pods`, `/exec`, `/run`, `/logs`) to infer intent (enumeration vs remote execution) and capture any embedded tokens or client cert usage.  
+- Correlate the process start time with Kubernetes audit logs and API server events to see if there were concurrent pod exec/attach, secret reads, or workload modifications suggesting follow-on activity.  
+- Verify whether the destination node IP/hostname is the local node or a remote node and review network flow logs/egress policies to confirm the container could reach port 10250 and whether other nodes were contacted.  
+- Check node and Kubelet configuration for exposure and auth bypass risk (anonymous auth, webhook mode, client certs), and inspect Kubelet logs around the timestamp for the corresponding request and response status codes.
+
+### False positive analysis
+
+- A cluster operator or SRE opens an interactive shell in a troubleshooting container and manually curls `https://<node-ip>:10250/` (or `/pods`/`/metrics`) to validate Kubelet reachability, authentication behavior, or node health during incident triage.
+- A legitimate in-container diagnostic workflow uses an interactive session to probe the local node’s Kubelet port 10250 for environment verification (e.g., confirming node IP mapping or TLS/cert configuration), embedding the URL in process arguments without any intent to enumerate or execute actions across the cluster.
+
+### Response and remediation
+
+- Isolate the affected pod by removing service exposure and applying a temporary egress deny rule to block traffic to node port 10250 from that namespace/pod label, then terminate the interactive shell session and restart the workload from a known-good image.  
+- Capture and preserve the full command line, container filesystem changes, and relevant Kubelet and Kubernetes audit log entries around the timestamp, then hunt for additional in-cluster attempts to reach `https://<node>:10250/` from other pods or namespaces.  
+- Rotate any credentials that may have been exposed or used (service account tokens, client certificates, kubeconfig files) and revoke or redeploy affected service accounts, then validate no unauthorized `exec/attach`, secret reads, or workload changes occurred after the access attempt.  
+- Escalate to the platform security/on-call incident commander immediately if the Kubelet request targeted sensitive endpoints like `/exec`, `/run`, `/containerLogs`, or returned successful responses (2xx/3xx) or if similar commands are seen across multiple nodes.  
+- Harden by enforcing Kubelet authentication/authorization (disable anonymous access, require webhook authz, restrict client cert issuance), and implement network controls that prevent pods from reaching node Kubelet ports except from approved node-local agents.  
+- Reduce recurrence by removing shell and HTTP tooling from application images, limiting interactive access (disable `kubectl exec` for non-admins), and tightening RBAC and admission policies to block privileged pods/host networking that increase node API reachability.
+"""
 references = [
     "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#kubelet-api",
     "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
@@ -35,6 +66,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Discovery",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
