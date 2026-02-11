@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/27"
+updated_date = "2026/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -70,7 +70,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
   (process.name in ("apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf") and process.args == "install") or
   (process.name == "apk" and process.args == "add") or
   (process.name == "pacman" and process.args like "-*S*") or
@@ -78,8 +78,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 ) and process.args like (
   "curl", "wget", "socat", "busybox", "openssl", "torsocks",
   "netcat", "netcat-openbsd", "netcat-traditional", "ncat", "tor",
-  "python*", "perl", "node", "nodejs", "ruby", "lua"
-) and process.interactive == true and container.id like "*"
+  "python*", "perl", "node", "nodejs", "ruby", "lua", "bash", "sh",
+  "dash", "zsh", "fish", "tcsh", "csh", "ksh"
+) and container.id like "?*"
 '''
 
 [[rule.threat]]
