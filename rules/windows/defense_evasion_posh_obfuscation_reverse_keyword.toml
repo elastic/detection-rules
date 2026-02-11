@@ -2,72 +2,102 @@
 creation_date = "2025/04/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell scripts that use reversed strings as a form of obfuscation. These methods are designed to evade
-static analysis and bypass security protections such as the Antimalware Scan Interface (AMSI).
+Detects PowerShell scripts containing reversed keyword strings associated with execution or network activity (for
+example, ekovni, noisserpxe, daolnwod, tcejbo-wen, tcejboimw, etc.). Attackers reverse keywords and reconstruct them at
+runtime to hide intent and evade static detection and AMSI.
 """
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential PowerShell Obfuscation via Reverse Keywords"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
 ### Investigating Potential PowerShell Obfuscation via Reverse Keywords
 
-PowerShell, a powerful scripting language in Windows environments, is often targeted by adversaries for obfuscation to bypass security measures like AMSI. Attackers reverse keywords in scripts to evade static analysis. The detection rule identifies such obfuscation by searching for reversed keywords, replacing them with a unique marker, and counting occurrences. This helps in flagging scripts with multiple obfuscated elements, indicating potential malicious activity.
+This alert indicates PowerShell script block content contains multiple reversed keyword strings commonly associated with execution, string manipulation, environment discovery, or networking. Reversing strings is frequently paired with runtime reconstruction (for example, reversing character arrays or joining string fragments) to reduce readability and evade simple content inspection.
 
-### Possible investigation steps
+Determine whether the script is part of expected administrative automation, software tooling, or an unauthorized execution chain. Prioritize analysis that reconstructs the full script, deobfuscates the reversed tokens, and identifies any follow-on behaviors such as dynamic execution, network access, or system discovery.
 
-- Review the `powershell.file.script_block_text` field to understand the context and content of the script that triggered the alert. Look for any suspicious or unexpected behavior in the script logic.
-- Examine the `file.path` field to determine the location of the script on the system. This can provide insights into whether the script is part of a legitimate application or potentially malicious.
-- Check the `powershell.file.script_block_id` and `powershell.sequence` fields to identify if the script is part of a larger sequence of commands. This can help in understanding the full scope of the script's execution.
-- Investigate the `agent.id` field to identify the specific endpoint where the script was executed. This can help in correlating with other alerts or logs from the same machine.
-- Assess the `count` field to determine the extent of obfuscation. A higher count may indicate a more heavily obfuscated script, suggesting a higher likelihood of malicious intent.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
+- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Identify the execution scope and ownership:
+  - Review `host.name` / `host.id` to confirm the affected endpoint and its criticality.
+  - Review `user.id` (and `user.name` / `user.domain` if available) to understand the account context and whether this user is expected to run PowerShell on this host.
+- Prioritize based on obfuscation signals:
+  - Review `Esql.script_block_pattern_count`; higher counts suggest more extensive keyword hiding and can increase suspicion.
+  - Use `powershell.file.script_block_length`, `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_unique_symbols`, and `powershell.file.script_block_surprisal_stdev` to gauge how heavily obfuscated or machine-generated the content may be (treat these as supporting context, not proof of maliciousness).
+- Reconstruct the full script content when split:
+  - If `powershell.total` is greater than 1, retrieve all events with the same `powershell.file.script_block_id` and order them by `powershell.sequence` to rebuild the complete script block content.
+  - Preserve both the reconstructed script and the original per-event `powershell.file.script_block_text` to maintain context and ordering.
+- Deobfuscate and interpret intent:
+  - Review `powershell.file.script_block_text` for reversed tokens and reverse them to identify the intended keywords and operations (for example, indicators of dynamic execution, downloads, socket/connection handling, WMI usage, or Win32 references).
+  - Look for runtime string reconstruction patterns in the script content (for example, joins, character array operations, or replace operations) that turn reversed fragments into executable commands or parameters.
+  - Use `Esql.script_block_tmp` to quickly locate the matched areas, then validate findings against `powershell.file.script_block_text`.
+- Evaluate file-origin context (when present):
+  - Review `file.path` (and `file.directory` / `file.name` if available) to determine whether the script is associated with an on-disk file and whether that location aligns with your organization's expected script locations and deployment practices.
+  - If an on-disk script is indicated, coordinate collection of the referenced file for offline analysis and determine whether it is present on other systems.
+- Extract and operationalize indicators:
+  - From `powershell.file.script_block_text`, extract any embedded indicators such as hostnames, IP addresses, URLs, ports, file paths, or encoded blobs.
+  - Use extracted indicators to scope for related activity on the same `host.id` and across other hosts where the same `user.id` is active, focusing on the alert timeframe and immediately adjacent activity.
+- Correlate with adjacent telemetry to identify the execution chain and impact (as available in your environment):
+  - Process activity: identify the PowerShell host process and the initiating parent process to understand whether execution was interactive, scheduled, or launched by another program.
+  - Network activity: look for outbound connections aligned with the alert timestamp, especially if deobfuscated content suggests downloads or socket connections.
+  - File and registry activity: look for payload staging, new or modified files, or persistence-related changes that occur shortly after the script block execution.
+  - Authentication activity: review for suspicious logons, remote session creation, or lateral movement attempts around the same time on the affected host.
+- Determine severity and next actions:
+  - If the deobfuscated content indicates remote retrieval, execution of downloaded content, credential access, persistence, or lateral movement, treat the alert as potentially malicious and escalate for response.
+  - If the script appears benign, document the validated purpose, expected owner, and any recurring identifiers (such as file location patterns) to support future triage.
 
 ### False positive analysis
 
-- Scripts with legitimate administrative functions may use reversed keywords for benign purposes, such as custom logging or debugging. Review the context of the script to determine if the usage is intentional and non-malicious.
-- Automated scripts generated by legitimate software tools might include reversed keywords as part of their normal operation. Identify these tools and create exceptions for their known script patterns to prevent unnecessary alerts.
-- Developers or IT personnel might use reversed keywords in test environments to simulate obfuscation techniques. Ensure these environments are well-documented and excluded from production monitoring to avoid false positives.
-- PowerShell scripts used in educational or training settings may intentionally include obfuscation techniques for learning purposes. Exclude these scripts by identifying their unique characteristics or file paths.
-- Regularly update the list of excluded scripts or patterns as new legitimate use cases are identified, ensuring the detection rule remains effective without generating excessive false positives.
+- Internal scripts or tooling may use reversed strings as lightweight obfuscation to conceal configuration values or reduce casual readability. Validate the script's ownership, change history, and whether its presence and execution timing are expected for `host.id` and `user.id`.
+- Commercial software, endpoint management agents, or security tooling may generate or embed obfuscated PowerShell during installation, updates, or health checks. Validate whether the activity aligns with known maintenance windows, expected endpoints, and consistent script content and `file.path` patterns.
+- Authorized security testing may intentionally use string reversal. Confirm the scope, timing, and target hosts with the appropriate stakeholders before closing the alert.
 
 ### Response and remediation
 
-- Isolate the affected system from the network to prevent further spread of potentially malicious scripts.
-- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activity.
-- Conduct a thorough review of the script block text and associated files to understand the scope and intent of the obfuscation.
-- Remove or quarantine any identified malicious scripts or files from the system to prevent re-execution.
-- Restore affected systems from a known good backup if malicious activity has altered system integrity.
-- Update endpoint protection and security tools to recognize and block similar obfuscation techniques in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and monitoring of potential lateral movement or additional threats.
+- If activity is suspicious or unauthorized, contain the affected host to prevent further script execution and potential follow-on actions.
+- Preserve evidence:
+  - Retain the full `powershell.file.script_block_text` (including all segments reconstructed via `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total`).
+  - Retain `file.path` context and the alert metadata needed to pivot (such as `host.id` and `user.id`).
+- Identify and remediate the execution source:
+  - Determine how PowerShell was launched (interactive, scheduled, or by another process) using correlated telemetry, and remove the triggering mechanism.
+  - If an on-disk script is involved, remediate the file at `file.path` and any associated payloads or artifacts identified during analysis.
+- Scope and hunt:
+  - Search for the same or similar obfuscated content and extracted indicators across other endpoints, prioritizing systems accessed by the same `user.id` and systems with similar `file.path` patterns.
+- Account actions:
+  - If account misuse is suspected, follow organizational procedures to contain the account (for example, credential reset and session revocation) and review recent activity for additional suspicious behavior.
+- Recovery and hardening:
+  - Verify PowerShell logging coverage and retention are sufficient for incident response, and monitor for recurrence of similar reversed-keyword patterns on affected hosts and users.
 """
 risk_score = 21
 rule_id = "f38633f4-3b31-4c80-b13d-e77c70ce8254"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "low"
 tags = [
@@ -111,7 +141,10 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     _id,
     _version,
     _index,
-    agent.id
+    host.name,
+    host.id,
+    agent.id,
+    user.id
 
 // Filter for scripts that match the pattern at least twice
 | where Esql.script_block_pattern_count >= 2
@@ -153,3 +186,21 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
