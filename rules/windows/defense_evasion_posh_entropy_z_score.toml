@@ -34,9 +34,9 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Script Block Entropy Outlier via MAD Z-Score
 
-This rule detects PowerShell Script Block Logging events (Event ID 4104) where the script block's character entropy is an outlier relative to baselines computed over a short lookback period. High-entropy PowerShell content is commonly observed when scripts are encoded, compressed, encrypted, or otherwise obfuscated (for example, long Base64 blobs, compressed payloads, randomized variable names, or embedded binary data).
+This rule identifies PowerShell script block logging events where the script block text is an entropy outlier compared to recent host and global baselines using MAD-based z-scores. High-entropy script blocks are commonly produced by obfuscation (encoding, compression, encryption) or embedded binary/serialized content, but can also appear in legitimate administration and deployment workflows.
 
-Because the rule relies on statistically derived baselines, interpretation is best when you review the alert's scoring fields alongside the script content and surrounding execution context (host, user, and nearby process activity).
+Prioritize analysis by combining the anomaly score with the script content and execution context. Focus on reconstructing the full script, identifying any decode-and-execute chain, and scoping related activity on the same host and user around the alert time.
 
 #### Key alert fields to review
 
@@ -56,57 +56,62 @@ Because the rule relies on statistically derived baselines, interpretation is be
 
 #### Possible investigation steps
 
-- Validate the basic context:
-  - Identify the affected `host.name` and `user.name` / `user.id`.
-  - Confirm whether this user/host commonly executes large PowerShell scripts (administration, EDR tooling, software deployment, configuration management).
+- Assess alert confidence and prioritization:
+  - Review `Esql.entropy_score` to understand the strength of the anomaly (higher values generally indicate a more extreme outlier).
+  - Compare `Esql.host_z` and `Esql.global_z` to determine whether the activity is host-specific, broadly common across the environment, or both.
+  - Use `Esql.w_host`, `Esql.host_block_n`, and `Esql.global_block_n` to judge baseline stability. Low sample sizes reduce confidence and should increase emphasis on corroborating evidence.
 
-- Review the script block content (`powershell.file.script_block_text`) and look for common obfuscation indicators:
-  - Long Base64-like strings and decoding functions (for example, `FromBase64String`, `-enc`, custom Base64 routines).
-  - Compression/decompression patterns (for example, GZip/Deflate APIs, byte array inflation, stream decompression).
-  - Dynamic execution patterns (for example, `IEX`/`Invoke-Expression`, `Invoke-Command`, reflection-based loading, `Add-Type`, `Assembly::Load`).
-  - Heavy use of string concatenation, character arrays, arithmetic/XOR loops, or randomized variable/function names.
+- Reconstruct the full script content before making a determination:
+  - Pivot on `powershell.file.script_block_id` and collect all events for the same host around the alert time.
+  - Use `powershell.sequence` and `powershell.total` to order fragments and confirm completeness. Missing fragments can hide the initial staging logic or final payload execution.
+  - Review the reconstructed `powershell.file.script_block_text` for the full execution flow, not just the highest-entropy fragment.
 
-- Determine whether the content is simply "high entropy" or actually suspicious:
-  - If the script block contains a large, single encoded blob, attempt safe offline decoding (Base64 -> decompress -> deobfuscate) and assess the resulting content.
-  - If the script block appears to be a legitimate installer or automation artifact, identify the owning software/package and confirm provenance (publisher, expected path, expected execution time).
+- Analyze the script block for obfuscation and staging patterns:
+  - Identify large encoded or compressed blobs and their surrounding wrapper code that performs decoding/decompression.
+  - Look for dynamic execution primitives (for example, indirect invocation and reflection-based loading) that may indicate staged payload execution.
+  - Note indicators of runtime code generation such as heavy string concatenation, character array assembly, arithmetic/XOR loops, or randomized identifiers.
+  - Use `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, `powershell.file.script_block_unique_symbols`, and `powershell.file.script_block_length` to characterize whether the content is mostly uniform random-looking data, mixed code-and-data, or unusually large scripted logic.
 
-- Correlate with surrounding activity on the same host around the alert time:
-  - If you have process creation telemetry (for example, Windows Security 4688, Sysmon Event ID 1, or endpoint process events), pivot by host and timestamp to identify:
-    - The PowerShell host process (`powershell.exe`, `pwsh.exe`, `powershell_ise.exe`) and its parent process.
-    - Command-line flags associated with abuse (`-EncodedCommand`, `-ExecutionPolicy Bypass`, `-NoProfile`, hidden window styles).
-  - Look for follow-on behaviors (file writes, scheduled tasks, registry changes, network connections) that align with post-exploitation activity.
+- Determine likely script origin and execution context:
+  - Review `user.name` and `user.id` to determine whether the execution aligns with expected administrative activity for the account.
+  - Use `host.name` and `host.id` to understand the role of the host (workstation, server, jump host) and whether similar alerts are common on that asset.
+  - If `file.path` or `file.name` is present, treat it as potential on-disk origin and validate whether the path and filename are expected for that host and user activity. If absent, the script may be interactive, remotely delivered, or generated in memory.
 
-- Assess prevalence and scope:
-  - Search for other script blocks with similarly high `powershell.file.script_block_entropy_bits` or `powershell.file.script_block_surprisal_stdev` on the same host.
-  - Check whether the same user is generating similar outliers across multiple hosts (possible credential compromise or an automation job running widely).
+- Correlate with adjacent telemetry to confirm execution and impact (if available in your environment):
+  - Identify the PowerShell host process instance and its parent process responsible for executing the script. Unexpected parent processes or unusual launch context can increase suspicion.
+  - Review activity immediately before and after the alert time for evidence of staging or follow-on actions such as network retrieval, file writes, persistence, or credential access.
+  - Look for additional PowerShell script blocks on the same host/user that reference the same decoded content, downloaded resources, or follow-on execution.
+
+- Scope and hunt for related activity using alert fields:
+  - Search for other alerts or events on the same `host.id` with similar `powershell.file.script_block_entropy_bits` and elevated `Esql.entropy_score`.
+  - Search for the same `user.id` producing outliers across multiple `host.id` values, which may indicate automated distribution or credential misuse.
+  - If `file.path` is present, identify other hosts or users executing script blocks that reference the same path/name to determine whether the behavior is part of a legitimate rollout or targeted activity.
 
 ### False positive analysis
 
-- Legitimate sources of high-entropy PowerShell script blocks commonly include:
-  - Software deployment and endpoint management tooling (packaged scripts, embedded resources, signed admin scripts).
-  - Installers/updaters that embed compressed content or serialized objects.
-  - Security products or IT scripts that bundle binaries/configuration as encoded strings.
-  - Automation frameworks that generate large scripts dynamically.
+- Benign high-entropy script blocks can occur when tooling embeds compressed or serialized data inside PowerShell, including:
+  - Software deployment, configuration management, and installer frameworks that package payloads as encoded strings.
+  - Enterprise administration tooling that generates large scripts dynamically or transmits content in encoded form.
+  - Security and IT operations tooling that bundles resources inside scripts for portability.
 
-- Triage tips to reduce noise while preserving detection value:
-  - Prefer allowlisting by trusted script origin (known paths, known publishers, known management accounts) rather than suppressing by entropy alone.
-  - Use the scoring context:
-    - Alerts dominated by global baseline anomalies may indicate broadly used tooling in the environment.
-    - Alerts with strong host-local anomalies (high `Esql.w_host` and high `Esql.host_z`) may better indicate host-specific suspicious activity.
+- Use these signals to separate common tooling from suspicious activity:
+  - Environment-wide commonality: similar anomalies across many hosts with comparable content often indicate a shared tool or rollout, especially when `Esql.global_z` is elevated.
+  - Host-local rarity: anomalies isolated to a single host or user, particularly when `Esql.host_z` is elevated and baselines are stable, warrant deeper review.
+  - Content structure: benign scripts often have recognizable wrapper logic and consistent formatting, while malicious staging commonly combines decoding with immediate execution and minimal operator-readable context.
 
 ### Response and remediation
 
-- If the script content is confirmed or strongly suspected malicious:
-  - Isolate the affected host to prevent further execution and lateral movement.
-  - Capture relevant artifacts (full script block text, decoded payloads, related dropped files, persistence mechanisms).
-  - Hunt for related activity across the environment (similar encoded strings, similar decoded payload content, repeated outlier scoring).
-  - Identify and remediate the initial access vector (phishing attachment, drive-by download, compromised admin credential, vulnerable service).
-  - Reset credentials for impacted accounts and review privileged access paths used on the host.
+- If the script content or surrounding context is suspicious:
+  - Contain the affected host using established incident response procedures.
+  - Preserve evidence needed for follow-up: the full reconstructed `powershell.file.script_block_text`, associated `powershell.file.script_block_id` fragments, and the anomaly fields that explain why it was flagged.
+  - Perform decoding/decompression analysis in a controlled environment and capture any resulting payloads or secondary scripts for detection engineering and threat hunting.
+  - Expand scoping using `host.id`, `user.id`, and `file.path` (when present) to identify additional impacted systems or accounts.
+  - Review account activity for the involved `user.id` and apply credential hygiene actions as appropriate (for example, reset credentials and review privilege assignments for compromised or misused accounts).
 
-- If the script content is benign but noisy:
-  - Document the legitimate source (tool name, owner team, expected schedule, expected hosts).
-  - Add targeted exceptions (for example, trusted management accounts, known script paths, or known benign script identifiers where available).
-  - Consider strengthening PowerShell governance (script signing enforcement, constrained language mode where feasible, and tighter administrative scripting controls).
+- If the activity is confirmed benign:
+  - Document the legitimate source (tool, owner, normal schedule, and expected hosts/accounts) and retain a sample of the script content for future comparisons.
+  - Monitor for drift: new versions of legitimate tooling may change script structure and entropy characteristics and can present similarly to obfuscation.
+  - Ensure PowerShell governance and visibility controls are aligned with policy (logging coverage, least privilege for scripting accounts, and controlled use of administrative scripting).
 """
 risk_score = 21
 rule_id = "23826d38-92a0-4d14-91ca-d43c265ec153"
