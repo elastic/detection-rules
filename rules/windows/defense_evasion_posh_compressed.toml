@@ -32,8 +32,6 @@ This rule flags PowerShell script blocks that decode Base64 data and decompress 
 - `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
 - `powershell.file.script_block_text`: Script block content that matched the detection logic.
 - `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
-- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
 - `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
 - `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
 - `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
@@ -64,8 +62,6 @@ This rule flags PowerShell script blocks that decode Base64 data and decompress 
     - Transform routines (decode, decrypt, decompress) that produce secondary content.
     - Secondary execution patterns where transformed content is immediately evaluated or invoked.
     - Embedded external references (URLs, domains, IPs) or instructions to write content to disk.
-  - Use `Esql.script_block_tmp` to quickly locate marked areas that contributed to scoring, then compare those locations against `powershell.file.script_block_text` for precise context.
-  - Use `Esql.script_block_pattern_count` to understand how many match locations were observed and to help prioritize alerts with more concentrated suspicious constructs.
 
 - Rebuild full content when script blocks are split across events:
   - Pivot on `powershell.file.script_block_id` to collect all related fragments.
