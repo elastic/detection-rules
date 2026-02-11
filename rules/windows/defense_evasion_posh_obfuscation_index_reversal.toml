@@ -118,6 +118,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     Esql.script_block_length,
     Esql.script_block_tmp,
     powershell.file.*,
+    file.name,
     file.path,
     powershell.sequence,
     powershell.total,
@@ -134,6 +135,10 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // FP Patterns
 | where not powershell.file.script_block_text like "*GENESIS-5654*"
+
+| where file.name not like ("PSFzf.psm1", "Tenable_API_AssetLists_IPv6Seeder.ps1", "Utility.ps1")
+  // ESQL requires this condition, otherwise it only returns matches where file.name exists.
+  or file.name is null
 '''
 
 
