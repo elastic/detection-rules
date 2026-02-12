@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the unusual use of csrutil by a macOS application to check System Integrity Protection (SIP) status. 
+While not malicious in itself, this activity is highly indicative of malware verifying it is not running 
+in a virtual machine or protected environment prior to executing its payload.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious SIP Check by macOS Application"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious SIP Check by macOS Application
+
+This rule detects a macOS application bundle launching `csrutil status` and explicitly parsing for “enabled,” an uncommon behavior that often signals preflight environment checks. Attackers use this to confirm System Integrity Protection constraints before deciding whether to attempt persistence, injection, or privilege escalation, or to abort execution to avoid analysis. A common pattern is a trojanized app from a mounted disk image performing the SIP check immediately after first launch, then conditionally unpacking and running a secondary payload.
+
+### Possible investigation steps
+
+- Identify the initiating application bundle and validate its provenance by reviewing its code signature, notarization status, Team ID, and download origin (e.g., Gatekeeper quarantine attributes and DMG mount source).  
+- Build a short timeline around the SIP check to see what executed next from the same parent chain (new processes, scripts, installers, or command interpreters) and whether execution diverged after reading “enabled.”  
+- Inspect the app’s bundle contents and related file activity for dropped binaries, launch agents/daemons, login items, or modified plist files that indicate persistence or staged payload execution.  
+- Look for follow-on discovery and defense-evasion behavior on the host (e.g., VM/sandbox checks, system profiling, security tool enumeration, permission prompts abuse) that would support a malware preflight workflow.  
+- If suspicious, isolate the host and collect the app bundle, associated DMG, and execution artifacts for detonation and reverse engineering, then hunt for the same app hash/Team ID across the fleet.
+
+### False positive analysis
+
+- A legitimate enterprise-managed macOS application performing a preflight compatibility or supportability check may invoke `csrutil status` and look for “enabled” to decide whether to proceed with installing drivers, configuring system settings, or enabling features that require SIP-related constraints awareness.  
+- A user-initiated security/compliance workflow from a GUI app (e.g., a system configuration, diagnostic, or remediation utility distributed as an `.app` from `/Applications` or a mounted volume) may run `csrutil status` and parse for “enabled” to display a health report or to gate remediation instructions without any malicious follow-on activity.
+
+### Response and remediation
+
+- Isolate the affected macOS host from the network and prevent further execution by quitting the initiating `.app` and blocking its bundle identifier/hash via MDM/EDR policy.  
+- Acquire and preserve artifacts for analysis, including the full `.app` bundle, the originating DMG/ZIP (if launched from `/Volumes`), Gatekeeper quarantine metadata, and recent install logs to trace the download source and execution chain.  
+- Eradicate by removing the suspicious application and any follow-on components it created (new LaunchAgents/LaunchDaemons, Login Items, cron entries, and dropped executables in user and system Library paths), then terminate any child processes spawned after the SIP check.  
+- Recover by reinstalling trusted software from known-good sources, rotating credentials used on the host since the first execution, and monitoring for re-creation of persistence files or repeated `csrutil status` checks from application bundles.  
+- Escalate to incident response if the app is unsigned/notarization-failed, originates from a mounted volume or user Downloads, or if post-check activity includes attempts to modify security settings, write to persistence locations, or launch interpreters like `bash`, `zsh`, `python`, or `osascript`.  
+- Harden by enforcing only notarized/signed app execution (Gatekeeper/MDM restrictions), blocking untrusted apps from removable/mounted volumes, and deploying detections for app-bundled execution of `csrutil` and subsequent persistence creation.
+"""
+risk_score = 47
+rule_id = "1615230f-beb7-48d8-9b3f-6d10674703bf"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.command_line like "*csrutil*status*" and
+  process.command_line like "*enabled*" and
+  (process.parent.executable like "/*.app/*" or
+   process.parent.executable like "/Applications/*.app/*" or
+   process.parent.executable like "/Volumes/*.app/*") and
+  not process.parent.executable == "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Information Discovery"
+  id = "T1082"
+  reference = "https://attack.mitre.org/techniques/T1082/"
+
+  [[rule.threat.technique]]
+  name = "Virtualization/Sandbox Evasion"
+  id = "T1497"
+  reference = "https://attack.mitre.org/techniques/T1497/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "System Checks"
+    id = "T1497.001"
+    reference = "https://attack.mitre.org/techniques/T1497/001/"
