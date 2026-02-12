@@ -47,15 +47,15 @@ type = "esql"
 query = '''
 from .alerts-security.*
 
-// Truncate timestamp to 5-minute window
+// truncate timestamp to 5-minute window
 | eval Esql.time_window_date_trunc = date_trunc(5 minutes, @timestamp)
 
-// any alerts excluding low severity and the noisy ones
+// high severity alerts excluding system standard user.ids
 | where kibana.alert.rule.name is not null and user.name is not null and kibana.alert.risk_score >= 73 and
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and
         not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")
 
-// group alerts by user.name and extract values of interest for alert triage
+// group alerts by time and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
         Esql.user_name_distinct_count = COUNT_DISTINCT(user.name),
         Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
@@ -73,7 +73,7 @@ from .alerts-security.*
         Esql.rule_severity_values = VALUES(kibana.alert.risk_score),
         Esql.user_name_values = VALUES(user.name) by Esql.time_window_date_trunc
 
-// filter for alerts from different integrations with unique categories and with different severity levels
+// filter for alerts from different integrations with unique categories
 | where Esql.event_module_distinct_count >= 2 and Esql.user_name_distinct_count >= 2 and Esql.event_category_distinct_count >= 2
 
 // build context for LLM analysis
