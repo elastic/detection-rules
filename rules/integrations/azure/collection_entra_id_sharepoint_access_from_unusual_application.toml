@@ -2,7 +2,7 @@
 creation_date = "2025/05/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/02/04"
+updated_date = "2026/02/12"
 
 [rule]
 author = ["Elastic"]
@@ -31,10 +31,10 @@ from = "now-9m"
 index = ["logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Entra ID Sharepoint or OneDrive Accessed by Unusual Application"
+name = "Entra ID Sharepoint or OneDrive Accessed by Unusual Client"
 note = """## Triage and analysis
 
-### Investigating Entra ID Sharepoint or OneDrive Accessed by Unusual Application
+### Investigating Entra ID Sharepoint or OneDrive Accessed by Unusual Client
 
 This rule identifies when an application accesses SharePoint Online or OneDrive for Business for the first time in the tenant. This is a critical signal for detecting successful OAuth phishing campaigns, where adversaries trick users into granting consent to malicious applications. Once consent is granted, the malicious app can persistently access file storage without further user interaction. This detection also catches illicit consent grants, compromised third-party applications, or custom malicious apps registered by adversaries.
 
@@ -88,6 +88,7 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
+    "Domain: Storage",
     "Use Case: Identity and Access Audit",
     "Tactic: Collection",
     "Data Source: Azure",
@@ -99,20 +100,20 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "azure.signinlogs"
+event.dataset:azure.signinlogs
     and azure.signinlogs.properties.resource_id: (
-        "00000003-0000-0ff1-ce00-000000000000" or
-        "6a9b9266-8161-4a7b-913a-9eda19da220"
+        00000003-0000-0ff1-ce00-000000000000 or
+        6a9b9266-8161-4a7b-913a-9eda19da220
+    ) and azure.signinlogs.properties.app_id: ( *
+        and not (
+            00000003-0000-0ff1-ce00-000000000000 or
+            08e18876-6177-487e-b8b5-cf950c1e598c or
+            ab9b8c07-8f02-4f72-87fa-80105867a763 or
+            af124e86-4e96-495a-b70a-90f90ab96707
+        )
     )
-    and azure.signinlogs.properties.app_id: *
-    and azure.signinlogs.properties.tenant_id: *
-    and event.outcome: success
-    and not azure.signinlogs.properties.app_id: (
-        "00000003-0000-0ff1-ce00-000000000000" or
-        "ab9b8c07-8f02-4f72-87fa-80105867a763" or
-        "af124e86-4e96-495a-b70a-90f90ab96707" or
-        "08e18876-6177-487e-b8b5-cf950c1e598c"
-    )
+    and azure.signinlogs.properties.tenant_id:*
+    and event.outcome:success
 '''
 
 
