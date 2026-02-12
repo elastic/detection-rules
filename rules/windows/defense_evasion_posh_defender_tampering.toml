@@ -2,84 +2,112 @@
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/09/15"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell scripts containing cmdlets and parameters that attackers can abuse to disable Windows Defender
-features. Attackers can tamper with antivirus to reduce the risk of detection when executing their payloads.
+Detects PowerShell scripts that uses Set-MpPreference with parameters that disable or weaken Defender.
+Attackers tamper with antivirus settings to reduce detection and enable follow-on payload execution.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Windows Defender Tampering Capabilities"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
 ### Investigating PowerShell Script with Windows Defender Tampering Capabilities
 
-PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell to disable Windows Defender features, reducing detection risks. The detection rule identifies scripts attempting to modify Defender settings, such as disabling real-time monitoring, by analyzing script block text for specific cmdlets and parameters, while excluding legitimate processes and users.
+This alert highlights PowerShell script block activity that attempts to change Windows Defender preferences in ways that can reduce host protections. These changes are frequently used to create a window for follow-on execution (for example, staging payloads, running tools, or maintaining access with reduced scanning and response).
 
-### Possible investigation steps
+Triage should focus on (1) what protections were targeted and how, (2) who initiated the change and on which host(s), (3) whether the change took effect and persisted, and (4) whether there is surrounding activity that suggests initial access or follow-on malicious actions.
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine the script's execution context, such as the user account, privileges, the role of the system on which it was executed, and any relevant timestamps.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Investigate the origin of the PowerShell script, including its source, download method, and any associated URLs or IP addresses.
-- Use the Get-MpPreference cmdlet to check defender settings for the host. Revert them to the desired state if needed.
-- Check for Files written and executed after the settings were changed.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Review the script block content and determine the intended Defender impact:
+  - Inspect `powershell.file.script_block_text` and enumerate each `Set-MpPreference` parameter present.
+  - Capture whether the script is disabling protections (for example, real-time monitoring, script scanning, network file scanning) or changing default threat actions (low/moderate/high) to more permissive outcomes.
+  - Note whether the script changes multiple settings in one execution, repeats the changes, or includes additional logic that suggests deliberate defense impairment rather than a single configuration adjustment.
+
+- Reconstruct full script content when it is split across multiple events:
+  - If `powershell.total` is greater than 1, pivot on `powershell.file.script_block_id` and order fragments by `powershell.sequence` to rebuild the full script.
+  - Ensure you capture all fragments for the same `powershell.file.script_block_id` on the same `host.id` and `user.id` near the alert time; missing fragments can hide follow-on behavior embedded in later chunks.
+
+- Establish scope across hosts and accounts:
+  - Use `@timestamp`, `host.name` / `host.id`, and `user.name` / `user.domain` / `user.id` to determine whether the activity is isolated or distributed.
+  - Look for the same user context making similar changes across multiple hosts in a short time window (suggesting automation or compromised credentials).
+  - Look for multiple distinct user contexts making similar changes on the same host (suggesting lateral movement or multiple access paths).
+
+- Determine the execution and origin context:
+  - If `file.path` or `file.name` is populated, treat the activity as file-backed scripting and capture the location for scoping (where else this script exists, who can write to it, and when it was last introduced).
+  - If the file fields are not populated, treat the activity as potentially interactive or dynamically generated content and expand the search for adjacent script blocks from the same `user.id` on the same `host.id` around `@timestamp` to identify staging, execution flow, or repeated attempts.
+
+- Validate whether Defender settings were actually changed and whether the change persisted:
+  - Using available endpoint security telemetry and configuration auditing, validate whether the targeted preferences were applied on the affected host(s) and whether they remained in the weakened state after the alert time.
+  - Compare against your approved baseline for Defender settings and identify deviations that would materially reduce protection coverage.
+
+- Correlate with adjacent activity to identify initial access and follow-on execution:
+  - Correlate by `host.id` and time to nearby process activity to identify the PowerShell host process and its launching context (interactive use vs scheduled/automated execution vs another process initiating PowerShell).
+  - Review file and network telemetry around the same time for indicators of payload staging or execution (new files written, unusual outbound connections, or repeated attempts after the change).
+  - Check for repeated Defender preference modifications over time on the same host (suggesting persistent tampering) and for other suspicious activity tied to the same `user.id`.
 
 ### False positive analysis
 
-- Legitimate administrative scripts may trigger the rule if they use Set-MpPreference cmdlets for valid configuration changes. To handle this, review the script's purpose and source, and consider adding exceptions for trusted scripts or users.
-- Automated system management tools might use similar cmdlets for routine maintenance. Identify these tools and exclude their processes or directories from the rule to prevent unnecessary alerts.
-- Security software updates or installations could temporarily disable certain Defender features. Monitor these activities and whitelist known update processes to avoid false positives.
-- PowerShell scripts executed by system administrators for troubleshooting may appear suspicious. Verify the user ID and script content, and exclude known administrator accounts from the rule if they frequently perform such tasks.
+Legitimate activity can modify Defender preferences, but it should be explainable, consistent, and controlled.
+
+- Common benign drivers:
+  - Approved endpoint management or administrative maintenance that adjusts scanning behavior for performance or operational compatibility.
+  - Controlled troubleshooting where settings are temporarily changed and later restored.
+
+- Validation questions to reduce uncertainty:
+  - Does `user.id` map to an expected administrative or management identity for this host population?
+  - Is the activity aligned with known maintenance windows, change records, and documented procedures?
+  - Is `file.path` (when present) consistent with a known, maintained script location, and does the script content align with an approved baseline?
+
+If the activity is benign, document the owner, expected scope (hosts/users), expected recurrence, and the intended steady-state protection posture.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Reimage the host operating system or restore the compromised files to clean versions.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+If the activity is unauthorized or suspicious, treat it as a defense evasion attempt with potential follow-on actions.
+
+- Contain and preserve evidence:
+  - Prioritize affected endpoints identified by `host.id` / `host.name` and preserve relevant evidence, including the full reconstructed script from `powershell.file.script_block_id` and `powershell.file.script_block_text`.
+  - Capture the initiating identity context (`user.name`, `user.domain`, `user.id`) for incident scoping and credential review.
+
+- Restore protections and eliminate the change source:
+  - Restore Windows Defender preferences to the approved baseline using authorized operational processes and verify protections are active.
+  - If `file.path` is present, identify the responsible script and remove or disable unauthorized automation that applies the changes.
+  - If the activity appears user-driven or interactive, investigate how the user obtained execution capability on the host and address the root cause.
+
+- Address potential account compromise and lateral movement:
+  - Review recent activity associated with the initiating account and affected hosts for signs of credential misuse, unexpected access patterns, or follow-on execution.
+  - Apply appropriate credential remediation for impacted identities and review privileged access assignments relevant to the affected endpoints.
+
+- Scope and monitor:
+  - Hunt for the same Defender-tampering parameters within `powershell.file.script_block_text` across other hosts and users to identify additional impacted systems.
+  - Continue monitoring for recurrence of similar preference changes tied to the same `user.id`, as repeated tampering may indicate persistence or an active intrusion.
 """
-risk_score = 21
+risk_score = 47
 rule_id = "c124dc1b-cef2-4d01-8d74-ff6b0d5096b6"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -148,4 +176,23 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 
