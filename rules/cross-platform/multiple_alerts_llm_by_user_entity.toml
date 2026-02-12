@@ -80,7 +80,7 @@ from .alerts-security.*
 | eval users_list = MV_CONCAT(Esql.user_name_values, ",")
 
 // LLM analysis
-| eval instructions = "Analyze the provided user names and return a boolean value true if they may benlong to the same identify even with a confidence score of 70% and above or false if not. If the list o users has more than 2 users and only a 2 of them are similar consider this as true. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 500 words> without any other response statements on a single line."
+| eval instructions = "Analyze the provided user names and return a boolean value true if they may benlong to the same identify even with a confidence score of 70% and above or false if not. If the list of users has more than 2 users and only 2 of them are similar consider this as true. Structure the output as follows: verdict=<verdict> confidence=<score> summary=<short reason max 500 words> without any other response statements on a single line."
 | eval prompt = CONCAT("User identities extracted from different alerts: ", users_list, instructions)
 | COMPLETION triage_result = prompt WITH { "inference_id": ".gp-llm-v2-completion"}
 
