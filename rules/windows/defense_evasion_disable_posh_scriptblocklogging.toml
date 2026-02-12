@@ -2,13 +2,13 @@
 creation_date = "2022/01/31"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to disable PowerShell Script Block Logging via registry modification. Attackers may disable this
-logging to conceal their activities in the host and evade detection.
+Detects registry changes that disable PowerShell Script Block Logging. Attackers may disable this logging to conceal
+their activities in the host and evade detection.
 """
 from = "now-9m"
 index = [
@@ -25,43 +25,77 @@ license = "Elastic License v2"
 name = "PowerShell Script Block Logging Disabled"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating PowerShell Script Block Logging Disabled
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, making it available in various environments and creating an attractive way for attackers to execute code.
+This alert indicates a registry modification that set `EnableScriptBlockLogging` to a disabled value (`registry.data.strings` of `0` or `0x00000000`). Disabling Script Block Logging reduces visibility into PowerShell execution and is commonly used to evade detection, especially when followed by script-driven activity.
 
-PowerShell Script Block Logging is a feature of PowerShell that records the content of all script blocks that it processes, giving defenders visibility of PowerShell scripts and sequences of executed commands.
+#### Key alert fields to review
+
+- `process.executable`: The process responsible for modifying the registry value.
+- `registry.value`: The registry value name that was changed (`EnableScriptBlockLogging`).
+- `registry.data.strings`: The new data indicating the setting was disabled.
+- `registry.path`: The full registry path of the modified value.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
 
 #### Possible investigation steps
 
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Check whether it makes sense for the user to use PowerShell to complete tasks.
-- Investigate if PowerShell scripts were run after logging was disabled.
+- Establish the affected endpoint and time window:
+  - Use `host.name`, `host.id`, and `@timestamp` to identify the impacted endpoint and define a review window (include activity immediately before and after the change).
+  - Prioritize based on endpoint role and criticality (for example, servers and admin workstations).
+
+- Validate the registry change and its scope:
+  - Review `registry.path`, `registry.value`, and `registry.data.strings` to confirm the setting was disabled and to understand where it was applied.
+  - Compare `registry.path` to common policy locations for Script Block Logging (for example, `HKEY_LOCAL_MACHINE\\Software\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging`).
+  - Determine whether the change is likely machine-wide or user-scoped based on the hive reflected in `registry.path`, and assess the blast radius accordingly.
+  - Check for repeated changes (toggling) to the same `registry.path` and `registry.value` around the alert time, which can indicate attempted evasion or policy enforcement conflicts.
+
+- Identify the modifying process and execution context:
+  - Review `process.executable` for legitimacy (expected binary name, expected install path) and whether it typically performs configuration changes.
+  - Pivoting using `process.entity_id`, review `process.command_line` to understand how the value was set and whether the command line suggests interactive administration, scripts, or automation.
+  - Using nearby endpoint process telemetry on the same host, reconstruct the process tree to identify the initiating process (parent) and any immediate follow-on execution that may have benefited from reduced PowerShell logging.
+
+- Assess the user context and authorization:
+  - Review `user.name`, `user.domain`, and `user.id` to determine whether the account is expected to manage logging or policy settings on this endpoint.
+  - If the change is attributed to a service or system context, identify the associated service, scheduled activity, or management workflow that could have performed the modification.
+  - Scope the user across other hosts for similar activity during the same window to identify potential credential misuse.
+
+- Hunt for related activity that may be masked by reduced logging:
+  - Review host activity immediately before the change for suspicious behavior that could explain the need to disable Script Block Logging (initial access, privilege escalation, or tool staging).
+  - Review host activity after the change for suspicious process launches, script interpreter activity, persistence attempts, credential access behavior, or lateral movement indicators.
+  - Review network activity from the host around the change for connections consistent with payload retrieval, remote access, or command and control.
+  - Review other registry changes around the same time that may further impair visibility or weaken defenses.
+
+- Scope and impact assessment across the environment:
+  - Search for other instances where `registry.value` is `EnableScriptBlockLogging` and `registry.data.strings` indicates a disabled state to determine whether this is isolated or widespread.
+  - Pivot on `process.executable` and `user.id` to identify other endpoints where the same process or account modified this setting.
+  - Identify whether the setting was later restored on the same host by looking for subsequent changes to the same `registry.path` and `registry.value`.
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Related rules
-
-- PowerShell Suspicious Discovery Related Windows API Functions - 61ac3638-40a3-44b2-855a-985636ca985e
-- PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
-- PowerShell Suspicious Script with Audio Capture Capabilities - 2f2f4939-0b34-40c2-a0a3-844eb7889f43
-- Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
-- Suspicious .NET Reflection via PowerShell - e26f042e-c590-4e82-8e05-41e81bd822ad
-- PowerShell Suspicious Payload Encoded and Compressed - 81fe9dc6-a2d7-4192-a2d8-eed98afc766a
-- PowerShell Suspicious Script with Screenshot Capabilities - 959a7353-1129-4aa7-9084-30746b256a70
+- Authorized policy, baseline, or hardening changes that intentionally modify PowerShell logging settings, supported by change records and consistent execution by expected accounts and tooling.
+- Provisioning or imaging workflows where configuration changes occur during early host lifecycle stages and are consistent across a known deployment batch.
+- Short-lived administrative troubleshooting where the setting is temporarily changed and promptly restored, with supporting documentation.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the change is unexpected or suspicious:
+  - Treat as potential defense evasion and escalate according to incident response procedures.
+  - Contain the endpoint if there are indicators of follow-on malicious activity in the surrounding timeframe.
+  - Preserve evidence related to the change, including `process.executable`, `process.command_line`, user context, and any correlated endpoint telemetry.
+
+- Restore and enforce PowerShell visibility:
+  - Re-enable Script Block Logging using approved administrative processes and verify the setting persists through policy enforcement.
+  - Monitor for repeated attempts to disable Script Block Logging, especially from the same user or originating process.
+
+- Remediate root cause and reduce recurrence:
+  - Identify and remove unauthorized tooling or persistence associated with the modifying process.
+  - Investigate potential account compromise for the associated user and take appropriate actions (credential reset and access review), prioritizing privileged accounts.
+  - Hunt for additional endpoints impacted by the same user or process and remediate as needed.
+  - Apply least-privilege controls to limit who can modify logging-related registry settings and improve alerting for additional defense impairment behaviors observed during the investigation window.
 """
 references = [
     "https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.PowerShell::EnableScriptBlockLogging",
@@ -93,12 +127,14 @@ registry where host.os.type == "windows" and event.type == "change" and
           "?:\\Windows\\System32\\svchost.exe",
           "?:\\Windows\\System32\\DeviceEnroller.exe",
           "?:\\Windows\\system32\\omadmclient.exe",
+          "?:\\Program Files\\Trend Micro\\Cloud Endpoint\\CloudEndpointService.exe",
           "?:\\Program Files (x86)\\N-able Technologies\\AutomationManagerAgent\\AutomationManager.AgentService.exe",
           
           /* Crowdstrike specific exclusion as it uses NT Object paths */
           "\\Device\\HarddiskVolume*\\Windows\\System32\\svchost.exe",
           "\\Device\\HarddiskVolume*\\Windows\\System32\\DeviceEnroller.exe",
           "\\Device\\HarddiskVolume*\\Windows\\system32\\omadmclient.exe",
+          "\\Device\\HarddiskVolume*\\Program Files\\Trend Micro\\Cloud Endpoint\\CloudEndpointService.exe",
           "\\Device\\HarddiskVolume*\\Program Files (x86)\\N-able Technologies\\AutomationManagerAgent\\AutomationManager.AgentService.exe"
     )
 '''
@@ -126,4 +162,19 @@ reference = "https://attack.mitre.org/techniques/T1562/002/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "registry.path",
+    "registry.value",
+    "registry.data.strings",
+    "process.executable",
+    "process.entity_id",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "user.domain"
+]
 
