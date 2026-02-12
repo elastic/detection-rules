@@ -51,7 +51,7 @@ from .alerts-security.*
 | eval Esql.time_window_date_trunc = date_trunc(5 minutes, @timestamp)
 
 // high severity alerts excluding system standard user.ids
-| where kibana.alert.rule.name is not null and user.name is not null and kibana.alert.risk_score >= 73 and
+| where kibana.alert.rule.name is not null and user.name is not null and kibana.alert.risk_score >= 73 and kibana.alert.workflow_status == "open" and 
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and
         not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")
 
