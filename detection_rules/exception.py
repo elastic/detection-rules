@@ -228,6 +228,23 @@ class TOMLException:
             pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
 
 
+def _deduplicate_comments(item: dict[str, Any]) -> dict[str, Any]:
+    """Remove duplicate comments from an exception item by comment text."""
+    item = dict(item)
+    comments: list[str] | None = item.get("comments")
+    if not isinstance(comments, list) or not comments:
+        return item
+    seen_texts: set[str] = set()
+    deduplicated: list[str] = []
+    for comment in comments:
+        if comment in seen_texts:
+            continue
+        seen_texts.add(comment)
+        deduplicated.append(comment)
+    item["comments"] = deduplicated
+    return item
+
+
 def parse_exceptions_results_from_api(
     results: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any], list[str], list[dict[str, Any]]]:
@@ -235,6 +252,7 @@ def parse_exceptions_results_from_api(
     exceptions_containers: dict[str, Any] = {}
     exceptions_items: dict[str, list[Any]] = defaultdict(list)
     unparsed_results: list[dict[str, Any]] = []
+    seen_item_ids: set[str] = set()
 
     for result in results:
         result_type = result.get("type")
@@ -244,7 +262,13 @@ def parse_exceptions_results_from_api(
             if result_type in get_args(definitions.ExceptionContainerType):
                 exceptions_containers[list_id] = result
             elif result_type in get_args(definitions.ExceptionItemType):
-                exceptions_items[list_id].append(result)
+                item_id = result.get("item_id")
+                if item_id is not None and item_id in seen_item_ids:
+                    continue
+                item = _deduplicate_comments(result)
+                if item_id is not None:
+                    seen_item_ids.add(item_id)
+                exceptions_items[list_id].append(item)
         else:
             unparsed_results.append(result)
 
