@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/09/05"
+updated_date = "2026/02/10"
 
 
 [rule]
@@ -58,6 +58,7 @@ severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
+    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
@@ -70,16 +71,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and dns.question.name != null and
+network where host.os.type in ("macos", "windows") and dns.question.name != null and
 (
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
-  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
-  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+  "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "regsvr32.exe", "dllhost.exe",
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com", "python*", "osascript", "Script Editor", "curl", "curl.exe", "deno", 
+  "deno.exe", "node", "bun", "bun.exe") or
 
   ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
 
   (
-    process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe") and
+    process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe", "/Users/Shared/*", "/Library/WebServer/*", 
+                          "/Users/*/Library/WebServer/*", "/Library/Graphics/*", "/Users/*/Library/Graphics/*", "/Library/Fonts/*", 
+                          "/Users/*/Library/Fonts/*", "/private/var/root/Library/HTTPStorages/*", "/tmp/*", "/var/tmp/*", "/private/tmp/*") and
     (?process.code_signature.trusted == false or ?process.code_signature.exists == false)
   )
  ) and
@@ -122,7 +126,10 @@ network where host.os.type == "windows" and dns.question.name != null and
     "perplexity.ai",
     "poe.com",
     "chat.forefront.ai",
-    "chat.deepseek.com"
+    "chat.deepseek.com",
+
+    // OpenClaw
+    "openclaw.ai"
   ) and
 
   not process.executable : (
