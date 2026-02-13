@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2021/05/17"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/04"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies the first occurrence of SSO, SAML, or federated authentication errors for a user. These errors may indicate
+token manipulation, SAML assertion tampering, or OAuth phishing attempts. Modern adversaries often target SSO mechanisms
+through token theft, SAML response manipulation, or exploiting federated authentication weaknesses rather than
+traditional brute force attacks.
+"""
+false_positives = [
+    """
+    Initial SSO configuration issues or first-time federation setup errors for legitimate users may trigger this
+    detection. Temporary federation service outages affecting multiple users simultaneously.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Identity Unusual SSO Authentication Errors for User"
+note = """## Triage and analysis
+
+### Investigating M365 Identity Unusual SSO Authentication Errors for User
+
+SSO, SAML, and federated authentication mechanisms are critical infrastructure for modern identity access. Adversaries increasingly
+target these systems through token manipulation, SAML response tampering, OAuth phishing, and exploitation of federated trust
+relationships rather than traditional credential brute forcing. This detection identifies when a user experiences SSO-related
+authentication errors that are unusual for their typical behavior, which may indicate an attacker attempting to abuse stolen tokens or manipulate
+authentication flows.
+
+### Possible investigation steps
+
+- Review the specific error code(s) in the o365.audit.LogonError field to understand the nature of the authentication failure
+  (e.g., token signature failure, SAML assertion tampering, cross-tenant token misuse).
+- Examine the source IP address and geolocation of the authentication attempt - compare against the user's typical login patterns.
+- Check for concurrent authentication activity from the same user - multiple SSO errors alongside successful logins may indicate
+  token replay or session hijacking attempts.
+- Investigate recent OAuth application consent activity for this user - OAuth phishing campaigns often precede SSO manipulation attempts.
+- Review the target application or service principal being accessed during the failed authentication to identify potential attacker objectives.
+- Analyze the user's recent mailbox activity, particularly for phishing emails with OAuth consent links or suspicious authentication requests.
+- Check for any recent changes to the user's federation settings, registered devices, or authentication methods.
+- Correlate with Entra ID risky sign-in detections and risky user alerts for the same account.
+
+### False positive analysis
+
+- First-time SSO setup: Users configuring SSO access to a new federated application may encounter initial authentication errors.
+  Validate whether the errors occurred during expected onboarding windows.
+- Federation service outages: Widespread SSO errors affecting multiple users simultaneously often indicate infrastructure issues
+  rather than targeted attacks. Check for service health incidents in the same timeframe.
+- Certificate rotation: Federated authentication certificate renewals can temporarily cause signature validation errors. Verify
+  if the errors align with planned certificate maintenance.
+- Legitimate cross-tenant access: Users with business relationships across multiple tenants may encounter cross-tenant policy
+  errors during authorized access attempts.
+
+### Response and remediation
+
+- If token manipulation or SAML tampering is suspected, immediately revoke all active sessions and refresh tokens for the affected user.
+- Review and audit all OAuth application consents granted by the user - remove any suspicious or unrecognized applications.
+- Enable Conditional Access policies requiring compliant devices and MFA for SSO authentication if not already enforced.
+- If cross-tenant token misuse is detected, review and restrict external collaboration settings and cross-tenant access policies.
+- For SAML assertion or signature errors, validate the integrity of federation trust certificates and metadata.
+- Investigate whether the user's credentials have been compromised - enforce password reset if credential theft is suspected.
+- Review Entra ID audit logs for unusual application registrations, service principal modifications, or federation setting changes.
+- Escalate to the security operations team if evidence suggests active token theft, SAML Golden Ticket techniques, or OAuth phishing campaigns.
+
+## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+risk_score = 47
+rule_id = "2de10e77-c144-4e69-afb7-344e7127abd0"
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:o365.audit
+    and event.provider:AzureActiveDirectory
+    and event.category:authentication
+    and o365.audit.LogonError:(
+        "SsoArtifactInvalidOrExpired" or
+        "InvalidSamlToken" or
+        "Saml2MessageInvalid" or
+        "SAMLRequest" or
+        "SAMLResponse" or
+        "InvalidSamlTokenEmailMissingOrInvalid" or
+        "RequestDeniedError" or
+        "NoMatchedAuthnContextInOutputClaims" or
+        "Saml2AuthenticationRequestInvalidNameIDPolicy" or
+        "InvalidSamlId" or
+        "WsFedSignInResponseError" or
+        "WsFedMessageInvalid" or
+        "FedMetadataInvalidTenantName" or
+        "OAuth2IdPUnretryableServerError" or
+        "OAuth2IdPAuthCodeRedemptionUserError" or
+        "InboundIdTokenIssuerInvalid" or
+        "DesktopSsoIdentityInTicketIsNotAuthenticated" or
+        "DesktopSsoAuthorizationHeaderValueWithBadFormat" or
+        "DesktopSsoAuthTokenInvalid" or
+        "InvalidSignature" or
+        "AuthenticationFailed" or
+        "InvalidAssertion" or
+        "InvalidJwtToken" or
+        "SubjectMismatchesIssuer" or
+        "PKeyAuthInvalidJwtUnauthorized" or
+        "NotAllowedByOutboundPolicyTenant" or
+        "NotAllowedByInboundPolicyTenant" or
+        "InvalidGrantRedeemAgainstWrongTenant" or
+        "OAuth2IdPRefreshTokenRedemptionUserError"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId", "o365.audit.LogonError"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+
