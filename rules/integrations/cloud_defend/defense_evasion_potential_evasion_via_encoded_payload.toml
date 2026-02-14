@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -63,7 +63,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
+process where event.type == "start" and event.action == "exec" and process.interactive == true and (
   (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.args like~ "*-*d*") or
   (process.name == "xxd" and process.args like~ ("-*r*", "-*p*")) or
   (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
