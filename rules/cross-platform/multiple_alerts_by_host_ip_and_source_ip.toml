@@ -29,7 +29,8 @@ from .alerts-security.*
 | where kibana.alert.rule.name is not null and kibana.alert.risk_score > 21 and
         kibana.alert.rule.type != "threat_match" and
         not kibana.alert.rule.name like "Deprecated - *" and
-        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """) and
+        not kibana.alert.rule.name in ("Abnormally Large DNS Response", "Web Application Suspicious Activity: No User Agent")
 
 // alerts with existing source.ip or host.ip
 | eval alert_source_ip = CASE(source.ip is not null, source.ip, null),
