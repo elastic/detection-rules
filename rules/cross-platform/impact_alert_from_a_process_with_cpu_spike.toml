@@ -69,7 +69,7 @@ FROM metrics-*, .alerts-security.* METADATA _index
        // processes with more than 70% total CPU use
        cpu_metrics_pids = CASE(_index like ".ds-metrics-system.process-*" and system.process.cpu.total.norm.pct >= 0.7, process.pid, null),
        // any security alert with process.name and ID populated excluding low severity ones
-       alerts_pids = CASE(_index like ".internal.alerts-security.*" and kibana.alert.rule.name is not null and process.name is not null and process.pid is not null and host.id is not null and kibana.alert.risk_score > 21 and not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
+       alerts_pids = CASE(_index like ".internal.alerts-security.*" and kibana.alert.rule.name is not null and process.name is not null and process.pid is not null and host.id is not null and kibana.alert.risk_score > 21 and not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """), process.pid, null)
 | stats pid_with_cpu_spike = COUNT_DISTINCT(cpu_metrics_pids), pid_with_alerts = COUNT_DISTINCT(alerts_pids),
         Esql.max_cpu_pct = MAX(system.process.cpu.total.norm.pct),
         Esql.alerts = VALUES(kibana.alert.rule.name),
