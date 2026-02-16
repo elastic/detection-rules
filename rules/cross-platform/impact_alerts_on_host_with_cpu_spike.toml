@@ -65,11 +65,12 @@ type = "esql"
 
 query = '''
 FROM metrics-*, .alerts-security.*  METADATA _index
+| where not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | eval
        // hosts with more than 90% total CPU use
        cpu_metrics_host_ids = CASE(_index like ".ds-metrics-system.cpu-*" and system.cpu.total.norm.pct >= 0.9, host.id, null),
        // hosts with high severity security alerts
-       alerts_host_ids = CASE(_index like ".internal.alerts-security.*" and kibana.alert.rule.name is not null and host.id is not null and kibana.alert.risk_score >= 73 and not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """), host.id, null)
+       alerts_host_ids = CASE(_index like ".internal.alerts-security.*" and kibana.alert.rule.name is not null and host.id is not null and kibana.alert.risk_score >= 73, host.id, null)
 | stats host_with_cpu_spike = COUNT_DISTINCT(cpu_metrics_host_ids),
         host_with_alerts = COUNT_DISTINCT(alerts_host_ids),
         Esql.max_cpu_pct = MAX(system.cpu.total.norm.pct),
