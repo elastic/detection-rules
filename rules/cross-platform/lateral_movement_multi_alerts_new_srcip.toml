@@ -26,8 +26,7 @@ FROM .alerts-security.* METADATA _index
 // Lateral Movement related rules with fields of interest
 | where kibana.alert.rule.threat.tactic.name is not null and
         source.ip IS NOT NULL and destination.ip is not null and
-        host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" """) and
-        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
+        host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" and not kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // aggregate stats by source.ip
 | stats  Esql.first_time_seen = MIN(@timestamp),
