@@ -1000,7 +1000,8 @@ class ESQLRuleData(QueryRuleData):
         # Ensure that keep clause includes metadata fields on non-aggregate queries
         aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
-            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            raw_keep = re.sub(r"//.*", "", keep_match.group(1))
+            keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
             if "*" not in keep_fields:
                 required_metadata = {"_id", "_version", "_index"}
                 if not required_metadata.issubset(set(map(str.strip, keep_fields))):
@@ -1376,7 +1377,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     items_to_update: list[dict[str, Any]] = [
                         item
                         for item in value  # type: ignore[reportUnknownVariableType]
-                        if isinstance(item, dict) and get_nested_value(item, sub_key) is None
+                        if isinstance(item, dict)
+                        and get_nested_value(item, sub_key) is None
+                        and get_nested_value(item, "action_type_id") not in definitions.SYSTEM_ACTION_TYPE_IDS
                     ]
                     for item in items_to_update:
                         set_nested_value(item, sub_key, None)

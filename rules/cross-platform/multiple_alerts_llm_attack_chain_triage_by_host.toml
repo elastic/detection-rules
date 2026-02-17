@@ -3,7 +3,7 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/03"
+updated_date = "2026/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -147,7 +147,7 @@ from .alerts-security.* METADATA _id, _version, _index
 | DISSECT triage_result """verdict=%{Esql.verdict} confidence=%{Esql.confidence} summary=%{Esql.summary}"""
 
 // filter to surface attack chains or suspicious activity
-| where (Esql.verdict == "TP" or Esql.verdict == "SUSPICIOUS") and TO_DOUBLE(Esql.confidence) > 0.7
+| where (TO_LOWER(Esql.verdict) == "tp" or TO_LOWER(Esql.verdict) == "suspicious") and TO_DOUBLE(Esql.confidence) > 0.7
 | keep host.name, host.id, Esql.*
 '''
 
