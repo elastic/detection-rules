@@ -35,8 +35,9 @@ authentication flows.
 
 ### Possible investigation steps
 
-- Review the specific error code(s) in the o365.audit.LogonError field to understand the nature of the authentication failure
-  (e.g., token signature failure, SAML assertion tampering, cross-tenant token misuse).
+- Review the specific error code(s) in the `o365.audit.ErrorNumber` field to understand the nature of the authentication failure
+  (e.g., token signature failure, SAML assertion tampering, cross-tenant token misuse). Reference Microsoft's AADSTS error codes
+  at https://login.microsoftonline.com/error?code=<ErrorNumber> for detailed descriptions.
 - Examine the source IP address and geolocation of the authentication attempt - compare against the user's typical login patterns.
 - Check for concurrent authentication activity from the same user - multiple SSO errors alongside successful logins may indicate
   token replay or session hijacking attempts.
@@ -66,11 +67,11 @@ authentication flows.
 - For SAML assertion or signature errors, validate the integrity of federation trust certificates and metadata.
 - Investigate whether the user's credentials have been compromised - enforce password reset if credential theft is suspected.
 - Review Entra ID audit logs for unusual application registrations, service principal modifications, or federation setting changes.
-- Escalate to the security operations team if evidence suggests active token theft, SAML Golden Ticket techniques, or OAuth phishing campaigns.
-
-## Setup
-
-The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+- Escalate to the security operations team if evidence suggests active token theft, SAML Golden Ticket techniques, or OAuth phishing campaigns."""
+references = [
+    "https://techcommunity.microsoft.com/blog/microsoft-entra-blog/understanding-and-mitigating-golden-saml-attacks/4418864",
+    "https://www.semperis.com/blog/meet-silver-saml/"
+]
 risk_score = 47
 rule_id = "2de10e77-c144-4e69-afb7-344e7127abd0"
 severity = "medium"
@@ -90,36 +91,12 @@ query = '''
 event.dataset:o365.audit
     and event.provider:AzureActiveDirectory
     and event.category:authentication
-    and o365.audit.LogonError:(
-        "SsoArtifactInvalidOrExpired" or
-        "InvalidSamlToken" or
-        "Saml2MessageInvalid" or
-        "SAMLRequest" or
-        "SAMLResponse" or
-        "InvalidSamlTokenEmailMissingOrInvalid" or
-        "RequestDeniedError" or
-        "NoMatchedAuthnContextInOutputClaims" or
-        "Saml2AuthenticationRequestInvalidNameIDPolicy" or
-        "InvalidSamlId" or
-        "WsFedSignInResponseError" or
-        "WsFedMessageInvalid" or
-        "FedMetadataInvalidTenantName" or
-        "OAuth2IdPUnretryableServerError" or
-        "OAuth2IdPAuthCodeRedemptionUserError" or
-        "InboundIdTokenIssuerInvalid" or
-        "DesktopSsoIdentityInTicketIsNotAuthenticated" or
-        "DesktopSsoAuthorizationHeaderValueWithBadFormat" or
-        "DesktopSsoAuthTokenInvalid" or
-        "InvalidSignature" or
-        "AuthenticationFailed" or
-        "InvalidAssertion" or
-        "InvalidJwtToken" or
-        "SubjectMismatchesIssuer" or
-        "PKeyAuthInvalidJwtUnauthorized" or
-        "NotAllowedByOutboundPolicyTenant" or
-        "NotAllowedByInboundPolicyTenant" or
-        "InvalidGrantRedeemAgainstWrongTenant" or
-        "OAuth2IdPRefreshTokenRedemptionUserError"
+    and o365.audit.ErrorNumber:(
+        20001 or 20012 or 20033 or 40008 or 40009 or 40015 or
+        50006 or 50008 or 50012 or 50013 or 50027 or 50048 or
+        50099 or 50132 or 75005 or 75008 or 75011 or 75016 or
+        81004 or 81009 or 81010 or 399284 or 500212 or 500213 or
+        700005 or 5000819
     )
 '''
 
@@ -149,9 +126,9 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "o365.audit.LogonError"]
+value = ["o365.audit.UserId", "o365.audit.ErrorNumber"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-5d"
+value = "now-10d"
 
 
