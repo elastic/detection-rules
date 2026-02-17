@@ -64,7 +64,7 @@ DATE_PATTERN = re.compile(r"^\d{4}/\d{2}/\d{2}$")
 MATURITY_LEVELS = ["development", "experimental", "beta", "production", "deprecated"]
 OS_OPTIONS = ["windows", "linux", "macos"]
 
-NAME_PATTERN = re.compile(r"^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$")
+NAME_PATTERN = re.compile(r"^[a-zA-Z0-9\[\(].+?[a-zA-Z0-9\[\]()]$")
 PR_PATTERN = re.compile(r"^$|\d+$")
 SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 # NOTE this additional bad UUID pattern is a stop gap until the rule has been deprecated
