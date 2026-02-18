@@ -3,39 +3,134 @@ bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies the use of Cmdlets and methods related to archive compression activities. Adversaries will often compress and
-encrypt data in preparation for exfiltration.
+Identifies PowerShell script block content that uses archive compression cmdlets or .NET compression classes (for
+example, Compress-Archive, ZipFile, GZipStream, DeflateStream) to build compressed artifacts. Attackers compress or
+package data to stage it for collection or exfiltration.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Archive Compression Capabilities"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
+### Investigating PowerShell Script with Archive Compression Capabilities
+
+This alert identifies PowerShell script block content that references archive compression functionality. Matches can be driven by the `Compress-Archive` cmdlet or by .NET compression classes (for example, `IO.Compression.ZipFile`, `IO.Compression.ZipArchive`, `GZipStream`, `DeflateStream`, `BrotliStream`, `ZLibStream`) paired with compression configuration terms (for example, `CompressionLevel`, `CompressionMode`, `ZipArchiveMode`). Compression is common in legitimate automation, but it can also be used to package collected data for staging and potential exfiltration.
+
+Prioritize understanding (1) who ran the script and where, (2) what data was targeted for compression, (3) where the resulting archive or compressed data was staged, and (4) whether there is follow-on activity consistent with collection or transfer.
+
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
+- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Establish initial context and priority:
+  - Identify the affected host and user (`host.name`, `host.id`, `user.name`, `user.domain`, `user.id`).
+  - Assess whether the user is expected to run PowerShell that creates archives on this host. Unexpected host-user pairings or rare activity on sensitive systems should be prioritized.
+  - Review the alert time in relation to known operational activity (for example, maintenance windows, support cases, backup or migration tasks).
+
+- Quickly understand what matched:
+  - Review `Esql.script_block_tmp` to locate the matched compression indicators within the script block.
+  - Use `Esql.script_block_pattern_count` to understand whether the script contains repeated compression indicators (often seen in loops or multi-step staging).
+  - Review `powershell.file.script_block_text` to determine whether the activity is `Compress-Archive` usage, .NET compression usage, or both.
+
+- Assess script complexity and likelihood of obfuscation:
+  - Review `powershell.file.script_block_length` to understand whether the script block is small and targeted or large and multi-purpose.
+  - Use `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, and `powershell.file.script_block_unique_symbols` to triage for suspicious encoding/obfuscation:
+    - High entropy with low variability can indicate embedded encoded content.
+    - High variability can indicate a mix of readable logic and opaque data blobs.
+  - If metrics suggest obfuscation, prioritize deeper review and broader scoping for related script blocks from the same host and user.
+
+- Reconstruct full script block content when fragmented:
+  - Pivot on `powershell.file.script_block_id` and collect all fragments for that ID.
+  - Order fragments by `powershell.sequence` and validate completeness using `powershell.total` when present.
+  - Re-review the reconstructed script to understand inputs, outputs, and any follow-on behavior.
+
+- Identify what data is being compressed and where it is staged:
+  - In `powershell.file.script_block_text`, identify source paths, file selection logic (for example, recursion, wildcards, extension filters), and loops that suggest bulk collection vs a single archive operation.
+  - Identify the output archive name and destination directory (if specified). Focus on archives staged in user-writable or temporary directories, newly created staging folders, or remote locations.
+  - Determine whether compression produces an on-disk archive, in-memory compressed data, or both (for example, stream-based compression used with output streams or byte arrays).
+
+- Determine script origin and delivery path:
+  - If `file.path`, `file.directory`, or `file.name` are present, assess whether the script origin aligns with expected administrative tooling for the host role.
+  - Review whether the script file appears newly introduced or recently modified relative to the alert time and whether similar scripts exist on other expected hosts.
+  - If file origin fields are absent, treat the activity as potentially interactive or remotely delivered and prioritize identifying the initiating process/source using adjacent endpoint telemetry.
+
+- Correlate with adjacent host activity to validate intent and impact (as available):
+  - Process context:
+    - Identify the PowerShell host process associated with the script block and determine the parent process or initiation source near the alert time.
+    - Increase suspicion for unusual launch chains, unexpected automation context, or repeated executions by the same user across multiple hosts.
+  - File activity:
+    - Look for archive creation or modification events consistent with the output identified in the script block.
+    - Review whether the archive is renamed, moved, copied to shared locations, or deleted shortly after creation.
+  - Network activity:
+    - Review outbound connections from the same host following the suspected archive creation window, especially new or rare destinations, large transfers, or repeated connections shortly after staging.
+  - Authentication activity:
+    - Review nearby logon activity for the same user, including new logons to other hosts around the same time, which may indicate coordinated collection and staging.
+
+- Assess prevalence and scope:
+  - Search for the same `file.path`/`file.name` or distinctive substrings from `powershell.file.script_block_text` across hosts to determine whether the behavior is isolated or widespread.
+  - Identify whether similar compression activity occurs across multiple hosts under the same user context or within a short time window.
+
+### False positive analysis
+
+- This activity can be benign when compression is used for routine operations such as packaging logs, diagnostics, backups, software deployment artifacts, or data migration.
+- Benign activity is more likely when:
+  - The script origin (`file.path`/`file.directory`/`file.name`) aligns with approved administrative workflows and expected host roles.
+  - The compressed inputs are narrow and operationally relevant rather than broad user or shared data sets.
+  - Execution is consistent over time (repeatable cadence, consistent hosts, consistent users) and is not followed by suspicious file movement or unusual outbound network activity.
+- Escalate for further review when:
+  - Script block characteristics suggest obfuscation or embedded opaque content (entropy and symbol distribution inconsistent with typical administrative scripts).
+  - Compression targets broad directories, multiple paths, or patterns suggestive of data harvesting.
+  - Archives are staged in unusual locations or closely followed by movement off-host, deletion, or network activity indicative of transfer.
+
+### Response and remediation
+
+- If malicious or suspicious activity is confirmed:
+  - Contain the affected host to prevent additional staging or transfer.
+  - Preserve evidence:
+    - Full `powershell.file.script_block_text` (reconstructed using `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total` when needed).
+    - `file.path`/`file.name` for any on-disk script source and the archive output path and filename identified in the script content.
+    - Host and user identifiers (`host.id`, `host.name`, `user.id`, `user.name`, `user.domain`).
+  - Identify potential data exposure:
+    - Determine what directories and file patterns were included and whether the archive was copied or transmitted externally.
+  - Expand scoping:
+    - Hunt for similar script block content and archive staging behavior across endpoints, especially under the same user context.
+  - Remediate root cause:
+    - Remove unauthorized scripts and staged archives.
+    - If credential misuse is suspected, reset impacted credentials and review recent account activity for additional misuse.
+
+- If the activity is verified benign:
+  - Document the legitimate owner, purpose, and expected host/user scope for future triage.
+  - Consider adding operational context (for example, asset criticality, expected administrative accounts, or known script repositories) to reduce repeated investigation while preserving coverage for unexpected archive staging behavior.
+"""
 risk_score = 21
 rule_id = "27071ea3-e806-4697-8abc-e22c92aa4293"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "low"
 tags = [
@@ -45,6 +140,7 @@ tags = [
     "Tactic: Collection",
     "Data Source: PowerShell Logs",
     "Rule Type: BBR",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -76,45 +172,39 @@ not file.directory : (
   "C:\Program Files\Microsoft Dependency Agent\plugins\lib" or
   "C:\Program Files\WindowsPowerShell\Modules\icinga-powershell-framework\cache" or
   "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\Downloads"
-)
+) and
+not user.id : "S-1-5-18"
 '''
 
 
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
-value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Expand-Archive.ps1"
-[[rule.filters]]
+value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\*"
 
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Compress-Archive.ps1"
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Program Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -144,4 +234,23 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 
