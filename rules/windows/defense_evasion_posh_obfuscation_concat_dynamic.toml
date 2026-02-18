@@ -2,73 +2,114 @@
 creation_date = "2025/04/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell scripts that use concatenated strings within dynamic command invocation (&() or .()) as a form of
-obfuscation. These methods are designed to evade static analysis and bypass security protections such as the Antimalware
-Scan Interface (AMSI).
+Detects PowerShell scripts that builds commands from concatenated string literals inside dynamic invocation constructs
+like &() or .(). Attackers use concatenated dynamic invocation to obscure execution intent, bypass keyword-based
+detections, and evade AMSI.
 """
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential PowerShell Obfuscation via Concatenated Dynamic Command Invocation"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
 ### Investigating Potential PowerShell Obfuscation via Concatenated Dynamic Command Invocation
 
-PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its capabilities by obfuscating commands to evade detection, often using concatenated strings in dynamic invocations. This detection rule identifies such obfuscation by analyzing script patterns, specifically looking for concatenated strings within dynamic command invocations, which are indicative of attempts to bypass security measures like AMSI. By counting these patterns, the rule effectively flags suspicious scripts, aiding in the identification of potential threats.
+This rule identifies PowerShell script block content where a command is built from concatenated string literals and executed through dynamic invocation using the call operator (&) or dot invocation (.). This technique can hide the true command name (for example, splitting cmdlet, function, alias, or script names into fragments) and is often paired with additional obfuscation to hinder quick review.
 
-### Possible investigation steps
+#### Key alert fields to review
 
-- Review the `powershell.file.script_block_text` field to understand the content and purpose of the script, focusing on the concatenated strings and dynamic command invocations.
-- Check the `host.name` and `user.id` fields to identify the machine and user account associated with the execution of the suspicious script, which can help determine if the activity is expected or anomalous.
-- Analyze the `file.path` field to locate the script's source or storage location, which may provide additional context or indicate if the script is part of a known application or process.
-- Investigate the `powershell.file.script_block_id` and `powershell.sequence` fields to trace the execution sequence and correlate it with other related PowerShell activities, which might reveal a broader pattern of behavior.
-- Assess the `agent.id` field to determine the specific endpoint agent involved, which can assist in further endpoint-specific investigations or actions.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
+- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Establish scope and execution context:
+  - Review `host.name` and `host.id` to understand where the script ran, and identify whether the host is an admin workstation, server, or user endpoint.
+  - Review `user.name`, `user.domain`, and `user.id` to understand who initiated the activity and whether PowerShell use is expected for that identity.
+  - Use the alert timestamp to bound the activity window for correlation and scoping.
+
+- Reconstruct the dynamically invoked command(s):
+  - Review `powershell.file.script_block_text` and use `Esql.script_block_tmp` to quickly locate the dynamic invocation expression(s) inside the script block.
+  - Identify each invocation using `&(...)` or `.(...)` where multiple quoted strings are joined with `+`.
+  - Concatenate the quoted string fragments in their observed order to derive the effective command/function/script name being invoked.
+  - Use `Esql.script_block_pattern_count` to prioritize review; multiple dynamic concatenation invocations in the same script block generally indicate stronger intent to obscure execution.
+
+- Determine whether the operator changes execution semantics:
+  - For `&(...)` (call operator), focus on the command being executed and any arguments passed immediately before/after the invocation.
+  - For `.(...)` (dot invocation), assess whether the script is intended to run in the current scope (for example, to define or modify functions/variables) and whether that scope change is expected for the host and user context.
+
+- Reassemble full script content when fragmented:
+  - Pivot on `powershell.file.script_block_id` to locate other fragments of the same script block.
+  - If `powershell.total` indicates the content is split across multiple events, use `powershell.sequence` and `powershell.total` to reconstruct the full script block in order before making a determination.
+
+- Identify script origin and persistence opportunities:
+  - If `file.path`, `file.directory`, or `file.name` are present, determine whether the script block is associated with an on-disk script and whether its location aligns with approved administrative tooling or known automation paths.
+  - Treat unusual user-writable or temporary locations as higher risk, especially when paired with high `Esql.script_block_pattern_count`.
+
+- Evaluate obfuscation characteristics and intent:
+  - Use `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, `powershell.file.script_block_unique_symbols`, and `powershell.file.script_block_length` to assess how atypical the content is compared to known-good scripts in your environment.
+  - Review surrounding logic in `powershell.file.script_block_text` for additional obfuscation patterns (for example, layered string operations, indirect invocation, or hidden payload material) that may not be captured by this specific match.
+
+- Correlate with adjacent endpoint activity (if available):
+  - Pivot using `host.id` and the alert time window to identify the PowerShell host process, its parent process, and any child processes that indicate follow-on execution.
+  - Review network, file, and registry activity on `host.id` around the same time for signs of payload retrieval, on-disk staging, persistence, or system configuration changes.
+  - Review authentication activity associated with `user.id` around the same time window for anomalous logons, new session sources, or unusual access patterns.
+  - Pivot on `user.id` to identify similar activity across other hosts, which may indicate shared automation, credential reuse, or lateral movement.
+
+- Capture and operationalize investigation artifacts:
+  - Document the reconstructed command strings, notable script fragments, and any referenced file locations (`file.path`) for escalation and threat hunting.
+  - Use those artifacts to search for additional occurrences across the environment, focusing on the same `user.id`, `host.id`, and similar `powershell.file.script_block_text` patterns.
 
 ### False positive analysis
 
-- Scripts with legitimate concatenated strings for dynamic command execution may trigger the rule. Review the script context to determine if the concatenation serves a valid administrative purpose.
-- Automated scripts from trusted sources that use concatenation for modularity or readability might be flagged. Consider adding these scripts to an allowlist if they are verified as safe.
-- Development or testing environments where PowerShell scripts are frequently modified and tested could generate false positives. Implement exceptions for known development hosts or user accounts.
-- Security tools or monitoring solutions that use PowerShell for legitimate operations may inadvertently match the pattern. Identify these tools and exclude their operations from the rule.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and does not inadvertently allow malicious activity.
+- Administrative scripts, modules, or internal frameworks that dynamically assemble short command names (cmdlets, functions, aliases) via string concatenation before invoking them for indirection or compatibility.
+- Legitimate automation that uses dot invocation to load or execute helper logic in the current scope, including scripts that intentionally reduce readability for code protection.
 
 ### Response and remediation
 
-- Isolate the affected host immediately to prevent further execution of potentially malicious scripts and limit lateral movement within the network.
-- Terminate any suspicious PowerShell processes identified by the alert to halt the execution of obfuscated commands.
-- Conduct a thorough review of the script block text and associated script block ID to understand the intent and potential impact of the obfuscated commands.
-- Remove any unauthorized or malicious scripts from the affected system and ensure that all legitimate scripts are verified and signed.
-- Restore the affected system from a known good backup if any malicious activity is confirmed, ensuring that all data integrity checks are performed.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems have been compromised.
-- Update endpoint protection and monitoring tools to enhance detection capabilities for similar obfuscation techniques, leveraging insights from the MITRE ATT&CK framework.
+- If the activity is confirmed or strongly suspected to be malicious or unauthorized:
+  - Contain the affected host identified by `host.id` to prevent further execution and potential lateral movement.
+  - Preserve evidence, including the full reconstructed `powershell.file.script_block_text` (using `powershell.sequence`/`powershell.total` if needed) and any associated on-disk script referenced by `file.path`.
+
+- If an on-disk script is involved (`file.path` present):
+  - Acquire the referenced script file for analysis and validate its provenance.
+  - Remove or quarantine the script if it is unauthorized, and assess for additional copies using the same `file.name` or `file.path` patterns across hosts.
+
+- If account misuse is suspected:
+  - Scope recent activity for the implicated `user.id` across hosts, prioritize investigation for privileged accounts, and reset credentials per policy.
+  - Review and reduce unnecessary privileges associated with the account, especially if PowerShell access is not required.
+
+- Eradication and recovery:
+  - Identify and remediate follow-on artifacts discovered during scoping (for example, dropped scripts/binaries or persistence mechanisms) using established response procedures.
+  - Increase monitoring for recurrence by hunting for similar dynamic concatenation patterns (high `Esql.script_block_pattern_count`) on the same `host.id` and `user.id`.
+
+- Post-incident hardening:
+  - Ensure PowerShell Script Block Logging coverage is consistently enabled and centrally collected for systems where PowerShell use is permitted.
+  - Limit PowerShell use to approved users and hosts, and review controls that reduce the impact of dynamic invocation and obfuscation in your environment.
 """
 risk_score = 73
 rule_id = "083383af-b9a4-42b7-a463-29c40efe7797"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "high"
 tags = [
@@ -109,6 +150,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     _version,
     _index,
     host.name,
+    host.id,
     agent.id,
     user.id
 
@@ -152,3 +194,21 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
