@@ -17,18 +17,19 @@ There are different types of pull requests:
 - **New/tuning hunt:** The PR name often starts with `[Hunt]`
 - **Mixed PRs:** May combine tuning, new rules, or deprecations
 
-For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, and **query** sections using the following guidance:
+For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, and **query** sections and their respective "metadata" and "rule" TOML tables and "query" key using the following guidance:
 
 ---
 
 ### <Metadata>
 
 - Report typos in `rule.name` and `rule.description`.
-- `creation_date` should match the date the PR was first opened.
+- For new rules, `creation_date` should match the date the PR was first opened.
 - `updated_date` should match the date of the current PR merge.
 - Deprecations happen across **two separate PRs in two releases**:
   - **First PR (release N):** Prepend `"Deprecated - "` to `rule.name`. The rule stays at its current maturity. No other field changes besides `updated_date`.
   - **Second PR (release N+1):** Set `maturity = "deprecated"`, add `deprecation_date`, and move the rule to `rules/_deprecated/`.
+    - `updated_date` and `deprecation_date` should match the date of the current PR merge. 
 - Assess and suggest a better `rule.name` if the existing name does not accurately reflect the rule's query logic and detection scope.
 - Assess and suggest improvements to `rule.description` — limit to two or three sentences that clearly summarize the query logic and detection scope.
 - `min_stack_version` should support the widest stack versions unless the rule uses features exclusive to a newer stack version.
@@ -45,10 +46,10 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 #### Common Fields (All Rule Types)
 
 - `risk_score` should align with `severity`:
-  - `low` → typically 0–21
-  - `medium` → typically 22–47
-  - `high` → typically 48–73
-  - `critical` → typically 74–100
+  - `low` → 21
+  - `medium` → 47
+  - `high` → 73
+  - `critical` → 100
 - `tags` should be relevant:
   - Include `Domain:` tags (Endpoint, Cloud, Network, Container).
   - Include `OS:` tags (Windows, Linux, macOS) where applicable.
@@ -58,7 +59,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - Include `Rule Type: ML` or `Rule Type: Machine Learning` for ML rules.
   - Include `Tactic:` tags matching each MITRE tactic in the threat mapping.
 - `index` patterns should be neither too specific nor too vague — they must accurately match the relevant data stream (e.g., `logs-endpoint.events.process-*` for process events, not `logs-endpoint.events.*` unless multiple event types are needed).
-- `from` and `interval` should not create gaps. The lookback window (`from`) must cover at least the `interval` period.
+- `from` and `interval` should not create gaps. The lookback window (`from`) must cover at least the `interval` period. The default `interval` period, if not explicitly changed, is 5 minutes. 
 - `timestamp_override` should be set to `"event.ingested"` for most rules to avoid ingestion delay issues.
 - `max_signals` defaults to 100. Only override with justification.
 
@@ -71,7 +72,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 #### Building Block Rules
 
 - Must be placed in the `rules_building_block/` directory.
-- Should have lower `risk_score` and `severity` than the correlation rules that consume them.
+- Must have a `risk_score` of "21" `severity` and severity of "low".
 
 #### Alert Suppression
 
@@ -84,9 +85,9 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
 #### New Terms Rules
 
-- `history_window_start` should be appropriate for the detection context (typically 7–14 days).
+- `history_window_start` should be appropriate for the detection context (typically 5–14 days) longer values may impact performance.
 - Verify the `new_terms_fields` combination makes semantic sense — detecting "first seen" on arbitrary field combinations can produce excessive noise.
-
+- Assess whether it is truly necessary to leverage multiple `new_terms_fields` keys, as each newly added key negatively impacts performance.
 #### Threat Match Rules
 
 - `threat_indicator_path` should be set (default: `threat.indicator`).
@@ -105,7 +106,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - Review for typos in known system file names (e.g., `WmiPrvS.exe` instead of `WmiPrvSe.exe`).
 - Ensure the **query logic aligns with the rule description** (e.g., the description says "Detect Certutil abuse," but the query looks for `svchost.exe`).
 - Verify there are no duplicate entries in the query (e.g., same exclusion listed twice).
-- For production rule tuning PRs, ensure changes are limited to excluding false positives and do not extend the detection scope while the rule remains in production maturity.
+- For rule tuning PRs, ensure changes are limited to excluding false positives and do not extend the detection scope while the rule remains in production maturity.
 - Flag risky false-positive exclusions (e.g., `not file.path : "C:\\Users\\*"` — paths under `Users` are world-writable and attacker-controlled).
 - Check exclusions where the drive letter is hardcoded (e.g., `"C:\\Program Files\\*"` should use `"?:\\Program Files\\*"` to cover all drive letters). Applies to **Windows rules only**.
 - Flag unnecessary or overly broad wildcard usage when more specific patterns would work.
