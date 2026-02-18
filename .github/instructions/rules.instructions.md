@@ -66,13 +66,14 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 #### Investigation Guide (`note` field)
 
 - If present, the note should include actionable triage steps, false positive guidance, and response/remediation steps.
+- When OSQuery queries are included in investigation guides, validate their syntax and ensure the referenced tables and columns are correct.
 - The `setup` field should include necessary steps to configure the integration or data source.
 - Check for typos in the investigation guide content.
 
 #### Building Block Rules
 
 - Must be placed in the `rules_building_block/` directory.
-- Must have a `risk_score` of "21" `severity` and severity of "low".
+- Must have a `risk_score` of `21` and `severity` of `"low"`.
 
 #### Alert Suppression
 
@@ -88,6 +89,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - `history_window_start` should be appropriate for the detection context (typically 5–14 days) longer values may impact performance.
 - Verify the `new_terms_fields` combination makes semantic sense — detecting "first seen" on arbitrary field combinations can produce excessive noise.
 - Assess whether it is truly necessary to leverage multiple `new_terms_fields` keys, as each newly added key negatively impacts performance.
+
 #### Threat Match Rules
 
 - `threat_indicator_path` should be set (default: `threat.indicator`).
@@ -106,7 +108,6 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - Review for typos in known system file names (e.g., `WmiPrvS.exe` instead of `WmiPrvSe.exe`).
 - Ensure the **query logic aligns with the rule description** (e.g., the description says "Detect Certutil abuse," but the query looks for `svchost.exe`).
 - Verify there are no duplicate entries in the query (e.g., same exclusion listed twice).
-- For rule tuning PRs, ensure changes are limited to excluding false positives and do not extend the detection scope while the rule remains in production maturity.
 - Flag risky false-positive exclusions (e.g., `not file.path : "C:\\Users\\*"` — paths under `Users` are world-writable and attacker-controlled).
 - Check exclusions where the drive letter is hardcoded (e.g., `"C:\\Program Files\\*"` should use `"?:\\Program Files\\*"` to cover all drive letters). Applies to **Windows rules only**.
 - Flag unnecessary or overly broad wildcard usage when more specific patterns would work.
@@ -140,7 +141,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
 ### <Query — KQL Specific>
 
-- KQL uses `:` for field matching (case-insensitive, supports wildcards).
+- KQL uses `:` for field matching with wildcard support. Case sensitivity depends on the field mapping — `keyword` fields are case-sensitive, `text` fields with standard analyzers are case-insensitive.
 - Boolean logic uses `and`, `or`, `not` — parentheses must be correct for operator precedence.
 - KQL does not support sequences or joins — if temporal correlation is needed, suggest EQL instead.
 - For complex exclusion logic, consider whether `[[rule.filters]]` would be cleaner than inline `not` clauses.
