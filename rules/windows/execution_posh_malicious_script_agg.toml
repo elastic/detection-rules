@@ -1,95 +1,90 @@
 [metadata]
 creation_date = "2025/04/16"
 maturity = "production"
-updated_date = "2025/07/16"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies PowerShell script blocks associated with multiple distinct detections, indicating likely malicious behavior.\n"
+description = """
+Identifies PowerShell script blocks linked to multiple distinct PowerShell detections via the same ScriptBlock ID,
+indicating compound suspicious behavior. Attackers often chain obfuscation, decoding, and execution within a single
+script block.
+"""
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Malicious PowerShell Based on Alert Correlation"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating Potential Malicious PowerShell Based on Alert Correlation
 
-This detection rule aggregates alert data to identify PowerShell Scripts that have triggered various PowerShell-related detection logic, thereby producing higher-fidelity results.
+This alert groups multiple PowerShell-related detections that reference the same ScriptBlock identifier. When several independent detections fire on a single script block, it often indicates a single execution chain combining multiple suspicious behaviors. Treat the contributing alerts as the primary evidence and use this correlation to prioritize investigation and scoping.
 
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+Investigation goals:
+- Identify affected endpoints and users by pivoting to the contributing alerts.
+- Recover the complete script content associated with the ScriptBlock identifier and understand its intent.
+- Identify follow-on behavior (process, network, persistence) and scope the activity across the environment.
 
-### Possible investigation steps
+#### Key alert fields to review
 
-- Analyzing the detections triggered by the script should offer insight into the suspicious behaviors it exhibits. This information can be found in the `distinct_alerts` field.
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine the script's execution context, such as the user account, privileges, the role of the system on which it was executed, and any relevant timestamps.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Investigate the origin of the PowerShell script, including its source, download method, and any associated URLs or IP addresses.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the script using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process's `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
+- `Esql.script_block_id`: The ScriptBlock identifier used to correlate multiple alerts.
+- `Esql.kibana_alert_rule_name_count_distinct`: The number of distinct PowerShell-related rule names that contributed to the correlation.
+- `Esql.kibana_alert_rule_name_values`: The contributing rule names; use this list to quickly understand what detection logic was triggered.
+- `Esql._id_values`: The contributing alert document IDs; pivot to these source alerts for full context and supporting evidence.
+
+#### Possible investigation steps
+
+- Understand what drove the correlation:
+  - Review `Esql.kibana_alert_rule_name_count_distinct` to gauge overall confidence and urgency.
+  - Review `Esql.kibana_alert_rule_name_values` and group the contributing detections by behavior (for example, obfuscation/encoding, suspicious execution, network retrieval, or persistence-related activity). Use this grouping to decide what evidence is most important to validate first.
+
+- Pivot to the contributing alerts and capture execution context:
+  - Use `Esql._id_values` to open each contributing alert and collect the affected host and user context, along with the earliest and latest timestamps across the set.
+  - Confirm the contributing alerts represent the same ScriptBlock ID and are not unrelated alerts that happen to share similar message content.
+  - Identify whether the activity is limited to a single endpoint or appears on multiple endpoints. Multiple endpoints can indicate script reuse, distribution, or remote execution.
+
+- Reconstruct the full script block content:
+  - Using `Esql.script_block_id`, locate all available records (alerts and/or underlying telemetry referenced by the contributing alerts) tied to the same identifier.
+  - If the script content is split across multiple fragments, reconstruct it in the correct order before assessing intent.
+  - Identify any decoded/deobfuscated output that the script generates during execution and capture it as evidence for scoping.
+
+- Assess intent and capability based on the recovered script:
+  - Look for evidence of staged execution, such as multiple layers of decoding, dynamic code generation, or invocation of additional code.
+  - Identify indicators that can be used for scoping (for example, external destinations, file locations, created services, or suspicious child process activity referenced by the contributing alerts).
+
+- Correlate with adjacent activity during the same timeframe:
+  - Process activity: check for unusual parent-child relationships involving PowerShell and unexpected child processes following the script block execution.
+  - Network activity: review outbound connections and DNS activity that align with the execution window, especially first-time or rare destinations.
+  - File and registry activity: look for payload staging, configuration changes, or persistence artifacts created near the execution window.
+  - Authentication activity: review for suspicious logons or account changes that coincide with the script execution, especially if activity spans multiple endpoints.
+
+- Scope and hunt for additional occurrences:
+  - Search for other alerts containing the same `Esql.script_block_id` to determine if the script was reused or executed repeatedly.
+  - Use indicators and behaviors observed in the contributing alerts to identify related activity in other alerts and telemetry sources, and establish first-seen/last-seen boundaries.
 
 ### False positive analysis
 
-- This rule is unlikely to trigger on legitimate activity. Benign true positives (B-TPs) can be added as exceptions if necessary.
+- Legitimate administrative automation can produce multiple detections if it uses dynamic script generation, embedded encoded content, or downloads content at runtime. Validate whether the affected hosts, users, and timing align with an approved maintenance activity.
+- If the same ScriptBlock content repeatedly maps to a known benign workflow, document the expected behavior and tune upstream detections to better distinguish that workflow, rather than suppressing this correlation rule.
 
-### Response and Remediation
+### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Reimage the host operating system or restore the compromised files to clean versions.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is confirmed or strongly suspected to be malicious:
+  - Contain impacted endpoints to prevent additional execution and follow-on actions.
+  - Restrict, reset, or rotate credentials for involved accounts as appropriate, especially for privileged or shared accounts.
+  - Remove identified artifacts and persistence mechanisms (for example, suspicious services or dropped binaries) and remediate any affected systems.
+  - Block or monitor indicators identified from the contributing alerts (external destinations, file locations, or other observable artifacts) to prevent reinfection and support hunting.
+
+- Validation and recovery:
+  - Use `Esql.script_block_id` and the contributing alert set in `Esql._id_values` to verify that the activity has ceased and to identify any additional impacted endpoints.
+  - Continue monitoring for recurrence of the same ScriptBlock ID or the contributing behaviors to confirm remediation effectiveness.
+
+- Post-incident:
+  - Preserve the recovered script content and the full set of contributing alerts as evidence.
+  - Identify and address the initial execution mechanism indicated by the contributing alerts and improve preventative controls and logging coverage to reduce recurrence.
 """
 risk_score = 73
 rule_id = "f770ce79-05fd-4d74-9866-1c5d66c9b34b"
@@ -147,4 +142,12 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.script_block_id",
+    "Esql._id_values",
+    "Esql.kibana_alert_rule_name_values",
+    "Esql.kibana_alert_rule_name_count_distinct"
+]
 
