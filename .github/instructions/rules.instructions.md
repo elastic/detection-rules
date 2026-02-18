@@ -86,7 +86,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
 #### New Terms Rules
 
-- `history_window_start` should be appropriate for the detection context (typically 5–14 days) longer values may impact performance.
+- `history_window_start` should be appropriate for the detection context (typically 5–10 days) longer values may impact performance.
 - Verify the `new_terms_fields` combination makes semantic sense — detecting "first seen" on arbitrary field combinations can produce excessive noise.
 - Assess whether it is truly necessary to leverage multiple `new_terms_fields` keys, as each newly added key negatively impacts performance.
 
@@ -127,7 +127,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - Sequences with `maxspan > 5m` are generally inefficient unless justified for evasion prevention.
 - For sequences, verify the join keys (`by` clause) are appropriate and indexed fields.
 - Simplify overly complex logic (e.g., a sequence detecting `cmd.exe` spawning `svchost.exe` followed by a network event — the first condition is already sufficiently suspicious).
-- For **LOLBIN detection on Windows**, always use the original file name for resilience: `(process.name : "curl.exe" or process.pe.original_file_name == "curl.exe")` instead of just `process.name : "curl.exe"`.
+- For **LOLBIN detection on Windows**, always include the original file name for resilience: `(process.name : "curl.exe" or process.pe.original_file_name == "curl.exe")` instead of just `process.name : "curl.exe"`.
 - For LOLBIN detection covering multiple related binaries, suggest additions if critical ones are missing (e.g., for `process.name : ("osascript", "python", "perl")`, suggest adding `ruby` and `node`).
 - For network and C2 rules where the scenario does not expect connections to loopback or private IPs, suggest excluding them with `not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")`.
 - `event.type`, `event.action`, and `event.category` should be correct for the event being detected. Commonly:
