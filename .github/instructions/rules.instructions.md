@@ -25,9 +25,9 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
 - Report typos in `rule.name` and `rule.description`.
 - For new rules, `creation_date` should match the date the PR was first opened.
-- `updated_date` should match the date of the current PR merge.
+- `updated_date` should match `creation_date` for new rules, and the date the PR was opened for tunings.
 - Deprecations happen across **two separate PRs in two releases**:
-  - **First PR (release N):** Prepend `"Deprecated - "` to `rule.name`. The rule stays at its current maturity. No other field changes besides `updated_date`.
+  - **First PR (release N):** Prepend `"Deprecated - "` to `rule.name` and references to the rule name, such as `### Investigating <rule.name>`. The rule stays at its current maturity. No other field changes besides `updated_date`.
   - **Second PR (release N+1):** Set `maturity = "deprecated"`, add `deprecation_date`, and move the rule to `rules/_deprecated/`.
     - `updated_date` and `deprecation_date` should match the date of the current PR merge. 
 - Assess and suggest a better `rule.name` if the existing name does not accurately reflect the rule's query logic and detection scope.
@@ -49,11 +49,11 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `low` → 21
   - `medium` → 47
   - `high` → 73
-  - `critical` → 100
+  - `critical` → 99
 - `tags` should be relevant:
   - Include `Domain:` tags (Endpoint, Cloud, Network, Container).
   - Include `OS:` tags (Windows, Linux, macOS) where applicable.
-  - Include `Data Source:` tags matching the index patterns.
+  - Include `Data Source:` tags matching the used integrations.
   - Include `Resources: Investigation Guide` if the `note` field is present.
   - Include `Rule Type: BBR` for building block rules.
   - Include `Rule Type: ML` or `Rule Type: Machine Learning` for ML rules.
