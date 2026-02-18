@@ -2,7 +2,7 @@
 creation_date = "2026/02/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/02/18"
 
 [rule]
 author = ["Elastic"]
@@ -102,6 +102,7 @@ event.dataset: "aws.cloudtrail"
         or (event.action: "CreateAssociation"
             and aws.cloudtrail.request_parameters: *AWS-GatherSoftwareInventory*)
     )
+    and not aws.cloudtrail.user_identity.type : "AWSService" 
     and event.outcome: "success"
 '''
 
@@ -143,4 +144,4 @@ field = "new_terms_fields"
 value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"
