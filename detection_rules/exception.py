@@ -252,7 +252,7 @@ def parse_exceptions_results_from_api(
     exceptions_containers: dict[str, Any] = {}
     exceptions_items: dict[str, list[Any]] = defaultdict(list)
     unparsed_results: list[dict[str, Any]] = []
-    seen_item_ids: set[str] = set()
+    seen_list_item_pairs: set[tuple[str, str]] = set()
 
     for result in results:
         result_type = result.get("type")
@@ -263,11 +263,12 @@ def parse_exceptions_results_from_api(
                 exceptions_containers[list_id] = result
             elif result_type in get_args(definitions.ExceptionItemType):
                 item_id = result.get("item_id")
-                if item_id is not None and item_id in seen_item_ids:
+                pair = (list_id, item_id) if item_id is not None else None
+                if pair is not None and pair in seen_list_item_pairs:
                     continue
                 item = _deduplicate_comments(result)
-                if item_id is not None:
-                    seen_item_ids.add(item_id)
+                if pair is not None:
+                    seen_list_item_pairs.add(pair)
                 exceptions_items[list_id].append(item)
         else:
             unparsed_results.append(result)
