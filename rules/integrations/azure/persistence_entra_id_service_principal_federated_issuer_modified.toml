@@ -12,7 +12,7 @@ modify the issuer to point to an attacker-controlled identity provider, enabling
 application's service principal and gain persistent access to Azure resources. This technique allows bypassing
 traditional authentication controls by federating trust with a malicious external identity provider.
 """
-from = "now-1h"
+from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Entra ID Federated Identity Credential Issuer Modified"
@@ -80,7 +80,7 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
 | dissect Esql.target_resources_new_value_clean "%{}\"Issuer\":\"%{Esql.external_idp_new_issuer}\"%{}"
 | where Esql.external_idp_old_issuer is not null and Esql.external_idp_new_issuer is not null
 | where Esql.external_idp_old_issuer != Esql.external_idp_new_issuer
-| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index
+| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index, data_stream.namespace
 '''
 
 
