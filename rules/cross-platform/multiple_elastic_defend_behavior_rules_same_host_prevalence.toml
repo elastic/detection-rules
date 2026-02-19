@@ -30,7 +30,6 @@ from logs-endpoint.alerts-* metadata _id
 | INLINE STATS hosts = COUNT_DISTINCT(host.id) BY rule.name
 // excludes rules triggering on multiple hosts to reduce potential FPs
 | where hosts == 1
-
 | stats Esql.rule_name_count_distinct = COUNT_DISTINCT(rule.name),
         Esql.rule_name_values = VALUES(rule.name),
         Esql.process_executable_values = VALUES(process.executable),
@@ -42,10 +41,8 @@ from logs-endpoint.alerts-* metadata _id
         Esql.dll_path_values = VALUES(dll.path),
         Esql.dll_hash_sha256_values = VALUES(dll.hash.sha256), 
 		Esql.user_name_values = VALUES(user.name) by host.id
-
 // at least 2 unique rules
 | where Esql.rule_name_count_distinct >= 2
-
 // populate fields to use in rule exceptions
 | eval process.hash.sha256 = MV_FIRST(Esql.process_hash_sha256_values),
        process.executable = MV_FIRST(Esql.process_executable_values),
