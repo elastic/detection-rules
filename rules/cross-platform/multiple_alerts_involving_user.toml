@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,8 @@ query = '''
 from .alerts-security.*
 | where kibana.alert.rule.name is not null and user.id is not null and
   // Exclude low severity alerts
-  kibana.alert.risk_score > 21
+  kibana.alert.risk_score > 21 and
+  not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | stats
     Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name), 
     Esql.rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
