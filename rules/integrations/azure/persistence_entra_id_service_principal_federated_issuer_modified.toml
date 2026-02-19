@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2025/07/14"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the issuer URL of a federated identity credential is changed on an Entra ID application. Adversaries may
+modify the issuer to point to an attacker-controlled identity provider, enabling them to authenticate as the
+application's service principal and gain persistent access to Azure resources. This technique allows bypassing
+traditional authentication controls by federating trust with a malicious external identity provider.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Federated Identity Credential Issuer Modified"
+note = """## Triage and analysis
+
+### Investigating Entra ID Federated Identity Credential Issuer Modified
+
+This rule detects when the issuer URL within a federated identity credential is modified on an Entra ID application. Federated identity credentials allow applications to authenticate using tokens from external identity providers (like GitHub Actions, AWS, etc.) without managing secrets. Adversaries can abuse this by changing the issuer to an attacker-controlled identity provider, allowing them to generate valid tokens and authenticate as the application's service principal.
+
+This technique provides persistent access to Azure resources with the application's permissions and bypasses secret-based authentication controls.
+
+### Possible investigation steps
+
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `ipAddress` to identify who made the change and from where.
+- Examine the `Esql.external_idp_old_issuer` and `Esql.external_idp_new_issuer` fields to determine if the new issuer is expected or potentially malicious.
+- Check if the new issuer domain is controlled by the organization or if it's an external/suspicious domain.
+- Review the application's assigned roles and permissions to understand the scope of access gained.
+- Use `azure.correlation_id` to pivot to related changes in the same session.
+- Check for subsequent Azure sign-in activity using the modified federated credential.
+- Investigate if the application has been used to access sensitive resources after the change.
+
+### False positive analysis
+
+- Legitimate migrations from one identity provider to another (e.g., GitHub to GitLab) may trigger this detection.
+- DevOps teams may update issuer URLs as part of CI/CD pipeline changes.
+- Validate any changes with the application owner or DevOps team before taking action.
+
+### Response and remediation
+
+- If the change is unauthorized, immediately remove or revert the federated identity credential.
+- Rotate any secrets or certificates associated with the application.
+- Review Azure sign-in logs and audit logs for any unauthorized activity using the application's identity.
+- Disable the application or service principal if compromise is confirmed.
+- Investigate how the unauthorized change occurred (e.g., compromised admin account, over-privileged service principal).
+- Implement conditional access policies and PIM (Privileged Identity Management) to protect application management operations.
+"""
+references = [
+    "https://dirkjanm.io/persisting-with-federated-credentials-entra-apps-managed-identities/",
+    "https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation",
+]
+risk_score = 73
+rule_id = "498e4094-60e7-11f0-8847-f661ea17fbcd"
+setup = """### Microsft Entra ID Audit Logs
+This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+| where event.action == "Update application"
+| where `azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "FederatedIdentityCredentials"
+| eval Esql.target_resources_old_value_clean = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value`, "\\\\", "")
+| eval Esql.target_resources_new_value_clean = replace(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, "\\\\", "")
+| dissect Esql.target_resources_old_value_clean "%{}\"Issuer\":\"%{Esql.external_idp_old_issuer}\"%{}"
+| dissect Esql.target_resources_new_value_clean "%{}\"Issuer\":\"%{Esql.external_idp_new_issuer}\"%{}"
+| where Esql.external_idp_old_issuer is not null and Esql.external_idp_new_issuer is not null
+| where Esql.external_idp_old_issuer != Esql.external_idp_new_issuer
+| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index, data_stream.namespace
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
