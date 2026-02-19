@@ -3,7 +3,7 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -97,7 +97,8 @@ from .alerts-security.* METADATA _id, _version, _index
 
         // excluding noisy rule types and deprecated rules
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and
-        not kibana.alert.rule.name like "Deprecated - *" 
+        not kibana.alert.rule.name like "Deprecated - *" and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // aggregate alerts by host
 | stats Esql.alerts_count = COUNT(*),
