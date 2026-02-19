@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/26"
 maturity = "production"
-updated_date = "2026/01/26"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,7 @@ type = "esql"
 
 query = '''
 FROM metrics-*, .alerts-security.*  METADATA _index
+| where not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | eval
        // hosts with more than 90% total CPU use
        cpu_metrics_host_ids = CASE(_index like ".ds-metrics-system.cpu-*" and system.cpu.total.norm.pct >= 0.9, host.id, null),
