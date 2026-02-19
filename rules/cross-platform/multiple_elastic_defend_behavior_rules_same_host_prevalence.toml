@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/02/19"
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies hosts that triggered multiple distinct Elastic Defend behavior rules, while reducing false positives by
+considering only behavior rules that appear on a single host globally (via INLINE STATS). Hosts with two or more
+such rare behavior rules are more likely to be compromised and warrant prioritized triage.
+"""
+from = "now-60m"
+interval = "30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Rare Elastic Defend Behavior Rules by Host"
+risk_score = 73
+rule_id = "c4f7a2b1-5d8e-4c3a-9b6e-2f1a0d8c7e5b"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.alerts-* metadata _id
+| where event.dataset == "endpoint.alerts" and event.code == "behavior"
+| INLINE STATS hosts = COUNT_DISTINCT(host.id) BY rule.name
+// excludes rules triggering on multiple hosts to reduce potential FPs
+| where hosts == 1
+
+| stats unique_rules_count = COUNT_DISTINCT(rule.name),
+        Esql.rule_name_values = VALUES(rule.name),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.process_parent_executable_values = VALUES(process.parent.executable),
+        Esql.process_command_line_values = VALUES(process.command_line),
+		Esql.process_parent_command_line_values = VALUES(process.command_line),
+        Esql.process_hash_sha256_values = VALUES(process.hash.sha256), 
+		Esql.file_path_values = VALUES(file.path),
+        Esql.dll_path_values = VALUES(dll.path),
+        Esql.dll_hash_sha256_values = VALUES(dll.hash.sha256), 
+		Esql.user_name_values = VALUES(user.name) by host.id
+
+// at least 2 unique rules
+| where unique_rules_count >= 2
+
+// populate fields to use in rule exceptions
+| eval process.hash.sha256 = MV_FIRST(Esql.process_hash_sha256_values),
+       process.executable = MV_FIRST(Esql.process_executable_values),
+       process.parent.executable = MV_FIRST(Esql.process_parent_executable_values),
+       process.command_line = MV_FIRST(Esql.process_command_line_values),
+       user.name = MV_FIRST(Esql.user_name_values)
+| Keep host.id, user.name, process.executable, process.parent.executable, process.command_line, Esql.*
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Multiple Rare Elastic Defend Behavior Rules by Host
+
+This rule correlates Elastic Defend behavior alerts by host and applies a global prevalence filter: only behavior rules that fire on a single host in the lookback window are considered. Hosts that trigger two or more such rare behavior rules are flagged, as this pattern is more likely to indicate real compromise than commonly seen behavior rules.
+
+### Possible investigation steps
+
+- Review the listed behavior rule names and the associated process command lines (and parent command lines) to understand what actions triggered the alerts.
+- Identify the user(s) associated with the activity and confirm whether the behavior is expected for that role or host.
+- Correlate with other endpoint and network data for the host (process, network, file events) to assess scope and persistence.
+- Compare timestamps of the alerts to determine if activity is part of a single campaign or staged execution.
+
+### False positive analysis
+
+- The global prevalence filter (rules seen on only one host) reduces noise from behavior rules that fire widely (e.g., common software or policy). If legitimate single-host tools or scripts trigger multiple rare behavior rules, consider documenting and excluding known-good rule names or hosts.
+- Development or testing hosts may exhibit multiple rare behaviors; consider lowering severity or excluding those hosts if appropriate.
+
+### Response and remediation
+
+- Isolate the host if triage indicates compromise, then follow standard incident response procedures.
+- Collect and preserve artifacts (process hashes, command lines, files) for further analysis.
+- Escalate to the security team for full investigation and potential containment or eradication actions.
+"""
+references = [
+"https://www.elastic.co/docs/reference/query-languages/esql/commands/inlinestats-by", 
+"https://github.com/elastic/protections-artifacts/tree/main/behavior"
+]
