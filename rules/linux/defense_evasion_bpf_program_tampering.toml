@@ -1,0 +1,82 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects execution of bpftool commands used to detach eBPF programs or links, or to delete or modify eBPF maps. These
+actions can disable, alter, or interfere with kernel-level instrumentation and enforcement mechanisms implemented
+through eBPF. In environments relying on eBPF-based networking, observability, or security controls, unexpected
+use of these operations may indicate defense evasion or runtime tampering.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "BPF Program Tampering via bpftool"
+note = """"""
+references = [
+    "https://manpages.ubuntu.com/manpages/jammy/man8/bpftool-prog.8.html",
+    "https://manpages.ubuntu.com/manpages/noble/man8/bpftool-map.8.html",
+    "https://man.archlinux.org/man/bpftool-link.8.en",
+]
+risk_score = 47
+rule_id = "1b65429e-bd92-44c0-aff8-e8065869d860"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Rootkit",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "bpftool" and (
+  (process.args == "prog" and process.args == "detach") or
+  (process.args == "map" and process.args in ("delete", "update")) or
+  (process.args == "link" and process.args == "detach")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

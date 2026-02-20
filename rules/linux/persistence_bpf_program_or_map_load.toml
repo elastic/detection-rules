@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects execution of bpftool commands used to load, attach, run, or pin eBPF programs, as well as create or update
+eBPF maps and links. These operations interact directly with the Linux eBPF subsystem and can modify kernel-level
+behavior. While commonly used by legitimate networking or observability tooling, unexpected or interactive usage
+may indicate eBPF-based rootkit activity, policy tampering, or unauthorized kernel instrumentation.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "BPF Program or Map Load via bpftool"
+note = """"""
+references = [
+    "https://manpages.ubuntu.com/manpages/jammy/man8/bpftool-prog.8.html",
+    "https://manpages.ubuntu.com/manpages/noble/man8/bpftool-map.8.html",
+    "https://man.archlinux.org/man/bpftool-link.8.en",
+]
+risk_score = 47
+rule_id = "1b65429e-bd92-44c0-aff8-e8065869d860"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Threat: Rootkit",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "bpftool" and (
+  (process.args == "prog" and process.args in ("load", "loadall", "attach", "run", "pin")) or
+  (process.args == "map" and process.args in ("create", "pin")) or
+  (process.args == "link" and process.args == "pin")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
