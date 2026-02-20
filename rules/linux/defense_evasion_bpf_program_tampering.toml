@@ -24,7 +24,35 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "BPF Program Tampering via bpftool"
-note = """"""
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating BPF Program Tampering via bpftool
+
+This rule detects bpftool executions that detach eBPF programs/links or delete/update eBPF maps, actions that can silently disable kernel-level visibility and enforcement built on eBPF. Attackers use these operations to evade detection or weaken runtime controls by removing loaded probes or rewriting map contents that drive policy decisions. A common pattern is running bpftool to detach a program from a hook or detach a link shortly before other suspicious activity.
+
+### Possible investigation steps
+
+- Pull the full bpftool command line and correlate it with the invoking user, session (TTY/SSH), parent process chain, and any preceding privilege escalation to determine whether it was interactive admin work or automated tampering.  
+- Capture current eBPF state (`bpftool prog show`, `bpftool link show`, `bpftool map show -j`) and compare with recent snapshots/logs to identify which program/link/map changed and what controls (sensor, CNI, LSM, XDP/TC) may have been impacted.  
+- Identify the affected attachment point by mapping the detached program/link ID to its hook (e.g., tc/xdp/cgroup/tracepoint/kprobe) and validate operational impact by checking for missing telemetry, policy gaps, or network behavior changes around the event time.  
+- Review audit/system logs and package history for installation or recent execution of bpftool, kernel/debug tooling, or custom eBPF loaders, and look for nearby suspicious binaries/scripts that could be orchestrating repeated detach/update actions.  
+- If malicious activity is suspected, preserve artifacts by exporting bpftool JSON output and relevant `/sys/fs/bpf` entries, then hunt for follow-on persistence or rootkit-like behavior (new eBPF loads, altered maps, hidden processes, unexpected kernel module activity) on the host.
+
+### False positive analysis
+
+- A system administrator or SRE running bpftool during incident response or troubleshooting may detach a program/link or update/delete a map to temporarily disable an eBPF hook and validate whether it is causing network drops, performance regressions, or incorrect enforcement.
+- A maintenance workflow during kernel, CNI, or eBPF policy rollouts may use bpftool to detach and replace existing attachments or refresh map entries as part of a controlled upgrade/rollback, especially when reloading pinned objects under `/sys/fs/bpf`.
+
+### Response and remediation
+
+- Contain by isolating the host from the network or restricting outbound access while preserving access for forensics if bpftool detach/map operations are unexpected or coincide with loss of eBPF-based enforcement/telemetry.  
+- Eradicate by stopping and removing the controlling process/script (inspect the bpftool parent chain and cron/systemd units), revoking the initiating account’s sudo/root access, and deleting any unauthorized pinned objects under `/sys/fs/bpf` after exporting them for evidence.  
+- Recover by reloading the approved eBPF components (agent/CNI/LSM/XDP/TC) from trusted packages or images, reattaching required programs/links, and restoring known-good map contents from backups or redeploying policy to repopulate maps.  
+- Escalate to incident response and platform owners immediately if repeated bpftool tampering persists after containment, you find unknown pinned maps/programs with suspicious names/owners, or multiple hosts show simultaneous detach/update activity.  
+- Harden by limiting bpftool availability (remove from production images where not needed), enforcing least-privilege on CAP_BPF/CAP_SYS_ADMIN and sudoers, and adding immutable monitoring of `/usr/sbin/bpftool` and `/sys/fs/bpf` plus periodic snapshots of `bpftool prog/link/map show` for drift detection."""
 references = [
     "https://manpages.ubuntu.com/manpages/jammy/man8/bpftool-prog.8.html",
     "https://manpages.ubuntu.com/manpages/noble/man8/bpftool-map.8.html",
