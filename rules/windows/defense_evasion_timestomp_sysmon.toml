@@ -2,57 +2,79 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/02/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies modification of a file creation time. Adversaries may modify file time attributes to blend malicious content
-with existing files. Timestomping is a technique that modifies the timestamps of a file often to mimic files that are in
-trusted directories.
+Identifies the modification of a file creation time for executable files in sensitive system directories. Adversaries
+may modify file time attributes to blend malicious executables with legitimate system files. Timestomping is a technique
+that modifies the timestamps of a file often to mimic files that are in trusted directories.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "File Creation Time Changed"
+name = "Potential Timestomp in Executable Files"
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
-### Investigating File Creation Time Changed
-File creation timestamps are crucial for tracking file history and integrity. Adversaries may alter these timestamps, a tactic known as timestomping, to disguise malicious files as benign. This detection rule leverages Sysmon logs to identify suspicious changes in file creation times, excluding trusted processes and file types, thus highlighting potential evasion attempts by attackers.
+### Investigating Potential Timestomp in Executable Files
 
-### Possible investigation steps
+This alert indicates that a process modified the creation timestamp of a file with an executable extension in a sensitive Windows directory or a common persistence location. Timestomping can be used to make recently created or modified files appear older and blend in with legitimate system content.
 
-- Review the Sysmon logs to confirm the event code 2, which indicates a file creation time change, and verify the associated process and file details.
-- Identify the process executable path that triggered the alert and determine if it is outside the list of trusted paths specified in the query.
-- Check the file extension and name to ensure they are not part of the excluded types such as "temp", "tmp", or "LOG".
-- Investigate the user account associated with the event to determine if it is a non-system account, as the query excludes "SYSTEM", "Local Service", and "Network Service".
-- Correlate the file creation time change event with other security events or logs to identify any related suspicious activities or patterns.
-- Assess the file's location and context to determine if it is in a sensitive or unusual directory that could indicate malicious intent.
-- If necessary, perform a deeper forensic analysis on the file and process to identify any potential malicious behavior or indicators of compromise.
+#### Possible investigation steps
+- Establish scope and validate context:
+  - Identify the affected endpoint using `host.name` and `host.id`, and determine whether similar alerts or related file-timestamp changes are occurring on the same host.
+  - Review `user.name`, `user.domain`, and `user.id` to understand whether the account typically performs administrative or software management activities on this endpoint.
+  - Use `@timestamp` to bound a focused time window for pivots (for example, shortly before and after the change).
+
+- Assess the timestamp change behavior:
+  - Compare `winlog.event_data.PreviousCreationUtcTime` to `winlog.event_data.CreationUtcTime` and note whether the timestamp was backdated, forward-dated, or aligned to an apparent baseline.
+  - Identify whether multiple files were modified in the same window by searching for additional events on the same `host.id` and `process.entity_id`.
+
+- Evaluate the target file:
+  - Review `file.path`, `file.directory`, `file.name`, and `file.extension` to determine whether the target is expected in that location and whether the name resembles a legitimate component for the directory.
+  - If the file is in a Startup location, treat it as a potential persistence artifact and prioritize determining whether it later executed on the host.
+  - If the file is in a system directory, assess whether the host role and recent maintenance activity could reasonably explain changes to that specific file.
+
+- Investigate the process responsible for the change:
+  - Review `process.executable` and `process.name` for signs of an unusual execution location, unexpected binary name, or a process that does not normally manage files in the target directory.
+  - Pivot using `process.entity_id` (or `process.pid` within a narrow time range) to reconstruct process ancestry and command context using your available process telemetry.
+  - Look for additional activity by the same process in the same time window, such as other file modifications involving the same `file.path` or other executable files in similar directories.
+
+- Check for follow-on execution and related activity:
+  - Search for subsequent activity on the same `host.id` where `process.executable` matches the alerted `file.path`, which can indicate the modified file was executed after timestomping.
+  - If the target is a shortcut (`file.extension` such as `lnk`), look for later execution on the host that aligns with user logon activity for `user.id` and the alert timeline.
+  - Identify whether the same `file.name` and `file.path` appear on other endpoints, which may indicate propagation, a shared deployment mechanism, or a broader intrusion set.
 
 ### False positive analysis
-
-- Trusted software updates or installations may alter file creation times. Exclude known update processes like msiexec.exe from detection to reduce noise.
-- System maintenance tasks, such as disk cleanup, can modify timestamps. Exclude cleanmgr.exe to prevent these benign changes from triggering alerts.
-- User-initiated actions in trusted applications like Chrome or Firefox might change file creation times. Exclude these applications to avoid unnecessary alerts.
-- Temporary files created by legitimate processes may have altered timestamps. Exclude file extensions like temp and tmp to minimize false positives.
-- System accounts such as SYSTEM or Local Service may perform legitimate file operations. Exclude these user names to focus on suspicious activities.
+- Enterprise software deployment, patching, and self-update mechanisms can rewrite binaries and adjust file metadata as part of normal operations.
+- Backup, restore, profile reset, and file synchronization workflows can preserve or reapply timestamps when placing executables into directories.
+- Administrative troubleshooting or recovery activities (for example, repairing installations or restoring components) may result in unexpected timestamp changes for legitimate files.
 
 ### Response and remediation
+- If the activity is unexpected or suspicious:
+  - Contain the host to limit further tampering and reduce the risk of execution or persistence.
+  - Preserve evidence for the alert by capturing the values of `file.path`, `process.executable`, `process.entity_id`, `user.id`, and the before/after timestamps, and collect related events on the same `host.id` in the surrounding window.
+  - Determine whether the affected file executed after the change by correlating activity on the same `host.id` and comparing `process.executable` to the alerted `file.path`.
+  - Acquire and analyze the target file and the modifying process binary using your standard tooling to assess reputation, integrity, and suspected origin.
+  - Remove or quarantine malicious files and remediate unauthorized persistence, especially for items placed in Startup locations.
+  - Scope across the environment for the same `file.path`, `file.name`, and `process.executable`, and apply containment actions to additional affected hosts as needed.
+  - If compromise is suspected, review access associated with `user.id` and follow incident response procedures for account containment and recovery.
 
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement by the adversary.
-- Conduct a thorough review of the file in question to determine if it is malicious. Use a combination of antivirus scans and manual analysis to assess the file's behavior and origin.
-- If the file is confirmed to be malicious, remove it from the system and any other locations it may have been copied to. Ensure that all associated processes are terminated.
-- Restore any affected files from a known good backup to ensure data integrity and continuity.
-- Review and update endpoint protection settings to ensure that similar threats are detected and blocked in the future. This may include adjusting Sysmon configurations to enhance logging and detection capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised.
-- Document the incident, including all actions taken, to improve future response efforts and update threat intelligence databases with any new indicators of compromise (IOCs) identified."""
+- If the activity is confirmed benign:
+  - Document the legitimate software or workflow responsible for the timestamp change, including the expected `process.executable` and target paths, to support consistent triage and future tuning.
+"""
 risk_score = 47
 rule_id = "166727ab-6768-4e26-b80c-948b228ffc06"
+setup = """## Setup
+
+Sysmon must be installed and configured to generate the events used by this rule (Event ID 2).
+Setup instructions: https://ela.st/sysmon-event-2-setup
+"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -67,25 +89,30 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and
-  event.provider == "Microsoft-Windows-Sysmon" and
-  /* File creation time change */
-  event.code == "2" and
-  not process.executable :
-           ("?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\system32\\cleanmgr.exe",
-            "?:\\Windows\\system32\\msiexec.exe",
-            "?:\\Windows\\syswow64\\msiexec.exe",
-            "?:\\Windows\\system32\\svchost.exe",
-            "?:\\WINDOWS\\system32\\backgroundTaskHost.exe",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Users\\*\\AppData\\Local\\slack\\app-*\\slack.exe",
-            "?:\\Users\\*\\AppData\\Local\\GitHubDesktop\\app-*\\GitHubDesktop.exe",
-            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
-            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe") and
-  not file.extension : ("temp", "tmp", "~tmp", "xml", "newcfg") and not user.name : ("SYSTEM", "Local Service", "Network Service") and
-  not file.name : ("LOG", "temp-index", "license.rtf", "iconcache_*.db")
+  event.provider == "Microsoft-Windows-Sysmon" and event.code == "2" and
+  file.extension : (
+    "exe", "dll", "sys", "msi", "scr", "pif", "lnk"
+  ) and
+  file.path : (
+    "?:\\Windows\\System32\\*",
+    "?:\\Windows\\SysWOW64\\*",
+    "?:\\ProgramData\\*",
+    "?:\\Users\\Public\\*",
+    "?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
+    "?:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*"
+  ) and
+  not process.executable : (
+    "?:\\Program Files\\*",
+    "?:\\Program Files (x86)\\*",
+    "?:\\Windows\\system32\\cleanmgr.exe",
+    "?:\\Windows\\system32\\msiexec.exe",
+    "?:\\Windows\\syswow64\\msiexec.exe",
+    "?:\\Windows\\system32\\svchost.exe",
+    "?:\\Windows\\System32\\Robocopy.exe",
+    "?:\\Windows\\SysWOW64\\Robocopy.exe"
+  ) and
+  not (process.executable : "?:\\Windows\\System32\\spoolsv.exe" and file.path : "?:\\Windows\\System32\\spool\\*") and
+  not user.name : ("SYSTEM", "Local Service", "Network Service")
 '''
 
 
@@ -107,3 +134,16 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.domain",
+    "file.path",
+    "file.name",
+    "host.name",
+    "host.id",
+    "process.executable",
+    "winlog.event_data.CreationUtcTime",
+    "winlog.event_data.PreviousCreationUtcTime"
+]
