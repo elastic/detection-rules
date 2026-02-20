@@ -26,6 +26,7 @@ from logs-aws.cloudtrail-*
 | DISSECT aws.cloudtrail.user_identity.arn "%{?}:assumed-role/%{assumed_role_name}/%{entity}"
 | DISSECT user_agent.original "%{user_agent_name} %{?user_agent_remainder}"
 | WHERE STARTS_WITH(entity, "i-")
+| KEEP cloud.account.id, entity, assumed_role_name, cloud.region, user_agent_name
 | STATS regional_topic_created_count = COUNT(*) by cloud.account.id, entity, assumed_role_name, cloud.region, user_agent_name
 | SORT regional_topic_created_count ASC
 ```
