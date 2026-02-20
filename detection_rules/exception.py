@@ -271,6 +271,7 @@ def parse_exceptions_results_from_api(
                 item_id = result.get("item_id")
                 pair = (list_id, item_id) if item_id is not None else None
                 if pair is not None and pair in seen_list_item_pairs:
+                    print(f"Duplicate item found for list_id {list_id} and item_id {item_id}, skipping...")
                     continue
                 item = _deduplicate_comments(result)
                 if pair is not None:
