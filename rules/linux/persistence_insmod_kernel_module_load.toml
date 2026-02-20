@@ -172,9 +172,9 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and (
   (process.name == "kmod" and process.args == "insmod" and process.args like~ "*.ko*") or
-  (process.name == "kmod" and process.args == "modprobe" and not process.args == "-r") or
+  (process.name == "kmod" and process.args == "modprobe" and not process.args in ("-r", "--remove")) or
   (process.name == "insmod" and process.args like~ "*.ko*") or
-  (process.name == "modprobe" and not process.args == "-r")
+  (process.name == "modprobe" and not process.args in ("-r", "--remove"))
 ) and
 not (
   ?process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*") or
