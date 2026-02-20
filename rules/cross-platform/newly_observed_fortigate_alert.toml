@@ -2,7 +2,7 @@
 creation_date = "2026/01/21"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/02/18"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,10 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 | WHERE event.module == "fortinet_fortigate" and event.action in ("signature", "ssl-anomaly") and
   message is not null and event.category != "authentication" and
   message != "Connection Failed" and not message like "Web.Client: *" and
-  not message like "Network.Service: *" and not message like "General.Interest*" and not message like "Update: *"
+  not message like "Network.Service: *" and not message like "General.Interest*" and not message like "Update: *" and
+  not message like "tcp_reassembler*" and not message like "a-ipdf*" and not message like "Video*" and not message like "nbss_decode*" and
+  not message like "name_server*" and not message like "misc*" and not message like "Collaboration*" and not message like "Business*" and
+  not message like "Cloud.IT*" and not message like "Mobile*"
 
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
