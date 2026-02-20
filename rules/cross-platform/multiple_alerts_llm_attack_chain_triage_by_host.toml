@@ -3,7 +3,7 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/16"
+updated_date = "2026/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -149,6 +149,14 @@ from .alerts-security.* METADATA _id, _version, _index
 
 // filter to surface attack chains or suspicious activity
 | where (TO_LOWER(Esql.verdict) == "tp" or TO_LOWER(Esql.verdict) == "suspicious") and TO_DOUBLE(Esql.confidence) > 0.7
-| keep host.name, host.id, Esql.*
+
+// map to ECS fields for timeline visibility
+| eval message = Esql.summary,
+       event.reason = Esql.summary,
+       event.outcome = TO_LOWER(Esql.verdict),
+       event.category = "intrusion_detection",
+       event.action = "attack_chain_triage"
+
+| keep host.name, host.id, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 
