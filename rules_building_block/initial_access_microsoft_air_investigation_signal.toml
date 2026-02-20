@@ -1,0 +1,74 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies Microsoft 365 Automated Investigation and Response (AIR) events including automated investigations,
+manual investigations, and admin-initiated actions. These events track Microsoft's automated threat response
+activities and can indicate active threats being remediated. This building block rule generates security events
+for correlation, threat hunting, and telemetry collection to provide visibility into automated response actions.
+"""
+from = "now-119m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "M365 AIR Investigation Signal"
+references = [
+    "https://learn.microsoft.com/en-us/defender-office-365/air-about",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-auditlogrecordtype---type-edmint32",
+]
+risk_score = 21
+rule_id = "f2h98i7c-1e5h-7g3f-di6j-7e8f9a0b1c2d"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Defender for Office 365",
+    "Use Case: Threat Detection",
+    "Use Case: Automated Response Tracking",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and
+    event.code:(AirInvestigation or AirManualInvestigation or AirAdminActionInvestigation)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies Microsoft Purview Insider Risk Management signals including alerts, cases, scoped user insights, HR signals,
+and physical badging signals. These events indicate potential insider threats, compromised user accounts, or anomalous
+user behavior patterns detected by Microsoft's behavioral analytics. This building block rule generates security events
+for correlation, threat hunting, and telemetry collection to support detection of insider threats and account compromise.
+"""
+from = "now-119m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "M365 Purview Insider Risk Signal"
+references = [
+    "https://learn.microsoft.com/en-us/purview/insider-risk-management",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-auditlogrecordtype---type-edmint32",
+]
+risk_score = 21
+rule_id = "c9e65f49-8b2e-4d0c-af3g-4b5c6d7e8f9a"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Purview",
+    "Data Source: Microsoft Purview Insider Risk",
+    "Use Case: Threat Detection",
+    "Use Case: Insider Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Tactic: Impact",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and
+    event.code:(PurviewInsiderRiskCases or PurviewInsiderRiskAlerts or InsiderRiskScopedUserInsights or InsiderRiskScopedUsers or InformationWorkerProtection or HRSignal or PhysicalBadgingSignal)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

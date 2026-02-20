@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies Microsoft 365 Data Loss Prevention (DLP) and Data Lifecycle Management (DLM) signals from Microsoft Purview
+across Exchange, SharePoint, OneDrive, and endpoint devices. These events indicate potential data exfiltration attempts,
+policy violations involving sensitive data, or unauthorized sharing of classified information. This building block rule
+generates security events for correlation, threat hunting, and telemetry collection to support detection of collection
+and exfiltration activities.
+"""
+from = "now-119m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "M365 Purview DLP Signal"
+references = [
+    "https://learn.microsoft.com/en-us/purview/dlp-learn-about-dlp",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-auditlogrecordtype---type-edmint32",
+]
+risk_score = 21
+rule_id = "b8f54e38-7a1d-4c9b-9e2f-3a4b5c6d7e8f"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Purview",
+    "Data Source: Microsoft Purview DLP",
+    "Use Case: Threat Detection",
+    "Use Case: Data Protection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and
+    event.code:(ComplianceDLPSharePoint or ComplianceDLPExchange or ComplianceDLPSharePointClassification or DLPEndpoint or ComplianceDLPExchangeClassification or ComplianceDLMExchange or ComplianceDLMSharePoint)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
