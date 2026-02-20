@@ -3,6 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule exceptions data."""
+
 import copy
 from collections import defaultdict
 from dataclasses import dataclass
