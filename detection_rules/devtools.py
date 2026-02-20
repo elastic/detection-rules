@@ -750,7 +750,7 @@ def integrations_pr(  # noqa: PLR0913, PLR0915
     # Save the latest deprecated file to the package
     deprecated_target = target_directory / "deprecated_rules.json"
     deprecated_file_contents = get_etc_file("deprecated_rules.json")
-    with deprated_target.open("w") as f:
+    with deprecated_target.open("w") as f:
         f.write(deprecated_file_contents)
 
     def elastic_pkg(*args: Any) -> None:
