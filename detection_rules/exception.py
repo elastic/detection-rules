@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule exceptions data."""
-
+import copy
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -228,19 +228,25 @@ class TOMLException:
             pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
 
 
+def _comment_id(comment: dict[str, Any] | str) -> str:
+    """Return a stable id for deduplication. API comments are dicts with 'id'; fallback str() for other types."""
+    return comment.get("id", "Null") if isinstance(comment, dict) else str(comment)
+
+
 def _deduplicate_comments(item: dict[str, Any]) -> dict[str, Any]:
-    """Remove duplicate comments from an exception item by comment text."""
-    item = dict(item)
-    comments: list[str] | None = item.get("comments")
+    """Remove duplicate comments from an exception item by comment id (order preserved)."""
+    item = copy.deepcopy(item)
+    comments: list[Any] | None = item.get("comments", [])
     if not isinstance(comments, list) or not comments:
         return item
-    seen_texts: set[str] = set()
-    deduplicated: list[str] = []
+    seen: set[str] = set()
+    seen.add("Null")
+    deduplicated: list[Any] = []
     for comment in comments:
-        if comment in seen_texts:
-            continue
-        seen_texts.add(comment)
-        deduplicated.append(comment)
+        cid = _comment_id(comment)
+        if cid not in seen:
+            seen.add(cid)
+            deduplicated.append(comment)
     item["comments"] = deduplicated
     return item
 
