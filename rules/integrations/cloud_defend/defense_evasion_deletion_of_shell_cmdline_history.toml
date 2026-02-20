@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where host.os.type == "linux" and event.category in ("file", "process") and process.interactive == true and container.id like "?*" and (
+any where event.category in ("file", "process") and process.interactive == true and container.id like "?*" and (
   (event.category == "file" and event.type == "deletion" and file.name in (".bash_history", ".sh_history",  ".zsh_history")) or
   (event.category == "process" and event.type == "start" and event.action == "exec" and (
     (
