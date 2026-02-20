@@ -75,7 +75,7 @@ from .rule import (
 from .rule_loader import RuleCollection, production_filter
 from .rule_validators import ESQLValidator
 from .schemas import definitions, get_stack_versions
-from .utils import check_version_lock_double_bumps, dict_hash, get_etc_file, get_etc_path, get_path
+from .utils import check_version_lock_double_bumps, dict_hash, get_etc_path, get_path
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -746,12 +746,6 @@ def integrations_pr(  # noqa: PLR0913, PLR0915
             yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2, sort_keys=False)
 
     save_changelog()
-
-    # Save the latest deprecated file to the package
-    deprecated_target = target_directory / "deprecated_rules.json"
-    deprecated_file_contents = get_etc_file("deprecated_rules.json")
-    with deprecated_target.open("w") as f:
-        f.write(deprecated_file_contents)
 
     def elastic_pkg(*args: Any) -> None:
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
