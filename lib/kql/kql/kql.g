@@ -23,6 +23,7 @@ field_value_expression: field ":" list_of_values
 field: literal
 
 value: QUOTED_STRING
+      | WILDCARD_LITERAL
       | UNQUOTED_LITERAL
 
 
@@ -33,6 +34,13 @@ RANGE_OPERATOR: "<="
               | ">="
               | "<"
               | ">"
+
+// Wildcard literal - for wildcard values containing spaces
+// Priority 3 ensures it matches before keywords (priority 2) and unquoted literals
+// Uses word boundary \b to stop before 'or', 'and', 'not' keywords
+// MUST contain at least one space to differentiate from field names like common.*
+WILDCARD_LITERAL.3: /\*[^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*?/i
+                  | /[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*/i
 
 UNQUOTED_LITERAL: UNQUOTED_CHAR+
 UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace
