@@ -501,6 +501,9 @@ class Package:
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)
 
+        deprecated_rules_file = package_dir / "deprecated_rules.json"
+        shutil.copyfile(get_etc_path(["deprecated_rules.json"]), deprecated_rules_file)
+
     def create_bulk_index_body(self) -> tuple[Ndjson, Ndjson]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)

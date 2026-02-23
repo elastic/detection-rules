@@ -818,6 +818,8 @@ class ESQLValidator(QueryValidator):
                 reverse_col_type = kql.parser.elasticsearch_type_family(column_type) if column_type else None
                 if reverse_col_type is not None and schema_type is not None and reverse_col_type == schema_type:
                     continue
+                if reverse_col_type is not None and reverse_col_type == column_type:
+                    continue
                 mismatched_columns.append(
                     f"Dynamic field `{column_name}` is not correctly mapped. "
                     f"If not dynamic: expected from schema: `{schema_type}`, got from Kibana: `{column_type}`."
