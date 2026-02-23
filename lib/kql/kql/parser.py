@@ -338,6 +338,28 @@ class KqlParser(BaseKqlParser):
         self.assert_lower_token(*tree.child_tokens)
         return NotValue(self.visit(tree.children[-1]))
 
+    def list_of_values(self, tree):
+        if len(tree.children) == 2:
+            # optional_not value
+            opt_not_tree, value_tree = tree.children
+            not_count = self.visit(opt_not_tree)
+            value = self.visit(value_tree)
+            for _ in range(not_count):
+                value = NotValue(value)
+            return value
+        else:
+            # "(" or_list_of_values ")"
+            return self.visit(tree.children[1])
+
+    def optional_not(self, tree):
+        count = 0
+        for child in tree.children:
+            if hasattr(child, "type") and child.type == "NOT":
+                count += 1
+            else:
+                count += self.visit(child)
+        return count
+
     def literal(self, tree):
         return self.unescape_literal(tree.children[0])
 
