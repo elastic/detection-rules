@@ -37,7 +37,7 @@ query = '''
 sequence by user.name with maxspan=30m
  [authentication where event.dataset == "fortinet_fortigate.log" and event.action == "login" and event.code in ("0101039426", "0101039427")]
  [any where event.kind == "signal" and kibana.alert.rule.name != null and event.dataset != "fortinet_fortigate.log" and
-  kibana.alert.risk_score > 21 and kibana.alert.rule.rule_id != "a7f2c1b4-5d8e-4f3a-9b0c-2e1d4a6b8f3e"]
+  kibana.alert.risk_score > 21 and kibana.alert.rule.rule_id != "a7f2c1b4-5d8e-4f3a-9b0c-2e1d4a6b8f3e" and user.name != null]
 '''
 note = """## Triage and analysis
 
@@ -63,14 +63,6 @@ This rule correlates a FortiGate SSL VPN login with a subsequent security alert 
 - Investigate the host and process associated with the SIEM alert.
 - Escalate to the security or incident response team if the alert indicates malicious activity.
 """
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.tactic]]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
 
 
 [[rule.threat]]
