@@ -3,13 +3,13 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/16"
+updated_date = "2026/02/20"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule correlates multiple endpoint security alerts from the same host and uses an LLM to analyze command lines,
-parent processes, file operations, DNS queries, registry modifications, modules load and MITRE ATT&CK tactics progression to
+parent processes, file operations, DNS queries, registry modifications, module loads and MITRE ATT&CK tactics progression to
 determine if they form a coherent attack chain. The LLM provides a verdict (TP/FP/SUSPICIOUS) with confidence score
 and summary explanation, helping analysts to prioritize hosts exhibiting corroborated malicious behavior while
 filtering out benign activity.
@@ -149,6 +149,14 @@ from .alerts-security.* METADATA _id, _version, _index
 
 // filter to surface attack chains or suspicious activity
 | where (TO_LOWER(Esql.verdict) == "tp" or TO_LOWER(Esql.verdict) == "suspicious") and TO_DOUBLE(Esql.confidence) > 0.7
-| keep host.name, host.id, Esql.*
+
+// map to ECS fields for timeline visibility
+| eval message = Esql.summary,
+       event.reason = Esql.summary,
+       event.outcome = TO_LOWER(Esql.verdict),
+       event.category = "intrusion_detection",
+       event.action = "attack_chain_triage"
+
+| keep host.name, host.id, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 

@@ -2,7 +2,7 @@
 creation_date = "2021/11/22"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/12"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Austin Songer"]
@@ -89,9 +89,12 @@ process where host.os.type == "windows" and event.type == "start" and
     ?process.pe.original_file_name in ("PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE")
   ) and
   (
-    process.args : "*Clear-History*" or
-    (process.args : ("*Remove-Item*", "rm") and process.args : ("*ConsoleHost_history.txt*", "*(Get-PSReadlineOption).HistorySavePath*")) or
-    (process.args : "*Set-PSReadlineOption*" and process.args : "*SaveNothing*")
+    process.command_line : "*Clear-History*" or
+    (
+      process.command_line : ("*Remove-Item*", "* rm *") and
+      process.command_line : ("*ConsoleHost_history.txt*", "*(Get-PSReadlineOption).HistorySavePath*")
+    ) or
+    (process.command_line : "*Set-PSReadlineOption*" and process.command_line : "*SaveNothing*")
   )
 '''
 
