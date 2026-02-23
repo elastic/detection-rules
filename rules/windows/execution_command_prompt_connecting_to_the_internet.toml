@@ -2,46 +2,15 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/26"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/02/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies cmd.exe making a network connection. Adversaries could abuse cmd.exe to download or execute malware from a
-remote URL.
+Identifies a network connection by the command prompt (cmd.exe) when it is executed with specific arguments, such as a
+script or a URL, or when it is spawned by Microsoft Office applications. Adversaries often abuse cmd.exe to download
+malicious payloads or establish command and control channels from a remote source.
 """
-false_positives = [
-    """
-    Administrators may use the command prompt for regular administrative tasks. It's important to baseline your
-    environment for network connections being made from the command prompt to determine any abnormal use of this tool.
-    """,
-]
 from = "now-9m"
 index = [
     "winlogbeat-*",
@@ -52,60 +21,80 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Command Prompt Network Connection"
+name = "Suspicious Command Prompt Network Connection"
 note = """## Triage and analysis
 
-### Investigating Command Prompt Network Connection
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-Attackers commonly transfer tooling or malware from external systems into a compromised environment using a command and control channel. However, they can also abuse signed utilities to drop these files.
+### Investigating Suspicious Command Prompt Network Connection
 
-This rule looks for a network connection to an external address from the `cmd.exe` utility, which can indicate the abuse of the utility to download malicious files and tools.
+This alert identifies a Windows `cmd.exe` process start event that is quickly followed by a network connection from the same `cmd.exe` instance (`process.entity_id`). The command line indicates scripted execution (batch files), references to remote resources (URL-like strings), or execution launched by a Microsoft Office application. This pattern can be used to download payloads, stage execution, or establish command and control.
 
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+#### Triage and analysis steps
 
-#### Possible investigation steps
+- Confirm the matched sequence and keep analysis tied to the correct process instance:
+  - Use the `Investigate in timeline` button in the Alerts table or pivot on `process.entity_id` to review both the process start event and the associated network event(s).
+  - Example KQL pivots:
+    - `process.entity_id:"<process_entity_id>" and event.category:process`
+    - `process.entity_id:"<process_entity_id>" and event.category:network`
 
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-  - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-  - Investigate the file digital signature and process original filename, if suspicious, treat it as potential malware.
-- Investigate the target host that the signed binary is communicating with.
-  - Check if the domain is newly registered or unexpected.
-  - Check the reputation of the domain or IP address.
-- Examine if any file was downloaded and check if it is an executable or script.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the downloaded file using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Determine why `cmd.exe` matched and assess intent:
+  - Review `process.args` to confirm the interpreter switch (`/c` to execute and exit, `/k` to remain open).
+  - Identify which match condition applies:
+    - Batch script: `process.args` includes a `.bat` or `.cmd` reference.
+    - Remote resource: `process.command_line` contains `http://`, `https://`, or `ftp://`.
+    - Office parent: `process.parent.name` is one of `winword.exe`, `excel.exe`, `powerpnt.exe`, `outlook.exe`, `msaccess.exe`, or `mspub.exe`.
+  - Look for staging or obfuscation patterns in `process.command_line` (for example: `&`/`&&`/`||`, pipes `|`, redirection `>`/`>>`, escaping `^`, environment variables, or long encoded strings).
+
+- Validate the execution context and launch vector:
+  - Review `user.*` fields to determine who ran the command and whether it is expected for the host role.
+  - Review `process.parent.name` (and `process.parent.command_line` if available) to understand the initial trigger:
+    - Office parent: prioritize identifying the initiating document or message and any user interaction around `@timestamp`.
+    - Management tooling or installer parent: validate change control and whether the command line and destination are consistent with that software.
+  - If a batch script is referenced, locate the script on the host (if telemetry allows) and capture path and hash (`file.path`, `file.hash.sha256`) for scoping.
+
+- Analyze the outbound destination:
+  - Review `destination.ip` and `destination.port` for expectedness (business relationship, known vendor, or organization-owned public IP space).
+  - Note: the rule excludes common private and reserved address ranges, but it can still alert on connections to legitimate public services.
+  - Pivot on `destination.ip` to identify other hosts contacting the same destination near `@timestamp`:
+    - `destination.ip:"<destination_ip>" and event.category:network`
+  - Check whether the same `process.entity_id` generated repeated connections (potential beaconing) versus a single connection (one-time retrieval).
+
+- Reconstruct follow-on activity and potential impact:
+  - Identify child processes spawned by `cmd.exe` and look for common follow-on tooling (for example: `powershell.exe`, `mshta.exe`, `rundll32.exe`, `regsvr32.exe`, `certutil.exe`, `bitsadmin.exe`, `curl.exe`, `wget.exe`).
+  - If file telemetry is available, review file creation/modification shortly after `@timestamp` and correlate any new binaries or scripts with hashes and execution events.
+
+- Scope the activity (blast radius):
+  - Search for the same `process.command_line` (or distinctive substrings), script name, or extracted URL across endpoints.
+  - Search for other `cmd.exe` instances connecting to the same `destination.ip` or the same destination port/protocol.
+  - If the parent is Office, scope for the same parent-child relationship (`process.parent.name` -> `cmd.exe`) across users and hosts.
 
 ### False positive analysis
 
-- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of destination IP address and file name conditions.
+- Software deployment, packaging, or endpoint management workflows that use `cmd.exe /c` to run batch scripts and contact vendor services.
+- Signed installer or updater activity where `cmd.exe` is used as a helper process with stable command lines.
+- Documented Office macros/add-ins/templates that legitimately spawn `cmd.exe` with consistent command lines and destinations.
+
+A benign determination is more likely when the combination of `process.parent.name`, stable `process.command_line`, and consistent `destination.ip`/`destination.port` repeats across an expected set of hosts and users and aligns to a documented workflow owner.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is suspicious or cannot be attributed to an approved workflow:
+  - Contain the affected endpoint (`host.id`) using available endpoint or network controls.
+  - Preserve evidence (at minimum):
+    - `@timestamp`, `host.*`, `user.*`
+    - `process.entity_id`, `process.command_line`, `process.args`, `process.parent.*`
+    - `destination.ip`, `destination.port`, `network.*`
+    - Any related child processes and file artifacts (paths and hashes) identified during triage
+  - Scope for related activity by searching for additional occurrences of the same destination and command-line patterns.
+  - If Office is the launch vector, identify and quarantine the initiating document or email and assess whether similar content was delivered to other users.
+  - If a script is involved, collect and review the script contents and investigate how it was introduced (downloads, email attachments, shared drives, logon scripts, scheduled tasks).
+  - If account compromise is suspected, follow established identity response procedures (credential reset, session review, and access auditing).
+
+- If the activity is confirmed benign:
+  - Document the expected parent process, command-line pattern, and destinations.
+  - Consider adding a narrowly scoped exception using stable identifiers and constrained conditions (for example, specific `process.command_line` patterns and known destinations) to reduce recurring noise.
 """
 references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml"]
 risk_score = 21
@@ -124,18 +113,22 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [process where host.os.type == "windows" and process.name : "cmd.exe" and event.type == "start"]
+sequence by process.entity_id with maxspan=15s
+  [process where host.os.type == "windows" and event.type == "start" and
+    process.name : "cmd.exe" and process.args : ("/c", "/k") and
+    (
+      process.args : ("*.bat", "*.cmd") or
+      process.command_line : ("*http://*", "*https://*", "*ftp://*") or
+      process.parent.name : ("excel.exe", "msaccess.exe", "mspub.exe", "powerpnt.exe", "winword.exe", "outlook.exe")
+    )
+  ]
   [network where host.os.type == "windows" and process.name : "cmd.exe" and
      not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
                                   "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32",
                                   "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24",
                                   "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24",
                                   "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1",
-                                  "FE80::/10", "FF00::/8") and
-    not dns.question.name : (
-          "wpad", "localhost", "ocsp.comodoca.com", "ocsp.digicert.com", "ocsp.sectigo.com", "crl.comodoca.com"
-    )]
+                                  "FE80::/10", "FF00::/8")]
 '''
 
 
@@ -163,4 +156,17 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.domain",
+    "user.id",
+    "process.entity_id",
+    "process.name",
+    "process.parent.name"
+]
 
