@@ -39,8 +39,9 @@ RANGE_OPERATOR: "<="
 // Priority 3 ensures it matches before keywords (priority 2) and unquoted literals
 // Uses word boundary \b to stop before 'or', 'and', 'not' keywords
 // MUST contain at least one space to differentiate from field names like common.*
+// Pattern 2 uses (?!...) at start to avoid matching keywords like 'not /path*'
 WILDCARD_LITERAL.3: /\*[^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*?/i
-                  | /[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*/i
+                  | /(?!(?:or|and|not)\b)[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*/i
 
 UNQUOTED_LITERAL: UNQUOTED_CHAR+
 UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace
