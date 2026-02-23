@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a package service such as npm, gems, or a script interpreter makes an outbound network connection 
+to an OAST (Out-of-band Application Security Testing) domain. Threat actors have been using OAST domains to 
+exfiltrate sensitive data from compromised systems via malicious packages.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection to OAST Domain via Script Interpreter"
+references = [
+    "https://socket.dev/blog/weaponizing-oast-how-malicious-packages-exploit-npm-pypi-and-rubygems"
+]
+risk_score = 73
+rule_id = "54214c47-be7c-4f6b-8ef2-78832f9f8f42"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connection to OAST Domain via Script Interpreter
+
+Out-of-Band Application Security Testing (OAST) services such as interact.sh, burpcollaborator.net, and similar platforms are designed for security testing to detect vulnerabilities through out-of-band data channels. However, threat actors abuse these same services for data exfiltration, command and control, and DNS-based exploitation. This detection rule identifies script interpreters or suspicious processes connecting to known OAST domains, which may indicate exploitation activity or unauthorized security testing.
+
+### Possible investigation steps
+
+- Verify with your security team whether authorized penetration testing or red team exercises are currently underway that would involve OAST services.
+- Review the process.name and process.executable fields to identify which application initiated the OAST connection and determine if it is a known vulnerable application.
+- Examine the dns.question.name field to capture the full OAST subdomain, as the subdomain often contains encoded data or unique identifiers used by attackers.
+- Analyze the process.parent.executable and process.command_line to understand how the connecting process was spawned and identify the potential vulnerability being exploited.
+- Check for any HTTP request or response data associated with the OAST connection to identify what data may have been exfiltrated.
+- Investigate the user.name and host.name to determine the scope of affected systems and user accounts.
+- Review web application logs and proxy data for injection attempts or exploitation activity that may have triggered the OAST callback.
+
+### False positive analysis
+
+- Authorized security researchers and penetration testers may use OAST services during sanctioned vulnerability assessments. Confirm testing windows with the security team before escalating.
+- Bug bounty hunters testing your organization's applications may trigger OAST connections. Verify if bug bounty programs are active and expected.
+- Security training or capture-the-flag exercises may involve OAST services for educational purposes. Confirm with training coordinators if such exercises are scheduled.
+- Some commercial security scanning tools may use OAST-like services for vulnerability detection. Verify if automated security scanning is running.
+
+### Response and remediation
+
+- If unauthorized, immediately block the OAST domain at the network perimeter, DNS resolver, and proxy to prevent further communication.
+- Isolate the affected system to prevent lateral movement or additional data exfiltration.
+- Identify the vulnerable application or injection point that led to the OAST callback and apply emergency patches or mitigations.
+- Review the OAST subdomain and any captured data to assess the scope of information exposure.
+- Conduct a thorough code review of affected applications to identify and remediate the underlying vulnerability.
+- Implement web application firewall rules to detect and block common injection patterns that lead to OAST exploitation.
+- Escalate to the incident response team for further investigation if the activity indicates active exploitation or compromise.
+"""
+query = '''
+sequence by process.entity_id with maxspan=1m
+  [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+    (process.name == "node" or process.name like ("python*", "ruby*", "perl*"))]
+  [network where host.os.type == "macos" and event.type == "start" and destination.domain like "*.oast*"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration Over Web Service"
+  id = "T1567"
+  reference = "https://attack.mitre.org/techniques/T1567/"

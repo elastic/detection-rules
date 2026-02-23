@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the loading of a kernel module from an unusual location. Threat actors may use
+this technique to maintain persistence on a system by loading a kernel module into the kernel namespace.
+This behavior is strongly related to the presence of a rootkit on the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kernel Module Load from Unusual Location"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Module Load from Unusual Location
+
+This rule detects attempts to load Linux kernel modules from atypical directories, which can indicate an attacker trying to run code in kernel space for stealth and long-term persistence. Adversaries often drop a malicious `.ko` into writable paths like `/tmp` or `/dev/shm` after initial access, then use `insmod` or `modprobe` to insert it and hide processes, files, or network activity as a rootkit.
+
+### Possible investigation steps
+
+- Capture the full command line and resolve any referenced `.ko` path, then collect the module file for hashing and static analysis to determine provenance and known-malware matches.  
+- Confirm whether the module is currently loaded by querying `lsmod`/`/proc/modules`, then map it to its on-disk location with `modinfo -n <module>` (or `/sys/module/<module>/sections/*`) to validate it was loaded from the suspicious directory.  
+- Review recent kernel and audit telemetry (`dmesg`, `/var/log/kern.log`, `journalctl -k`, and any audit records) around the event time for insertion messages, signature/taint indicators, and any follow-on errors suggesting tampering.  
+- Identify the initiating user/session and execution chain (parent process tree, TTY/SSH source, container context), then determine whether the action aligns with legitimate admin activity or coincides with other compromise signals on the host.  
+- Hunt for persistence and repeatability by checking for recurring module-load attempts and inspecting boot-time and scheduled execution paths (systemd units, init scripts, cron, rc.local) that could reload the module after reboot.
+
+### False positive analysis
+
+- A system administrator or automated maintenance workflow may build or test an out-of-tree kernel module and load it with `insmod`/`modprobe` from a staging directory such as `/tmp`, `/root`, or `/mnt` before installing it into standard module paths.  
+- A legitimate bootstrapping or recovery operation may load a required driver module from nonstandard media or temporary runtime locations (e.g., `/boot`, `/run`, `/var/run`, or `/mnt`) during troubleshooting, initramfs/early-boot tasks, or mounting encrypted/storage devices.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network and disable external access (e.g., revoke SSH keys or block inbound SSH) to prevent additional module loads or lateral movement while preserving evidence.  
+- If the suspicious module is currently loaded, record `lsmod` and `modinfo` output, then unload it where safe (`modprobe -r <name>`/`rmmod <name>`) and quarantine the corresponding `.ko` from the unusual path (e.g., `/tmp`, `/dev/shm`, `/home`, `/mnt`) for hashing and malware analysis.  
+- Remove persistence mechanisms that would reload the module by deleting or disabling any related systemd units, init scripts, cron entries, and boot-time hooks, and validate `/etc/modules-load.d/`, `/lib/modules/$(uname -r)/`, and `depmod` outputs for unauthorized additions.  
+- Recover the host by restoring known-good kernel/module packages and rebuilding the initramfs, then reboot and verify no unexpected modules remain in `/proc/modules` and no new load attempts occur from writable directories.  
+- Escalate immediately to IR/forensics and consider full host rebuild if the module is unsigned/unknown, the kernel is tainted, module removal fails, or post-reboot evidence indicates stealth behavior consistent with a rootkit.  
+- Harden by restricting module loading (enable Secure Boot/module signature enforcement where supported, set `kernel.modules_disabled=1` after boot on fixed-function systems, and limit `CAP_SYS_MODULE` to trusted admins), and enforce file integrity monitoring/permissions to prevent `.ko` creation in world-writable locations."""
+references = [
+    "https://decoded.avast.io/davidalvarez/linux-threat-hunting-syslogk-a-kernel-rootkit-found-under-development-in-the-wild/",
+]
+risk_score = 73
+rule_id = "d54b649d-46d0-4b4c-a9a7-1bc9fc458d3c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Threat: Rootkit",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name == "kmod" and process.args == "insmod" and process.args like~ "*.ko*") or
+  (process.name == "kmod" and process.args == "modprobe" and not process.args in ("-r", "--remove")) or
+  (process.name == "insmod" and process.args like~ "*.ko*") or
+  (process.name == "modprobe" and not process.args in ("-r", "--remove"))
+) and (
+  process.working_directory like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
+    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*"
+  ) or
+  process.parent.working_directory like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
+    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*"
+  ) or
+  process.args like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
+    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*", "./*"
+  )
+) and
+not (
+  process.parent.executable == "/usr/bin/podman" or
+  process.working_directory like "/tmp/newroot"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

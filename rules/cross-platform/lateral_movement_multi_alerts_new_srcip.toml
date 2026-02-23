@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2026/01/14"
 maturity = "production"
-updated_date = "2026/01/14"
+updated_date = "2026/02/16"
+
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +16,14 @@ license = "Elastic License v2"
 name = "Lateral Movement Alerts from a Newly Observed Source Address"
 risk_score = 73
 rule_id = "0e67f4f1-f683-43c0-8d45-c3293cf31e5d"
+setup = """## Setup
+
+This rule requires the `host.ip` field to be populated.
+For **Elastic Defend** events on versions **8.18 and above**, this field is **disabled by default**.
+
+If you are using **Elastic Defend**, ensure host IP collection is enabled by following the configuration steps in the
+[helper guide](https://www.elastic.co/docs/solutions/security/configure-elastic-defend/configure-data-volume-for-elastic-endpoint#host-fields).
+"""
 severity = "high"
 tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Tactic: Lateral Movement", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
@@ -26,7 +35,7 @@ FROM .alerts-security.* METADATA _index
 // Lateral Movement related rules with fields of interest
 | where kibana.alert.rule.threat.tactic.name is not null and
         source.ip IS NOT NULL and destination.ip is not null and
-        host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" """)
+        host.id is not null and KQL("""kibana.alert.rule.threat.tactic.name : "Lateral Movement" and not kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // aggregate stats by source.ip
 | stats  Esql.first_time_seen = MIN(@timestamp),

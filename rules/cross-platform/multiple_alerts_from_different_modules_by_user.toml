@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2025/12/15"
 maturity = "production"
-updated_date = "2025/12/15"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -28,8 +28,18 @@ from .alerts-security.*
 // any alerts excluding low severity and the noisy ones
 | where kibana.alert.rule.name is not null and user.name is not null and kibana.alert.risk_score > 21 and
         not kibana.alert.rule.type in ("threat_match", "machine_learning") and 
-        not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")
-
+        not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0") and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """) and
+        // Top noisy influencing rules
+        // Agent Spoofing - Mismatched Agent ID
+        // Compression DLL Loaded by Unusual Process
+        // Process Termination followed by Deletion 
+        // Suspicious PrintSpooler Service Executable File Creation
+        // Potential PrintNightmare File Modification
+        // Multiple Vault Web Credentials Read
+        // Machine Learning Detected a Suspicious Windows Event with a High Malicious Probability Score
+        not kibana.alert.rule.rule_id in ("3115bd2c-0baa-4df0-80ea-45e474b5ef93", "d197478e-39f0-4347-a22f-ba654718b148", "09443c92-46b3-45a4-8f25-383b028b258d", "5bb4a95d-5a08-48eb-80db-4c3a63ec78a8", "5e87f165-45c2-4b80-bfa5-52822552c997", "44fc462c-1159-4fa8-b1b7-9b6296ab4f96", "994e40aa-8c85-43de-825e-15f665375ee8")
+        
 // group alerts by user.name and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
         Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
