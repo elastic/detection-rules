@@ -2,13 +2,14 @@
 creation_date = "2025/05/27"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/10/07"
+updated_date = "2025/02/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-LSA protecton is provided to prevent nonprotected processes from reading memory and injecting code. This feature provides added security for the credentials that LSA stores and manages.
-Adversaries may modify the RunAsPPL registry and wait or initiate a system restart to enable Lsass credentials access.
+LSA protecton is provided to prevent nonprotected processes from reading memory and injecting code. This feature
+provides added security for the credentials that LSA stores and manages. Adversaries may modify the RunAsPPL registry
+and wait or initiate a system restart to enable Lsass credentials access.
 """
 from = "now-9m"
 index = [
@@ -81,9 +82,11 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-  registry.data.strings != null and registry.value : "RunAsPPL" and
+  registry.data.strings != null and process.name != null and
+  registry.value : "RunAsPPL" and
   registry.path : "*\\SYSTEM\\*ControlSet*\\Control\\Lsa\\RunAsPPL" and
-  not registry.data.strings : ("1", "0x00000001", "2", "0x00000002")
+  not registry.data.strings : ("1", "0x00000001", "2", "0x00000002") and
+  not process.executable : "?:\\Windows\\System32\\SecurityHealthService.exe"
 '''
 
 
