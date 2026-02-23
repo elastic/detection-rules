@@ -11,7 +11,7 @@ Detects when a FortiGate SSL VPN login event is followed by any SIEM detection a
 short time window. This correlation can indicate abuse of VPN access for malicious activity, credential compromise
 used from a VPN session, or initial access via VPN followed by post-compromise behavior.
 """
-from = "now-10m"
+from = "now-9m"
 index = ["logs-fortinet_fortigate.log-*", ".alerts-security.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -34,7 +34,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by user.name with maxspan=30m
+sequence by user.name with maxspan=10m
  [authentication where event.dataset == "fortinet_fortigate.log" and event.action == "login" and event.code in ("0101039426", "0101039427")]
  [any where event.kind == "signal" and kibana.alert.rule.name != null and event.dataset != "fortinet_fortigate.log" and
   kibana.alert.risk_score > 21 and kibana.alert.rule.rule_id != "a7f2c1b4-5d8e-4f3a-9b0c-2e1d4a6b8f3e" and user.name != null]
