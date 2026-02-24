@@ -474,7 +474,7 @@ class SecurityDetectionEngine:
 
     def keep_latest_versions(
         self,
-        assets: dict[str, Any],
+        assets: dict[str, dict[str, Any]],
         num_versions: int = DEFAULT_MAX_RULE_VERSIONS,
     ) -> dict[str, Any]:
         """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
@@ -487,7 +487,7 @@ class SecurityDetectionEngine:
         filtered_assets: dict[str, Any] = {}
 
         for key, asset in assets.items():
-            attrs = asset.get("attributes") if isinstance(asset, dict) else None
+            attrs = asset.get("attributes")
             if not attrs or "rule_id" not in attrs or "version" not in attrs:
                 continue
             base_id = attrs["rule_id"]
