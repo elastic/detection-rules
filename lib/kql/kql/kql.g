@@ -15,7 +15,9 @@ field_value_expression: field ":" list_of_values
 ?value_expression: value
 
 ?list_of_values: "(" or_list_of_values ")"
-               | value
+               | optional_not value
+?optional_not: NOT optional_not
+              |
 ?or_list_of_values:  and_list_of_values (OR and_list_of_values)*
 ?and_list_of_values: not_list_of_values (AND not_list_of_values)*
 ?not_list_of_values: NOT? list_of_values
@@ -23,6 +25,7 @@ field_value_expression: field ":" list_of_values
 field: literal
 
 value: QUOTED_STRING
+      | WILDCARD_LITERAL
       | UNQUOTED_LITERAL
 
 
@@ -33,6 +36,20 @@ RANGE_OPERATOR: "<="
               | ">="
               | "<"
               | ">"
+
+// Wildcard literal - for wildcard values containing spaces
+// Priority 3 ensures it matches before keywords (priority 2) and unquoted literals
+// Uses word boundary \b to stop before 'or', 'and', 'not' keywords
+// MUST contain at least one space to differentiate from field names like common.*
+// Must not start with not/or/and so "not /tmp/go-build*" is not matched (value is UNQUOTED_LITERAL)
+// Pattern 1: Starts with * (e.g., *S3 Browser, *S3 Browser*)
+// Pattern 2: Ends with * but doesn't start with * (e.g., S3 Browser*)
+// Pattern 3a: Middle * - star appears AFTER a space (e.g., S3 B*owser)
+// Pattern 3b: Middle * - star appears BEFORE a space (e.g., S3* Browser)
+WILDCARD_LITERAL.3: /\*[^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*?/i
+                  | /(?!(?:not|or|and)\b)[^\s\r\n()"':{}][^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*/i
+                  | /(?!(?:not|or|and)\b)[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]*\*[^\s\r\n()"':{}]+(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)*(?<!\*)/i
+                  | /(?!(?:not|or|and)\b)[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*\*[^\s\r\n()"':{}]*\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)*(?<!\*)/i
 
 UNQUOTED_LITERAL: UNQUOTED_CHAR+
 UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace

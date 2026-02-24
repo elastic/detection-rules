@@ -338,6 +338,28 @@ class KqlParser(BaseKqlParser):
         self.assert_lower_token(*tree.child_tokens)
         return NotValue(self.visit(tree.children[-1]))
 
+    def list_of_values(self, tree):
+        if len(tree.children) == 2:
+            # optional_not value
+            opt_not_tree, value_tree = tree.children
+            not_count = self.visit(opt_not_tree)
+            value = self.visit(value_tree)
+            for _ in range(not_count):
+                value = NotValue(value)
+            return value
+        else:
+            # "(" or_list_of_values ")"
+            return self.visit(tree.children[1])
+
+    def optional_not(self, tree):
+        count = 0
+        for child in tree.children:
+            if hasattr(child, "type") and child.type == "NOT":
+                count += 1
+            else:
+                count += self.visit(child)
+        return count
+
     def literal(self, tree):
         return self.unescape_literal(tree.children[0])
 
@@ -353,16 +375,26 @@ class KqlParser(BaseKqlParser):
         token = tree.children[0]
         value = self.unescape_literal(token)
 
-        if token.type == "UNQUOTED_LITERAL" and "*" in token.value:
+        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in token.value):
             field_type = self.get_field_type(field_name)
-            if len(value.replace("*", "")) == 0:
+            # Strip trailing whitespace from wildcard literals (may have captured trailing space)
+            wildcard_value = token.value.rstrip() if token.type == "WILDCARD_LITERAL" else token.value
+
+            if len(wildcard_value.replace("*", "").strip()) == 0:
                 return Exists()
 
             if field_type is not None and field_type not in ("keyword", "wildcard"):
                 raise self.error(tree, "Unable to perform wildcard on field {field} of {type}",
                                  field=field_name, type=field_type)
 
-            return Wildcard(token.value)
+            return Wildcard(wildcard_value)
+
+        # For quoted strings, treat as literal values (wildcards in quotes are literal in Kibana)
+        # This bypasses Value.from_python's wildcard conversion for quoted strings
+        if token.type == "QUOTED_STRING":
+            value = self.convert_value(field_name, value, tree)
+            return String(eql.utils.to_unicode(value)) if eql.utils.is_string(value) else Value.from_python(value)
 
         # try to convert the value to the appropriate type
         # example: 1 -> "1" if the field is actually keyword
