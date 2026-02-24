@@ -495,6 +495,8 @@ class SecurityDetectionEngine:
             rule_versions[base_id].append((version, key))
 
         # Keep only the last/latest num_versions versions for each rule
+        # Sort versions and take the last num_versions
+        # Add the latest versions of the rule to the filtered assets
         for versions in rule_versions.values():
             latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
             for _, key in latest_versions:
