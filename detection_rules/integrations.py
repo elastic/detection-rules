@@ -482,18 +482,19 @@ class SecurityDetectionEngine:
         # Dictionary to hold the sorted list of versions for each base rule ID
         rule_versions: dict[str, list[tuple[int, str]]] = defaultdict(list)
 
-        # Separate rule ID and version, and group by base rule ID
-        for key in assets:
-            base_id, version = assets[key]["attributes"]["rule_id"], assets[key]["attributes"]["version"]
-            version = int(version)  # Convert version to an integer for sorting
-            rule_versions[base_id].append((version, key))
-
-        # Dictionary to hold the final assets with only the specified number of latest versions
+        # Only version-limit assets that look like rules (have attributes.rule_id and attributes.version).
+        # Other JSON assets in the package (e.g. manifest) are skipped; add_historical_rules expects only rules.
         filtered_assets: dict[str, Any] = {}
 
+        for key, asset in assets.items():
+            attrs = asset.get("attributes") if isinstance(asset, dict) else None
+            if not attrs or "rule_id" not in attrs or "version" not in attrs:
+                continue
+            base_id = attrs["rule_id"]
+            version = int(attrs["version"])
+            rule_versions[base_id].append((version, key))
+
         # Keep only the last/latest num_versions versions for each rule
-        # Sort versions and take the last num_versions
-        # Add the latest versions of the rule to the filtered assets
         for versions in rule_versions.values():
             latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
             for _, key in latest_versions:
