@@ -70,7 +70,6 @@ tags = [
     "Data Source: Okta",
     "Data Source: Okta System Logs",
     "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Rule Type: Higher-Order Rule",
     "Resources: Investigation Guide",
 ]
@@ -78,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by user.name with maxspan=1h
+sequence by user.name with maxspan=30m
     [any where event.dataset == "okta.system" and
         kibana.alert.rule.rule_id == "6f1bb4b2-7dc8-11ee-92b2-f661ea17fbcd"]
     [any where event.dataset == "okta.system" and
@@ -92,18 +91,6 @@ sequence by user.name with maxspan=1h
 '''
 
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1090"
-name = "Proxy"
-reference = "https://attack.mitre.org/techniques/T1090/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
