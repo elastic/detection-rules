@@ -2,7 +2,9 @@
 creation_date = "2025/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+min_stack_version = "9.2.0"
+min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
+updated_date = "2026/02/25"
 
 [rule]
 author = ["Elastic"]
@@ -16,8 +18,8 @@ indicate credential theft, session hijacking, or the abuse of a privileged roleâ
 false_positives = [
     """
     Some CI/CD pipelines or administrative users may use session tokens. Review user context, IP, and timing to
-    validate. Console login sessions result in temporary "ASIA" credentials and can typically be ignored for this alert.
-    This can be verified in "event.original" as "sessionCredentialFromConsole: true"
+    validate. This rule automatically excludes console login sessions using the aws.cloudtrail.session_credential_from_console
+    field, which significantly reduces false positives from legitimate console-based IAM operations.
     """,
 ]
 from = "now-6m"
@@ -37,11 +39,11 @@ Attackers who compromise IAM users, roles, or federated identities can obtain se
 They may then execute sensitive IAM API actions such as `CreateAccessKey`, `PutUserPolicy`, or `UpdateAssumeRolePolicy` to 
 establish persistence, escalate privileges, or disable protections.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - **Identify the actor**
   - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` to determine the originating user or role.
-  - Check `event.original` if ingested, look for `sessionCredentialFromConsole: true`. If this is present, the temporary session token was created as part of a legitimate console login session and this alert can be ignored. 
+  - This rule automatically filters out console login sessions using `aws.cloudtrail.session_credential_from_console`, so alerts indicate non-console temporary credential usage.
   - Examine `aws.cloudtrail.user_identity.session_context.mfa_authenticated` â€” absence of MFA may indicate token misuse.
 
 - **Analyze the API context**
@@ -73,7 +75,7 @@ establish persistence, escalate privileges, or disable protections.
   - Federated logins (via AWS SSO or external IdPs) can also generate temporary "ASIA" credentials. Verify if the source identity 
     aligns with expected roles or groups.
 - **Console Login Session**
-  - Console login sessions result in temporary "ASIA" credentials and can typically be ignored for this alert. This can be verified in `event.original` as `sessionCredentialFromConsole: true`
+  - Console login sessions are automatically filtered out by this rule using the `aws.cloudtrail.session_credential_from_console` field.
 
 ### Response and remediation
 
@@ -127,6 +129,7 @@ event.dataset: aws.cloudtrail
     and aws.cloudtrail.user_identity.access_key_id: ASIA*
     and source.ip: *
     and not user_agent.original : "AWS Internal"
+    and not aws.cloudtrail.session_credential_from_console: true
 '''
 
 
