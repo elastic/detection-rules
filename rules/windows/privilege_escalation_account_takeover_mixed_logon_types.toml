@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/02/25"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/02/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a user account (often a service account) that normally logs in with high volume using one logon type
+suddenly showing successful logons using a different logon type with low count. This pattern may indicate account
+takeover or use of stolen credentials from a new context (e.g. interactive or network logon where only batch/service
+was expected).
+"""
+from = "now-30m"
+interval = "15m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Account Takeover - Mixed Logon Types"
+note = """## Triage and analysis
+
+### Investigating Potential Account Takeover - Mixed Logon Types
+
+A high-volume account (e.g. service account tied to a specific logon type such as Batch or Network) that also shows successful logons with a different logon type and low count may indicate credential compromise and use from a new context (account takeover or misuse).
+
+### Possible investigation steps
+
+- Confirm with the account owner or service owner whether the additional logon type is expected (e.g. new automation, RDP for maintenance).
+- Review which logon types appear in Esql.logon_type_values and which has the low count (likely the anomalous one).
+- Correlate with other alerts for the same user (e.g. logon from new source IP, password changes, MFA changes).
+- Check whether the account is a known service account; if so, verify if any new scripts or systems were authorized to use it.
+
+### False positive analysis
+
+- Legitimate expansion of use (e.g. service account also used for occasional interactive logon for troubleshooting) can trigger this. Tune thresholds (e.g. max_logon >= 1000, min_logon <= 10) or add exclusions for known service accounts with documented multi-context use.
+- New scheduled tasks or automation that use a different logon type may cause a short-lived spike in the "other" logon type; review over a longer window if needed.
+
+### Response and remediation
+
+- If takeover or misuse is confirmed: force password reset, revoke sessions, rotate service account credentials, and restrict logon type or source where possible.
+- Investigate how credentials may have been compromised and address the vector.
+"""
+references = ["https://attack.mitre.org/techniques/T1078/"]
+risk_score = 47
+rule_id = "b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Initial Access",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
+| WHERE event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and
+        event.outcome == "success" and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+| STATS logon_count = COUNT(*) by user.name, winlog.logon.type
+| STATS
+    Esql.max_logon = MAX(logon_count),
+    Esql.min_logon = MIN(logon_count),
+    Esql.logon_type_values = VALUES(winlog.logon.type),
+    Esql.count_distinct_logon_types = COUNT_DISTINCT(winlog.logon.type) by user.name
+
+// high count of logons is often associated with service account tied to a specific service, if observed in use with a different logon type its suspicious
+| WHERE Esql.count_distinct_logon_types >= 2 and Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 10)
+| EVAL winlog.logon.type = MV_FIRST(Esql.logon_type_values)
+| KEEP user.name, winlog.logon.type, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
