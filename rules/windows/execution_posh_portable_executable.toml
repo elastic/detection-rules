@@ -2,39 +2,13 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the presence of a portable executable (PE) in a PowerShell script by looking for its encoded header. Attackers
-embed PEs into PowerShell scripts to inject them into memory, avoiding defences by not writing to disk.
+Detects PowerShell scripts that includes a base64-encoded portable executable (PE) header, indicating an embedded
+binary payload. Attackers embed PEs in scripts to load payloads in memory and avoid writing executables to disk.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -43,61 +17,73 @@ license = "Elastic License v2"
 name = "Suspicious Portable Executable Encoded in Powershell Script"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating Suspicious Portable Executable Encoded in Powershell Script
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This alert indicates PowerShell Script Block Logging captured script content that contains a base64-encoded Portable Executable (PE) header pattern, suggesting an embedded Windows binary payload. This technique is commonly used to stage executables for in-memory loading or later execution while minimizing on-disk artifacts.
 
-Attackers can abuse PowerShell in-memory capabilities to inject executables into memory without touching the disk, bypassing file-based security protections. These executables are generally base64 encoded.
+#### Key alert fields to review
 
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the script using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
+- Capture and reconstruct the full script content:
+  - Review `powershell.file.script_block_text` in full to identify the encoded blob boundaries and any surrounding helper logic (string concatenation, chunking, decryption, decompression, or obfuscation).
+  - If `powershell.file.script_block_id` is present, collect all related events for that ID and use `powershell.sequence` and `powershell.total` to reconstruct the complete script when content is split across multiple records.
+  - Confirm reconstruction completeness by ensuring the sequence range is consistent with `powershell.total` and that the combined content is coherent.
+  - Use `powershell.file.script_block_length` to help prioritize unusually large script blocks that are more likely to contain full payloads or staged components.
+- Determine the script origin and execution context:
+  - Use `user.name`, `user.domain`, and `user.id` to identify the initiating account and whether this activity is expected for that user (approved automation vs. unusual interactive activity).
+  - Use `host.name` and `host.id` to identify the affected asset, its owner/role, and whether PowerShell automation is typical for this host.
+  - If `file.path`, `file.directory`, or `file.name` are present, treat the alert as file-sourced script execution:
+    - Validate whether the path and name align with approved administrative tooling and distribution locations.
+    - Prioritize investigation when scripts are sourced from user-writable locations, temporary directories, or uncommon paths for your environment.
+- Identify likely payload handling behavior within the script:
+  - Look for logic that transforms the encoded content into executable bytes and how it is consumed (written to disk, loaded as an assembly, reflectively invoked, or mapped into memory).
+  - Note any secondary behaviors in the same script block that increase risk, such as staged downloads, persistence-related actions, or attempts to reduce visibility.
+  - Identify whether the script constructs multiple encoded blobs, and document which blob is ultimately used for execution.
+- Scope the activity using alert pivots:
+  - Search for additional script block events for the same `host.id` and `user.id` around `@timestamp` to identify lead-up actions and follow-on behavior.
+  - Search across hosts for the same `powershell.file.script_block_text` patterns (the encoded header and any unique strings nearby) to identify other potentially affected systems.
+  - If a script file is indicated by `file.path`/`file.name`, search for the same path/name across your environment to determine distribution and reuse.
+- Correlate with adjacent telemetry (if available):
+  - Pivot on `host.id`/`host.name` and `@timestamp` into process telemetry to identify the PowerShell session and any processes that appear shortly after the script ran, which may indicate payload execution outcomes.
+  - Pivot on `host.id`/`host.name` and `@timestamp` into network telemetry to identify outbound connections that could indicate payload retrieval or command-and-control activity shortly before or after script execution.
+  - Review authentication activity for the same `user.id` around the alert time to identify unusual logons (unexpected host, timing, or access pattern) that could explain how the execution context was obtained.
+- Analyze the embedded payload in an isolated workflow (when permitted):
+  - Decode the base64 content and validate whether it forms a legitimate PE.
+  - Derive stable indicators (hashes, unique strings, and high-level metadata) and use them to widen the scope across endpoints and historical telemetry.
+  - Preserve decoded artifacts and analysis notes according to your incident handling and evidence retention procedures.
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Related rules
-
-- Suspicious .NET Reflection via PowerShell - e26f042e-c590-4e82-8e05-41e81bd822ad
-- PowerShell Suspicious Payload Encoded and Compressed - 81fe9dc6-a2d7-4192-a2d8-eed98afc766a
-- PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
+- Approved administrative or deployment automation that embeds executables in PowerShell scripts for distribution in tightly controlled environments.
+- Vendor-provided installers, updaters, or management tooling that stages binaries through PowerShell as part of legitimate maintenance activity.
+- Authorized security testing or adversary emulation that intentionally uses embedded payloads or in-memory loading techniques.
+- False positives are more likely when `file.path` points to known software distribution locations and the executing `user.id` is an approved automation account; validate against change records and expected tooling.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Reimage the host operating system or restore the compromised files to clean versions.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is unexpected or malicious:
+  - Contain the affected host(s) based on criticality to prevent further execution or lateral movement.
+  - Preserve evidence by saving the full reconstructed script content (using `powershell.file.script_block_id` plus all fragments, if split) and recording the associated `@timestamp`, `host.id`, `host.name`, and `user.id` for timeline reconstruction.
+- Assess scope and impact:
+  - Hunt for the same script patterns across other hosts and users, and expand scoping using any indicators derived from payload analysis.
+  - Review the initiating account for signs of compromise; apply credential hygiene actions per policy (reset credentials, revoke sessions, and review access).
+- Eradicate and recover:
+  - Remove or remediate the script source indicated by `file.path` (if present) and any persistence mechanisms identified during triage (for example, suspicious or newly introduced services).
+  - If a PE payload is confirmed, follow malware incident procedures to determine whether host reimaging or deeper forensic review is required.
+- Post-incident improvements:
+  - Review PowerShell governance for the affected population (script approval processes, least privilege, and monitoring of script block content) to reduce recurrence.
+  - Document validated benign patterns and trusted automation paths to streamline future triage and reduce alert fatigue.
 """
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
@@ -106,21 +92,8 @@ risk_score = 47
 rule_id = "ad84d445-b1ce-4377-82d9-7c633f28bf9a"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "medium"
 tags = [
@@ -172,4 +145,23 @@ reference = "https://attack.mitre.org/techniques/T1055/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 
