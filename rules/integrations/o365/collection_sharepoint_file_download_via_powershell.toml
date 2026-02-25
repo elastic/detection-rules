@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/02/24"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies file downloads or access from OneDrive or SharePoint using PowerShell-based user agents. Adversaries may use
+native PowerShell cmdlets like Invoke-WebRequest or Invoke-RestMethod with Microsoft Graph API to exfiltrate data after
+compromising OAuth tokens via device code phishing or other credential theft techniques. This rule detects both direct
+PowerShell access and PnP PowerShell module usage for file operations. FileAccessed events are included to detect
+adversaries reading file content via API and saving locally, bypassing traditional download methods. Normal users access
+SharePoint/OneDrive via browsers or sync clients, making PowerShell-based file access inherently suspicious.
+"""
+false_positives = [
+    "Legitimate automation scripts using PowerShell to interact with SharePoint or OneDrive for business purposes.",
+    "IT administrators using PnP PowerShell for site management, migration, or backup operations.",
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 SharePoint/OneDrive File Access via PowerShell"
+note = """## Triage and Analysis
+
+### Investigating M365 SharePoint or OneDrive File Access via PowerShell
+
+This rule detects file downloads and access from OneDrive or SharePoint using PowerShell-based user agents. Threat actors commonly use device code phishing to obtain OAuth tokens, then use native PowerShell or PnP PowerShell modules to enumerate and exfiltrate files from SharePoint and OneDrive. FileAccessed events are included because adversaries may read file content via the Graph API `/content` endpoint and save locally, bypassing traditional download events.
+
+#### Possible Investigation Steps
+
+- Identify the user whose token was used and determine if they typically use PowerShell for file operations.
+- Review the OAuth application/client ID used to authenticate. Look for public client IDs that may indicate device code phishing.
+- Check the source IP address and compare with the user's typical access locations.
+- Identify which SharePoint site or OneDrive was accessed.
+- Correlate with Azure AD sign-in logs to determine if device code authentication was used.
+- Look for rapid sequential file downloads from the same session, which may indicate bulk data exfiltration.
+- Check for search activity from the same user/session that may indicate reconnaissance before download.
+
+### False Positive Analysis
+
+- IT administrators legitimately using PnP PowerShell for site management, migration, or backup operations.
+- Automated scripts using PowerShell for legitimate data processing or synchronization tasks.
+- Consider creating exceptions for known automation service accounts.
+
+### Response and Remediation
+
+- If unauthorized activity is confirmed, immediately revoke the OAuth token and terminate active sessions for the affected user.
+- Reset the user's credentials and require reauthentication with MFA.
+- Review all files accessed during the session to assess data exposure.
+- Implement conditional access policies to restrict device code authentication flow.
+- Consider blocking public client IDs that are not needed for business operations.
+- Review and audit OAuth application permissions in your tenant.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/",
+    "https://cloud.google.com/blog/topics/threat-intelligence/expansion-shinyhunters-saas-data-theft",
+    "https://pnp.github.io/powershell/",
+]
+risk_score = 47
+rule_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "o365.audit" and
+    event.provider: ("SharePoint" or "OneDrive") and
+    event.action: ("FileDownloaded" or "FileAccessed") and
+    event.outcome: "success" and
+    user_agent.original: (*PowerShell* or *PnPPS* or *PnPCoreSDK* or *SharePointPnP*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.002"
+name = "Sharepoint"
+reference = "https://attack.mitre.org/techniques/T1213/002/"
+
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
