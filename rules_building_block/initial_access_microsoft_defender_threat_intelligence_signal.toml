@@ -3,14 +3,16 @@ bypass_bbr_timing = true
 creation_date = "2025/08/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/01/20"
+updated_date = "2026/02/20"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies a Microsoft 365 audit log generated for Threat Intelligence signals by Microsoft Defender for Office 365.
-Signals generated may relate to services such as Exchange Online, SharePoint Online, OneDrive for Business and others.
+Identifies Microsoft 365 audit logs generated for Threat Intelligence signals by Microsoft Defender for Office 365.
+This includes phishing and malware events, campaign-related threat detections, file-based threats in SharePoint, OneDrive,
+and Teams, as well as Microsoft Threat Intelligence Center (MSTIC) signals. These events provide early indicators of
+compromise attempts and can be correlated with other signals for threat hunting and detection.
 """
 false_positives = [
     """
@@ -22,7 +24,6 @@ from = "now-9m"
 index = ["filebeat-*", "logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-max_signals = 1000
 name = "M365 Threat Intelligence Signal"
 note = """## Triage and analysis
 
@@ -35,7 +36,7 @@ Microsoft 365 Threat Intelligence leverages audit logs to monitor activities acr
 
 ### Possible investigation steps
 
-- Review the audit logs filtered by event.dataset: "o365.audit" and event.provider: "ThreatIntelligence" to identify the specific activities flagged by the rule.
+- Review the audit logs filtered by event.dataset: "o365.audit" and the relevant event.code (ThreatIntelligence, ThreatFinder, ThreatIntelligenceAtpContent, or MSTIC) to identify the specific activities flagged by the rule.
 - Examine the user accounts associated with the flagged activities to determine if they have been compromised or are behaving anomalously.
 - Investigate the source IP addresses and locations associated with the flagged events to identify any unusual or suspicious access patterns.
 - Check for any related alerts or signals in Microsoft Defender for Office 365 that might provide additional context or corroborate the threat.
@@ -78,9 +79,11 @@ tags = [
     "Data Source: Microsoft 365",
     "Data Source: Microsoft 365 Audit Logs",
     "Data Source: Microsoft Defender",
-    "Data Source: Microsoft Defender Threat Intelligence",
+    "Data Source: Microsoft Defender for Office 365",
+    "Data Source: Microsoft Threat Intelligence",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
+    "Tactic: Execution",
     "Resources: Investigation Guide",
     "Rule Type: BBR",
 ]
@@ -88,7 +91,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "o365.audit" and event.provider: "ThreatIntelligence"
+event.dataset: "o365.audit" and
+    event.code:(ThreatIntelligence or ThreatFinder or ThreatIntelligenceAtpContent or ThreatIntelligenceUrl or MSTIC or Campaign)
 '''
 
 
@@ -104,4 +108,16 @@ reference = "https://attack.mitre.org/techniques/T1566/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
