@@ -63,9 +63,9 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.action == "start" and
-  process.parent.name : "node.exe" and
+  process.parent.name : ("node.exe", "node", "Code.exe") and
   process.parent.command_line != null and
-  process.parent.command_line : "*vscode*extensions*" and
+  (process.parent.command_line : "*vscode*extensions*" or process.parent.command_line : "*/.vscode/extensions/*" or process.parent.command_line : "*extensionHost*") and
   (
     process.name : (
       "cmd.exe", "powershell.exe", "pwsh.exe", "rundll32.exe", "msiexec.exe",
