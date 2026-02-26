@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/02/24"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies search queries in SharePoint containing sensitive terms related to credentials, financial data,
+PII, legal matters, or infrastructure information. Adversaries who compromise user accounts often search for high-value
+files before exfiltration. This rule detects searches containing terms across multiple sensitivity categories,
+regardless of the access method (browser, PowerShell, or API). The actual search query text is analyzed against a
+curated list of sensitive terms to identify potential reconnaissance activity.
+"""
+false_positives = [
+    "Security or compliance teams using eDiscovery or Content Search for legitimate investigations.",
+    "HR or finance personnel legitimately searching for employee or financial records.",
+    "IT administrators searching for configuration or infrastructure documentation.",
+    "Legal teams searching for contract or privileged documents.",
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "M365 SharePoint Search for Sensitive Content"
+note = """## Triage and Analysis
+
+### Investigating M365 SharePoint Search for Sensitive Content
+
+This rule detects search queries in SharePoint or OneDrive that contain sensitive terms. The Microsoft 365 Unified Audit Log captures the actual search query text in the `SearchQueryText` field, allowing detection of reconnaissance activity targeting credentials, financial data, PII, legal documents, or infrastructure information.
+
+#### Possible Investigation Steps
+
+- Identify who performed the search and determine if this user has a legitimate business need to search for this type of content.
+- Review the exact search terms used. Multiple sensitive terms in one query are more suspicious.
+- Determine if the search was via browser, automation tool (PnP PowerShell), or API.
+- Review the source IP and correlate with the user's typical access patterns.
+- Look for subsequent file download or access events from the same user/session within minutes of the search.
+- Determine if the user is a member of roles that would legitimately search for sensitive content (HR, Finance, Legal, Security, Compliance).
+- Check Azure AD sign-in logs for authentication anomalies (device code flow, unusual location).
+
+### Response and Remediation
+
+- If unauthorized search activity is confirmed, immediately review what files were accessed or downloaded following the search.
+- Revoke the user's session tokens and require reauthentication with MFA.
+- If the account was compromised, reset credentials and investigate the compromise vector.
+- Review Data Loss Prevention (DLP) policies to ensure sensitive content is properly protected.
+- Consider implementing sensitivity labels and access restrictions on high-value content.
+"""
+references = ["https://cloud.google.com/blog/topics/threat-intelligence/expansion-shinyhunters-saas-data-theft"]
+risk_score = 21
+rule_id = "4f2654e4-125b-11f1-af7d-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+web where event.dataset == "o365.audit" and
+    event.provider == "SharePoint" and
+    event.action == "SearchQueryPerformed" and
+    event.outcome == "success" and
+    o365.audit.SearchQueryText != null and
+    o365.audit.SearchQueryText != "" and
+    o365.audit.SearchQueryText like~ (
+        /* Credentials and Secrets */
+        "*password*", "*credential*", "*secret*", "*api key*", "*apikey*",
+        "*token*", "*private key*", "*certificate*", "*ssh*", "*aws*",
+        "*azure*", "*gcp*", "*oauth*", "*bearer*", "*connection string*",
+        "*access key*", "*secret key*",
+        /* Financial */
+        "*salary*", "*payroll*", "*compensation*", "*budget*", "*revenue*",
+        "*financial*", "*banking*", "*invoice*", "*wire transfer*", "*account number*",
+        "*credit card*", "*routing number*", "*profit*", "*expense*", "*1099*",
+        /* Legal and Compliance */
+        "*confidential*", "*privileged*", "*attorney*", "*legal hold*", "*settlement*",
+        "*contract*", "*nda*", "*merger*", "*acquisition*", "*litigation*",
+        "*subpoena*", "*trade secret*", "*intellectual property*", "*proprietary*",
+        "*internal*", "*proposal*", "*poc*",
+        /* HR and PII */
+        "*ssn*", "*social security*", "*employee*", "*personnel*", "*performance review*",
+        "*termination*", "*tax*", "*w2*", "*benefits*", "*background check*",
+        "*medical*", "*hipaa*", "*passport*", "*driver license*", "*dob*",
+        /* Infrastructure and IT */
+        "*admin*", "*root*", "*vpn*", "*firewall*", "*network diagram*",
+        "*architecture*", "*topology*", "*production*", "*database*", "*config*",
+        "*backup*", "*disaster recovery*", "*vulnerability*", "*pentest*", "*security audit*",
+        "*salesforce*"
+    )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1619"
+name = "Cloud Storage Object Discovery"
+reference = "https://attack.mitre.org/techniques/T1619/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.002"
+name = "Sharepoint"
+reference = "https://attack.mitre.org/techniques/T1213/002/"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
