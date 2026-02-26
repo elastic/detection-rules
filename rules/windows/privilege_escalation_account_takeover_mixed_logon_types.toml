@@ -58,7 +58,8 @@ type = "esql"
 query = '''
 from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
 | WHERE event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and
-        event.outcome == "success" and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+        event.outcome == "success" and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+        to_lower(user.name) != "administrator"
 | STATS logon_count = COUNT(*) by user.name, winlog.logon.type
 | STATS
     Esql.max_logon = MAX(logon_count),
