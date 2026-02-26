@@ -2,15 +2,15 @@
 creation_date = "2024/10/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/02/26"
 
 [rule]
 author = ["Elastic", "Matteo Potito Giorgio"]
 description = """
-Identifies when a user is observed for the first time in the last 14 days authenticating using the device code
-authentication workflow. This authentication workflow can be abused by attackers to phish users and steal access tokens
-to impersonate the victim. By its very nature, device code should only be used when logging in to devices without
-keyboards, where it is difficult to enter emails and passwords.
+Identifies when a user is observed for the first time authenticating using the device code authentication workflow. This
+authentication workflow can be abused by attackers to phish users and steal access tokens to impersonate the victim. By
+its very nature, device code should only be used when logging in to devices without keyboards, where it is difficult to
+enter emails and passwords. This rule only applies to Entra ID user types and detects new users leveraging this flow.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.signinlogs-*", "logs-azure.activitylogs-*"]
@@ -79,15 +79,20 @@ references = [
     "https://www.blackhillsinfosec.com/dynamic-device-code-phishing/",
     "https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/",
     "https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-authentication-flows",
+    "https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/"
 ]
 risk_score = 47
 rule_id = "af22d970-7106-45b4-b5e3-460d15333727"
-setup = "This rule optionally requires Azure Sign-In logs from the Azure integration. Ensure that the Azure integration is correctly set up and that the required data is being collected.\n"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Azure integration with Microsoft Entra ID Sign-In logs to be enabled and configured to collect audit and activity logs via Azure Event Hub.
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Domain: Identity",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
     "Use Case: Identity and Access Audit",
     "Tactic: Initial Access",
     "Resources: Investigation Guide",
@@ -99,10 +104,22 @@ query = '''
 event.dataset:(azure.activitylogs or azure.signinlogs)
     and (
             azure.signinlogs.properties.authentication_protocol:deviceCode or
-            azure.signinlogs.properties.original_transfer_method: "Device code flow" or
+            azure.signinlogs.properties.original_transfer_method:deviceCodeFlow or
             azure.activitylogs.properties.authentication_protocol:deviceCode
         )
     and event.outcome:success
+    and azure.signinlogs.properties.user_type:*
+    and not azure.signinlogs.properties.app_id:(
+        "29d9ed98-a469-4536-ade2-f981bc1d605e" or
+        "d5a56ea4-7369-46b8-a538-c370805301bf" or
+        "80faf920-1908-4b52-b5ef-a8e7bedfc67a" or
+        "97877f11-0fc6-4aee-b1ff-febb0519dd00" or
+        "245e1dee-74ef-4257-a8c8-8208296e1dfd" or
+        "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" or
+        "74bcdadc-2fdc-4bb3-8459-76d06952a0e9" or
+        "4813382a-8fa7-425e-ab75-3b753aab3abb" or
+        "a850aaae-d5a5-4e82-877c-ce54ff916282"
+    )
 '''
 
 
@@ -137,4 +154,4 @@ field = "new_terms_fields"
 value = ["azure.signinlogs.properties.user_principal_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
