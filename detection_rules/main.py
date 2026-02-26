@@ -29,7 +29,7 @@ from .attack import build_threat_map_entry
 from .cli_utils import multi_collection, rule_prompt
 from .config import load_current_package_version, parse_rules_config
 from .exception import TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
-from .generic_loader import GenericCollection
+from .generic_loader import GenericCollection, matches_rule_ids
 from .misc import (
     add_client,
     getdefault,
@@ -541,14 +541,21 @@ def _export_rules(  # noqa: PLR0913
     # Add exceptions to api format here and add to output_lines
     if include_exceptions or include_action_connectors:
         cl = GenericCollection.default()
-        # Get exceptions in API format
+        rule_ids = {r.id for r in rules}
+        # Get exceptions in API format (only those linked to the exported rules)
         if include_exceptions:
-            exceptions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)]
+            exceptions = [
+                d.contents.to_api_format()
+                for d in cl.items
+                if isinstance(d.contents, TOMLExceptionContents) and matches_rule_ids(d, rule_ids)
+            ]
             exceptions = [e for sublist in exceptions for e in sublist]
             output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
         if include_action_connectors:
             action_connectors = [
-                d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+                d.contents.to_api_format()
+                for d in cl.items
+                if isinstance(d.contents, TOMLActionConnectorContents) and matches_rule_ids(d, rule_ids)
             ]
             actions = [a for sublist in action_connectors for a in sublist]
             output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)

@@ -26,6 +26,12 @@ GenericCollectionTypes = TOMLAction | TOMLActionConnector | TOMLException
 GenericCollectionContentTypes = TOMLActionContents | TOMLActionConnectorContents | TOMLExceptionContents
 
 
+def matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
+    """Check if the item is associated with any of the given rule IDs."""
+    rule_ids_list = getattr(item.contents.metadata, "rule_ids", [])
+    return any(rule_id in rule_ids for rule_id in rule_ids_list)
+
+
 def metadata_filter(**metadata: Any) -> Callable[[GenericCollectionTypes], bool]:
     """Get a filter callback based off item metadata"""
     flt = dict_filter(metadata)
