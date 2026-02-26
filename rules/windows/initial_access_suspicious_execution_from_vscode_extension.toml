@@ -63,9 +63,9 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.action == "start" and
-  process.parent.name : ("node.exe", "node", "Code.exe") and
+  process.parent.name : ("node.exe", "Code.exe") and
   process.parent.command_line != null and
-  (process.parent.command_line : "*vscode*extensions*" or process.parent.command_line : "*/.vscode/extensions/*" or process.parent.command_line : "*extensionHost*") and
+  process.parent.command_line : ("*vscode*extensions*", "*extensionHost*") and
   (
     process.name : (
       "cmd.exe", "powershell.exe", "pwsh.exe", "rundll32.exe", "msiexec.exe",
@@ -78,21 +78,7 @@ process where host.os.type == "windows" and event.action == "start" and
   )
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1204"
-name = "User Execution"
-reference = "https://attack.mitre.org/techniques/T1204/"
-[[rule.threat.technique.subtechnique]]
-id = "T1204.002"
-name = "Malicious File"
-reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -116,6 +102,14 @@ framework = "MITRE ATT&CK"
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
 [rule.threat.tactic]
 id = "TA0002"
