@@ -17,7 +17,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Execution from Potentially Malicious VS Code Extension"
+name = "Suspicious Execution from VS Code Extension"
 note = """## Triage and analysis
 
 ### Investigating Suspicious Execution from VS Code Extension
@@ -63,19 +63,18 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.action == "start" and
-  process.parent.name : ("node.exe", "node") and
+  process.parent.name : "node.exe" and
   process.parent.command_line != null and
-  (process.parent.command_line : "*vscode*extensions*" or process.parent.command_line : "*/.vscode/extensions/*") and
+  process.parent.command_line : "*vscode*extensions*" and
   (
     process.name : (
       "cmd.exe", "powershell.exe", "pwsh.exe", "rundll32.exe", "msiexec.exe",
       "curl.exe", "bitsadmin.exe", "wscript.exe", "cscript.exe", "mshta.exe",
       "node.exe", "Code.exe"
     ) or
-    (
-      (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500) and
-      not process.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")
-    )
+	
+	// recently dropped PE
+    (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500)
   )
 '''
 
