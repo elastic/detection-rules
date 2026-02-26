@@ -870,6 +870,8 @@ class TestRuleMetadata(BaseRuleTest):
                             continue
                         if rule.contents.data.type == "threat_match":
                             continue
+                        if indices == [".alerts-security.*"]:
+                            continue
                         err_msg = f"{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect."
                         failures.append(err_msg)
 
@@ -891,6 +893,7 @@ class TestRuleMetadata(BaseRuleTest):
                         not rule.contents.metadata.integration
                         and rule.id not in definitions.IGNORE_IDS
                         and rule.contents.data.type not in definitions.MACHINE_LEARNING
+                        and indices != [".alerts-security.*"]
                     ):
                         err_msg = (
                             f"substrings {non_dataset_packages} found in "
@@ -1074,7 +1077,7 @@ class TestRuleMetadata(BaseRuleTest):
         stack_map = load_etc_dump(["stack-schema-map.yaml"])
 
         # Get the minimum supported stack version as version object
-        min_supported = min(stack_map.keys(), key=lambda v: Version.parse(v))
+        min_supported = min(stack_map.keys(), key=Version.parse)
         # Load all production rules
         for rule in self.all_rules:
             min_stack_version = rule.contents.metadata.get("min_stack_version")

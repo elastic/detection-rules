@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2024/04/17"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/02/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential ransomware note being uploaded to an AWS S3 bucket. This rule detects the PutObject S3 API call
+with an object name commonly associated with ransomware notes. The keywords detected here rarely overlap with common file names and have been attributed to ransomware notes with high-confidence. Adversaries with access to a misconfigured
+S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
+"""
+false_positives = [
+    """
+    This rule uses matches regex patterns for common ransom note file names. Ensure that the uploaded file is not part of a legitimate operation before taking action.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential AWS S3 Bucket Ransomware Note Uploaded"
+note = """
+## Triage and analysis
+
+### Investigating Potential AWS S3 Bucket Ransomware Note Uploaded
+
+This rule detects a successful `PutObject` to S3 where the object key matches common ransomware-note patterns (for example, `readme`, `decrypt`, `ransom`, and combinations with `file`). Attackers who obtain credentials or abuse overly-permissive bucket policies can upload ransom notes (often after deleting or encrypting data).
+
+### Possible investigation steps
+
+**Confirm the actor and session details** 
+- Review `aws.cloudtrail.user_identity.*` (ARN, type, access key, session context), `source.ip`, `user.agent`, and `tls.client.server_name` to identify who performed the upload and from where. Validate whether this principal typically writes to this bucket. 
+
+**Inspect the object key and bucket context** 
+- From `aws.cloudtrail.request_parameters`, capture the exact `key` and `bucketName`. Check whether the key is publicly readable (ACL), whether the bucket is internet-exposed, and whether replication or lifecycle rules could propagate or remove related objects. 
+
+**Pivot to related S3 activity around the same time** 
+- Look for `DeleteObject`/`DeleteObjects`, mass `PutObject` spikes, `PutBucketPolicy`, `PutPublicAccessBlock`, `PutBucketVersioning`, and `PutBucketLifecycleConfiguration` events on the same bucket or by the same actor to determine if data destruction, policy tampering, or guard-rail changes occurred. 
+
+**Assess blast radius across the account** 
+- Search recent CloudTrail for the same actor/IP touching other buckets, KMS keys used by those buckets, and IAM changes (new access keys, policy attachments, role assumptions) that could indicate broader compromise paths consistent with ransomware playbooks. 
+
+**Check protections and recovery posture on the bucket** 
+- Verify whether S3 Versioning and (if in use) Object Lock legal hold are enabled; note prior versions available for the affected key, and whether lifecycle rules might expire them. 
+
+**Correlate with threat signals** 
+- Review other related alerts, GuardDuty S3-related findings, AWS Config drift on the bucket and its policy, and any SOAR/IR runbook executions tied to ransomware triage. 
+
+### False positive analysis
+- Planned tests or red-team exercises
+- Benign automation naming. Some data-migration or backup tools may use “readme”/“recovery”-style filenames; validate by `user.agent`, principal, and target environment (dev vs prod). 
+
+
+### Response and remediation
+
+**Immediate, low-risk actions (safe for most environments)**
+- **Preserve context** : Export the triggering `PutObject` CloudTrail record(s), plus 15–30 min before/after, to an evidence bucket (restricted access). 
+- **Snapshot configuration** : Record current bucket settings (Block Public Access, Versioning, Object Lock, Bucket Policy, Lifecycle rules) and any KMS keys used.
+- **Quiet the spread** : Pause destructive automation: disable/bypass lifecycle rules that would expire/delete object versions; temporarily pause data pipelines targeting the bucket.
+- **Notify owners** : Inform the bucket/application owner(s) and security leadership.
+
+**Containment options (choose the least disruptive first)**
+- **Harden exposure** : If not already enforced, enable `Block Public Access` for the bucket.
+- **Targeted deny policy (temporary)** : Add a restrictive bucket policy allowing only IR/admin roles while you scope impact. Reconfirm critical workload dependencies before applying.
+- **Credential risk reduction** : If a specific IAM user/key or role is implicated, rotate access keys; for roles, remove risky policy attachments or temporarily restrict with an SCP/deny statement.
+
+**Evidence preservation**
+- Export relevant CloudTrail events, S3 server/access logs (if enabled), AWS Config history for the bucket/policy, and the suspicious object plus its previous versions (if Versioning is enabled).
+- Document actor ARN, source IPs, user agent(s), exact `bucketName`/`key`, and timestamps. Maintain a simple chain-of-custody note for collected artifacts.
+
+**Scope and hunting (same actor/time window)**
+- Look for `DeleteObject(s)`, unusual `PutObject` volume, `PutBucketPolicy`, `PutPublicAccessBlock`, `PutBucketVersioning` changes, `PutBucketLifecycleConfiguration`, and cross-account access.
+- Cross reference other buckets touched by the same actor/IP; recent IAM changes (new keys, policy/role edits); GuardDuty findings tied to S3/credentials.
+
+**Recovery (prioritize data integrity)**
+- If Versioning is enabled, restore last known-good versions for impacted objects. Consider applying Object Lock legal hold to clean versions during recovery if configured.
+- If Versioning is not enabled, recover from backups (AWS Backup, replication targets). Enable Versioning going forward on critical buckets; evaluate Object Lock for high-value data.
+- Carefully remove any temporary deny policy only after credentials are rotated, policies re-validated, and no ongoing destructive activity is observed.
+
+**Post-incident hardening**
+- Enforce `Block Public Access`, enable Versioning (and MFA-Delete where appropriate), and review bucket policies for least privilege.
+- Ensure continuous CloudTrail data events for S3 are enabled in covered regions; enable/verify GuardDuty S3 protections and alerts routing.
+- Add detections for related behaviors (policy tampering, bulk deletes, versioning/lifecycle toggles) and create allowlists for known maintenance windows.
+
+
+### Additional information
+
+- For further guidance on managing S3 bucket security and protecting against ransomware, refer to the [AWS S3 documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html) and AWS best practices for security.
+- [AWS IRP—Ransomware](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/IRP-Ransomware.md) (NIST-aligned template for evidence, containment, eradication, recovery, post-incident). 
+- [AWS Customer Playbook—Ransom Response (S3)](https://github.com/aws-samples/aws-customer-playbook-framework/blob/a8c7b313636b406a375952ac00b2d68e89a991f2/docs/Ransom_Response_S3.md) (bucket-level response steps: public access blocks, temporary deny, versioning/object lock, lifecycle considerations, recovery). 
+"""
+
+references = [
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.impact.s3-ransomware-batch-deletion/",
+    "https://rhinosecuritylabs.com/aws/s3-ransomware-part-1-attack-vector/",
+    "https://www.mdpi.com/2073-431X/10/11/145#computers-10-00145-f002",
+]
+risk_score = 47
+rule_id = "7fda9bb2-fd28-11ee-85f9-f661ea17fbce"
+setup = "AWS S3 data types need to be enabled in the CloudTrail trail configuration to capture PutObject API calls."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where
+  event.dataset == "aws.cloudtrail" and
+  event.provider == "s3.amazonaws.com" and
+  event.action == "PutObject" and
+  event.outcome == "success" and
+  /* Apply regex to match patterns only after the bucket name */
+  /* common ransom note file name keywords */
+  aws.cloudtrail.resources.arn regex~ "arn:aws:s3:::[^/]+/.*?(how|decrypt|restor|help|instruct|read|get|recov|save|encrypt|info|ransom).*"
+  and not aws.cloudtrail.resources.arn regex~ ".*(AWSLogs|CloudTrail|access-logs).*"
+  and not aws.cloudtrail.user_identity.type == "AWSService"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "tls.client.server_name",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference =  "https://attack.mitre.org/techniques/T1486/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

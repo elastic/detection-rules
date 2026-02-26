@@ -2,7 +2,7 @@
 creation_date = "2022/07/11"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2026/02/02"
 
 [rule]
 author = ["Elastic"]
@@ -25,13 +25,13 @@ false_positives = [
 index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Kubernetes Pod created with a Sensitive hostPath Volume"
+name = "Kubernetes Pod Created with a Sensitive hostPath Volume"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Kubernetes Pod created with a Sensitive hostPath Volume
+### Investigating Kubernetes Pod Created with a Sensitive hostPath Volume
 
 Kubernetes allows containers to access host filesystems via hostPath volumes, which can be crucial for certain applications. However, if a container is compromised, adversaries can exploit these mounts to access sensitive host data or escalate privileges. The detection rule identifies when pods are created or modified with hostPath volumes pointing to critical directories, signaling potential misuse or security risks.
 
@@ -72,58 +72,59 @@ references = [
 risk_score = 47
 rule_id = "2abda169-416b-4bb3-9a6b-f8d239fd78ba"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Tactic: Privilege Escalation", "Resources: Investigation Guide"]
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
-
 query = '''
-event.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.objectRef.resource:"pods"
-  and kubernetes.audit.verb:("create" or "update" or "patch")
-  and kubernetes.audit.requestObject.spec.volumes.hostPath.path:
-  ("/" or
-  "/proc" or
-  "/root" or
-  "/var" or
-  "/var/run" or
-  "/var/run/docker.sock" or
-  "/var/run/crio/crio.sock" or
-  "/var/run/cri-dockerd.sock" or
-  "/var/lib/kubelet" or
-  "/var/lib/kubelet/pki" or
-  "/var/lib/docker/overlay2" or
-  "/etc" or
-  "/etc/kubernetes" or
-  "/etc/kubernetes/manifests" or
-  "/etc/kubernetes/pki" or
-  "/home/admin")
-  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
+event.dataset : "kubernetes.audit_logs" and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.objectRef.resource:"pods" and kubernetes.audit.verb:("create" or "update" or "patch") and
+kubernetes.audit.requestObject.spec.volumes.hostPath.path: (
+  "/" or "/proc" or "/root" or "/var" or "/var/run" or "/var/run/docker.sock" or "/var/run/crio/crio.sock" or
+  "/var/run/cri-dockerd.sock" or "/var/lib/kubelet" or "/var/lib/kubelet/pki" or "/var/lib/docker/overlay2" or
+  "/etc" or "/etc/kubernetes" or "/etc/kubernetes/manifests" or "/etc/kubernetes/pki" or "/home/admin"
+) and
+not kubernetes.audit.requestObject.spec.containers.image: (
+  docker.elastic.co/beats/elastic-agent* or *elastic/elastic-agent* or docker.elastic.co/elastic-agent/elastic-agent* or
+  *elastic-agent\:dev* or *cloudops-azure-devops-agent* or rancher/mirrored-longhornio-longhorn-instance-manager* or
+  quay.io/calico* or ghcr.io/aquasecurity* or rancher/system-agent* or rancher/mirrored-longhornio-csi-node-driver-registrar* or
+  rancher/mirrored-longhornio-livenessprobe* or quay.io/prometheus/node-exporter* or *eks/observability/cloudwatch-agent* or
+  amazon/aws-efs-csi-driver* or public.ecr.aws/eks-distro/kubernetes-csi* or quay.io/cilium/cilium* or openebs/node-disk-manager* or
+  openebs/cstor-csi-driver* or registry.k8s.io/sig-storage/csi-node-driver-registrar* or *.amazonaws.com/eks/csi-node-driver-registrar* or
+  *.amazonaws.com/eks/livenessprobe* or *.amazonaws.com/eks/aws-efs-csi-driver* or mcr.microsoft.com/oss/v2/kubernetes-csi* or
+  rancher/mirrored-cilium-cilium* or jenkins/inbound-agent* or gcr.io/datadoghq/agent* or rancher/mirrored-longhornio-longhorn-share-manager* or
+  */sysdig/*
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1610"
 name = "Deploy Container"
 reference = "https://attack.mitre.org/techniques/T1610/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
