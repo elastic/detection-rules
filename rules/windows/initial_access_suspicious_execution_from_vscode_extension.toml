@@ -74,8 +74,10 @@ process where host.os.type == "windows" and event.action == "start" and
     ) or
 	
 	// recently dropped PE
-    (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500)
-  )
+    process.Ext.relative_file_creation_time <= 500
+  ) and 
+  not (process.name : "cmd.exe" and process.args : ("npm.cmd config get prefix", "code -v", "chcp")) and 
+  not (process.name : "python.exe" and process.parent.command_line : "*ms-python.vscode-*")
 '''
 
 
