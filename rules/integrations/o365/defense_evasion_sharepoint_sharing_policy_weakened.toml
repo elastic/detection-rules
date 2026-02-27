@@ -84,27 +84,21 @@ query = '''
 event.dataset: "o365.audit" and event.provider: ("SharePoint" or "OneDrive") and
     event.action: "SharingPolicyChanged" and event.outcome: "success" and
     (
-        /* Guest sharing enabled on a site */
         (o365.audit.ModifiedProperties.ShareWithGuests.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.ShareWithGuests.OldValue: (false or "Disabled"))
         or
-        /* Anonymous "Anyone" link sharing enabled */
         (o365.audit.ModifiedProperties.ShareUsingAnonymousLinks.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.ShareUsingAnonymousLinks.OldValue: (false or "Disabled"))
         or
-        /* Site or group changed from private to public */
         (o365.audit.ModifiedProperties.IsPublic.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.IsPublic.OldValue: (false or "Disabled"))
         or
-        /* Guest user access enabled */
         (o365.audit.ModifiedProperties.AllowGuestUser.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.AllowGuestUser.OldValue: (false or "Disabled"))
         or
-        /* Federated (external org) user access enabled */
         (o365.audit.ModifiedProperties.AllowFederatedUsers.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.AllowFederatedUsers.OldValue: (false or "Disabled"))
         or
-        /* Teams consumer (personal account) access enabled */
         (o365.audit.ModifiedProperties.AllowTeamsConsumer.NewValue: (true or "Enabled") and
             o365.audit.ModifiedProperties.AllowTeamsConsumer.OldValue: (false or "Disabled"))
     )
