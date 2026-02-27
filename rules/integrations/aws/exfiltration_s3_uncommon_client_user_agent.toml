@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/02/09"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS API activity originating from uncommon desktop client applications based on the user agent string. This
+rule detects S3 Browser and Cyberduck, which are graphical S3 management tools that provide bulk upload/download
+capabilities. While legitimate, these tools are rarely used in enterprise environments and have been observed in use by
+threat actors for data exfiltration. Any activity from these clients should be validated against authorized data
+transfer workflows.
+"""
+false_positives = [
+    """
+    Some organizations may have legitimate use cases for S3 Browser or Cyberduck, particularly in development, data
+    migration, or backup scenarios. Verify whether the IAM principal, source network, and accessed buckets align with
+    approved workflows. Unexpected activity from these clients, especially accessing sensitive buckets, should be
+    investigated.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS API Activity from Uncommon S3 Client by Rare User"
+note = """## Triage and Analysis
+
+### Investigating AWS API Activity from Uncommon S3 Client by Rare User
+
+S3 Browser and Cyberduck are graphical clients for Amazon S3 that allow users to browse, upload, download, and manage S3 objects. While legitimate tools, they are uncommonly used in enterprise environments where organizations typically standardize on AWS CLI, SDKs, or console access. The presence of these tools may indicate unauthorized data access or exfiltration activity.
+
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that identifies the first time a specific user within an account makes API calls using S3 Browser or Cyberduck user agent strings. Threat actors have been observed using these tools for their intuitive interface and bulk data transfer capabilities during post-compromise data theft operations.
+
+### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine which IAM principal was used.
+  - Check whether this principal normally accesses S3 and whether usage of these desktop clients is expected or authorized.
+
+- **Review accessed resources**
+  - Examine `aws.cloudtrail.resources.arn` to identify which S3 buckets and objects were accessed.
+  - Determine whether the accessed data is sensitive, confidential, or subject to data protection policies.
+  - Look for patterns indicating bulk downloads or systematic enumeration of bucket contents.
+
+- **Analyze the actions performed**
+  - Review `event.action` to understand what operations were performed (e.g., `GetObject`, `ListBucket`, `PutObject`).
+  - High volumes of `GetObject` calls may indicate data exfiltration.
+  - `PutObject` calls to external buckets could indicate data staging for exfiltration.
+
+- **Inspect source network context**
+  - Review `source.ip` and `source.geo` fields to determine the origin of the request.
+  - Check whether the IP belongs to corporate infrastructure, VPN, or an unexpected external location.
+  - External IPs combined with these desktop client tools are high-risk indicators.
+
+- **Correlate with surrounding activity**
+  - Search for additional CloudTrail events from the same access key or session.
+  - Look for preceding credential theft indicators such as `GetSecretValue`, `CreateAccessKey`, or console logins.
+  - Check for cross-account transfers or `CreateBucket` calls in external accounts.
+
+### False positive analysis
+
+- **Authorized data migration or backup activities** may use these tools. Confirm with data engineering or IT teams.
+- **Developer testing** in non-production environments may occasionally involve these clients. Validate the environment and data sensitivity.
+- **Third-party integrations** using Cyberduck libraries may generate this user agent. Verify the automation context.
+
+### Response and remediation
+
+- **If unauthorized**, immediately revoke or rotate the affected access keys and invalidate active sessions.
+- **Assess data exposure** by reviewing which objects were accessed and determining if sensitive data was compromised.
+- **Notify security operations** and initiate incident response procedures if exfiltration is confirmed.
+- **Implement preventive controls** such as S3 bucket policies restricting access by user agent or requiring VPC endpoints.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)**
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
+"""
+references = [
+    "https://s3browser.com/",
+    "https://cyberduck.io/",
+    "https://permiso.io/blog/lucr-3-scattered-spider-getting-saas-y-in-the-cloud",
+    "https://attackevals.github.io/ael/enterprise/scattered_spider/emulation_plan/scattered_spider_scenario/",
+]
+risk_score = 21
+rule_id = "73344d2d-9cfb-4daf-b3c5-1d40a8182b86"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS S3",
+    "Tactic: Exfiltration",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and user_agent.original: (*S3 Browser* or *Cyberduck*)
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
