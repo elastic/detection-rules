@@ -2,14 +2,14 @@
 creation_date = "2024/11/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/16"
+updated_date = "2026/02/27"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when a user or role has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain
 temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
-escalation. This is a New Terms rule that identifies when a service assumes a role in AWS Security Token Service (STS)
+escalation. This is a New Terms rule that identifies when a user assumes a role in AWS Security Token Service (STS)
 to obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for
 unauthorized access, privilege escalation, or lateral movement within an AWS environment.
 """
@@ -31,10 +31,10 @@ note = """## Triage and analysis
 
 This rule detects when a user assumes a role in AWS Security Token Service (STS), receiving temporary credentials to access AWS resources. While often used for legitimate purposes, this action can be leveraged by adversaries to obtain unauthorized access, escalate privileges, or move laterally within an AWS environment.
 
-#### Possible Investigation Steps
+### Possible investigation steps
 
 - **Identify the User and Assumed Role**:
-  - **User Identity**: Check `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` for details about the initiator of the `AssumeRole` action.
+  - **User Identity**: Check `aws.cloudtrail.user_identity.arn` for details about the initiator of the `AssumeRole` action.
   - **Role Assumed**: Review `aws.cloudtrail.resources.arn` to confirm the role assumed and ensure it aligns with the user’s standard permissions.
   - **Session Name**: Note `aws.cloudtrail.flattened.request_parameters.roleSessionName` for context on the purpose of the session.
   - **Expiration Time**: Use `aws.cloudtrail.flattened.response_elements.credentials.expiration` to confirm the credential expiration.
@@ -51,19 +51,19 @@ This rule detects when a user assumes a role in AWS Security Token Service (STS)
   - **Permissions**: Examine permissions associated with the `roleArn` to assess its access scope.
   - **Authorized Usage**: Confirm if the role is used frequently for administrative purposes and if this aligns with the user’s regular responsibilities.
 
-### False Positive Analysis
+### False positive analysis
 
 - **Automated Processes and Applications**: Applications or scheduled tasks may assume roles regularly for operational purposes. Validate the consistency of the `user_agent` or `roleArn` with known automated workflows.
 - **Standard IAM Policy Usage**: Confirm if the user or application routinely assumes new roles for normal operations by reviewing historical activity.
 
-### Response and Remediation
+### Response and remediation
 
 - **Terminate Unauthorized Sessions**: If the role assumption is deemed unauthorized, revoke the session by modifying IAM policies or the permissions associated with the assumed role.
 - **Strengthen Monitoring and Alerts**: Implement additional monitoring for specific high-risk roles, especially those with elevated permissions.
 - **Regularly Manage Exceptions**: Regularly review high-volume roles and user agent patterns to refine alerts, minimizing noise by adding trusted patterns as exceptions.
 - **Incident Response**: If confirmed as malicious, follow incident response protocols for containment, investigation, and remediation.
 
-### Additional Information
+### Additional information
 
 For more details on managing and securing AWS STS in your environment, refer to the [AWS STS documentation](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
 """
@@ -89,7 +89,7 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "sts.amazonaws.com"
     and event.action: "AssumeRole"
     and event.outcome: "success"
-    and aws.cloudtrail.user_identity.type: ("AssumedRole" or "IAMUser")
+    and aws.cloudtrail.user_identity.type: "IAMUser"
 '''
 
 
