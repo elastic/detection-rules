@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/02/13"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious process execution launched from a VS Code extension context (parent command line contains
+.vscode/extensions). Malicious extensions can run on startup and drop or execute payloads (e.g. RATs like
+ScreenConnect, script interpreters, or download utilities). This covers both script/LOLBin children and
+recently created executables from non-Program Files paths, as seen in campaigns such as the fake Clawdbot
+extension that installed ScreenConnect RAT.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Execution from VS Code Extension"
+note = """## Triage and analysis
+
+### Investigating Suspicious Execution from VS Code Extension
+
+Malicious VS Code extensions can use `activationEvents: ["onStartupFinished"]` to run as soon as the editor starts, then spawn scripts or download-and-execute payloads (e.g. weaponized ScreenConnect, batch/PowerShell downloaders). This rule flags process starts whose parent command line indicates execution from the extension host under `.vscode\\extensions\\` (or `/.vscode/extensions/`).
+
+### Possible investigation steps
+
+- Identify the extension: from the parent process command line, extract the path under `.vscode\\extensions\\` to get the extension id (e.g. `publisher.name-version`).
+- Check whether that extension is approved; search the VS Code marketplace (or internal registry) for the same name and compare hashes.
+- Inspect the child process: if it is cmd/powershell/curl/node/rundll32/etc., review command line and network/file activity; if it is a recently created executable (e.g. Code.exe, Lightshot), check path (e.g. %TEMP%\\Lightshot) and code signature.
+- Correlate with network events (C2 domains, Dropbox/URL downloads) and with [Fake Clawdbot VS Code Extension](https://www.aikido.dev/blog/fake-clawdbot-vscode-extension-malware) IOCs if relevant.
+
+### False positive analysis
+
+- Legitimate extensions that run scripts or tools (e.g. linters, formatters, task runners) can spawn cmd, node, or PowerShell. Tune by excluding known extension ids or by requiring additional conditions (e.g. outbound to unknown IPs).
+- Extension development: running/debugging an extension from a workspace will spawn processes from `.vscode\\extensions\\`; consider excluding dev machines or specific parent paths.
+
+### Response and remediation
+
+- Uninstall the suspicious extension and restart VS Code.
+- If payload was executed: check for ScreenConnect (or similar) installation paths and services, remove persisted artifacts, block IOCs at firewall/DNS, rotate any API keys or secrets that may have been entered into the extension.
+"""
+references = [
+    "https://www.aikido.dev/blog/fake-clawdbot-vscode-extension-malware",
+    "https://attack.mitre.org/techniques/T1204/",
+    "https://attack.mitre.org/techniques/T1195/002/",
+]
+risk_score = 47
+rule_id = "c3d4e5f6-a7b8-6c9d-0e1f-2a3b4c5d6e7f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.action == "start" and
+  process.parent.name : ("node.exe", "Code.exe") and
+  process.parent.command_line != null and
+  process.parent.command_line : ("*vscode*extensions*", "*extensionHost*") and
+  (
+    process.name : (
+      "cmd.exe", "powershell.exe", "pwsh.exe", "rundll32.exe", "msiexec.exe",
+      "curl.exe", "bitsadmin.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+      "node.exe"
+    ) or
+	
+	// recently dropped PE
+    process.Ext.relative_file_creation_time <= 500
+  ) and 
+  not (process.name : "cmd.exe" and process.args : ("npm.cmd config get prefix", "code -v", "chcp")) and 
+  not (process.name : "python.exe" and process.parent.command_line : "*ms-python.vscode-*")
+'''
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
