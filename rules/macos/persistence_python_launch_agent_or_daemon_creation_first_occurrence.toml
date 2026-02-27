@@ -8,9 +8,9 @@ updated_date = "2026/02/23"
 author = ["Elastic"]
 description = """
 Detects the first time a Python process creates or modifies a LaunchAgent or LaunchDaemon plist file on a given host.
-Malicious pickle or PyTorch model files can establish persistence on macOS by writing plist files to LaunchAgent or
-LaunchDaemon directories during deserialization. Legitimate Python processes in data science environments do not
-typically create persistence mechanisms, so a first occurrence is a strong indicator of compromise.
+Malicious Python scripts, compromised dependencies, or model file deserialization can establish persistence on macOS by
+writing plist files to LaunchAgent or LaunchDaemon directories. Legitimate Python processes do not typically create
+persistence mechanisms, so a first occurrence is a strong indicator of compromise.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.persistence-*"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating First Time Python Created a LaunchAgent or LaunchDaemon
 
-macOS LaunchAgents and LaunchDaemons are plist files that configure programs to run automatically at login or boot. Attackers who achieve code execution through malicious pickle or PyTorch model deserialization can drop plist files to establish persistence on the compromised host. This ensures their payload survives reboots and user logouts.
+macOS LaunchAgents and LaunchDaemons are plist files that configure programs to run automatically at login or boot. Attackers who achieve Python code execution — whether through malicious scripts, compromised dependencies, or model file deserialization (e.g., pickle/PyTorch `__reduce__`) — can drop plist files to establish persistence on the compromised host. This ensures their payload survives reboots and user logouts.
 
 This rule uses the Elastic Defend persistence event type (`event.action:"launch_daemon"`), which captures plist metadata including the program arguments, run-at-load configuration, and keep-alive settings. The New Terms rule type alerts on the first time a Python process creates a LaunchAgent or LaunchDaemon on a given host within a 7-day window.
 
@@ -29,9 +29,9 @@ This rule uses the Elastic Defend persistence event type (`event.action:"launch_
 
 - Review the persistence event fields (`Persistence.runatload`, `Persistence.keepalive`, `Persistence.args`, `Persistence.path`) to understand the plist configuration.
 - Examine the program path and arguments specified in the plist to determine if they reference a known legitimate application or a suspicious binary.
-- Determine if the Python process was loading a model file by reviewing the process command line and parent process tree.
+- Determine if the Python process was loading a model file (look for `torch.load`, `pickle.load`), running a standalone script, or executing via a compromised dependency.
 - Verify if the target binary referenced in the plist exists on disk and whether it is signed or trusted.
-- Investigate the origin of any model files recently downloaded to the host.
+- Investigate the origin of any recently downloaded scripts, packages, or model files on the host.
 - Check for other persistence mechanisms that may have been established around the same time.
 
 ### False positive analysis
@@ -44,9 +44,9 @@ This rule uses the Elastic Defend persistence event type (`event.action:"launch_
 - Immediately unload the suspicious LaunchAgent or LaunchDaemon using `launchctl unload` with the plist path.
 - Remove the suspicious plist file and any associated binary it references.
 - Kill any processes launched by the plist file.
-- Investigate and quarantine the Python script or model file that created the persistence mechanism.
+- Investigate and quarantine the Python script, package, or model file that created the persistence mechanism.
 - Scan the host for additional indicators of compromise.
-- If a malicious model file is confirmed, identify all hosts where it may have been distributed.
+- If a malicious file is confirmed, identify all hosts where it may have been distributed.
 """
 references = [
     "https://blog.trailofbits.com/2024/06/11/exploiting-ml-models-with-pickle-file-attacks-part-1/",
@@ -68,7 +68,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:macos and event.action:"launch_daemon" and
-process.name:(python or python3 or python3.* or Python)
+process.name:python*
 '''
 
 [[rule.threat]]
