@@ -16,7 +16,7 @@
 
 ```sql
 from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*
-| where  @timestamp > now(-) - 7 day
+| where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "process" and
   event.action in ("start", "Process creation") and process.code_signature.trusted != true and
   /* child process of the Tasks Schedule service */
