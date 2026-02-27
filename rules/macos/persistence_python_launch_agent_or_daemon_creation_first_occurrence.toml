@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/02/23"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/02/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a Python process creates or modifies a LaunchAgent or LaunchDaemon plist file on a given host.
+Malicious Python scripts, compromised dependencies, or model file deserialization can establish persistence on macOS by
+writing plist files to LaunchAgent or LaunchDaemon directories. Legitimate Python processes do not typically create
+persistence mechanisms, so a first occurrence is a strong indicator of compromise.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.persistence-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time Python Created a LaunchAgent or LaunchDaemon"
+note = """## Triage and analysis
+
+### Investigating First Time Python Created a LaunchAgent or LaunchDaemon
+
+macOS LaunchAgents and LaunchDaemons are plist files that configure programs to run automatically at login or boot. Attackers who achieve Python code execution — whether through malicious scripts, compromised dependencies, or model file deserialization (e.g., pickle/PyTorch `__reduce__`) — can drop plist files to establish persistence on the compromised host. This ensures their payload survives reboots and user logouts.
+
+This rule uses the Elastic Defend persistence event type (`event.action:"launch_daemon"`), which captures plist metadata including the program arguments, run-at-load configuration, and keep-alive settings. The New Terms rule type alerts on the first time a Python process creates a LaunchAgent or LaunchDaemon on a given host within a 7-day window.
+
+### Possible investigation steps
+
+- Review the persistence event fields (`Persistence.runatload`, `Persistence.keepalive`, `Persistence.args`, `Persistence.path`) to understand the plist configuration.
+- Examine the program path and arguments specified in the plist to determine if they reference a known legitimate application or a suspicious binary.
+- Determine if the Python process was loading a model file (look for `torch.load`, `pickle.load`), running a standalone script, or executing via a compromised dependency.
+- Verify if the target binary referenced in the plist exists on disk and whether it is signed or trusted.
+- Investigate the origin of any recently downloaded scripts, packages, or model files on the host.
+- Check for other persistence mechanisms that may have been established around the same time.
+
+### False positive analysis
+
+- Some Python-based system management tools (e.g., Ansible, SaltStack) may legitimately create LaunchAgent or LaunchDaemon plist files. Evaluate whether the activity matches a known automation workflow.
+- Python-based application installers may create plist files during setup. Check if the activity correlates with a known software installation.
+
+### Response and remediation
+
+- Immediately unload the suspicious LaunchAgent or LaunchDaemon using `launchctl unload` with the plist path.
+- Remove the suspicious plist file and any associated binary it references.
+- Kill any processes launched by the plist file.
+- Investigate and quarantine the Python script, package, or model file that created the persistence mechanism.
+- Scan the host for additional indicators of compromise.
+- If a malicious file is confirmed, identify all hosts where it may have been distributed.
+"""
+references = [
+    "https://blog.trailofbits.com/2024/06/11/exploiting-ml-models-with-pickle-file-attacks-part-1/",
+    "https://github.com/trailofbits/fickling",
+]
+risk_score = 47
+rule_id = "25368123-b7b8-4344-9fd4-df28051b4c6e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:macos and event.action:"launch_daemon" and
+process.name:python*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.001"
+name = "Launch Agent"
+reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "file.path"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
