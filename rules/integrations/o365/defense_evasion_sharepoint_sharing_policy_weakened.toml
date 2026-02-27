@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/02/27"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a SharePoint or OneDrive site sharing policy is changed to weaken security controls. The
+SharingPolicyChanged event fires for many routine policy modifications, but this rule targets specific high-risk
+transitions where sharing restrictions are relaxed. This includes enabling guest sharing, enabling anonymous link
+sharing, making a site public, or enabling guest user access. Adversaries who compromise administrative accounts may
+weaken sharing policies to exfiltrate data to external accounts or create persistent external access paths.
+"""
+false_positives = [
+    "Administrators legitimately enabling external sharing for a new collaboration site or project.",
+    "Organizational policy changes that intentionally broaden sharing capabilities across sites.",
+    "Migration or onboarding projects that temporarily require external sharing to be enabled.",
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 SharePoint Site Sharing Policy Weakened"
+note = """## Triage and Analysis
+
+### Investigating M365 SharePoint Site Sharing Policy Weakened
+
+This rule detects when SharePoint or OneDrive sharing policies are modified to weaken security controls. The `SharingPolicyChanged` event captures modifications to site-level sharing settings stored in `ModifiedProperties`, where the setting name is a dynamic field key and `OldValue`/`NewValue` track the transition. This rule targets specific transitions that represent a security posture degradation. Note that Microsoft uses inconsistent keyword value formats across settings, some use `True`/`False` while others use `Enabled`/`Disabled`.
+
+#### Possible Investigation Steps
+
+- Identify the user who performed the change via `user.id` and determine if they have a legitimate administrative role.
+- Check if the acting user is a service principal (e.g., `ServiceOperator`, `app@sharepoint`) or a human account. Service principal changes may indicate automated processes or compromised application credentials.
+- Review which specific setting was changed by examining the `o365.audit.ModifiedProperties.*` fields:
+    - ShareWithGuests: Guest/external sharing was enabled on the site. External users can now be invited to access content.
+    - ShareUsingAnonymousLinks: Anonymous "Anyone" link sharing was enabled. Content can now be shared via unauthenticated links.
+    - IsPublic: The site or group was changed from private to public visibility.
+    - AllowGuestUser: Guest user access was enabled for the site.
+    - AllowFederatedUsers: Federated (external organization) user access was enabled.
+    - AllowTeamsConsumer: Teams personal account (consumer) user access was enabled.
+- Identify the affected site via `o365.audit.ObjectId` (the site URL) and assess the sensitivity of its content.
+- Review Azure AD / Entra ID sign-in logs for the acting account to check for authentication anomalies (unusual location, device code flow, new device).
+- Look for subsequent sharing activity on the same site — `SharingSet`, `AnonymousLinkCreated`, `SharingInvitationCreated`, or file download events shortly after the policy change.
+- Determine if the change was part of a planned change request or occurred outside of normal change windows.
+
+### False Positive Analysis
+
+- IT administrators enabling external sharing for legitimate collaboration needs. Correlate with change management tickets or Slack/Teams messages.
+- Automated provisioning scripts that configure sharing settings during site creation. These typically use service principal accounts with predictable patterns.
+- Microsoft service operations (`ServiceOperator`) may modify settings as part of tenant-level policy propagation.
+
+### Response and Remediation
+
+- If the change is unauthorized, immediately revert the sharing policy to its previous restrictive state.
+- Revoke sessions and reset credentials for the compromised account.
+- Review what content was accessed or shared after the policy change using `FileAccessed`, `FileDownloaded`, and sharing audit events.
+- Audit all sites for similar unauthorized sharing policy changes.
+- Implement Conditional Access policies to restrict administrative actions to trusted networks and compliant devices.
+- Enable Privileged Identity Management (PIM) for SharePoint administrator roles to enforce just-in-time access.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/purview/audit-log-activities#site-administration-activities",
+    "https://learn.microsoft.com/en-us/purview/audit-log-sharing",
+    "https://learn.microsoft.com/en-us/sharepoint/turn-external-sharing-on-or-off",
+]
+risk_score = 47
+rule_id = "632906c6-ba8f-44c0-8386-ec0bbc8518bf"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "o365.audit" and event.provider: ("SharePoint" or "OneDrive") and
+    event.action: "SharingPolicyChanged" and event.outcome: "success" and
+    (
+        /* Guest sharing enabled on a site */
+        (o365.audit.ModifiedProperties.ShareWithGuests.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.ShareWithGuests.OldValue: (false or "Disabled"))
+        or
+        /* Anonymous "Anyone" link sharing enabled */
+        (o365.audit.ModifiedProperties.ShareUsingAnonymousLinks.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.ShareUsingAnonymousLinks.OldValue: (false or "Disabled"))
+        or
+        /* Site or group changed from private to public */
+        (o365.audit.ModifiedProperties.IsPublic.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.IsPublic.OldValue: (false or "Disabled"))
+        or
+        /* Guest user access enabled */
+        (o365.audit.ModifiedProperties.AllowGuestUser.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.AllowGuestUser.OldValue: (false or "Disabled"))
+        or
+        /* Federated (external org) user access enabled */
+        (o365.audit.ModifiedProperties.AllowFederatedUsers.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.AllowFederatedUsers.OldValue: (false or "Disabled"))
+        or
+        /* Teams consumer (personal account) access enabled */
+        (o365.audit.ModifiedProperties.AllowTeamsConsumer.NewValue: (true or "Enabled") and
+            o365.audit.ModifiedProperties.AllowTeamsConsumer.OldValue: (false or "Disabled"))
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
