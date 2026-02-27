@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by container.id, user.id with maxspan=5s
-  [any where host.os.type == "linux" and event.category in ("file", "process") and process.interactive == true and container.id like "*" and (
+  [any where event.category in ("file", "process") and process.interactive == true and container.id like "?*" and (
     (event.category == "file" and event.type == "change" and event.action == "open" and file.path like "/var/lib/kubelet/pods/*") or
     (event.category == "process" and event.type == "start" and event.action == "exec" and (
       (process.name in ("du", "nice", "find", "locate", "ls")) or
