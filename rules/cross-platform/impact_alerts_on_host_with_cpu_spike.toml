@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/26"
 maturity = "production"
-updated_date = "2026/02/16"
+updated_date = "2026/02/26"
 
 [rule]
 author = ["Elastic"]
@@ -81,6 +81,7 @@ FROM metrics-*, .alerts-security.*  METADATA _index
         process_path = VALUES(process.executable),
         parent_process_path = VALUES(process.parent.executable),
         user_name = VALUES(user.name),
+        host_name = VALUES(host.name),
         cmdline = VALUES(process.command_line) by host.id
 // at least 3 unique high severity alerts and from a host with 90% CPU use
 | where host_with_cpu_spike > 0 and host_with_alerts > 0 and Esql.unique_alerts_count >= 3
@@ -88,8 +89,9 @@ FROM metrics-*, .alerts-security.*  METADATA _index
        process.executable = MV_FIRST(process_path),
        process.parent.executable = MV_FIRST(parent_process_path),
        process.command_line = MV_FIRST(cmdline),
+       host.name = MV_FIRST(host_name),
        user.name = MV_FIRST(user_name)
-| KEEP user.name, host.id, process.*, Esql.*
+| KEEP user.name, host.name, host.id, process.*, Esql.*
 '''
 note = """## Triage and analysis
 
