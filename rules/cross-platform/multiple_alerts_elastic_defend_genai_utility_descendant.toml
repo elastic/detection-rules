@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/02/27"
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Elastic Defend alerts (behavior, malicious file, memory signature, shellcode) where the alerted process or its
+direct parent is a GenAI coding or assistant utility (e.g. Cursor, Claude, Windsurf, Cody, Continue, Aider, OpenClaw,
+Moltbot, Clawdbot, Codeium, Tabnine, GitHub Copilot). Activity from these tools can indicate prompt injection,
+malicious skills, or supply-chain abuse; this Higher-Order rule helps prioritize such alerts for triage.
+"""
+from = "now-60m"
+interval = "30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Elastic Defend Alert from GenAI Utility or Descendant"
+note = """## Triage and analysis
+
+### Investigating Elastic Defend Alerts from GenAI Utility or Descendant
+
+Elastic Defend has raised an alert on a process that is either a GenAI coding/assistant application or a direct child of one. This can indicate prompt injection, malicious extension/skill execution, or abuse of AI-assisted development tools (e.g. fake VS Code extensions, malicious ClawHub skills).
+
+### Possible investigation steps
+
+- Identify the GenAI utility from `Esql.process_name_values` / `Esql.process_parent_name_values` and `Esql.process_executable_values` / `Esql.process_parent_executable_values`.
+- Review the alert rule name and message to understand what behavior was detected (e.g. script execution, network, file write).
+- Inspect `Esql.process_command_line_values` and parent command lines for download-and-execute, encoded commands, or suspicious arguments.
+- Correlate with the same host and user for other alerts or with network/DNS for C2 or exfiltration.
+- If the tool is Cursor/VS Code: check for recently installed extensions and run the "Suspicious Execution from Potentially Malicious VS Code Extension" rule or similar.
+- If OpenClaw/Moltbot/Clawdbot: review installed skills and conversation history for prompt injection or malicious skill execution.
+
+### False positive analysis
+
+- Legitimate use of GenAI tools (e.g. running builds, package installs, or approved scripts) can trigger behavior rules. Tune by excluding known-safe rule names or process command-line patterns, or limit to higher-severity alerts.
+- Approved automation or CI that runs under a GenAI-related process may need to be allowlisted.
+
+### Response and remediation
+
+- If abuse is confirmed: disable or restrict the GenAI tool, remove malicious extensions/skills, rotate any exposed API keys or credentials, and block IOCs at network/EDR level.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1059/",
+    "https://attack.mitre.org/techniques/T1195/002/",
+]
+risk_score = 99
+rule_id = "d4e5f6a7-b8c9-7d0e-1f2a-3b4c5d6e7f8a"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "Domain: LLM",
+    "Use Case: Threat Detection",
+	"Tactic: Initial Access",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.*
+| WHERE process.Ext.ancestry IS NOT NULL and 
+   (event.dataset == "endpoint.alerts" or to_lower(process.parent.name) IN (
+        "claude", "claude.exe", "cursor", "cursor.exe", "Cursor Helper", "Cursor Helper (Plugin)",
+        "codex", "codex.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
+        "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
+        "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
+        "zed", "zed.exe", "windsurf", "windsurf.exe"
+    ))
+// Identify GenAI tool spawn events and capture their entity_ids
+| EVAL 
+    is_genai_spawn = to_lower(process.parent.name) IN (
+        "claude", "claude.exe", "Cursor", "cursor.exe", "Cursor Helper", "Cursor Helper (Plugin)",
+        "codex", "codex.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
+        "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
+        "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
+        "zed", "zed.exe", "windsurf", "windsurf.exe"
+    ),
+    is_openclaw = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*"),
+    genai_entity_id = CASE(is_genai_spawn or is_openclaw, process.parent.entity_id, NULL)
+
+// Collect ALL GenAI entity_ids globally across the dataset
+| INLINE STATS 
+    all_genai_entity_ids = VALUES(genai_entity_id) WHERE genai_entity_id IS NOT NULL
+// Find which GenAI entity_ids appear in this process's ancestry
+| EVAL Esql.genai_ancestor_ids = MV_INTERSECTION(all_genai_entity_ids, process.Ext.ancestry)
+
+// Elastic Defend alerts from a GenAI grandparent 
+| WHERE Esql.genai_ancestor_ids IS NOT NULL 
+        AND event.dataset == "endpoint.alerts" AND not rule.name in ("Persistence via GenAI Tool", "Code Editor Untrusted or Unsigned Child Process Execution")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
