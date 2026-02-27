@@ -26,9 +26,9 @@ Elastic Defend has raised an alert on a process that is either a GenAI coding/as
 
 ### Possible investigation steps
 
-- Identify the GenAI utility from `Esql.process_name_values` / `Esql.process_parent_name_values` and `Esql.process_executable_values` / `Esql.process_parent_executable_values`.
+- Identify the GenAI utility by looking for process with entity_id equal to Esql.genai_ancestor_ids
 - Review the alert rule name and message to understand what behavior was detected (e.g. script execution, network, file write).
-- Inspect `Esql.process_command_line_values` and parent command lines for download-and-execute, encoded commands, or suspicious arguments.
+- Inspect process_command_line and parent command lines for download-and-execute, encoded commands, or suspicious arguments.
 - Correlate with the same host and user for other alerts or with network/DNS for C2 or exfiltration.
 - If the tool is Cursor/VS Code: check for recently installed extensions and run the "Suspicious Execution from Potentially Malicious VS Code Extension" rule or similar.
 - If OpenClaw/Moltbot/Clawdbot: review installed skills and conversation history for prompt injection or malicious skill execution.
@@ -65,20 +65,24 @@ query = '''
 FROM logs-endpoint.* metadata _id, _version, _index
 | WHERE process.Ext.ancestry IS NOT NULL and 
    (event.dataset == "endpoint.alerts" or to_lower(process.parent.name) IN (
-        "claude", "claude.exe", "cursor", "cursor.exe", "Cursor Helper", "Cursor Helper (Plugin)",
-        "codex", "codex.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
+        "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
+        "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
         "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
         "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
-        "zed", "zed.exe", "windsurf", "windsurf.exe"
+        "zed", "zed.exe", "windsurf", "windsurf.exe",
+        "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
+        "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
     ))
 // Identify GenAI tool spawn events and capture their entity_ids
 | EVAL 
     is_genai_spawn = to_lower(process.parent.name) IN (
-        "claude", "claude.exe", "Cursor", "cursor.exe", "Cursor Helper", "Cursor Helper (Plugin)",
-        "codex", "codex.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
+        "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
+        "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
         "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
         "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
-        "zed", "zed.exe", "windsurf", "windsurf.exe"
+        "zed", "zed.exe", "windsurf", "windsurf.exe",
+        "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
+        "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
     ),
     is_openclaw = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*"),
     genai_entity_id = CASE(is_genai_spawn or is_openclaw, process.parent.entity_id, NULL)
@@ -92,6 +96,8 @@ FROM logs-endpoint.* metadata _id, _version, _index
 // Elastic Defend alerts from a GenAI grandparent 
 | WHERE Esql.genai_ancestor_ids IS NOT NULL 
         AND event.dataset == "endpoint.alerts" AND not rule.name in ("Persistence via GenAI Tool", "Code Editor Untrusted or Unsigned Child Process Execution")
+
+| KEEP *
 '''
 
 [[rule.threat]]
