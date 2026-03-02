@@ -2,67 +2,68 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an administrator role is assigned to an Okta user. An adversary may attempt to assign an administrator
-role to an Okta user in order to assign additional permissions to a user account and maintain access to their target's
-environment.
+Identifies when an administrator role is assigned to an Okta user or group. Adversaries may assign administrator
+privileges to compromised accounts to establish persistence, escalate privileges, and maintain long-term access to the
+environment. This detection monitors for both user-level and group-level administrator privilege grants, which can be
+used to bypass security controls and perform unauthorized administrative actions.
 """
 false_positives = [
     """
-    Administrator roles may be assigned to Okta users by a Super Admin user. Verify that the behavior was expected.
-    Exceptions can be added to this rule to filter expected behavior.
+    Administrator roles may be assigned to Okta users or groups by authorized Super Admin users during normal IT
+    operations such as onboarding, role changes, or organizational restructuring. Verify that the behavior was expected
+    and authorized. Exceptions can be added to this rule to filter known administrators, service accounts, or automated
+    provisioning systems.
     """,
 ]
-index = ["filebeat-*", "logs-okta*"]
+index = ["logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Administrator Role Assigned to an Okta User"
+name = "Okta User Assigned Administrator Role"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+### Investigating Okta User Assigned Administrator Role
 
-### Investigating Administrator Role Assigned to an Okta User
+Okta administrator roles provide elevated permissions to manage users, applications, policies, and security settings within the Okta environment. Adversaries who compromise Okta accounts may assign administrator privileges to establish persistence and maintain control over the identity infrastructure. This rule detects when administrator roles are granted to users or groups, which can indicate privilege escalation or persistence techniques.
 
-Okta is a widely used identity management service that facilitates secure user authentication and access control. In environments using Okta, assigning an administrator role grants elevated permissions, which can be exploited by adversaries to maintain unauthorized access. The detection rule monitors system events for privilege grants, flagging suspicious role assignments to mitigate potential abuse.
+#### Possible investigation steps:
+- Identify the actor who performed the privilege grant by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
+- Determine the target user or group that received administrator privileges by reviewing the `okta.target` fields.
+- Review the specific administrator role granted by examining the `okta.debug_context.debug_data.flattened.privilegeGranted` field.
+- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Check if the source IP is associated with known malicious activity, VPN/proxy services, or unusual geolocations.
+- Examine the `okta.request.ip_chain` field to determine if the actor used a proxy or VPN.
+- Review the actor's recent authentication history and session activity for suspicious patterns.
+- Verify whether the privilege grant was part of a legitimate change request or administrative workflow.
+- Check for any other suspicious activities performed by the actor or target account around the same time.
+- Review audit logs for any administrative actions performed after the privilege grant.
 
-### Possible investigation steps
+### False positive analysis:
+- Legitimate administrators may assign roles during normal IT operations such as onboarding, role changes, or incident response.
+- Automated provisioning systems or service accounts may assign administrator roles as part of authorized workflows.
+- During organizational changes or access certification processes, multiple role assignments may occur.
+- Create exceptions for known administrators, service accounts, or specific groups that regularly perform legitimate role assignments.
 
-- Review the event details to confirm the presence of the event.dataset:okta.system and event.action:user.account.privilege.grant fields, ensuring the alert is triggered by the correct conditions.
-- Identify the user account that was assigned the administrator role and gather information about their recent activities and login history to assess any unusual behavior.
-- Check the timestamp of the role assignment event to determine if it coincides with any other suspicious activities or known incidents.
-- Investigate the source IP address and location associated with the role assignment event to verify if it aligns with the user's typical access patterns.
-- Review the change history for the affected user account to identify any other recent modifications or privilege escalations that may indicate malicious intent.
-- Consult with the user or their manager to verify if the role assignment was authorized and legitimate, documenting any discrepancies or unauthorized actions.
-
-### False positive analysis
-
-- Routine administrative tasks may trigger the rule when legitimate IT staff assign administrator roles for maintenance or onboarding purposes. To manage this, create exceptions for known IT personnel or scheduled maintenance windows.
-- Automated scripts or integrations that require elevated permissions might cause false positives. Identify these scripts and whitelist their associated accounts to prevent unnecessary alerts.
-- Organizational changes such as mergers or department restructuring can lead to multiple legitimate role assignments. During these periods, temporarily adjust the rule sensitivity or increase monitoring to differentiate between expected and suspicious activities.
-- Training or testing environments where roles are frequently assigned for simulation purposes can generate false positives. Exclude these environments from the rule or set up a separate monitoring profile for them.
-
-### Response and remediation
-
-- Immediately revoke the administrator role from the affected Okta user account to prevent further unauthorized access or privilege escalation.
-- Conduct a thorough review of recent activity logs for the affected user account to identify any unauthorized actions or changes made while the elevated privileges were active.
-- Reset the password and enforce multi-factor authentication (MFA) for the affected user account to secure it against potential compromise.
-- Notify the security team and relevant stakeholders about the incident, providing details of the unauthorized role assignment and any identified malicious activities.
-- Implement additional monitoring for the affected user account and similar accounts to detect any further suspicious activities or attempts to reassign elevated privileges.
-- Review and update access control policies to ensure that administrator role assignments require additional verification or approval processes to prevent unauthorized changes.
-- If evidence of broader compromise is found, initiate a full security incident response process, including forensic analysis and potential involvement of external cybersecurity experts.
-
-## Setup
-
-The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+### Response and remediation:
+- If the privilege grant is unauthorized, immediately revoke the administrator role from the affected user or group.
+- Reset credentials and revoke active sessions for both the actor and target accounts if compromise is suspected.
+- Enforce multi-factor authentication (MFA) re-enrollment for affected accounts.
+- Review all administrative actions performed by the target account after the privilege grant.
+- Check for other indicators of compromise such as unauthorized MFA device registrations, policy modifications, or suspicious authentication patterns.
+- Alert security leadership and identity management teams about the unauthorized privilege escalation.
+- Review and strengthen privileged access management controls, including requiring approval workflows for administrator role assignments.
+- Consider implementing anomaly detection for administrator role assignments from unusual sources or at unusual times.
+- If broader compromise is suspected, conduct a comprehensive security investigation including forensic analysis of Okta audit logs.
+"""
 references = [
     "https://help.okta.com/en/prod/Content/Topics/Security/administrators-admin-comparison.htm",
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://cloud.google.com/blog/topics/threat-intelligence/expansion-shinyhunters-saas-data-theft",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
     "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
     "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
@@ -72,7 +73,9 @@ risk_score = 47
 rule_id = "f06414a6-f2a4-466d-8eba-10f85e8abf71"
 severity = "medium"
 tags = [
+    "Domain: Identity",
     "Data Source: Okta",
+    "Data Source: Okta System Logs",
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
@@ -81,7 +84,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:okta.system and event.action:user.account.privilege.grant
+event.dataset:okta.system
+    and event.action: (user.account.privilege.grant or group.privilege.grant)
+    and okta.debug_context.debug_data.flattened.privilegeGranted: *administrator*
 '''
 
 

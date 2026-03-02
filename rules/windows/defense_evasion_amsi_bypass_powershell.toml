@@ -2,40 +2,13 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of PowerShell script with keywords related to different Antimalware Scan Interface (AMSI)
-bypasses. An adversary may attempt first to disable AMSI before executing further malicious powershell scripts to evade
-detection.
+Detects PowerShell scripts that references Antimalware Scan Interface (AMSI) bypass classes, methods, or known bypass
+strings. Attackers attempt AMSI bypass to disable scanning and run malicious PowerShell content undetected.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -44,58 +17,77 @@ license = "Elastic License v2"
 name = "Potential Antimalware Scan Interface Bypass via PowerShell"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Potential Antimalware Scan Interface Bypass via PowerShell
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This rule detects PowerShell script block content that references Antimalware Scan Interface (AMSI) bypass techniques. This behavior is commonly used to impair PowerShell content scanning and is frequently a precursor to additional PowerShell activity that would otherwise be inspected.
 
-The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product on a machine. AMSI integrates with multiple Windows components, ranging from User Account Control (UAC) to VBA macros and PowerShell.
+#### Key alert fields to review
 
-This rule identifies scripts that contain methods and classes that can be abused to bypass AMSI.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Determine whether the script was executed and capture relevant information, such as arguments that reveal intent or are indicators of compromise (IoCs).
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate commands and scripts executed after this activity was observed.
-- Inspect the host for suspicious or abnormal behavior in the alert timeframe:
-  - Observe and collect information about the following activities in the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
+- Validate the intent of the script block:
+  - Review `powershell.file.script_block_text` and identify which AMSI-related indicators are present (for example, `System.Management.Automation.AmsiUtils`, `amsiInitFailed`, `amsiContext`, `amsiSession`, `AmsiInitialize`, `amsi.dll`).
+  - Identify bypass techniques suggested by the script content, such as reflection-based field modification (for example, `Assembly.GetType(` and `.SetValue(`) or in-memory modification patterns (for example, `AllocHGlobal`).
+  - Note explicit bypass helper names in the script text (for example, `Invoke-AmsiBypass`, `Bypass.AMSI`, `FindAmsiFun`, `unloadobfuscated`, `unloadsilent`) and any obfuscation (mixed casing, character-code string construction, normalization, or heavy use of `-replace`).
+  - Treat this alert as an AMSI bypass attempt; success is not typically confirmed from the matching script block alone, so prioritize follow-on activity review.
+- Reconstruct the complete script when content is split across multiple events:
+  - Pivot on `powershell.file.script_block_id` and collect all related fragments.
+  - Order fragments by `powershell.sequence` and confirm the expected count with `powershell.total`.
+  - Re-review the reconstructed text for additional behaviors beyond the bypass attempt (for example, retrieving additional content, decoding staged data, or invoking suspicious functions).
+- Determine the likely source of the script content:
+  - Review `file.path` and `file.name` when present to identify an on-disk script source.
+  - Assess whether the path and filename align with established administrative tooling for the user/host, or whether it appears in an unexpected or transient location (for example, user profile, Temp, Downloads, or other user-writable locations).
+  - If `file.path` is not present, treat the source as unknown and prioritize correlation with other telemetry based on `host.name` and `@timestamp`.
+- Establish the execution scope and operator context:
+  - Review `user.name`, `user.domain`, and `user.id` to understand which account generated the script block content and whether it is expected to run PowerShell on `host.name`.
+  - Review `host.name` and `host.id` to determine whether the activity is isolated to a single endpoint or recurring across multiple systems.
+  - Identify repeated alerts involving the same `user.id` and/or `host.id` in a short period, which may indicate iterative testing of bypass variants or repeated execution of the same script.
+- Hunt for related PowerShell activity on the same endpoint and account:
+  - Search for additional script blocks on the same `host.id` around `@timestamp` to identify activity immediately before and after the bypass attempt.
+  - Use distinctive strings from `powershell.file.script_block_text` (function names, variable names, or unique encodings) to identify reuse by the same `user.id` or across other hosts.
+  - Extract any observable indicators embedded in the script text (for example, domains, IPs, URLs, or file paths) and use them to expand scoping searches.
+- Correlate with adjacent telemetry using `host.name`, `user.name`, and the alert time window (if available in your environment):
+  - Process execution telemetry to identify how PowerShell was launched and the initiating parent process (interactive use vs. another application or automation).
+  - Network telemetry for outbound connections and DNS activity that align with any remote retrieval or command-and-control behavior implied by the script content.
+  - File and registry telemetry for artifacts consistent with payload staging or persistence created shortly after the bypass attempt.
+  - Authentication telemetry to identify unusual or new logon activity for the implicated user on the affected host near the alert time.
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+- Training material or code snippets may be executed verbatim in a console during learning exercises. Confirm the context in `powershell.file.script_block_text` and whether additional suspicious behaviors appear in nearby script blocks from the same user and host.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is confirmed or strongly suspected to be malicious:
+  - Contain the affected host to prevent further execution and lateral movement.
+  - Preserve evidence from the alert: `powershell.file.script_block_text`, `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, `host.name`, `host.id`, `user.name`, `user.domain`, `user.id`, and any associated `file.path`/`file.name`.
+  - If `file.path` is present, collect the referenced script from disk (if still available) and identify where else it exists in the environment.
+  - Scope for additional impacted systems by searching for the same bypass strings and distinctive patterns across other hosts and users.
+  - Investigate and remediate follow-on actions identified in the reconstructed script and adjacent script blocks (for example, retrieval of additional code, credential access attempts, or persistence).
+  - Reset credentials for involved accounts when warranted and review for further suspicious activity tied to `user.id` across the environment.
+- Reduce the likelihood of recurrence:
+  - Ensure PowerShell logging is appropriately enabled and centrally collected to support reconstruction and scoping.
+  - Apply least privilege and limit PowerShell usage to approved roles and systems where feasible.
+  - Review monitoring coverage for repeated AMSI bypass attempts and related PowerShell activity on the same host or by the same user.
 """
 references = ["https://github.com/S3cur3Th1sSh1t/Amsi-Bypass-Powershell"]
 risk_score = 73
 rule_id = "1f0a69c0-3392-4adf-b7d5-6012fd292da8"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -172,4 +164,23 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

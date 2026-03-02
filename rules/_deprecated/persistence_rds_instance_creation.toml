@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2021/06/06"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = "Identifies the creation of an Amazon Relational Database Service (RDS) Aurora database instance."
+false_positives = [
+    """
+    A database instance may be created by a system or network administrator. Verify whether the user identity, user
+    agent, and/or hostname should be making changes in your environment. Instances creations by unfamiliar users or
+    hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS RDS Instance Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS RDS Instance Creation
+
+Amazon RDS simplifies database management by automating tasks like provisioning and scaling. However, adversaries may exploit this by creating unauthorized instances to exfiltrate data or establish persistence. The detection rule monitors successful RDS instance creations, focusing on specific AWS CloudTrail events, to identify potential misuse and ensure asset visibility.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.action:CreateDBInstance to gather details about the RDS instance creation, including the timestamp, user identity, and source IP address.
+- Verify the user identity associated with the event to determine if the action was performed by an authorized user or service account. Check for any anomalies in user behavior or access patterns.
+- Investigate the source IP address to identify if it is associated with known internal or external entities, and assess if it aligns with expected network activity.
+- Examine the AWS account and region where the RDS instance was created to ensure it aligns with organizational policies and expected usage patterns.
+- Check for any related events or activities in CloudTrail logs around the same timeframe, such as modifications to security groups or IAM policies, which might indicate further unauthorized actions.
+- Assess the configuration and settings of the newly created RDS instance, including database engine, instance class, and network settings, to ensure they comply with security and compliance standards.
+
+### False positive analysis
+
+- Routine maintenance or testing activities by authorized personnel may trigger alerts. To manage this, create exceptions for known maintenance windows or specific user accounts involved in these activities.
+- Automated scripts or tools used for legitimate database provisioning can cause false positives. Identify these scripts and exclude their associated user accounts or roles from triggering alerts.
+- Development or staging environments often have frequent instance creations that are non-threatening. Exclude these environments by filtering based on tags or specific resource identifiers.
+- Third-party integrations or services that require RDS instance creation might be flagged. Review and whitelist these services by their IAM roles or API calls.
+- Scheduled scaling operations that automatically create instances can be mistaken for unauthorized activity. Document and exclude these operations by their specific time frames or automation identifiers.
+
+### Response and remediation
+
+- Immediately isolate the newly created RDS instance to prevent any unauthorized access or data exfiltration. This can be done by modifying the security group rules to restrict inbound and outbound traffic.
+- Review the CloudTrail logs to identify the IAM user or role responsible for the RDS instance creation. Verify if the action was authorized and if the credentials have been compromised.
+- Revoke any suspicious or unauthorized IAM credentials and rotate keys for affected users or roles to prevent further unauthorized actions.
+- Conduct a thorough audit of the RDS instance configuration, including database parameters and access controls, to ensure no sensitive data has been exposed or altered.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and to determine if additional systems have been affected.
+- Implement additional monitoring and alerting for unusual RDS activities, such as unexpected instance creations or modifications, to enhance detection capabilities.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring that only authorized users have the necessary permissions to create RDS instances.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html"]
+risk_score = 21
+rule_id = "f30f3443-4fbb-4c27-ab89-c3ad49d62315"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS RDS",
+    "Use Case: Asset Visibility",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:CreateDBInstance and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

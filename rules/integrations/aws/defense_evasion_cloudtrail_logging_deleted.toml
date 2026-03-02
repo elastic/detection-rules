@@ -2,7 +2,7 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/07"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,6 @@ license = "Elastic License v2"
 name = "AWS CloudTrail Log Deleted"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating AWS CloudTrail Log Deleted
 
 AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs API calls and related events, providing visibility into user activity. This rule identifies the deletion of an AWS log trail using the `DeleteTrail` API. Deleting a trail can eliminate visibility and is a strong indicator of defense evasion or sabotage.
@@ -35,7 +32,7 @@ AWS CloudTrail is a service that enables governance, compliance, and operational
 #### Possible investigation steps
 - **Actor & target**
   - Identify `aws.cloudtrail.user_identity.arn`, `user_agent.original`, `source.ip`.
-  - Confirm which trail was deleted (name/ARN, multi-region/organization status) from `aws.cloudtrail.request_parameters` or `target.entity.id`.
+  - Confirm which trail was deleted (name/ARN, multi-region/organization status) from `aws.cloudtrail.request_parameters`.
 - **Blast radius**
   - Determine whether it was the only trail or if organization/multi-region coverage remains.
   - Review preceding `StopLogging` or `UpdateTrail` and subsequent high-risk actions (IAM, S3, KMS, EC2 exports).
@@ -110,7 +107,6 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",

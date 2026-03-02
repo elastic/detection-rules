@@ -2,13 +2,13 @@
 creation_date = "2023/01/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/09/03"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, to export the contents of a primary
-mailbox or archive to a .pst file. Adversaries may target user email to collect sensitive information.
+Detects PowerShell script block content that creates Exchange mailbox export requests via New-MailboxExportRequest,
+commonly writing PST files. Adversaries can abuse export requests to collect and stage email content for exfiltration.
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
@@ -18,41 +18,72 @@ license = "Elastic License v2"
 name = "Exchange Mailbox Export via PowerShell"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Exchange Mailbox Export via PowerShell
 
-The `New-MailBoxExportRequest` cmdlet is used to begin the process of exporting contents of a primary mailbox or archive to a .pst file. Note that this is done on a per-mailbox basis and this cmdlet is available only in on-premises Exchange.
-Attackers can abuse this functionality in preparation for exfiltrating contents, which is likely to contain sensitive and strategic data.
+This alert indicates PowerShell script block content associated with creation of an Exchange mailbox export request. Mailbox exports can produce PST files and may represent sensitive email collection and staging for later access or exfiltration. Prioritize understanding who initiated the activity, which mailbox(es) were targeted, where the output was intended to be written, and whether the activity aligns with approved administrative workflows.
+
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate the export operation:
-  - Identify the user account that performed the action and whether it should perform this kind of action.
-  - Contact the account owner and confirm whether they are aware of this activity.
-  - Check if this operation was approved and performed according to the organization's change management policy.
-  - Retrieve the operation status and use the `Get-MailboxExportRequest` cmdlet to review previous requests.
-  - By default, no group in Exchange has the privilege to import or export mailboxes. Investigate administrators that assigned the "Mailbox Import Export" privilege for abnormal activity.
-- Investigate if there is a significant quantity of export requests in the alert timeframe. This operation is done on a per-mailbox basis and can be part of a mass export.
-- If the operation was completed successfully:
-  - Check if the file is on the path specified in the command.
-  - Investigate if the file was compressed, archived, or retrieved by the attacker for exfiltration.
+- Validate what the script block is attempting to do using `powershell.file.script_block_text`:
+  - Identify the mailbox target(s). Look for explicit `-Mailbox` values, mailbox identifiers, or mailbox enumeration logic (for example, use of `Get-Mailbox` as an input source).
+  - Identify the intended export destination from `-FilePath`. Note whether the path appears to be a local path or a network location, and whether the naming pattern suggests a single mailbox export or bulk export activity.
+  - Note whether the content suggests automation (loops, iteration over multiple mailboxes, variable-driven file paths) versus a single interactive export request.
+- Reconstruct full script block content when fragmented:
+  - If `powershell.file.script_block_text` appears truncated or incomplete, group related events by `powershell.file.script_block_id` and order by `powershell.sequence` up to `powershell.total` to rebuild the full script before assessing intent.
+  - Pivot to other script blocks from the same `user.id` and `host.id` near `@timestamp` to capture supporting context (variable definitions, functions, or preceding logic that populates mailbox or file path parameters).
+- Establish execution context and initiating source:
+  - Use `host.name` and `host.id` to determine whether the activity originated from an expected Exchange management host (for example, an Exchange server or approved administrative workstation) or from an unexpected endpoint.
+  - Use `user.domain`, `user.name`, and `user.id` to determine whether the initiating account is expected to perform mailbox export operations (administrator or approved automation account) and whether the timing aligns with known operational windows.
+  - Use `process.pid` and `host.id` to correlate with process execution telemetry and determine how PowerShell was launched (interactive session vs automated execution) and whether there is an unusual parent process lineage for administrative activity.
+  - If `file.path` or `file.name` is present, treat the referenced script as a key artifact:
+    - Determine whether the path and file name match known administrative tooling or expected automation locations.
+    - If the script is not recognized, preserve it for analysis and assess whether it contains additional collection, staging, or cleanup logic beyond the export request.
+- Scope the activity across users, hosts, and time:
+  - Identify other `powershell.file.script_block_id` values associated with the same `user.id` or `host.id` to determine whether the export activity is part of a larger PowerShell workflow.
+  - Review whether multiple distinct `process.pid` values are associated with similar export activity for the same user, which may indicate multiple sessions or parallel execution.
+- Assess potential impact and staging indicators:
+  - If an export destination path is identifiable in `powershell.file.script_block_text`, correlate with file activity on the relevant host(s) to determine whether a PST file was created, modified, accessed, moved, or archived after `@timestamp`.
+  - Correlate with network telemetry for `host.id` around `@timestamp` to identify access to the export destination location and any subsequent outbound transfers that could indicate staging or exfiltration.
+  - Review authentication activity associated with `user.id` and the involved `host.id` around `@timestamp` for anomalies such as unusual logon sources, new sessions, or activity outside normal administrative patterns.
+- Preserve evidence for follow-on analysis:
+  - Record the reconstructed script content, `powershell.file.script_block_id`, and the full `powershell.sequence`/`powershell.total` range used for reconstruction.
+  - Capture the specific mailbox identifiers and destination paths observed in `powershell.file.script_block_text` to support scoping and data exposure assessment.
 
 ### False positive analysis
 
-- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity and it is done with proper approval.
+- Legitimate mailbox exports may occur for compliance, eDiscovery, user support, migrations, or incident response. Validate the presence of an authorized business request, ticket, or approved workflow that matches the timing and the scope of the export.
+- Benign activity is more likely when:
+  - The initiating `user.name` is a known Exchange administrator or authorized automation account in `user.domain`.
+  - The `host.name` is an expected administrative host for Exchange management tasks.
+  - The destination path referenced in `powershell.file.script_block_text` aligns with approved export storage locations and expected naming conventions.
+- Activity is higher risk when it originates from an unexpected `host.name`, uses an unusual `user.name`, targets many mailboxes, or writes to atypical destinations.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- If the involved host is not the Exchange server, isolate the host to prevent further post-compromise behavior.
-- Use the `Remove-MailboxExportRequest` cmdlet to remove fully or partially completed export requests.
-- Prioritize cases that involve personally identifiable information (PII) or other classified data.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Review the privileges of users with the "Mailbox Import Export" privilege to ensure that the least privilege principle is being followed.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is unauthorized or cannot be validated:
+  - Contain the initiating account (`user.id`/`user.name`) by disabling the account or removing access to mailbox export capabilities, and rotate credentials as appropriate.
+  - Contain affected systems (`host.id`/`host.name`) based on scope and confidence. Isolate endpoints used for unexpected Exchange administrative actions to prevent further collection or staging.
+  - Identify and secure any exported PST output referenced in `powershell.file.script_block_text`. Treat recovered PST files and scripts as sensitive evidence; restrict access and preserve copies for investigation.
+  - Use approved administrative procedures to cancel or remove unauthorized export requests and prevent completion of in-progress exports.
+- Conduct follow-on threat hunting and scoping:
+  - Search for additional mailbox export activity by the same `user.id` and `host.id`, including repeated or bulk export patterns.
+  - Review additional PowerShell script block activity for the same `powershell.file.script_block_id` and adjacent script blocks around `@timestamp` to identify related collection, staging, or cleanup actions.
+- Reduce recurrence risk:
+  - Apply least-privilege controls for accounts that can initiate mailbox exports and restrict where exports can be written.
+  - Limit Exchange administrative actions to approved management hosts and monitored administrative workflows.
+  - Enhance monitoring for repeated mailbox export requests, unusual export destinations, and suspicious PowerShell activity associated with the same users and hosts.
 """
 references = [
     "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
@@ -61,6 +92,11 @@ references = [
 ]
 risk_score = 47
 rule_id = "54a81f68-5f2a-421e-8eed-f888278bb712"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -75,24 +111,12 @@ type = "query"
 
 query = '''
 event.category:process and host.os.type:windows and
-  powershell.file.script_block_text : "New-MailboxExportRequest"
+powershell.file.script_block_text : "New-MailboxExportRequest" and
+(
+  powershell.file.script_block_text : ("-FilePath" or ".pst") and
+  powershell.file.script_block_text : ("-Mailbox" or "Get-Mailbox" or "ExportToPSTFile" or "-Identity")
+)
 '''
-
-
-[[rule.filters]]
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
-
-[[rule.filters]]
-[rule.filters.meta]
-negate = true
-[rule.filters.query.wildcard."file.path"]
-case_insensitive = true
-value = "*\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -121,4 +145,23 @@ reference = "https://attack.mitre.org/techniques/T1114/002/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects curl requests to JAMF Pro endpoints from suspicious processes like unsigned binaries or scripting 
+interpreters. This indicates potential abuse of stolen JAMF credentials for lateral movement in enterprise 
+macOS environments.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Curl to Jamf Endpoint"
+risk_score = 73
+rule_id = "a8256685-9736-465b-b159-f25a172d08e8"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Curl to Jamf Endpoint
+
+Jamf Pro is a widely-used enterprise Apple device management platform that controls software deployment, security policies, and device configurations across macOS fleets. Threat actors who compromise Jamf credentials can leverage this access for devastating lateral movement, deploying malicious payloads to all managed devices or exfiltrating sensitive device inventory data. This detection rule identifies curl requests to Jamf endpoints originating from suspicious processes like unsigned binaries or scripting interpreters, which is inconsistent with legitimate Jamf management workflows.
+
+### Possible investigation steps
+
+- Examine the process.command_line to identify the specific Jamf API endpoint being accessed and determine if it matches your organization's Jamf Pro server URL.
+- Review the process.parent.executable and parent process details to understand how the curl request was initiated and trace back to the initial execution vector.
+- Analyze the process.parent.code_signature fields to confirm whether the parent process is unsigned or has an untrusted signature.
+- Correlate with Jamf Pro server logs to review authentication attempts, API calls, and any configuration changes made around the time of the alert.
+- Check if any Jamf API credentials, tokens, or certificates were recently accessed or exfiltrated from the affected system.
+- Review the user.name associated with the process to determine if the behavior is consistent with their role and normal activities.
+- Search for similar curl requests to Jamf endpoints across other systems in the environment to identify potential widespread credential abuse.
+
+### False positive analysis
+
+- Legitimate IT automation scripts may use curl to interact with Jamf APIs for approved management tasks. Verify the script ownership and purpose with IT operations.
+- MDM troubleshooting by administrators may involve manual curl commands to test API connectivity. Confirm with IT staff if such activities were planned.
+- Third-party integrations with Jamf may use scripting languages to automate device management. Review the integration documentation and verify legitimacy.
+- Security testing and penetration testing activities may trigger this detection. Coordinate with security teams to document expected testing windows.
+
+### Response and remediation
+
+- Immediately revoke or rotate the Jamf API credentials that may have been compromised.
+- Block the source IP or endpoint from accessing the Jamf Pro server pending investigation.
+- Review Jamf Pro audit logs for any unauthorized configuration changes, script deployments, or policy modifications.
+- Check all managed devices for unauthorized software deployments or policy changes that may have been pushed via the compromised access.
+- Terminate the suspicious process and quarantine any associated scripts or binaries for analysis.
+- Implement IP allowlisting or certificate-based authentication for Jamf API access to prevent future unauthorized access.
+- Reset credentials for any user accounts that may have had access to Jamf management credentials.
+- Escalate to the incident response team for comprehensive investigation of potential enterprise-wide compromise.
+"""
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name in ("curl", "nscurl") and process.command_line like "*https://jamf.*" and
+  ((process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false) or
+   process.parent.name in ("osascript", "node", "perl", "ruby") or
+   process.parent.name like "python*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Lateral Movement"
+  id = "TA0008"
+  reference = "https://attack.mitre.org/tactics/TA0008/"
+
+  [[rule.threat.technique]]
+  name = "Software Deployment Tools"
+  id = "T1072"
+  reference = "https://attack.mitre.org/techniques/T1072/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Software Deployment Tools"
+  id = "T1072"
+  reference = "https://attack.mitre.org/techniques/T1072/"

@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2025/05/01"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/02/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an application accesses SharePoint Online or OneDrive for Business for the first time in the tenant within a specified timeframe.
+This detects successful OAuth phishing campaigns, illicit consent grants, or compromised third-party applications
+gaining initial access to file storage. Adversaries often use malicious OAuth applications or phishing techniques to
+gain consent from users, allowing persistent access to organizational data repositories without traditional credential
+theft.
+"""
+false_positives = [
+    """
+    New legitimate applications or integrations recently deployed in the environment may trigger this detection during
+    initial setup or rollout phases.
+    """,
+    """
+    Third-party SaaS applications with SharePoint integration may appear as new app IDs when users first authorize
+    access.
+    """,
+    """
+    Developers testing new applications or OAuth flows in non-production tenants may generate alerts during development
+    cycles.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Sharepoint or OneDrive Accessed by Unusual Client"
+note = """## Triage and analysis
+
+### Investigating Entra ID Sharepoint or OneDrive Accessed by Unusual Client
+
+This rule identifies when an application accesses SharePoint Online or OneDrive for Business for the first time in the tenant. This is a critical signal for detecting successful OAuth phishing campaigns, where adversaries trick users into granting consent to malicious applications. Once consent is granted, the malicious app can persistently access file storage without further user interaction. This detection also catches illicit consent grants, compromised third-party applications, or custom malicious apps registered by adversaries.
+
+### Possible Investigation Steps:
+
+- Identify the Application: Review `azure.signinlogs.properties.app_id` and `azure.signinlogs.properties.app_display_name` to determine which application accessed SharePoint. Cross-reference with known legitimate applications in your environment.
+- Check Application Registration: Search Entra ID app registrations for the app ID. Determine if it's a first-party Microsoft app, known third-party integration, or suspicious/unknown application.
+- Review Consent History: Investigate when and how consent was granted. Check `azure.auditlogs` for recent `Consent to application` events matching this app ID. Identify which user granted consent and whether it was admin or user consent.
+- Analyze Permissions Granted: Review the OAuth scopes and permissions granted to the application. Look for overly broad permissions (e.g., `Files.ReadWrite.All`, `Sites.ReadWrite.All`) that exceed business requirements.
+- Correlate with User Activity: Check if the user who granted consent recently received phishing emails, clicked suspicious links, or reported potential phishing attempts.
+- Inspect Source IP and Location: Review `source.ip` and `source.geo.*` fields. Determine if the sign-in originated from expected locations or suspicious infrastructure (VPNs, data centers, anonymizers).
+- Review Application Publisher: Check if the application is verified by Microsoft or has a suspicious/generic publisher name. Unverified applications with generic names (e.g., "File Viewer", "Document Manager") are common in phishing.
+- Check for Data Access: Review subsequent SharePoint audit logs to see what files/sites the application accessed after gaining consent.
+- Conditional Access Evaluation: Review `azure.signinlogs.properties.applied_conditional_access_policies` to determine if any security controls were bypassed or if the application should have been blocked.
+
+### False Positive Analysis
+
+- New Legitimate Integrations: Newly deployed third-party SaaS applications (e.g., document management, collaboration tools) that integrate with SharePoint will trigger this detection during initial setup. Validate with IT/procurement teams.
+- Microsoft First-Party Applications: This rule excludes common Microsoft first-party apps (Office 365 SharePoint Online, OneDrive SyncEngine, OneDrive iOS App, Microsoft Office, SharePoint Web Client Extensibility, Microsoft Teams, Office 365 Exchange Online, and other Microsoft-owned app IDs). However, new Microsoft applications or features may still appear. Cross-reference unfamiliar app IDs against Microsoft's first-party app list.
+- Development/Testing: Developers testing OAuth flows or building internal applications may generate alerts in development or staging environments.
+- Organizational Changes: Mergers, acquisitions, or tenant migrations may introduce legitimate applications from partner organizations accessing SharePoint for the first time.
+
+### Response and Remediation
+
+- Immediate Actions if Malicious:
+  - Revoke consent for the malicious application immediately via Entra ID > Enterprise Applications
+  - Revoke all active sessions and refresh tokens for affected users
+  - Disable the application's service principal to prevent further access
+  - Review and remediate any data accessed by the application using SharePoint audit logs
+- User Notification: Contact users who granted consent to inform them of the phishing attempt and provide security awareness training on identifying malicious OAuth consent requests
+- Conditional Access Hardening: Implement or strengthen Conditional Access policies to:
+  - Require admin consent for high-risk permissions (Files.ReadWrite.All, Sites.ReadWrite.All)
+  - Block unverified publishers from accessing sensitive resources
+  - Enforce device compliance and MFA for application access
+- Tenant-Wide Review: Audit all application consents across the tenant to identify other potentially malicious applications that may have gained access through similar campaigns
+- Monitor for Campaign Patterns: Check if the same malicious application targeted multiple users, indicating an organized phishing campaign. Coordinate with email security teams to identify and block phishing emails used in the campaign.
+
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://www.microsoft.com/en-us/security/blog/2022/09/22/malicious-oauth-applications-used-to-compromise-email-servers-and-spread-spam/",
+    "https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/manage-consent-requests",
+    "https://github.com/merill/microsoft-info/blob/main/_info/MicrosoftApps.json",
+]
+risk_score = 47
+rule_id = "a3cc60d8-2701-11f0-accf-f661ea17fbcd"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+To use this rule, ensure that Microsoft Entra ID Sign-In Logs are being collected and streamed into the Elastic Stack via the Azure integration.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Domain: Storage",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Collection",
+    "Tactic: Initial Access",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:azure.signinlogs
+    and azure.signinlogs.properties.resource_id: (
+        00000003-0000-0ff1-ce00-000000000000 or
+        6a9b9266-8161-4a7b-913a-a9eda19da220
+    ) and azure.signinlogs.properties.app_id: ( *
+        and not (
+            00000003-0000-0ff1-ce00-000000000000 or
+            08e18876-6177-487e-b8b5-cf950c1e598c or
+            ab9b8c07-8f02-4f72-87fa-80105867a763 or
+            af124e86-4e96-495a-b70a-90f90ab96707
+        )
+    )
+    and azure.signinlogs.properties.tenant_id:*
+    and event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.002"
+name = "Sharepoint"
+reference = "https://attack.mitre.org/techniques/T1213/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.app_id", "azure.signinlogs.properties.tenant_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

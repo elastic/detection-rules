@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2025/04/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/04/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious Java file creation in the IRJ directory of the SAP NetWeaver application. This may indicate an attempt to deploy a webshell.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential SAP NetWeaver WebShell Creation"
+references = [
+    "https://reliaquest.com/blog/threat-spotlight-reliaquest-uncovers-vulnerability-behind-sap-netweaver-compromise/",
+    "https://onapsis.com/blog/active-exploitation-of-sap-vulnerability-cve-2025-31324/"
+]
+risk_score = 73
+rule_id = "f7d588ba-e4b0-442e-879d-7ec39fbd69c5"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type in ("linux", "windows") and event.action == "creation" and
+ file.extension : ("jsp", "java", "class") and
+ file.path : ("/*/sap.com/*/servlet_jsp/irj/root/*",
+              "/*/sap.com/*/servlet_jsp/irj/work/*",
+              "?:\\*\\sap.com\\*\\servlet_jsp\\irj\\root\\*",
+              "?:\\*\\sap.com\\*\\servlet_jsp\\irj\\work\\*")
+'''
+note = """## Triage and analysis
+
+### Investigating Potential SAP NetWeaver WebShell Creation
+
+### Possible investigation steps
+
+- Examine the file creation event and the associated HTTP post request logs details to identify the source of the creation.
+- Examine the process tree to verify the parent-child relationship between the Java process and any suspicious child processes such as shell scripts or scripting languages (e.g., sh, bash, curl, python).
+- Check the command line arguments and environment variables of the suspicious child processes to identify any potentially malicious payloads or commands being executed.
+- Investigate the host's recent activity and logs for any other indicators of compromise or unusual behavior that might correlate with the suspected exploitation attempt.
+- Assess the system for any unauthorized changes or new files that may have been introduced as a result of the exploitation attempt, focusing on JSP files under the IRJ root directory.
+
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further outbound connections and potential lateral movement.
+- Terminate any suspicious Java processes identified in the alert, especially those making outbound connections to LDAP, RMI, or DNS ports.
+- Conduct a thorough review of the affected system for any unauthorized changes or additional malicious processes, focusing on child processes like shell scripts or scripting languages.
+- Restore the affected system from a known good backup if unauthorized changes or malware are detected.
+- Update and patch Java and any related applications to the latest versions to mitigate known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

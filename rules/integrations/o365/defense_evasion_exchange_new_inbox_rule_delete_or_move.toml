@@ -2,10 +2,10 @@
 creation_date = "2025/05/22"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/01/29"
 
 [rule]
-author = ["Elastic", "Jamie Lee"]
+author = ["Elastic", "Jamie Lee", "Marco Pedrinazzi"]
 description = """
 Identifies when a user creates a new inbox rule in Microsoft 365 that deletes or moves emails containing suspicious
 keywords. Adversaries who have compromised accounts often create inbox rules to hide alerts, security notifications, or
@@ -84,8 +84,11 @@ type = "new_terms"
 
 query = '''
 event.dataset: "o365.audit" and
-    event.action: "New-InboxRule" and event.outcome: "success" and
-    o365.audit.Parameters.SubjectContainsWords: (
+    event.action: ("New-InboxRule" or "Set-InboxRule") and event.outcome: "success" and
+    (
+     o365.audit.Parameters.BodyContainsWords: "\u0000" or 
+     o365.audit.Parameters.WithinSizeRangeMinimum <= 1023 or 
+     o365.audit.Parameters.SubjectContainsWords: (
         *phish* or
         *hack* or
         *alert* or
@@ -101,12 +104,14 @@ event.dataset: "o365.audit" and
         *protection* or
         *login* or
         *suspicious*
+      )
     ) and (
     o365.audit.Parameters.DeleteMessage: True or
     o365.audit.Parameters.MoveToFolder: (
         *Deleted* or
         *Junk* or
-        *RSS*
+        *RSS* or 
+        *Calendar*
     )
 )
 '''

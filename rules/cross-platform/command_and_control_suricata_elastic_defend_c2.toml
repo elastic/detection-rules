@@ -2,7 +2,7 @@
 creation_date = "2025/12/10"
 integration = ["endpoint", "suricata"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/01/20"
 
 [rule]
 author = ["Elastic"]
@@ -37,9 +37,14 @@ tags = [
 ]
 type = "eql"
 query = '''
-sequence by source.port, source.ip, destination.ip with maxspan=1m
- [network where event.dataset == "suricata.eve" and event.kind == "alert" and event.severity != 3 and source.ip != null and destination.ip != null]
- [network where event.module == "endpoint" and event.action in ("disconnect_received", "connection_attempted")]
+sequence by source.port, source.ip, destination.ip with maxspan=5s
+ [network where event.dataset == "suricata.eve" and event.kind == "alert" and
+  event.severity != 3 and source.ip != null and destination.ip != null and
+  not source.domain : ("*nessusscan*", "SCCMPS*") and
+  not rule.name in ("ET INFO SMB2 NT Create AndX Request For a Powershell .ps1 File", "ET SCAN MS Terminal Server Traffic on Non-standard Port")]
+ [network where event.module == "endpoint" and event.action in ("disconnect_received", "connection_attempted") and
+  not process.executable in ("System", "C:\\Program Files (x86)\\Admin Arsenal\\PDQ Inventory\\PDQInventoryService.exe") and 
+  not process.executable : "C:\\Windows\\AdminArsenal\\PDQInventory-Scanner\\service-*\\exec\\PDQInventoryScanner.exe"]
 '''
 note = """## Triage and analysis
 

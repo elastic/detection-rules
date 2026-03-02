@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2021/07/19"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when an ElastiCache security group has been created. Amazon EC2-Classic and ElastiCache CacheSecurityGroups
+have been retired. Modern ElastiCache deployments run in a VPC and use standard EC2 security groups instead. This rule
+should be retained only for historical log analysis on legacy CloudTrail data. We recommend relying on "AWS EC2 Security
+Group Configuration Change" rule for network-control changes impacting ElastiCache in VPC-based deployments.
+"""
+false_positives = [
+    """
+    A ElastiCache security group may be created by a system or network administrator. Verify whether the user identity,
+    user agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS ElastiCache Security Group Created"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS ElastiCache Security Group Created
+
+AWS ElastiCache security groups control access to cache clusters, ensuring only authorized traffic can interact with them. Adversaries might create new security groups to bypass existing restrictions, facilitating unauthorized access or data exfiltration. The detection rule monitors for successful creation events of these groups, signaling potential defense evasion tactics by identifying unusual or unauthorized configurations.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.action "Create Cache Security Group" to identify the user or role that initiated the creation of the ElastiCache security group.
+- Examine the event.provider field to confirm that the event is associated with elasticache.amazonaws.com, ensuring the alert is relevant to ElastiCache services.
+- Check the event.outcome field to verify that the security group creation was successful, confirming the alert's validity.
+- Investigate the IAM permissions and roles associated with the user or entity that created the security group to determine if they have legitimate access and reasons for this action.
+- Analyze the configuration of the newly created ElastiCache security group to identify any overly permissive rules or unusual configurations that could indicate malicious intent.
+- Correlate this event with other recent activities in the AWS account, such as changes to IAM policies or unusual login attempts, to assess if this is part of a broader attack pattern.
+
+### False positive analysis
+
+- Routine administrative actions by authorized personnel can trigger this rule. Regularly review and document legitimate security group creation activities to differentiate them from suspicious actions.
+- Automated processes or scripts that create security groups as part of normal operations may cause false positives. Identify and whitelist these processes to prevent unnecessary alerts.
+- Infrastructure as Code (IaC) tools like Terraform or CloudFormation might create security groups during deployments. Ensure these tools and their actions are well-documented and consider excluding their known patterns from triggering alerts.
+- Development and testing environments often involve frequent creation and deletion of resources, including security groups. Establish separate monitoring rules or exceptions for these environments to reduce noise.
+- Scheduled maintenance or updates that involve security group modifications should be communicated to the security team in advance, allowing them to temporarily adjust monitoring rules or expectations.
+
+### Response and remediation
+
+- Immediately review the newly created ElastiCache security group to verify its necessity and ensure it aligns with organizational security policies. If unauthorized, proceed to delete the security group to prevent potential misuse.
+- Conduct a thorough audit of recent IAM activity to identify any unauthorized access or privilege escalation that may have led to the creation of the security group. Pay special attention to any anomalies in user behavior or access patterns.
+- Isolate any affected ElastiCache instances by temporarily restricting access to them until a full assessment is completed. This helps prevent any potential data exfiltration or unauthorized access.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and to ensure awareness across the organization.
+- Implement additional monitoring on the AWS account to detect any further unauthorized changes to security groups or other critical configurations, enhancing the detection capabilities for similar threats.
+- Review and update IAM policies and permissions to ensure the principle of least privilege is enforced, reducing the risk of unauthorized security group creation in the future.
+- If the incident is confirmed as malicious, escalate to the incident response team for a comprehensive investigation and to determine if further actions, such as legal or regulatory reporting, are necessary.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/API_CreateCacheSecurityGroup.html",
+]
+risk_score = 21
+rule_id = "7b3da11a-60a2-412e-8aa7-011e1eb9ed47"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and event.action:"Create Cache Security Group" and
+event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

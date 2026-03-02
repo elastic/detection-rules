@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/02/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects suspicious child process execution from the OpenClaw, Moltbot, or Clawdbot AI coding agents running via Node.js.
+These tools can execute arbitrary shell commands through skills or prompt injection attacks. Malicious skills from
+public registries like ClawHub have been observed executing obfuscated download-and-execute commands targeting
+cryptocurrency wallets and credentials. This rule identifies shells, scripting interpreters, and common LOLBins spawned
+by these AI agents.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via OpenClaw Agent"
+note = """## Triage and analysis
+
+### Investigating Execution via OpenClaw Agent
+
+OpenClaw (formerly Clawdbot, rebranded to Moltbot) is a personal AI coding assistant that can execute shell commands 
+and scripts on behalf of users. Malicious actors have weaponized the skill ecosystem (ClawHub) to distribute skills 
+that execute download-and-execute commands, targeting cryptocurrency wallets and credentials.
+
+### Possible investigation steps
+
+- Verify if OpenClaw/Moltbot is an approved application in your organization.
+- Review the child process command line for indicators of malicious activity (encoded payloads, remote downloads, credential access).
+- Check the parent Node.js process command line to identify which OpenClaw component initiated the execution.
+- Examine recently installed skills from ClawHub for malicious or obfuscated code.
+- Correlate with network events to identify data exfiltration or C2 communication.
+- Review the user's AI conversation history for prompt injection attempts.
+
+### False positive analysis
+
+- Developers legitimately using OpenClaw/Moltbot for AI-assisted coding may trigger this rule when the AI executes build scripts, curl commands, or other legitimate automation.
+- If the tool is approved, consider tuning based on specific command patterns or adding exception lists.
+
+### Response and remediation
+
+- If the child process activity appears malicious, terminate the OpenClaw gateway and investigate the skill that initiated the command.
+- Review and remove any suspicious skills from the OpenClaw configuration.
+- If credentials may have been accessed, rotate affected secrets and API keys.
+- Block known typosquat domains (moltbot.you, clawbot.ai, clawdbot.you) at the network level.
+"""
+references = [
+    "https://www.malwarebytes.com/blog/threat-intel/2026/01/clawdbots-rename-to-moltbot-sparks-impersonation-campaign",
+    "https://www.tomshardware.com/tech-industry/cyber-security/malicious-moltbot-skill-targets-crypto-users-on-clawhub",
+    "https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare",
+    "https://blog.virustotal.com/2026/02/from-automation-to-infection-how.html",
+]
+risk_score = 47
+rule_id = "a7c3e8f2-4b19-4d6a-9e5c-8f1a2b3c4d5e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: LLM",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  process.parent.name : ("node", "node.exe") and 
+  process.parent.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
+   process.name : ("bash", "sh", "zsh", "bash.exe", "cmd.exe", "powershell.exe", "curl.exe", "curl", "base64", "xattr", "osascript", "python*", "chmod", "certutil.exe", "rundll32.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

@@ -338,7 +338,7 @@ def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = "
 def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
     """Load a rule file from multiple formats."""
     extension = rule_file.suffix
-    raw_text = rule_file.read_text()
+    raw_text = rule_file.read_text(encoding="utf-8")
 
     if extension in (".ndjson", ".jsonl"):
         # kibana exported rule object is ndjson with the export metadata on the last line

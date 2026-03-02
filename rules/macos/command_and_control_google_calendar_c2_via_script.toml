@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a two-stage Google Calendar C2 pattern where a scripting runtime (Node.js, Python, osascript) first 
+connects to calendar.app.google to retrieve a hidden C2 address, then initiates a secondary connection to the 
+decoded C2 host. This sequence is characteristic of packages using Unicode steganography in Google Calendar 
+events to stage dynamic command-and-control endpoints.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Google Calendar C2 via Script Interpreter"
+references = [
+    "https://www.veracode.com/resources/sophisticated-npm-attack-leveraging-unicode-steganography-and-google-calendar-c2",
+    "https://www.koi.ai/blog/glassworm-first-self-propagating-worm-using-invisible-code-hits-openvsx-marketplace"
+]
+risk_score = 73
+rule_id = "abc7a2be-479e-428b-b0b3-1d22bda46dd9"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Google Calendar C2 via Script Interpreter
+
+Threat actors increasingly abuse legitimate cloud services to establish covert command and control channels that blend with normal traffic and bypass traditional network security controls. Google Calendar has been weaponized as a C2 mechanism where attackers store encoded commands in calendar event descriptions, which malware then polls and executes. This detection rule identifies script interpreters connecting to Google Calendar API endpoints, which may indicate this living-off-the-land technique.
+
+### Possible investigation steps
+
+- Review the process.name and process.executable fields to identify which script interpreter is making the Google Calendar API connection and assess whether it is expected for the user or application context.
+- Examine the process.command_line and process.args fields to understand what script or code is being executed that initiated the calendar connection.
+- Check the process.parent.executable and process.parent.command_line to trace the process lineage and identify how the script interpreter was launched.
+- Investigate the Google Workspace audit logs for the associated user account to review calendar events that may contain encoded commands or suspicious content.
+- Review network connection details including dns.question.name and destination.ip to understand the specific Google API endpoints being accessed.
+- Correlate with authentication events to identify which user account or service account OAuth tokens are being used for the calendar access.
+- Search for similar activity across other endpoints to determine if this is an isolated incident or part of a broader campaign.
+
+### False positive analysis
+
+- Legitimate productivity applications may integrate with Google Calendar for scheduling and automation purposes. Verify the application's purpose and whether it is approved by IT.
+- Custom automation scripts built by employees may access Google Calendar API for workflow automation. Review with the script owner to confirm legitimacy.
+- Development and testing environments may trigger this detection when building calendar integrations. Document known development activities and create targeted exceptions.
+- Third-party calendar sync applications may use script interpreters to interface with Google Calendar. Verify these are sanctioned applications.
+
+### Response and remediation
+
+- Immediately terminate the suspicious script interpreter process to stop any ongoing C2 communication.
+- Revoke OAuth tokens and API credentials associated with the compromised Google account to prevent further unauthorized access.
+- Review Google Workspace admin console for any unauthorized calendar events or modifications that may contain malicious content.
+- Isolate the affected macOS system from the network while conducting forensic analysis.
+- Perform a comprehensive scan for additional malware, persistence mechanisms, or lateral movement indicators.
+- Reset the affected user's credentials and enable multi-factor authentication if not already in place.
+- Implement application allowlisting to prevent unauthorized script interpreters from executing.
+- Escalate to the security operations team for further investigation into potential data exfiltration or broader compromise.
+"""
+query = '''
+sequence by process.entity_id with maxspan=20s
+  [network where host.os.type == "macos" and event.type == "start" and
+    (process.name in ("node", "osascript") or process.name like "python*" or
+     process.code_signature.trusted == false or process.code_signature.exists == false) and
+    destination.domain like "calendar.app.google*"]
+  [network where host.os.type == "macos" and event.type == "start" and destination.domain == null]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Bidirectional Communication"
+    id = "T1102.002"
+    reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Python"
+    id = "T1059.006"
+    reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "JavaScript"
+    id = "T1059.007"
+    reference = "https://attack.mitre.org/techniques/T1059/007/"

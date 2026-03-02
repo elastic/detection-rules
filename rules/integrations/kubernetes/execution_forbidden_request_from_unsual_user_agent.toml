@@ -2,7 +2,7 @@
 creation_date = "2025/06/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/07/07"
+updated_date = "2026/01/30"
 
 [rule]
 author = ["Elastic"]
@@ -14,15 +14,15 @@ request, this behavior can suggest an adversary is attempting to exploit vulnera
 in the Kubernetes cluster.
 """
 index = ["logs-kubernetes.audit_logs-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "Forbidden Request from Unusual User Agent in Kubernetes"
+name = "Kubernetes Forbidden Request from Unusual User Agent"
 note = """ ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Forbidden Request from Unusual User Agent in Kubernetes
+### Investigating Kubernetes Forbidden Request from Unusual User Agent
 
 Kubernetes, a container orchestration platform, manages applications across clusters. It uses APIs for communication, which can be targeted by adversaries using atypical user agents to mask malicious activities. These agents may attempt unauthorized actions, exploiting vulnerabilities. The detection rule identifies such anomalies by flagging forbidden requests from non-standard user agents, indicating potential threats.
 
@@ -55,17 +55,20 @@ Kubernetes, a container orchestration platform, manages applications across clus
 risk_score = 47
 rule_id = "4b77d382-b78e-4aae-85a0-8841b80e4fc4"
 severity = "medium"
-tags = ["Data Source: Kubernetes", "Tactic: Execution", "Resources: Investigation Guide"]
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Execution",
+  "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-any where host.os.type == "linux" and event.dataset == "kubernetes.audit_logs" and
-kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid" and
-not user_agent.original like~ (
-  "/", "karpenter", "csi-secrets-store/*", "elastic-agent/*", "agentbeat/*", "insights-operator*", "oc/*", "cloud-defend/*",
-  "OpenAPI-Generator/*", "local-storage-operator/*", "falcon-client/*", "nginx-ingress-controller/*", "config-translator/*",
-  "kwatch/*", "PrometheusOperator/*", "kube*"
-)
+event.dataset:"kubernetes.audit_logs" and
+kubernetes.audit.stage:"ResponseComplete" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"forbid" and
+kubernetes.audit.userAgent:(* and not (*kubernetes/$Format))
 '''
 
 [[rule.threat]]
@@ -75,3 +78,11 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["kubernetes.audit.userAgent"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

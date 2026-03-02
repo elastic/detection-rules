@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -82,7 +82,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type : "start" and
+process where host.os.type == "windows" and event.type : "start" and process.command_line != null and
   process.parent.name : ("wsl.exe", "wslhost.exe") and
   not process.executable : (
         "?:\\Program Files (x86)\\*",
@@ -91,11 +91,12 @@ process where host.os.type == "windows" and event.type : "start" and
         "?:\\Windows\\System32\\conhost.exe",
         "?:\\Windows\\System32\\lxss\\wslhost.exe",
         "?:\\Windows\\System32\\WerFault.exe",
+        "?:\\Windows\\System32\\wsl.exe",
         "?:\\Windows\\Sys?????\\wslconfig.exe"
   ) and
   not (
     /* Crowdstrike specific exclusion as it uses NT Object paths */
-    event.dataset == "crowdstrike.fdr" and
+    (event.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
       process.executable : (
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\*",
         "\\Device\\HarddiskVolume*\\Program Files\\*",
@@ -103,8 +104,15 @@ process where host.os.type == "windows" and event.type : "start" and
         "\\Device\\HarddiskVolume*\\Windows\\System32\\conhost.exe",
         "\\Device\\HarddiskVolume*\\Windows\\System32\\lxss\\wslhost.exe",
         "\\Device\\HarddiskVolume*\\Windows\\System32\\WerFault.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\wsl.exe",
         "\\Device\\HarddiskVolume*\\Windows\\Sys?????\\wslconfig.exe"
       )
+  ) and
+  not (
+    (process.name : "cmd.exe" and process.command_line : "*echo*%USERPROFILE%*") or
+    (process.name : "git.exe" and process.command_line : "git.exe -c log.*") or
+    (process.name : "powershell.exe" and process.command_line : "powershell.exe -Command $env:USERPROFILE") or
+    (process.name : "Code.exe" and process.command_line : ("*cli.js --folder-uri=vscode-remote://wsl*", "ms-vscode-remote.remote-wsl"))
   )
 '''
 

@@ -1,0 +1,83 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/02/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies administrative actions in the Microsoft 365 Security & Compliance Center including cmdlet execution, RBAC
+changes, security insights, and user permission modifications. These events can indicate legitimate administrative
+activity or potential defense evasion through security control modifications such as DLP policy removal, compliance
+rule changes, or privilege escalation. This building block rule generates security events for correlation, threat
+hunting, and telemetry collection.
+"""
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Security Compliance Admin Signal"
+references = [
+    "https://learn.microsoft.com/en-us/purview/audit-log-activities",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-auditlogrecordtype---type-edmint32",
+]
+risk_score = 21
+rule_id = "314557e1-a642-4dbc-af43-321bc04b6618"
+setup = """### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Purview",
+    "Use Case: Threat Detection",
+    "Use Case: Configuration Auditing",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and
+    event.code:(SecurityComplianceCenterEOPCmdlet or SecurityComplianceInsights or SecurityComplianceRBAC or SecurityComplianceUserChange)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

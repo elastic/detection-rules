@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of the echo/printf command to write data to potential persistence files, decode base64/32/16 and
+hex content or establish connections to a potential C2. The echo/printf commands are used to display a line of text or write data
+to a file. Threat actors may abuse the echo/printf commands to write data to files or file descriptors that are executed (by
+other processes or services) to establish persistence or escalate privileges.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Echo or Printf Execution Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Echo or Printf Execution Detected via Defend for Containers
+
+This rule flags interactive shell commands that invoke echo or printf with patterns used to write or stage data into sensitive paths, decode encoded payloads, or reach out via /dev/tcp. Attackers use these lightweight built-ins to avoid dropping tools while creating persistence or privilege escalation by modifying cron, rc.local, sudoers, ld.so preload, or SSH authorized_keys. In a container, a common pattern is execing into a pod and running `sh -c 'printf <base64> | base64 -d > /etc/cron.d/job; chmod +x …'` to implant a scheduled backdoor.
+
+### Possible investigation steps
+
+- Review the full command line, parent/child process tree, and session metadata to determine who initiated the interactive exec and whether it was an expected administrative action.  
+- Extract any encoded strings or redirected output from the command and safely decode/pretty-print it to identify dropped scripts, keys, cron entries, or additional staging commands.  
+- Inspect the referenced destination paths (and their symlink targets) for recent modifications, unexpected permissions/ownership changes, and persistence artifacts such as cron jobs, rc.local edits, ld.so preload configs, sudoers changes, or SSH authorized_keys additions.  
+- Determine whether the write target resides on a mounted volume shared with the host or other pods, and assess blast radius by checking for the same artifact across replicas/namespaces and CI/CD deployment history.  
+- Correlate around the execution time for follow-on activity such as outbound connections (including /dev/tcp usage), subsequent interpreter launches, or cleanup actions, and contain by isolating/pausing the workload if malicious behavior is confirmed.
+
+### False positive analysis
+
+- An administrator interactively execs into a container during troubleshooting and uses `echo`/`printf` with redirection (and possibly `chmod`) to make a temporary or emergency change in paths like `/etc/profile`, `/etc/update-motd.d`, `/etc/ssh*`, or `~/.ssh/*` to restore access or correct misconfiguration.  
+- A developer interactively execs into a container to create and run a short diagnostic artifact by using `echo`/`printf` to write into `/tmp` or `/dev/shm`, decode embedded `base64`/hex content, or validate network reachability via `/dev/tcp`, which can resemble staging/persistence behavior.
+
+### Response and remediation
+
+- Isolate the affected pod/container by removing it from service (scale to zero or cordon/deny ingress-egress) and, if needed, pause it to preserve the filesystem state before it can overwrite or delete staged artifacts.  
+- Capture and preserve evidence by exporting the full shell command string and taking a filesystem snapshot/copy of any touched paths such as `/etc/cron*`, `/etc/rc.local`, `/etc/init.d`, `/etc/ld.so*`, `/etc/sudoers*`, and `~/.ssh/authorized_keys`, plus any files created in `/tmp`, `/var/tmp`, or `/dev/shm`.  
+- Eradicate persistence by removing unauthorized cron entries, rc.local/init scripts, sudoers/ld.so preload modifications, and injected SSH keys, then rotate any exposed credentials and redeploy the workload from a known-good image rather than “cleaning” the live container.  
+- Recover safely by rebuilding the image with patched dependencies, rolling out a fresh deployment, and validating that no replicas or shared volumes contain the same dropped scripts/keys or modified configuration files.  
+- Escalate immediately to incident response if the command decodes payloads (base64/base32/hex), writes into system startup/auth paths, invokes an interpreter via a pipe (e.g., `| sh/python/perl/php`), or uses `/dev/tcp` for outbound connectivity, as these indicate active staging or C2 behavior.  
+- Harden against recurrence by restricting interactive exec access, enforcing read-only root filesystems and least-privilege mounts, blocking writes to sensitive paths via policy, and adding egress controls to prevent `/dev/tcp`-style callbacks."""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "d9bfa475-270d-4b07-93cb-b1f49abe13da"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and process.interactive == true and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.args in ("-lc", "-c") and process.args like ("*echo *", "*printf *") and process.args like (
+  "*/etc/cron*", "*/etc/rc.local*", "*/dev/tcp/*", "*/etc/init.d*", "*/etc/update-motd.d*",
+  "*/etc/ld.so*", "*/etc/sudoers*", "*base64 *", "*base32 *", "*base16 *", "*/etc/profile*",
+  "*/dev/shm/*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*" , "*~/.ssh/*", "*xxd *",
+  "*/etc/shadow*", "* /tmp/*", "* /var/tmp/*", "* /dev/shm/* ", "* ~/*", "* /home/*",
+  "* /run/*", "* /var/run/*", "*|*sh", "*|*python*", "*|*php*", "*|*perl*", "*|*busybox*",
+  "*/var/www/*", "*>*", "*;*", "*chmod *", "*rm *", "*openssl enc*"
+) and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

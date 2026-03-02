@@ -2,7 +2,7 @@
 creation_date = "2024/09/09"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,25 @@ process where host.os.type == "windows" and event.type == "start" and
     process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe", "cmd.exe") or
     ?process.pe.original_file_name : ("powershell.exe", "pwsh.dll", "powershell_ise.exe", "Cmd.Exe")
   ) and
-  process.parent.name : ("wscript.exe", "mshta.exe")
+  process.parent.name : ("wscript.exe", "mshta.exe") and
+  not (
+    process.args : (
+      "C:\\Program Files\\Intel\\SUR\\QUEENCREEK\\x64\\task.bat",
+      "\"C:\\Program Files\\Intel\\SUR\\QUEENCREEK\\x64\\task.bat\""
+    ) or
+    process.command_line : (
+      "\"C:\\Windows\\system32\\cmd.exe\" /c auditpol.exe /set /SUBCATEGORY:*",
+      "\"C:\\Windows\\system32\\cmd.exe\" /c auditpol.exe /get*",
+      "\"C:\\Windows\\system32\\cmd.exe\" /c exit\""
+    ) or
+    (process.args == "-File" and process.args == "-ExecutionPolicy")
+  )
+  and 
+  not (
+    ?user.id == "S-1-5-18" and
+    /* Don't apply the user.id exclusion to Sysmon for compatibility */
+    not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+  ) 
 '''
 
 

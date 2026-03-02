@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the exploitation of a web server through the execution of a suspicious process by common web server
+user accounts. Attackers may upload a web shell to a web server to maintain access to the system.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Web Server Child Shell Spawn Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Child Shell Spawn Detected via Defend for Containers
+
+This rule flags Linux container activity where a web server (or typical web-service account) spawns an interactive shell to run a command string, a strong indicator of web app exploitation rather than normal request handling. It matters because this pattern commonly marks initial foothold and post-exploitation execution that can lead to persistence and lateral movement from the service container. A typical attacker flow drops a web shell or abuses RCE to launch `sh -c` and pull or run a secondary payload (e.g., reverse shell).
+
+### Possible investigation steps
+
+- Capture the full executed command line and decode/normalize any obfuscation (base64, hex, URL encoding) to determine the operator intent and any payload retrieval or reverse-shell behavior.  
+- Correlate the execution timestamp with web access/error logs and ingress/WAF events to identify the triggering request path, parameters, and source IP/user-agent indicating RCE or web-shell invocation.  
+- Inspect recent file and permission changes in the container’s application and web directories (including temp and upload paths) to identify newly dropped scripts/binaries, cron entries, or modified server configs.  
+- Review container and orchestration context (image tag/digest, recent deploys, exec sessions, and Kubernetes events) to determine whether the activity aligns with a legitimate rollout or represents in-container compromise.  
+- Check network telemetry for the container around the event for suspicious outbound connections, DNS lookups, or downloads, then pivot to any contacted hosts to assess command-and-control or staging infrastructure.
+
+### False positive analysis
+
+- A web application or server-side script running under the web-service account legitimately invokes `sh -c` (e.g., to run maintenance tasks like log rotation, cache rebuilds, file conversions, or templating/asset compilation) from a web directory such as `/var/www/*`, causing the web server to spawn a shell child process.  
+- During container startup or a deployment/health-check routine, the web server process launches a shell via `sh -c` to perform initialization (e.g., environment substitution, dynamic configuration generation, permission fixes, or calling bundled helper scripts), which can resemble exploitation when the parent is a web server and the child is a shell.
+
+### Response and remediation
+
+- Immediately isolate the affected container/pod from inbound and outbound traffic (quarantine namespace/security group or apply a deny-all NetworkPolicy) and stop the workload to prevent further `sh -c` execution and potential C2.  
+- Preserve evidence by exporting the container filesystem and logs (web access/error logs, application logs, and process output) and capture the exact shell command string and any downloaded payloads or newly created files in web roots, temp, and upload directories.  
+- Eradicate by removing any identified web shells/backdoors and reverting unauthorized changes, then rebuild and redeploy the service from a known-good image digest while rotating secrets exposed to the container (service tokens, database creds, API keys).  
+- Recover by validating application integrity and behavior post-redeploy (no unexpected shell spawns, no abnormal outbound connections, clean health checks) and monitor the previously contacted IPs/domains for further callbacks from other workloads.  
+- Escalate to incident response and platform security immediately if the shell command indicates payload retrieval, reverse shell activity, credential access, or if similar `sh -c` executions are observed across multiple containers/namespaces.  
+- Harden by removing shell binaries from runtime images where feasible, enforcing non-root and read-only filesystems, restricting egress to required destinations only, disabling risky interpreter execution paths in the web app, and adding WAF/RCE protections for the identified vulnerable endpoint."""
+risk_score = 47
+rule_id = "497a7091-0ebd-44d7-88c4-367ab4d4d852"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.parent.name in (
+      "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "mongrel_rails", "gunicorn",
+      "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
+      "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel", "php-cgi",
+      "php-fcgi", "php-cgi.cagefs", "catalina.sh", "hiawatha", "lswsctrl"
+  ) or
+  process.parent.name like "php-fpm*" or
+  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9") or
+  user.id in ("33", "498", "48") or
+  (process.parent.name == "java" and process.parent.working_directory like "/u0?/*") or
+  process.parent.working_directory like "/var/www/*"
+) and (
+  (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox")) or
+  (process.args in (
+    "bash", "/bin/bash", "/usr/bin/bash", "/usr/local/bin/bash",
+    "dash", "/bin/dash", "/usr/bin/dash", "/usr/local/bin/dash",
+    "sh", "/bin/sh", "/usr/bin/sh", "/usr/local/bin/sh",
+    "tcsh", "/bin/tcsh", "/usr/bin/tcsh", "/usr/local/bin/tcsh",
+    "csh", "/bin/csh", "/usr/bin/csh", "/usr/local/bin/csh",
+    "zsh", "/bin/zsh", "/usr/bin/zsh", "/usr/local/bin/zsh",
+    "ksh", "/bin/ksh", "/usr/bin/ksh", "/usr/local/bin/ksh",
+    "fish", "/bin/fish", "/usr/bin/fish", "/usr/local/bin/fish",
+    "busybox", "/bin/busybox", "/usr/bin/busybox", "/usr/local/bin/busybox"
+  ))
+) and process.args == "-c" and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Persistence"
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"

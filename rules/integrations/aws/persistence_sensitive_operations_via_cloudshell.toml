@@ -1,0 +1,173 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/02/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies sensitive AWS IAM operations performed via AWS CloudShell based on the user agent string. CloudShell is a
+browser-based shell that provides command-line access to AWS resources directly from the AWS Management Console. While
+convenient for administrators, CloudShell access from compromised console sessions can enable attackers to perform
+privileged operations without installing tools or using programmatic credentials. This rule detects high-risk actions
+such as creating IAM users, access keys, roles, or attaching policies when initiated from CloudShell, which may indicate
+post-compromise credential harvesting or privilege escalation activity.
+"""
+false_positives = [
+    """
+    Administrators may legitimately use CloudShell for IAM management tasks during routine operations or
+    troubleshooting. Verify whether the user, source IP, and specific actions align with expected administrative
+    workflows. Establish a baseline of normal CloudShell usage patterns to reduce false positives.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Sensitive IAM Operations Performed via CloudShell"
+note = """## Triage and analysis
+
+### Investigating AWS Sensitive IAM Operations Performed via CloudShell
+
+AWS CloudShell is a browser-based shell environment that provides instant command-line access to AWS resources without requiring local CLI installation or credential configuration. While this is convenient for legitimate administrators, it also provides adversaries with a powerful tool if they gain access to a compromised AWS console session. Attackers can use CloudShell to perform sensitive operations without leaving artifacts on their local systems.
+
+This rule detects high-risk IAM operations performed via CloudShell, including credential creation, user management, and policy attachment. These actions are commonly seen in post-compromise scenarios where attackers establish persistence or escalate privileges.
+
+### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` to determine which IAM principal performed the action.
+  - Check `source.ip` and `source.geo` fields to verify the request origin matches expected administrator locations.
+  - Investigate the console login event that established the CloudShell session.
+
+- **Analyze the specific action**
+  - Review `event.action` to understand exactly what operation was performed.
+  - For `CreateAccessKey` or `CreateUser`, identify the target principal and assess whether this was authorized.
+  - For policy attachments, review which policies were attached and to which entities.
+
+- **Review request and response details**
+  - Examine `aws.cloudtrail.request_parameters` for specifics like user names, policy ARNs, or role configurations.
+  - Check `aws.cloudtrail.response_elements` for created resource identifiers.
+
+- **Correlate with surrounding activity**
+  - Search for preceding events such as `ConsoleLogin` from the same session or IP address.
+  - Look for MFA bypass indicators or unusual login patterns before CloudShell usage.
+  - Check for subsequent use of any created credentials or roles.
+
+- **Assess the broader context**
+  - Determine if this CloudShell usage pattern is typical for this user.
+  - Review recent access patterns for the console session that initiated CloudShell.
+
+### False positive analysis
+
+- Routine administrative tasks using CloudShell are common in some organizations. Create baseline profiles for users who regularly use CloudShell.
+- Infrastructure automation testing may involve CloudShell for quick validation. Verify with the user.
+
+
+### Response and remediation
+
+- If unauthorized, immediately terminate the console session and revoke any created credentials.
+- Rotate credentials for any IAM users or roles that may have been compromised.
+- Review and remove any unauthorized users, access keys, roles, or policy attachments.
+- Consider restricting CloudShell access via SCPs or IAM policies for sensitive accounts.
+- Implement session duration limits to reduce the window of opportunity for console session abuse.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+"""
+references = [
+    "https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html",
+    "https://permiso.io/blog/lucr-3-scattered-spider-getting-saas-y-in-the-cloud",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-320a",
+]
+risk_score = 47
+rule_id = "41554afd-d839-4cc2-b185-170ac01cbefc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: (
+        "CreateAccessKey" or
+        "CreateUser" or
+        "AttachUserPolicy" or
+        "PutUserPolicy" or
+        "CreateRole" or
+        "AttachRolePolicy" or
+        "PutRolePolicy" or
+        "CreateInstanceProfile" or
+        "AddRoleToInstanceProfile"
+    )
+    and event.outcome: "success"
+    and user_agent.original: *CloudShell*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/12/04"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
@@ -71,8 +71,14 @@ process where event.type == "start"
       "grok.exe", "grok",
       "qwen.exe", "qwen",
       "koboldcpp.exe", "koboldcpp", "KoboldCpp",
-      "llama-server", "llama-cli"
+      "llama-server", "llama-cli",
+      "OpenClaw", "openclaw", "openclaw.exe",
+      "Moltbot", "moltbot", "moltbot.exe",
+      "Clawdbot", "clawdbot", "clawdbot.exe"
     ) or
+    // OpenClaw/Moltbot/Clawdbot via Node.js
+    (process.parent.name in ("node", "node.exe") and
+     process.parent.command_line like~ ("*openclaw*", "*moltbot*", "*clawdbot*")) or
     // Package managers running MCP servers
     (process.parent.name in ("npx", "npx.exe", "pnpm", "pnpm.exe", "yarn", "yarn.exe", "bunx", "bunx.exe") and
      process.parent.command_line like~ ("*@modelcontextprotocol/*", "*mcp-server-*", "*mcp_server*")) or

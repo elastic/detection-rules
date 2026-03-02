@@ -2,7 +2,7 @@
 creation_date = "2020/05/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/29"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -29,9 +29,6 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Configuration Deletion"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS S3 Bucket Configuration Deletion
 
@@ -71,20 +68,20 @@ Deleting or disabling important configurations may hamper audit trails, hide mal
 
 ### Response and remediation
 
-**1. Containment & Immediate Actions**  
+**Containment & Immediate Actions**  
 - Temporarily restrict the IAM user or role that performed the deletion, especially for `DeleteBucketPolicy`, `DeleteBucketEncryption`, or `DeleteBucketLifecycle`. 
 - Restore missing configurations as soon as possible (e.g., re-apply bucket policy, lifecycle rules, inventory configuration) to prevent further blind spots.
 
-**2. Investigation & Scope Assessment**  
+**Investigation & Scope Assessment**  
 - Using CloudTrail and S3 Data Events, check object‐level activity from the timeframe immediately before and after the configuration deletion. Look for bulk deletes, new uploads, or copies to external accounts.  
 - Check whether other buckets in the account suffered similar configuration changes – potentially part of a wider campaign.
 
-**3. Recovery & Hardening**  
+**Recovery & Hardening**  
 - Recover affected bucket configurations and ensure they match your organizational baseline and compliance standards (e.g., logging enabled, inventory configured, lifecycle rules active).  
 - Enable AWS Config rules such as `s3-bucket-policy-check`, `s3-bucket-lifecycle-configuration-check`, `s3-bucket-logging-enabled` to monitor for unauthorized changes.  
 - Apply least‐privilege for configuration deletion permissions; segregate duties so bucket config deletion can only be done via controlled workflows and require multi-step approval.
 
-**4. Lessons Learned & Prevention**  
+**Lessons Learned & Prevention**  
 - Conduct a post-incident review to determine root cause (credential compromise, misconfigured automation, malicious insider) and strengthen monitoring, alerting and access controls accordingly.
 
 """

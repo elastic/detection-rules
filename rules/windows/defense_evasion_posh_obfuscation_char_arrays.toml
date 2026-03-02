@@ -2,74 +2,84 @@
 creation_date = "2025/04/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell scripts that use character arrays and runtime string reconstruction as a form of obfuscation. This
-technique breaks strings into individual characters, often using constructs like char[] with index-based access or
-joining logic. These methods are designed to evade static analysis and bypass security protections such as the
-Antimalware Scan Interface (AMSI).
+Detects PowerShell scripts that reconstructs strings from char[] arrays, index lookups, or repeated ([char]NN)+
+concatenation/join logic. Attackers use character-array reconstruction to hide commands, URLs, or payloads and evade
+static analysis and AMSI.
 """
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential PowerShell Obfuscation via Character Array Reconstruction"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
 ### Investigating Potential PowerShell Obfuscation via Character Array Reconstruction
 
-PowerShell, a powerful scripting language, is often targeted by adversaries for obfuscation to bypass security measures. By reconstructing strings from character arrays, attackers evade static analysis and detection. The detection rule identifies scripts using such obfuscation by searching for patterns indicative of character array manipulation, thus flagging potential threats for further investigation.
+This rule identifies PowerShell Script Block Logging content that reconstructs strings at runtime from character codes or character arrays. This technique is commonly used to conceal intent (for example, commands, URLs, or file paths) and can indicate attempts to evade static inspection.
 
-### Possible investigation steps
+Focus triage on what strings are being rebuilt, who ran the script, where it ran, and whether the decoded content leads to follow-on activity.
 
-- Review the powershell.file.script_block_text field to understand the content and intent of the script, focusing on the obfuscated parts indicated by the presence of the "char" keyword and the 🔥 character.
-- Examine the file.path and host.name fields to determine the origin and location of the script execution, which can provide context about the environment and potential risk.
-- Check the user.id and agent.id fields to identify the user and agent responsible for executing the script, which can help assess whether the activity is expected or suspicious.
-- Analyze the powershell.file.script_block_id and powershell.sequence fields to trace the execution sequence and correlate it with other related script blocks, providing a broader view of the script's behavior.
-- Investigate the count field to assess the extent of obfuscation, as a higher count may indicate more complex or extensive obfuscation techniques being used.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
+- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Review `powershell.file.script_block_text` and use `Esql.script_block_tmp` to quickly spot the segments that triggered the match. Identify the reconstruction method (for example, `[char[]](...)`, repeated `([char]NN)+` concatenation, joins, or index-based lookups).
+- If the script block is split, reconstruct the full content using `powershell.file.script_block_id` together with `powershell.sequence` and `powershell.total`. Verify that all expected sequences are present and in order before drawing conclusions.
+- If `powershell.total` indicates multiple fragments but one or more `powershell.sequence` values are missing, treat the script as incomplete context. Attempt to retrieve the missing fragments and consider the possibility of log gaps or ingestion delays.
+- Deobfuscate the reconstructed strings by translating numeric character codes and arrays into their resulting text. Capture any decoded values that look like commands, script content, URLs, file paths, registry paths, or encoded blobs.
+- After decoding, re-review the full script block content for additional obfuscation layers or execution logic that is not covered by the character reconstruction pattern (for example, secondary decoding steps or dynamically-invoked script).
+- Use `Esql.script_block_pattern_count` as a quick measure of how heavily the script relies on this obfuscation pattern. Higher counts typically indicate more deliberate concealment and can help prioritize review.
+- Use the script statistics to support prioritization and comparison against expected baselines: `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, `powershell.file.script_block_unique_symbols`, and `powershell.file.script_block_length`. Look for unusually long, high-entropy, or highly variable content relative to known-good PowerShell activity in your environment.
+- Review the execution context: `user.name`, `user.domain`, and `user.id` to understand who executed the script and whether the account matches expected administrative or automation usage for the `host.name` and `host.id` involved.
+- Review file origin indicators when present: `file.path`, `file.directory`, and `file.name`. Assess whether the script appears to originate from an expected location for your environment versus a user-writable, temporary, or unusual directory.
+- Pivot to the source event using `_id` and `_index` to review the full event payload and confirm whether additional relevant `powershell.file.*` context is available for analysis.
+- Scope for related activity by searching for additional script blocks that share the same `powershell.file.script_block_id`, similar `powershell.file.script_block_text` content, the same `file.path`, the same `user.id`, or the same `host.id` around the alert time window.
+- Correlate the alert timestamp with adjacent telemetry from the same host and user (process activity, network connections, file writes, registry modifications, and authentication events) to identify how PowerShell was launched (including the initiating/parent process) and what occurred immediately before and after the obfuscated content executed.
+- If decoded content indicates external communication or secondary payload retrieval, identify potential indicators (domains, IPs, URLs, file names) and check for additional occurrences across other hosts and users.
+- If decoded content indicates credential access, lateral movement, or persistence, expand the investigation to related accounts and hosts within the same timeframe and document the full execution chain.
 
 ### False positive analysis
 
-- Scripts used for legitimate administrative tasks may use character arrays for performance optimization or to handle special characters. Review the script's purpose and context to determine if it aligns with known administrative functions.
-- PowerShell scripts from trusted sources or vendors might use character arrays for legitimate obfuscation to protect intellectual property. Verify the script's origin and check for digital signatures or hashes to confirm authenticity.
-- Automated scripts generated by development tools or frameworks could include character array manipulation as part of their standard output. Identify and whitelist these tools if they are commonly used in your environment.
-- Security tools or monitoring solutions might use character arrays in their scripts for legitimate purposes. Cross-reference with known security software and consider excluding these from the detection rule if they are verified as safe.
-- Regularly update the exclusion list to include new trusted scripts or tools as they are introduced into the environment, ensuring that legitimate activities are not flagged as false positives.
+- Some benign scripts reconstruct strings from character codes for formatting, localization, or to safely represent special characters. These cases are often limited in scope and decode to human-readable, expected values.
+- Software deployment, management, or monitoring tooling may generate PowerShell dynamically and use string reconstruction as an implementation detail. Validate whether the script source (`file.path`) and execution context (`user.id`, `host.id`) align with known tooling behavior.
+- Internal scripts may use light obfuscation to reduce casual tampering or to embed configuration values. Treat unknown sources, unexpected accounts, or unusually high `Esql.script_block_pattern_count` / `powershell.file.script_block_entropy_bits` as higher risk until validated.
+- If determined benign, document the script source and expected execution context (account and host) and retain the decoded strings for faster triage of future alerts.
 
 ### Response and remediation
 
-- Isolate the affected host immediately to prevent further spread of potentially malicious scripts or unauthorized access.
-- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing obfuscation activities.
-- Conduct a thorough review of the script block text and associated logs to identify any malicious payloads or commands executed.
-- Remove any identified malicious scripts or files from the affected system to prevent re-execution.
-- Reset credentials for any user accounts involved in the alert to mitigate potential credential compromise.
-- Update endpoint protection and ensure that AMSI and other security features are fully enabled and configured to detect similar threats.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are affected.
+- If malicious or suspicious activity is confirmed, contain the affected host to prevent additional execution and lateral movement. Consider restricting the involved account based on investigation results.
+- Preserve evidence: retain the full `powershell.file.script_block_text` and any reconstructed/decoded strings, along with related events for the same `powershell.file.script_block_id` (all `powershell.sequence` values).
+- If the script originates from disk (`file.path` present), collect and quarantine the referenced file and review for additional related artifacts created or modified around the alert time window.
+- Identify and remediate follow-on actions indicated by the decoded content (for example, downloaded payloads, persistence mechanisms, or changes to system configuration).
+- Hunt for spread: search for the same decoded indicators, similar reconstruction patterns, and elevated `Esql.script_block_pattern_count` across other hosts and users.
+- If account misuse is suspected, perform appropriate credential hygiene and review recent authentication activity for the affected `user.id` and related accounts.
+- Review and strengthen PowerShell controls and monitoring based on findings (for example, ensure Script Block Logging is consistently enabled and that anti-malware scanning integration is functioning as expected).
 """
 risk_score = 73
 rule_id = "85e2d45e-a3df-4acf-83d3-21805f564ff4"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "high"
 tags = [
@@ -113,6 +123,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     _version,
     _index,
     host.name,
+    host.id,
     agent.id,
     user.id
 
@@ -156,3 +167,21 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]

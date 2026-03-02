@@ -1000,7 +1000,8 @@ class ESQLRuleData(QueryRuleData):
         # Ensure that keep clause includes metadata fields on non-aggregate queries
         aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
-            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
+            raw_keep = re.sub(r"//.*", "", keep_match.group(1))
+            keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
             if "*" not in keep_fields:
                 required_metadata = {"_id", "_version", "_index"}
                 if not required_metadata.issubset(set(map(str.strip, keep_fields))):
@@ -1259,6 +1260,22 @@ class BaseRuleContents(ABC):
 
         return obj
 
+    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
+        """Check if this is an ES|QL rule that uses `| keep *`."""
+        if hashable_dict.get("language") != "esql":
+            return False
+
+        query: str | None = hashable_dict.get("query")
+        if not isinstance(query, str) or not query:
+            return False
+
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match: re.Match[str] | None = keep_pattern.search(query)
+        if keep_match:
+            keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
+            return "*" in keep_fields
+        return False
+
     @abstractmethod
     def to_api_format(self, include_version: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
@@ -1272,6 +1289,11 @@ class BaseRuleContents(ABC):
         # drop related integrations if present
         if not include_integrations:
             hashable_dict.pop("related_integrations", None)
+
+        # For ES|QL rules with `| keep *`, exclude required_fields since they're
+        # non-deterministic (depend on integration schemas which vary by stack version)
+        if self._uses_keep_star(hashable_dict):
+            hashable_dict.pop("required_fields", None)
 
         return hashable_dict
 
@@ -1355,7 +1377,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     items_to_update: list[dict[str, Any]] = [
                         item
                         for item in value  # type: ignore[reportUnknownVariableType]
-                        if isinstance(item, dict) and get_nested_value(item, sub_key) is None
+                        if isinstance(item, dict)
+                        and get_nested_value(item, sub_key) is None
+                        and get_nested_value(item, "action_type_id") not in definitions.SYSTEM_ACTION_TYPE_IDS
                     ]
                     for item in items_to_update:
                         set_nested_value(item, sub_key, None)

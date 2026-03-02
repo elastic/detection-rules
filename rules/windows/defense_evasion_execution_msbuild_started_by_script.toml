@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -51,9 +51,9 @@ The Microsoft Build Engine (MSBuild) is a platform for building applications, ty
 - Reset credentials for any user accounts that were active on the affected system during the time of the alert to prevent unauthorized access.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for MSBuild and script interpreter activities across the network to detect and respond to similar threats in the future."""
-risk_score = 21
+risk_score = 47
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae2"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -71,7 +71,17 @@ query = '''
 host.os.type:windows and event.category:process and event.type:start and (
   process.name.caseless:"msbuild.exe" or process.pe.original_file_name:"MSBuild.exe") and
   process.parent.name:("cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or
-    "wscript.exe" or "mshta.exe")
+    "wscript.exe" or "mshta.exe") and 
+ not process.executable : (
+  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\MSBuild\\14.0\\Bin\\amd64\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe" or 
+  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe" or 
+  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe")
 '''
 
 
@@ -122,9 +132,9 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "user.name", "process.command_line"]
+value = ["host.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
 
 

@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2025/06/19"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "cloud_defend"]
 maturity = "production"
-updated_date = "2025/12/18"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/05"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +20,7 @@ index = [
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-cloud_defend.process*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -99,6 +102,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Data Source: Elastic Defend for Containers",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -110,7 +114,7 @@ event.action in ("exec", "exec_event", "start", "executed", "process_started") a
   process.executable like~ ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/var/www/*", "./kubectl") or
   process.name like ".*"
 ) and
-process.command_line like~ (
+process.args like~ (
 
   // get and describe commands
   "*get po*", "*get deploy*", "*get node*", "*get svc*", "*get service*", "*get secret*", "*get clusterrole*", "*get ingress*",

@@ -1,0 +1,202 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts from within a Linux container to create or modify files commonly used for
+persistence on native Linux systems, including cron jobs, systemd units, sudoers files, and shell
+profile configurations. While many of these mechanisms do not provide reliable persistence in typical
+containerized workloads, such modifications are unusual and may indicate persistence attempts, privilege
+abuse, or preparation for container escape, especially when performed outside normal image build or
+package management processes.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.file*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Modification of Persistence Relevant Files Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of Persistence Relevant Files Detected via Defend for Containers
+
+This detection flags a process inside a Linux container creating or modifying files tied to host-style persistence and privilege control, such as cron schedules, systemd units, sudoers, or shell startup profiles. These changes rarely belong in normal container runtime behavior, so they often signal an attacker staging long-lived execution, escalating privileges, or preparing an escape path. A common pattern is dropping a new `/etc/cron.d/*` entry that periodically launches a payload or backconnects.
+
+### Possible investigation steps
+
+- Review the modifying process’s full command line, parent/ancestor chain, effective UID, and container entrypoint to determine whether it aligns with expected runtime behavior or indicates an interactive shell/exploit.  
+- Pull the before/after contents of the changed file and look for execution hooks (cron command, systemd ExecStart, sudoers NOPASSWD, or shell profile stagers), then extract any referenced binaries, users, paths, or URLs for follow-on hunting.  
+- Determine whether the container is privileged or has elevated capabilities and sensitive host mounts (e.g., `/etc`, `/var/run/docker.sock`, `/proc`, `/sys`) that would make the change meaningful for host persistence or escape attempts.  
+- Correlate the modification time with nearby activity from the same container (process spawns, tool downloads, outbound connections, and interactive access such as `kubectl exec`) to reconstruct the sequence and probable entry vector.  
+- Check for the same change across replicas/nodes and in the image/build pipeline, and if the modification is unapproved, isolate and redeploy from a known-good image while preserving artifacts for analysis.
+
+### False positive analysis
+
+- An application container running as root updates shell startup files (e.g., `/root/.bashrc`, `/etc/profile.d/*`) at runtime to enforce environment variables, PATH changes, or interactive defaults for troubleshooting, triggering a write/open event without any persistence intent.  
+- A container startup/entrypoint script generates or adjusts cron/systemd-related files (e.g., `/etc/cron.d/*`, `/etc/systemd/system/*.service`) to schedule internal maintenance tasks or align configuration on first boot, causing file creations/renames outside package-manager processes.
+
+### Response and remediation
+
+- Quarantine the affected workload by scaling the deployment to zero or applying a deny-all egress policy, and isolate the node if the container was privileged or had host filesystem mounts that could make the persistence change impact the host.  
+- Preserve evidence by exporting the modified persistence-related file(s) (e.g., `/etc/cron.d/*`, `/etc/sudoers*`, systemd unit/timer, shell profile) and collecting the writing process binary, command line, environment, and a short window of process and network activity from the container.  
+- Eradicate by deleting or reverting the unauthorized cron/systemd/sudoers/profile changes, removing any referenced payload binaries/scripts, revoking any newly added users/keys/tokens, and rotating credentials used by the container or mounted into it.  
+- Recover by redeploying the service from a known-good image and clean configuration (ConfigMaps/Secrets), validating that no persistence files are modified at runtime and that outbound connections and scheduled executions return to expected behavior.  
+- Escalate to incident response immediately if the change grants passwordless sudo, drops a new systemd unit/timer or cron job that executes a network-capable command, or if the container is privileged/has `/var/run/docker.sock` or host `/etc` mounted, as this may indicate attempted host persistence or escape.  
+- Harden by enforcing read-only root filesystem and non-root execution, restricting capabilities/privileged mode and sensitive host mounts, and adding policy controls to block writes to `/etc/cron*`, `/etc/sudoers*`, systemd paths, and shell profiles outside the image build pipeline."""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 21
+rule_id = "f246e70e-5e20-4006-8460-d72b023d6adf"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where event.type != "deletion" and
+/* open events currently only log file opens with write intent */
+event.action in ("creation", "rename", "open") and (
+  file.path like (
+
+	  // Cron & Anacron Jobs
+	  "/etc/cron.allow", "/etc/cron.deny", "/etc/cron.d/*", "/etc/cron.hourly/*", "/etc/cron.daily/*",
+	  "/etc/cron.weekly/*", "/etc/cron.monthly/*", "/etc/crontab", "/var/spool/cron/crontabs/*",
+	  "/var/spool/anacron/*",
+
+	  // At Job
+	  "/var/spool/cron/atjobs/*", "/var/spool/atjobs/*",
+
+	  // Sudoers
+	  "/etc/sudoers*"
+  ) or
+  (
+  	// Systemd Service/Timer
+    file.path like (
+	  "/etc/systemd/system/*", "/etc/systemd/user/*", "/usr/local/lib/systemd/system/*",
+  	  "/lib/systemd/system/*", "/usr/lib/systemd/system/*", "/usr/lib/systemd/user/*",
+      "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
+      "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*"
+    ) and
+    file.extension in ("service", "timer")
+  ) or
+  (
+	// Shell Profile Configuration
+	file.path like ("/etc/profile.d/*", "/etc/zsh/*") or (
+	  file.path like ("/home/*/*", "/etc/*", "/root/*") and
+	  file.name in (
+  	    "profile", "bash.bashrc", "bash.bash_logout", "csh.cshrc", "csh.login", "config.fish", "ksh.kshrc",
+  	    ".bashrc", ".bash_login", ".bash_logout", ".bash_profile", ".bash_aliases", ".zprofile", ".zshrc",
+  	    ".cshrc", ".login", ".logout", ".kshrc"
+      )
+    )
+  )
+) and container.id like "?*" and
+not process.name in ("apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf", "apk", "pacman", "rpm", "dpkg")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

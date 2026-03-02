@@ -2,7 +2,7 @@
 creation_date = "2022/05/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/04"
+updated_date = "2026/02/12"
 
 [rule]
 author = ["Elastic"]
@@ -49,18 +49,16 @@ process where
   process.args : ("elasticendpoint", "Elastic Agent","elastic-agent","elastic-endpoint"))
 or
 /* service or systemctl used to stop Elastic Agent on Linux */
-(event.type == "end" and
+(event.type == "start" and
   (process.name in ("systemctl", "service", "chkconfig", "update-rc.d") and
-    process.args : ("elastic-agent", "elastic-agent.service") and
+    process.args : ("elastic-agent", "elastic-agent.service", "ElasticEndpoint") and
     process.args : ("stop", "disable", "remove", "off", "kill", "mask"))
   or
-  /* pkill , killall used to stop Elastic Agent on Linux */
-  ( event.type == "end" and process.name in ("pkill", "killall", "kill") and process.args: "elastic-agent")
+  /* pkill , killall used to stop Elastic Agent or Endpoint on Linux */
+(event.type == "start" and process.name in ("pkill", "killall", "kill") and process.args : ("elastic-agent", "elastic-endpoint"))
   or
-  /* Unload Elastic Agent extension on MacOS */
-  (process.name : "kextunload" and
-    process.args : "com.apple.iokit.EndpointSecurity" and
-    event.action : "end"))
+  /* Unload Elastic Defend extension on MacOS */
+(event.type == "start" and process.name : "kextunload" and process.args : "com.apple.iokit.EndpointSecurity"))
 '''
 note = """## Triage and analysis
 

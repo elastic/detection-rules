@@ -2,14 +2,14 @@
 creation_date = "2021/10/13"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of discovery-related Windows API functions in PowerShell Scripts. Attackers can use these
-functions to perform various situational awareness related activities, like enumerating users, shares, sessions, domain
-trusts, groups, etc.
+Detects PowerShell scripts that references native Windows API functions commonly used for discovery of users, groups,
+shares, sessions, domain trusts, and service security. Attackers use these APIs for situational awareness and targeting
+prior to lateral movement or collection.
 """
 false_positives = ["Legitimate PowerShell scripts that make use of these functions."]
 from = "now-9m"
@@ -19,37 +19,80 @@ license = "Elastic License v2"
 name = "PowerShell Suspicious Discovery Related Windows API Functions"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating PowerShell Suspicious Discovery Related Windows API Functions
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This rule flags PowerShell script block content that references Windows API functions commonly used to enumerate users, groups, shares, sessions, domain trusts, and service security. These APIs are frequently accessed via native interop patterns (for example, runtime-compiled type definitions) and can be used to build an inventory of the environment before follow-on activity such as lateral movement or collection.
 
-Attackers can use PowerShell to interact with the Win32 API to bypass command line based detections, using libraries like PSReflect or Get-ProcAddress Cmdlet.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine file or network events from the involved PowerShell process for suspicious behavior.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Check for additional PowerShell and command-line logs that indicate that imported functions were run.
+- Establish context and expected behavior:
+  - Review `host.name`/`host.id` to understand where the activity occurred and whether the host is expected to perform administrative discovery.
+  - Review `user.name`, `user.domain`, and `user.id` to determine whether the executing identity aligns with expected administrative or automation activity for that host.
+  - Use `powershell.file.script_block_length` (when present) as a quick indicator of complexity; unusually large blocks may indicate embedded helper libraries or inline compiled source.
+
+- Review, reconstruct, and characterize the script content:
+  - Inspect `powershell.file.script_block_text` and identify which API function name(s) are present and what discovery objective they imply.
+  - If the script is fragmented, reconstruct it by grouping events on `powershell.file.script_block_id` and ordering by `powershell.sequence` until `powershell.total` is reached. Capture the complete reconstructed content for case notes.
+  - Look for indicators of native API invocation rather than standard cmdlets, such as embedded type definitions, interop attributes, or inline compiled source. This can increase confidence that the script was designed to directly call Windows APIs.
+  - Identify additional capabilities in the same script block (or neighboring fragments) that may indicate follow-on behavior, such as credential access, remote execution logic, output staging, or data access from remote resources.
+
+- Map API functions to likely discovery intent:
+  - Share and server discovery: `NetShareEnum`, `NetServerGetInfo`, `GetComputerNameEx`.
+  - User and group discovery: `NetUserEnum`, `NetUserGetInfo`, `NetGroupEnum`, `NetGroupGetInfo`, `NetGroupGetUsers`, `NetLocalGroupEnum`, `NetLocalGroupGetMembers`, `GetUserNameEx`, `NetUserModalsGet`.
+  - Session and workstation discovery: `NetSessionEnum`, `NetWkstaUserEnum`, `NetWkstaGetInfo`, `NetWkstaTransportEnum`, `WTSEnumerateSessionsEx`, `WTSQuerySessionInformation`, `LsaGetLogonSessionData`.
+  - Domain trust and site discovery: `DsEnumerateDomainTrusts`, `LsaEnumerateTrustedDomains`, `DsGetSiteName`.
+  - Service permission discovery: `QueryServiceObjectSecurity`.
+  - Job discovery: `NetScheduleJobEnum`.
+
+- Determine discovery scope and targets from the content:
+  - Extract any referenced hostnames, domain names, share names, or service names directly from `powershell.file.script_block_text` (when present) and record them as potential discovery targets.
+  - Look for indications of remote enumeration (for example, multiple target strings, iteration constructs, or repeated API calls with varying targets) versus single-host local discovery.
+  - Prioritize cases that include higher-impact reconnaissance (trust enumeration, session enumeration, logon session data, or service security descriptor queries), especially when the account or host context is unusual.
+
+- Validate script origin and execution source:
+  - If file context is present, review `file.path`, `file.directory`, and `file.name` to understand whether the script block originated from an on-disk script and whether that location aligns with approved tooling.
+  - Treat scripts originating from unexpected or user-writable locations, or scripts with unusual naming, as higher risk and scope for other related activity on the same host and by the same user.
+
+- Scope for related activity using alert-available pivots:
+  - Search for other script blocks with the same `powershell.file.script_block_id` to ensure no fragments are missed and to identify repeated execution.
+  - Search for additional hits of the same `file.path`/`file.name` across hosts to determine whether the script is broadly deployed or opportunistically introduced.
+  - Identify other occurrences of similar discovery content by pivoting on distinctive substrings within `powershell.file.script_block_text` (such as specific API function names) and the same `user.id` to detect a broader reconnaissance pattern.
+
+- Correlate with adjacent telemetry (as available in your environment):
+  - Process context: determine how PowerShell was started and whether the initiation method is consistent with expected activity for `user.name` on `host.name`.
+  - Authentication and remote access: look for logons or remote session activity involving the same `user.name` around the alert time, especially if the script content suggests remote enumeration of servers or sessions.
+  - Network and share access: review evidence of access to discovered targets (servers/shares) following the enumeration to identify potential collection from network shares.
+  - Persistence or privilege escalation follow-on: if service security or job enumeration is present, look for subsequent changes consistent with service or scheduled job manipulation.
 
 ### False positive analysis
 
-- Discovery activities themselves are not inherently malicious if occurring in isolation, as long as the script does not contain other capabilities, and there are no other alerts related to the user or host; such alerts can be dismissed. However, analysts should keep in mind that this is not a common way of getting information, making it suspicious.
-
-### Related rules
-
-- PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
+- Benign administrative discovery can occur during routine inventory, troubleshooting, or access validation, especially from dedicated administration hosts and by well-known administrative identities.
+- False positives are more likely when the same script content appears regularly, is consistently associated with the same `file.path`/`file.name`, and is executed by expected `user.name` accounts on expected hosts.
+- Prioritize as suspicious when the activity is new for the environment, originates from an unexpected script location, is executed by a non-administrative or unusual account, or appears across multiple hosts in a short period.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is confirmed or strongly suspected malicious:
+  - Contain the affected host and restrict the involved account to prevent further reconnaissance and follow-on actions.
+  - Preserve evidence from the alert, including the fully reconstructed `powershell.file.script_block_text`, `powershell.file.script_block_id`, and any extracted target identifiers, along with `host.id` and `user.id` for reliable correlation.
+  - Scope across the environment for additional executions using pivots on `user.id`, `host.id`, `file.path`/`file.name`, and distinctive content within `powershell.file.script_block_text`.
+  - Review the enumerated targets (hosts, shares, users/groups, trusts, services, sessions) for unauthorized access attempts and follow-on activity such as network share access, credential misuse, or lateral movement.
+
+- If the activity is determined to be legitimate but unexpected:
+  - Identify the script owner and document the business purpose, expected execution scope (hosts/users), and expected cadence.
+  - Reduce future noise by baselining approved scripts and execution contexts, and ensure logging and monitoring coverage remains sufficient to investigate future occurrences.
 """
 references = [
     "https://github.com/BC-SECURITY/Empire/blob/9259e5106986847d2bb770c4289c0c0f1adf2344/data/module_source/situational_awareness/network/powerview.ps1#L21413",
@@ -59,21 +102,8 @@ risk_score = 21
 rule_id = "61ac3638-40a3-44b2-855a-985636ca985e"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "low"
 tags = [
@@ -121,7 +151,8 @@ event.category:process and host.os.type:windows and
     ("DsGetSiteName" and ("DiscoverWindowsComputerProperties.ps1" and "param($SourceType, $SourceId, $ManagedEntityId, $ComputerIdentity)")) or
     ("# Copyright: (c) 2018, Ansible Project" and "#Requires -Module Ansible.ModuleUtils.AddType" and "#AnsibleRequires -CSharpUtil Ansible.Basic") or
     ("Ansible.Windows.Setup" and "Ansible.Windows.Setup" and "NativeMethods.NetWkstaGetInfo(null, 100, out netBuffer);")
-  )
+  ) and
+  not file.directory: "C:\Program Files (x86)\Automox\WDK\Win32\WinSession"
 '''
 
 
@@ -203,4 +234,23 @@ reference = "https://attack.mitre.org/techniques/T1039/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

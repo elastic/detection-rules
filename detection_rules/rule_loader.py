@@ -242,9 +242,9 @@ class RawRuleCollection(BaseCollection[DictRule]):
             # use pytoml instead of toml because of annoying bugs
             # https://github.com/uiri/toml/issues/152
             # might also be worth looking at https://github.com/sdispater/tomlkit
-            raw_dict = pytoml.loads(path.read_text())  # type: ignore[reportUnknownMemberType]
+            raw_dict = pytoml.loads(path.read_text(encoding="utf-8"))  # type: ignore[reportUnknownMemberType]
         elif path.suffix == ".json":
-            raw_dict = json.loads(path.read_text())
+            raw_dict = json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix == ".ndjson":
             raise ValueError("ndjson is not supported in RawRuleCollection. Break out the rules individually.")
         else:

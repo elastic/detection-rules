@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the first successful FortiCloud SSO login from a previously unseen source IP address to a FortiGate
+device within the last 5 days. FortiCloud SSO logins from new source IPs may indicate exploitation of SAML-based
+authentication bypass vulnerabilities such as CVE-2026-24858, where crafted SAML assertions allow unauthorized access to
+FortiGate devices registered to other accounts. Environments that regularly use FortiCloud SSO will only alert on new
+source IPs not seen in the lookback window.
+"""
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate FortiCloud SSO Login from Unusual Source"
+note = """## Triage and analysis
+
+### Investigating FortiGate FortiCloud SSO Login from Unusual Source
+
+This alert indicates that a FortiCloud SSO login was observed from a source IP address not previously seen authenticating via SSO in the last 5 days. This is a high-value signal because it filters out routine SSO access from known management IPs and only fires on novel source addresses.
+
+CVE-2026-24858 (FG-IR-26-060) allows attackers with a FortiCloud account and a registered device to craft SAML assertions that authenticate them as administrators on other FortiGate devices when FortiCloud SSO is enabled. This vulnerability has been actively exploited in the wild.
+
+### Possible investigation steps
+
+- Check `source.ip` against known corporate management networks, VPN egress points, and jump hosts. Investigate the IP's ASN and geolocation, as attacker IPs have been observed from The Constant Company LLC, BL Networks, Kaopu Cloud HK Limited, and Cloudflare-protected ranges.
+- Determine whether this IP has been seen in any other authentication context across the environment.
+- Check `Esql.user_values` for the SSO account name (typically an email address) and verify the account belongs to the organization. Compare against known attacker email IOCs: cloud-noc@mail.io, cloud-init@mail.io, heltaylor.12@tutamail.com, support@openmail.pro.
+- Check `Esql.observer_name_values` to identify which FortiGate device was accessed and confirm whether FortiCloud SSO is intentionally enabled on the device.
+- Look for local administrator account creation, configuration exports, firewall policy changes, or VPN user/group creation immediately following the SSO login. The observed attack pattern involves rogue admin creation within seconds of login.
+
+### False positive analysis
+
+- Administrators connecting from a new office location, hotel, or home network for the first time may trigger this alert.
+- FortiCloud SSO access after IP address changes such as ISP rotation or VPN egress changes can appear as a new source IP.
+- First login after FortiCloud SSO is initially enabled on a device will fire since no historical SSO logins exist.
+
+### Response and remediation
+
+- If the activity is unauthorized, disable FortiCloud SSO immediately using `config system global` > `set admin-forticloud-sso-login disable`.
+- Audit all administrator accounts for unauthorized additions and review and restore configuration from a known-clean backup.
+- Rotate all credentials including any LDAP/AD accounts connected to the device.
+- Upgrade FortiOS to a patched version.
+- If the activity is expected, document the new source IP and consider adding an exception if it represents a new management location."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
+]
+risk_score = 47
+rule_id = "618a219d-a363-4ab1-ba30-870d7c22facd"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.* metadata _id, _version, _index
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.category == "authentication" and event.action == "login" and
+        event.outcome == "success" and
+        (fortinet.firewall.method == "sso" or fortinet.firewall.ui like "sso*") and
+        source.ip is not null
+| STATS Esql.logon_count = COUNT(*),
+        Esql.first_time_seen = MIN(@timestamp),
+        Esql.user_values = VALUES(source.user.name),
+        Esql.observer_name_values = VALUES(observer.name),
+        Esql.message_values = VALUES(message) BY source.ip
+
+// first time seen is within 6m of the rule execution time and for the last 5d of events history
+| EVAL Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+| WHERE Esql.recent <= 6 AND Esql.logon_count == 1
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| EVAL source.user.name = MV_FIRST(Esql.user_values)
+
+| KEEP source.ip, source.user.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

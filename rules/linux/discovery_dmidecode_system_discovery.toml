@@ -2,7 +2,7 @@
 creation_date = "2026/01/07"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/01/12"
+updated_date = "2026/02/17"
 
 [rule]
 author = ["Elastic"]
@@ -107,7 +107,16 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name == "dmidecode" and process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-process.parent.args == "-c"
+process.parent.args == "-c" and not (
+  process.parent.command_line in (
+    "/bin/sh -c /usr/sbin/dmidecode | /bin/grep VMware", "sh -c dmidecode -s system-manufacturer"
+  ) or
+  ?process.working_directory in (
+    "/data/oem_agent/agent_inst/sysman/emd", "/opt/rapid7/ir_agent/components/insight_agent/common", "/opt/veeam/transport",
+    "/data/app/oracle/agent/agent_inst/sysman/emd", "/home/nessus", "/opt/commvault", "/opt/nessus_agent/var/nessus/mod/com.tenable.nessus_agent/data"
+  ) or
+  process.parent.args like "printf*"
+)
 '''
 
 [[rule.threat]]

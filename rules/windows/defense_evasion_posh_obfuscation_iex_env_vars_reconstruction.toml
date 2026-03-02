@@ -2,73 +2,97 @@
 creation_date = "2025/04/16"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell scripts that reconstruct the IEX (Invoke-Expression) command at runtime using indexed slices of
-environment variables. This technique leverages character access and join operations to build execution logic
-dynamically, bypassing static keyword detection and evading defenses such as AMSI.
+Detects PowerShell scripts that reconstructs IEX (Invoke-Expression) by indexing environment variable strings (for example, $env:VAR[1,2,3]) or related `.name[...]` slices and joining characters at runtime.
+Attackers use environment-variable slicing to hide dynamic execution and evade keyword-based detections and AMSI.
 """
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Dynamic IEX Reconstruction via Environment Variables"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
 
 ### Investigating Potential Dynamic IEX Reconstruction via Environment Variables
 
-PowerShell's Invoke-Expression (IEX) command is a powerful tool for executing strings as code, often exploited by attackers to run obfuscated scripts. Adversaries may dynamically reconstruct IEX using environment variables to evade static detection. The detection rule identifies scripts that manipulate environment variables to form IEX commands, focusing on patterns of character slicing and joining, which are indicative of obfuscation techniques. By analyzing script length and specific patterns, the rule effectively flags potential misuse, aiding in defense against such evasion tactics.
+This alert indicates PowerShell Script Block Logging captured a script that builds "IEX" (Invoke-Expression) at runtime by indexing characters from environment variable strings or related name properties and combining them. This technique is commonly used to obscure dynamic execution and can indicate an attempt to execute attacker-controlled content.
 
-### Possible investigation steps
+#### Key alert fields to review
 
-- Review the powershell.file.script_block_text field to understand the content and intent of the script, focusing on how environment variables are manipulated to reconstruct the IEX command.
-- Examine the file.path and host.name fields to determine the origin and location of the script execution, which can provide context on whether the activity is expected or suspicious.
-- Analyze the user.id and agent.id fields to identify the user and agent responsible for executing the script, checking for any anomalies or unauthorized access.
-- Investigate the powershell.file.script_block_id and powershell.sequence fields to trace the execution sequence and correlate it with other related PowerShell activities on the host.
-- Assess the count field to understand the extent of obfuscation patterns detected, which can indicate the complexity and potential maliciousness of the script.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `Esql.script_block_tmp`: Transformed script block where detection patterns replace original content with a marker to support scoring/counting and quickly spot match locations.
+- `Esql.script_block_pattern_count`: Count of matches for the detection pattern(s) observed in the script block content.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Confirm scope and execution context:
+  - Review `host.name` and `host.id` to identify the impacted endpoint and determine whether it is a typical user workstation, server, or a special-purpose system in your environment.
+  - Review `user.name`, `user.domain`, and `user.id` to understand who executed the script and whether the account is expected to run PowerShell on this host (interactive user, service account, or administrative context).
+  - Use `agent.id` (if available) to identify the reporting agent and to support correlation with other telemetry collected from the same endpoint.
+  - Use the alert timestamp as the anchor to correlate activity immediately before and after the script block ran.
+
+- Analyze the obfuscation and intended execution:
+  - Examine `powershell.file.script_block_text` to locate environment-variable slicing patterns (for example, `$env:<var>[<idx>]`, `$env:<var>[<idx1>,<idx2>,<idx3>]`, or `.name[<idx1>,<idx2>,<idx3>]`) and identify the variable names and indices being used.
+  - Use `Esql.script_block_tmp` to quickly find the match locations, then review the surrounding context in `powershell.file.script_block_text` to determine how the reconstructed string is used (assignment, concatenation/join, or immediate invocation).
+  - Determine whether the reconstructed output is used as a dynamic execution primitive (for example, passed to `Invoke-Expression` / `IEX`, used with the call operator, or invoked via a method). Focus on what content is ultimately evaluated or executed.
+
+- Reconstruct full script content:
+  - If the script appears incomplete or staged across multiple events, use `powershell.file.script_block_id` with `powershell.sequence` and `powershell.total` to collect all fragments and rebuild the full script in order.
+  - After reconstruction, identify where string construction occurs versus where execution occurs to understand the end-to-end flow.
+
+- Assess obfuscation level and intent using available enrichments:
+  - Review `Esql.script_block_pattern_count` to understand how frequently the reconstruction pattern appears within the script block; repeated occurrences can indicate systematic obfuscation rather than an isolated string operation.
+  - Review `powershell.file.script_block_length` for size context and compare it with typical script sizes seen for the same host or user.
+  - Review `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, and `powershell.file.script_block_unique_symbols` to gauge whether the script contains encoded or highly obfuscated content (for example, large high-entropy blocks that may indicate packed or encoded data).
+
+- Identify script origin and potential spread:
+  - If `file.path` is populated, review `file.name` and `file.directory` to determine where the script was sourced from and whether the location aligns with approved administrative tooling or software distribution paths.
+  - If `file.path` is not populated, treat the activity as potentially inline or dynamically generated and prioritize identifying the initiating process or source using adjacent telemetry.
+  - Scope for other alerts or script blocks on the same `host.id` or associated with the same `user.id` that show similar reconstruction patterns, especially within the same time window.
+
+- Correlate with adjacent telemetry (as available in your environment):
+  - Using `host.id` / `host.name`, `user.id`, and the alert time, correlate with process execution data to identify the PowerShell host process and the initiating parent process or source (for example, interactive session, script runner, scheduled task, service, or another application).
+  - Correlate with network, file, registry, and authentication telemetry on the same host around the alert time to identify follow-on activity that supports malicious intent (download or retrieval of content, creation or modification of files, persistence-related changes, or suspicious logons).
 
 ### False positive analysis
 
-- Scripts with legitimate use of environment variables for configuration management may trigger the rule. Users can create exceptions for specific scripts or processes known to use environment variables in a non-threatening manner.
-- Automated scripts that dynamically construct commands for legitimate administrative tasks might be flagged. Review the script's purpose and source, and whitelist trusted scripts or processes.
-- Development environments where scripts are frequently tested and modified may produce false positives. Implement monitoring exclusions for development machines or specific user accounts involved in script testing.
-- Scripts using environment variables for localization or language settings can be mistakenly identified. Identify and exclude scripts that are part of standard localization processes.
-- PowerShell scripts from trusted vendors or software packages that use environment variables for legitimate functionality should be reviewed and excluded from detection if verified as safe.
+- Legitimate automation or administration scripts may construct command strings dynamically, including deriving short tokens from environment variables for compatibility or to reduce hard-coded strings.
+- Security testing and purple-team or red-team activity may intentionally use environment-variable slicing to emulate evasive tradecraft.
+- Developer tooling, obfuscation research, or PowerShell training content may include this technique. Benign usage is typically tied to known owners, consistent hosts, predictable execution windows, and the absence of suspicious downstream activity.
 
 ### Response and remediation
 
-- Isolate the affected system from the network to prevent further execution of potentially malicious scripts and limit lateral movement.
-- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious activity.
-- Review the PowerShell script block text and associated file paths to understand the scope and intent of the script, focusing on any obfuscated commands or environment variable manipulations.
-- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
-- Update endpoint protection and intrusion detection systems to recognize and block similar obfuscation patterns in PowerShell scripts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement additional monitoring for unusual PowerShell activity and environment variable manipulations to enhance detection of similar threats in the future.
+- If the activity is suspected or confirmed malicious:
+  - Contain the affected host to prevent additional execution and reduce lateral movement risk.
+  - Preserve evidence by collecting the complete script content using `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total`, and retain the original `powershell.file.script_block_text` for analysis.
+  - Extract and track indicators from the script content (for example, URLs, domains, IP addresses, file names, or unique strings) and scope for additional occurrences across the environment using `host.id`, `host.name`, `user.id`, and `file.path` when present.
+  - Identify and remediate the initial execution source (parent process or launching mechanism) and remove or quarantine any associated script files referenced by `file.path`.
+  - If account compromise is suspected, reset affected credentials and review for additional suspicious PowerShell activity associated with the same `user.id`.
+
+- If the activity is determined to be benign:
+  - Document the business justification, owning team, expected hosts, and expected script location (`file.path` when present).
+  - Monitor for deviations in execution context (new hosts, new users, or materially different script content) and consider targeted tuning based on stable attributes such as `file.path` and known `user.id` values.
 """
 risk_score = 47
 rule_id = "b0c98cfb-0745-4513-b6f9-08dddb033490"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "medium"
 tags = [
@@ -114,6 +138,7 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
     _version,
     _index,
     host.name,
+    host.id,
     agent.id,
     user.id
 
@@ -157,3 +182,21 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]

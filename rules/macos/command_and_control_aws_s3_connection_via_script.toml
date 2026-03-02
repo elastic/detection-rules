@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a script interpreter (osascript, Node.js, Python) with minimal arguments makes an outbound 
+connection to AWS S3 or CloudFront domains. Threat actors have used S3 buckets for both command and control 
+and data exfiltration. Script interpreters connecting to cloud storage should be investigated for potential 
+malicious activity.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious AWS S3 Connection via Script Interpreter"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious AWS S3 Connection via Script Interpreter
+
+This rule flags macOS script interpreters (AppleScript, Node.js, Python) that repeatedly initiate outbound connections to AWS S3 or CloudFront with little or no command context, a common sign of scripted automation rather than normal app traffic. Attackers often use a short Python or Node one-liner to fetch a second-stage payload from an S3 bucket and then poll the same bucket or a CloudFront-backed URL for commands or to upload stolen data.
+
+### Possible investigation steps
+
+- Pivot from the flagged executable to full process ancestry and command-line/script file to determine what code initiated the S3/CloudFront traffic and whether it was launched interactively, by a LaunchAgent/Daemon, or by another app.  
+- Identify the specific bucket/distribution and object paths involved using available URL/SNI/HTTP telemetry, then validate ownership and reputation by correlating with cloud account inventory, known-good tooling, and threat intel.  
+- Review concurrent endpoint activity from the same process and user such as file downloads to writable/temp locations, new executable creation, permission changes, or immediate execution of newly written payloads.  
+- Hunt for follow-on behaviors consistent with C2 or exfiltration including repeated polling intervals, unusually large outbound byte counts, multipart upload patterns, and matching connections from other hosts using the same domain.  
+- If suspicious, capture and preserve the script contents and related artifacts (Python/Node packages, AppleScript files, launch plist, cron entries) and isolate the host while blocking the destination domain at egress.
+
+### False positive analysis
+
+- A developer or build/CI workflow runs Python/Node scripts on macOS to fetch artifacts or dependencies from an organization-owned S3 bucket or CloudFront distribution, producing repeated connections during installs, tests, or packaging.  
+- A legitimate AppleScript/Python/Node automation (e.g., user logon script, LaunchAgent task, or scheduled job) periodically uploads logs/backups or syncs configuration to S3/CloudFront, resulting in bursty, minimal-argument interpreter network starts that exceed the connection threshold.
+
+### Response and remediation
+
+- Isolate the affected macOS host from the network and immediately block the observed S3/CloudFront domain(s) and resolved IPs at egress while allowing access needed for forensics and management.
+- Acquire and preserve the initiating script and execution context by collecting the interpreter’s on-disk script/one-liner source, parent process details, relevant LaunchAgents/LaunchDaemons plist files, and any newly written binaries or archives associated with the same time window.
+- Eradicate persistence and tooling by removing or disabling the malicious launch plist/cron entries, deleting the identified script and any downloaded payloads, and revoking/quarantining any Python/Node packages or AppleScript components tied to the outbound S3 activity.
+- Reset and revoke credentials exposed on the host by rotating the user’s passwords/tokens, removing any AWS keys found in environment variables/config files (e.g., CLI config, application secrets), and invalidating active sessions associated with the user or host.
+- Recover by reimaging or restoring the endpoint from a known-good baseline if payload execution or system modification is confirmed, then reintroduce it to the network only after validating no recurring connections to the same S3/CloudFront endpoints.
+- Escalate to incident response and cloud security if multiple hosts show the same destination domain or bucket, the script performs uploads or handles sensitive files, or you identify AWS credentials, data staging, or active command polling indicative of C2 or exfiltration.
+"""
+risk_score = 47
+rule_id = "05f2b649-dc03-4e9a-8c4e-6762469e8249"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+type = "esql"
+query = '''
+FROM logs-endpoint.events.network-*
+| WHERE host.os.type == "macos" 
+    AND event.type == "start"
+    AND (process.name == "osascript" 
+         OR process.name == "node" 
+         OR process.name LIKE "python*")
+    AND (destination.domain LIKE "s3.*.amazonaws.com" 
+         OR destination.domain LIKE "*.s3*.amazonaws.com" 
+         OR destination.domain LIKE "*.cloudfront.net")
+| STATS Esql.connection_count = COUNT(*) 
+  BY process.executable, user.name, host.name, destination.domain
+| WHERE Esql.connection_count >= 5
+| KEEP Esql.*, process.executable, user.name, host.name, destination.domain
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Exfiltration"
+  id = "TA0010"
+  reference = "https://attack.mitre.org/tactics/TA0010/"
+
+  [[rule.threat.technique]]
+  name = "Exfiltration Over Web Service"
+  id = "T1567"
+  reference = "https://attack.mitre.org/techniques/T1567/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Exfiltration to Cloud Storage"
+    id = "T1567.002"
+    reference = "https://attack.mitre.org/techniques/T1567/002/"

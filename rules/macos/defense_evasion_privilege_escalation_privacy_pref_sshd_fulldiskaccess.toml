@@ -2,7 +2,7 @@
 creation_date = "2020/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/18"
+updated_date = "2026/02/02"
 
 [rule]
 author = ["Elastic"]
@@ -63,8 +63,8 @@ query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and
  process.name == "scp" and
  process.args like~ "StrictHostKeyChecking=no" and
- process.command_line : ("scp *localhost:/*", "scp *127.0.0.1:/*") and
- not process.args : "vagrant@*127.0.0.1*"
+ process.command_line like~ ("*scp *localhost:/*", "*scp *127.0.0.?:/*") and
+ not process.command_line like~ "*vagrant@*127.0.0.1*"
 '''
 note = """## Triage and analysis
 
