@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2026/03/03"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2026/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects DNS queries to commonly abused remote monitoring and management (RMM) or remote access software domains from processes that are not browsers. Intended to surface RMM clients, scripts, or other non-browser activity contacting these services.
+"""
+from = "now-8d"
+index = [
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time Seen DNS Query to RMM Domain"
+note = """## Triage and analysis
+
+### Investigating DNS to RMM Domain from Non-Browser
+
+This rule flags DNS queries to commonly abused RMM or remote access domains when the requesting process is not a browser. Legitimate RMM and remote desktop software is frequently abused for C2, persistence, and lateral movement.
+
+### Possible investigation steps
+
+- Identify the process (process.name, process.executable) that performed the DNS query and verify if it is an approved RMM or remote access tool.
+- Review the full process tree and parent process to understand how the binary was launched.
+- Check process.code_signature for trusted RMM publishers; unsigned or unexpected signers may indicate abuse or trojanized installers.
+- Correlate with the companion rule "First Time Seen Commonly Abused RMM Execution" for the same host to see if the RMM process was first-time seen.
+- Investigate other alerts for the same host or user in the past 48 hours.
+
+### False positive analysis
+
+- Approved RMM or remote support tools used by IT will trigger this rule; consider allowlisting by process path or code signer for known managed tools.
+- Some updaters or installers (e.g. signed by the RMM vendor) may resolve these domains; combine with process name or parent context to reduce noise.
+
+### Response and remediation
+
+- If unauthorized RMM use is confirmed: isolate the host, remove the RMM software, rotate credentials, and block the domains at DNS/firewall where policy permits.
+- Enforce policy that only approved RMM tools from approved publishers may be used, and only by authorized staff.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/002/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+]
+risk_score = 47
+rule_id = "e5f6a7b8-c9d0-8e1f-2a3b-4c5d6e7f8a9b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type: "windows" and
+event.category: "network" and
+dns.question.name: (*teamviewer.com OR *logmein* OR net.anydesk.com OR *screenconnect.com OR *connectwise.com OR *splashtop.com OR api.splashtop.com OR relay.splashtop.com OR assist.zoho.com OR zohoassist.com OR downloads.zohocdn.com OR join.zoho.com OR dwservice.net OR express.gotoassist.com OR getgo.com OR *rustdesk.com OR rs-* OR remoteutilities.com OR app.atera.com OR agentreporting.atera.com OR pubsub.atera.com OR ammyy.com OR n-able.com OR cdn.kaseya.net OR relay.kaseya.net OR license.bomgar.com OR beyondtrustcloud.com OR api.parsec.app OR parsecusercontent.com OR tailscale.com OR twingate.com OR agent.jumpcloud.com OR kickstart.jumpcloud.com OR services.vnc.com OR static.remotepc.com OR netsupportsoftware.com OR getscreen.me OR client.teamviewer.com OR integratedchat.teamviewer.com OR relay.screenconnect.com OR control.connectwise.com OR authentication.logmeininc.com OR secure.logmeinrescue.com OR logmeincdn.http.internapcdn.net OR remoteassistance.support.services.microsoft.com OR remotedesktop-pa.googleapis.com OR comserver.corporate.beanywhere.com OR swi-rc.com OR swi-tc.com OR telemetry.servers.qetqo.com OR tmate.io OR api.playanext.com) and
+dns.question.name != null and process.name != null and
+not process.name: (chrome.exe OR msedge.exe OR MicrosoftEdge.exe OR MicrosoftEdgeCP.exe OR firefox.exe OR iexplore.exe OR safari.exe OR brave.exe OR opera.exe OR vivaldi.exe OR msedgewebview2.exe) and
+not (process.code_signature.subject_name: ("Google LLC" or "Google Inc." or "Mozilla Corporation" or "Mozilla Foundation" or "Microsoft Corporation" or "Apple Inc." or "Brave Software, Inc." or "Opera Software AS" or "Vivaldi Technologies AS") and process.code_signature.trusted: true)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
