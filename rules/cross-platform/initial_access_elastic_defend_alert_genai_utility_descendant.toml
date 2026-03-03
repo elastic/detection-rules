@@ -62,20 +62,8 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-endpoint.* metadata _id, _version, _index
-| WHERE process.Ext.ancestry IS NOT NULL and 
-   (event.dataset == "endpoint.alerts" or to_lower(process.parent.name) IN (
-        "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
-        "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
-        "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
-        "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
-        "zed", "zed.exe", "windsurf", "windsurf.exe",
-        "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
-        "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
-    ))
-// Identify GenAI tool spawn events and capture their entity_ids
-| EVAL 
-    is_genai_spawn = to_lower(process.parent.name) IN (
+FROM logs-endpoint.* metadata _id, _version, _index 
+| EVAL is_genai_spawn =  TO_LOWER(process.parent.name) IN (
         "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
         "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
         "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
@@ -84,8 +72,11 @@ FROM logs-endpoint.* metadata _id, _version, _index
         "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
         "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
     ),
-    is_openclaw = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*"),
-    genai_entity_id = CASE(is_genai_spawn or is_openclaw, process.parent.entity_id, NULL)
+     is_openclaw_spawn = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*")
+| WHERE process.Ext.ancestry IS NOT NULL and 
+   (event.dataset == "endpoint.alerts" or is_genai_spawn or is_openclaw_spawn)
+// Identify GenAI tool spawn events and capture their entity_ids
+| EVAL genai_entity_id = CASE(is_genai_spawn or is_openclaw_spawn, process.parent.entity_id, NULL)
 
 // Collect ALL GenAI entity_ids globally across the dataset
 | INLINE STATS 
@@ -95,7 +86,7 @@ FROM logs-endpoint.* metadata _id, _version, _index
 
 // Elastic Defend alerts from a GenAI grandparent 
 | WHERE Esql.genai_ancestor_ids IS NOT NULL 
-        AND event.dataset == "endpoint.alerts" AND not rule.name in ("Persistence via GenAI Tool", "Code Editor Untrusted or Unsigned Child Process Execution")
+        AND event.dataset == "endpoint.alerts" AND not rule.name in ("Persistence via GenAI Tool", "Code Editor Untrusted or Unsigned Child Process Execution", "Suspicious Credential Access via GenAI Tool", "Credential Access via GenAI Tool Descendant")
 
 | KEEP *
 '''
