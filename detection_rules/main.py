@@ -300,7 +300,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 exception_id = exception["list_id"]
                 if exception_id not in exception_list_rule_table:
                     exception_list_rule_table[exception_id] = []
-                exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
+                exception_list_rule_table[exception_id].append(
+                    {
+                        "id": contents.get("rule_id") or contents.get("id"),
+                        "name": contents["name"],
+                    }
+                )
 
         if contents.get("actions"):
             # If rule has actions with connectors, add them to the action_connector_rule_table under the action_id
@@ -308,7 +313,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 action_id = action["id"]
                 if action_id not in action_connector_rule_table:
                     action_connector_rule_table[action_id] = []
-                action_connector_rule_table[action_id].append({"id": contents["id"], "name": contents["name"]})
+                action_connector_rule_table[action_id].append(
+                    {
+                        "id": contents.get("rule_id") or contents.get("id"),
+                        "name": contents["name"],
+                    }
+                )
 
     # Build TOMLException Objects
     if exceptions_import:
