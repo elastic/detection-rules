@@ -479,6 +479,31 @@ class Package:
 
             asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
+        deprecated_lock = loaded_version_lock.deprecated_lock
+        version_lock = loaded_version_lock.version_lock
+
+        for rule_id, dep_entry in deprecated_lock.data.items():
+            lock_entry = version_lock.data.get(rule_id)
+            if lock_entry is None:
+                continue
+
+            deprecated_version = lock_entry.version + 1
+            asset_id = f"{rule_id}_{deprecated_version}"
+
+            asset = {
+                "id": asset_id,
+                "type": definitions.SAVED_OBJECT_TYPE,
+                "attributes": {
+                    "rule_id": rule_id,
+                    "version": deprecated_version,
+                    "name": dep_entry.rule_name,
+                    "deprecated": True,
+                },
+            }
+
+            asset_path = rules_dir / f"{asset_id}.json"
+            asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
+
         notice_contents = NOTICE_FILE.read_text()
         readme_text = textwrap.dedent("""
         # Prebuilt Security Detection Rules
