@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/03/04"
 
 [rule]
 author = ["Elastic"]
@@ -108,14 +108,19 @@ sequence by host.id, process.parent.entity_id with maxspan=3s
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*"
   ) and
   not (
-    ?process.parent.command_line in ("bash ./run_tests.sh unit-integration", "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure") or
+    ?process.parent.command_line in (
+      "bash ./run_tests.sh unit-integration",
+      "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure",
+      "bash -c base64 -d <<< Zm9yIHN2YyBpbiBxZW11LWt2bSBvdnMtdnN3aXRjaGQgbGlidmlydGQgdmlydGxvY2tkIHBhY2VtYWtlciBwY3NkOyBkbyBzeXN0ZW1jdGwgaXMtYWN0aXZlICRzdmM7IGRvbmU= | bash -l"
+    ) or
     process.command_line == "/usr/bin/perl /usr/bin/shasum -a 256" or
     ?process.working_directory like (
       "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
       "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
     ) or
     (?process.parent.name == "zsh" and ?process.parent.command_line like "*extendedglob*") or
-    (process.name like "python*" and ?process.parent.name == "python*")
+    (process.name like "python*" and ?process.parent.name == "python*") or
+    process.args like "/tmp/apt-key-gpghome*"
   )]
 '''
 [[rule.threat]]
