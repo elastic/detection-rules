@@ -2,7 +2,7 @@
 creation_date = "2022/09/13"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/02/02"
+updated_date = "2026/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,7 @@ query = '''
 event.dataset:"kubernetes.audit_logs" and
 kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
 kubernetes.audit.user.username:("system:anonymous" or "system:unauthenticated" or not *) and
-kubernetes.audit.userAgent:(* and not (*kubernetes/$Format)) and
+user_agent.original:(* and not (*kubernetes/$Format)) and
 not kubernetes.audit.requestURI:(/healthz* or /livez* or /readyz* or /version or /.well-known/oauth-authorization-server)
 '''
 
@@ -105,7 +105,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.userAgent"]
+value = ["user_agent.original"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
