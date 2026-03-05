@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/03/03"
+integration = ["azure"]
+maturity = "development"
+updated_date = "2026/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a custom domain is added or verified in an Entra ID tenant. Adding and verifying a custom domain are
+precursor steps to configuring domain federation, which can be abused by adversaries to route authentication through an
+attacker-controlled identity provider (Golden SAML). In most organizations, custom domains are added infrequently and
+these events should be investigated to ensure they are part of a legitimate administrative workflow.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Custom Domain Added or Verified"
+note = """## Triage and analysis
+
+### Investigating Entra ID Custom Domain Added or Verified
+
+This rule detects when a custom domain is added or verified in an Entra ID tenant. These are precursor steps required before an adversary can configure domain federation. While adding and verifying domains are legitimate administrative activities, they are infrequent in most organizations. When observed without a corresponding change request or IT workflow, they may indicate the early stages of a Golden SAML or BYOIDP (Bring Your Own Identity Provider) attack.
+
+While adding and verifying domains are legitimate administrative activities, they are infrequent in most organizations. When observed without a corresponding change request or IT workflow, they may indicate the early stages of a Golden SAML or BYOIDP (Bring Your Own Identity Provider) attack.
+
+### Possible investigation steps
+
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `ipAddress` to identify who performed the action and from where.
+- For `"Add unverified domain"` events, check `azure.auditlogs.properties.target_resources.0.display_name` for the domain name that was added.
+- Determine whether the domain is known to the organization or is potentially adversary-controlled.
+- Check if a corresponding `"Verify domain"` event follows shortly after and from the same actor.
+- Look for subsequent `"Set domain authentication"` or `"Set federation settings on domain"` events that would indicate the domain was federated — this escalates the severity significantly.
+- Verify with the Global Administrator or IT team whether a domain addition was planned.
+- Check DNS records for the domain to understand who owns it and when the verification TXT record was added.
+- Review the `user_agent.original` field for the actor to determine if the change was made via the Azure Portal, Microsoft Graph API, or PowerShell, which may provide additional context on whether this was a manual or scripted action.
+
+### False positive analysis
+
+- Legitimate domain additions during initial tenant setup, organizational expansion, or mergers and acquisitions.
+- IT administrators adding domains for new email routing, SharePoint vanity URLs, or multi-domain configurations.
+- Automated provisioning systems that manage domain lifecycle.
+- Validate with the identity or IT team before dismissing these events.
+
+### Response and remediation
+
+- If the domain addition is unauthorized, immediately remove the unverified or verified domain: `Remove-MgDomain -DomainId "<domain>"`.
+- Investigate how the actor obtained privileges to add domains (requires Global Administrator or Domain Administrator role).
+- Review the tenant for any other unauthorized changes made by the same actor using the `azure.correlation_id` or actor identity.
+- If the domain was already federated, escalate to the response steps in the companion rule `Entra ID Domain Federation Configuration Change`.
+- Restrict domain management operations by implementing PIM (Privileged Identity Management) for Global Administrator roles.
+"""
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/unc2452-merged-into-apt29",
+    "https://learn.microsoft.com/en-us/graph/api/domain-post-domains",
+    "https://learn.microsoft.com/en-us/graph/api/domain-verify",
+    "https://medium.com/tenable-techblog/roles-allowing-to-abuse-entra-id-federation-for-persistence-and-privilege-escalation-df9ca6e58360",
+    "https://securitylabs.datadoghq.com/articles/i-spy-escalating-to-entra-id-global-admin/",
+]
+risk_score = 21
+rule_id = "7dc921db-4cd3-48ef-88bf-2bfa91f29f5c"
+setup = """### Microsoft Entra ID Audit Logs
+This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Discovery",
+    "Tactic: Resource Development",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: azure.auditlogs
+    and azure.auditlogs.properties.category: DirectoryManagement
+    and event.action: ("Add unverified domain" or "Verify domain")
+    and event.outcome: success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1584"
+name = "Compromise Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1584/"
+[[rule.threat.technique.subtechnique]]
+id = "T1584.001"
+name = "Domains"
+reference = "https://attack.mitre.org/techniques/T1584/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
