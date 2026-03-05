@@ -193,26 +193,26 @@ process.args in ("-c", "-cl", "-lc") and (
 not (
   (process.parent.name == "nginx" and process.args like ("chmod 777 /etc/resty-*", "resty*")) or
   (process.parent.name == "apache2" and (
-    process.command_line in (
-      "sh -c /usr/local/bin/php -r 'echo phpversion();'",
-      "sh -c -- /usr/local/bin/php -r 'echo phpversion();'",
-      "sh -c /usr/bin/php -r 'echo phpversion();'"
+    process.args in (
+      "/usr/local/bin/php -r 'echo phpversion();'",
+      "/usr/local/bin/php -r 'echo phpversion();'",
+      "/usr/bin/php -r 'echo phpversion();'"
     ) or
     process.args like """bash -c "( /home/*/apps/richdocumentscode/collabora/Collabora_Online.AppImage*"""
     )
   ) or
-  (process.parent.name like "php-fpm*" and process.command_line in (
-    "sh -c /usr/bin/php -r 'echo phpversion();'",
-    "sh -c -- /usr/bin/php -r 'echo phpversion();'",
-    "sh -c php -r 'print_r(phpversion());'",
-    "sh -c chattr -i -a /usr/local/virtualizor/license2.php"
+  (process.parent.name like "php-fpm*" and process.args in (
+    "/usr/bin/php -r 'echo phpversion();'",
+    "/usr/bin/php -r 'echo phpversion();'",
+    "php -r 'print_r(phpversion());'",
+    "chattr -i -a /usr/local/virtualizor/license2.php"
     )
   ) or
-  (process.parent.name == "php-cgi" and process.command_line like (
-    "sh -c nohup php /home/*/public_html/lockindex.php index.php >/dev/null 2>&1 &",
-    "sh -c nohup php /home/*/public_html/wp-content/* >> /dev/null 2>&1 &",
-    "sh -c nohup php /home/*/public_html/wp-includes/* >> /dev/null 2>&1 &",
-    "sh -c nohup php /home/*/public_html/*/wp-content/* >> /dev/null 2>&1 &"
+  (process.parent.name == "php-cgi" and process.args like (
+    "nohup php /home/*/public_html/lockindex.php index.php >/dev/null 2>&1 &",
+    "nohup php /home/*/public_html/wp-content/* >> /dev/null 2>&1 &",
+    "nohup php /home/*/public_html/wp-includes/* >> /dev/null 2>&1 &",
+    "nohup php /home/*/public_html/*/wp-content/* >> /dev/null 2>&1 &"
     )
   )
 )
