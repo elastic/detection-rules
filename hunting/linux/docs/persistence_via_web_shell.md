@@ -30,7 +30,7 @@ file.extension in ("php", "py", "pl", "rb", "rs", "lua", "jsp") and not (
 ```
 
 ```sql
-from logs-endpoint.events.network-*
+from logs-endpoint.*
 | keep @timestamp, host.os.type, event.type, event.action, process.name, source.ip, agent.id, process.executable, process.command_line
 | where @timestamp > now() - 30 days
 | where host.os.type == "linux" and event.type == "end" and event.action == "disconnect_received" and
