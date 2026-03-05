@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/03/05"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of a base64 decoded payload to an interpreter inside a container. Attackers
+may use this technique to execute malicious code, while attempting to evade detection.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Decoded Payload Piped to Interpreter Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "0fb83aa0-3d17-41e9-b09c-56397bf7a7d9"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.parent.entity_id, container.id with maxspan=3s
+  [process where event.type == "start" and event.action == "exec" and container.id like "?*" and (
+    (
+      (
+        process.name in ("base64", "basez", "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16") or
+        (
+          process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+          process.args in ("base64", "basez", "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16")
+        )
+      ) and
+      process.args like~ "*-*d*"
+    ) or
+    (
+      process.name == "openssl" and
+      process.args == "enc" and process.args in ("-d", "-base64", "-a", "-A")
+    ) or
+    (
+      process.name like "python*" and (
+        (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
+        (process.args == "-c" and process.args like "*base64*" and process.args like~ "*b64decode*")
+      )
+    ) or
+    (
+      process.name like "perl*" and
+      process.args like~ "*decode_base64*"
+    ) or
+    (
+      process.name like "ruby*" and
+      process.args == "-e" and
+      process.args like~ "*Base64.decode64*"
+    )
+  )]
+  [process where event.type == "start" and event.action == "exec" and process.name like (
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+    "python*", "perl*", "ruby*", "lua*", "php*"
+  ) and
+  process.args like (
+    "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish", "-busybox",
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+    "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh",
+    "/bin/zsh", "/bin/ksh", "/bin/fish", "/bin/busybox",
+    "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh",
+    "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish",
+    "/usr/bin/busybox",
+    "*python*", "*perl*", "*ruby*", "*lua*", "*php*", "/dev/fd/*"
+  ) and
+  not (
+    process.working_directory like (
+      "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
+      "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
+    ) or
+    process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Obfuscated Files or Information"
+    id = "T1027"
+    reference = "https://attack.mitre.org/techniques/T1027/"
+
+    [[rule.threat.technique]]
+    name = "Deobfuscate/Decode Files or Information"
+    id = "T1140"
+    reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique]]
+    name = "User Execution"
+    id = "T1204"
+    reference = "https://attack.mitre.org/techniques/T1204/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Malicious File"
+      id = "T1204.002"
+      reference = "https://attack.mitre.org/techniques/T1204/002/"

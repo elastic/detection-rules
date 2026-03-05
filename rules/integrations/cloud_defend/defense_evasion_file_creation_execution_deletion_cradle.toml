@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/03/05"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation, execution, and deletion of files inside a container, a common
+technique used by attackers to evade detection.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*", "logs-cloud_defend.file*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "File Creation, Execution, and Deletion Cradle Detected via Defend for Containers"
+note = """"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "1dc56174-5d02-4ca4-af92-e391f096fb21"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by container.id, user.id with maxspan=10s
+  [file where event.action == "creation" and (
+     process.name in ("curl", "wget", "fetch", "ftp", "sftp", "scp", "rsync", "ld") or
+     (
+       process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+       process.args in (
+         "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
+         "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget",
+         "fetch", "/bin/fetch", "/usr/bin/fetch", "/usr/local/bin/fetch",
+         "ftp", "/bin/ftp", "/usr/bin/ftp", "/usr/local/bin/ftp",
+         "sftp", "/bin/sftp", "/usr/bin/sftp", "/usr/local/bin/sftp",
+         "scp", "/bin/scp", "/usr/bin/scp", "/usr/local/bin/scp",
+         "rsync", "/bin/rsync", "/usr/bin/rsync", "/usr/local/bin/rsync",
+         "ld", "/bin/ld", "/usr/bin/ld", "/usr/local/bin/ld"
+       ) and
+       /* default exclusion list to not FP on default multi-process commands */
+       not process.args in (
+         "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+         "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+         "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+         "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+       )
+     )
+   ) and file.path like (
+     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*",
+     "/proc/*/fd/*", "/home/*/*", "/root/*", "/opt/*"
+   )
+  ] by file.name
+  [process where event.type == "start" and event.action == "exec" and
+   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox")
+  ] by process.name
+  [file where event.action == "deletion" and file.path like (
+     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*",
+     "/proc/*/fd/*", "/home/*/*", "/root/*", "/opt/*"
+    ) and not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch", "ld")
+  ] by file.name
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
