@@ -1261,7 +1261,7 @@ class BaseRuleContents(ABC):
         return obj
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
-        """Check if this is an ES|QL rule that uses `| keep *`."""
+        """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
         if hashable_dict.get("language") != "esql":
             return False
 
@@ -1273,7 +1273,7 @@ class BaseRuleContents(ABC):
         keep_match: re.Match[str] | None = keep_pattern.search(query)
         if keep_match:
             keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
-            return "*" in keep_fields
+            return any(field == "*" or field.endswith("*") for field in keep_fields)
         return False
 
     @abstractmethod
