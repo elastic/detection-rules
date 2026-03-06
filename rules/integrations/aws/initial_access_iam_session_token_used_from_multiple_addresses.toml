@@ -2,7 +2,9 @@
 creation_date = "2025/04/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/04"
+min_stack_version = "9.2.0"
+min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
+updated_date = "2026/02/25"
 
 [rule]
 author = ["Elastic"]
@@ -22,20 +24,20 @@ false_positives = [
     """
     Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to
     appear from multiple IPs. Review the geolocation, network context, and user agent patterns to rule out benign use.
+    This rule automatically excludes console login sessions, reducing false positives from legitimate console-based access across VPN or network changes.
     """,
 ]
 from = "now-32m"
-interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Access Token Used from Multiple Addresses"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating AWS Access Token Used from Multiple Addresses
 
 Access tokens are bound to a single user. Usage from multiple IP addresses may indicate the token was stolen and used elsewhere. By correlating this with additional detection criteria like multiple user agents, different cities, and different networks, we can improve the fidelity of the rule and help to eliminate false positives associated with expected behavior, like dual-stack IPV4/IPV6 usage.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - **Identify the IAM User**: Examine the `aws.cloudtrail.user_identity.arn` stored in `user_id` and correlate with the `source.ips` stored in `ip_list` and `unique_ips` count to determine how widely the token was used.
 - **Correlate Additional Detection Context**: Examine `activity_type` and `fidelity_score` to determine additional cities, networks or user agents associated with the token usage.
@@ -81,12 +83,12 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail* metadata _id, _version, _index
-| where @timestamp > now() - 30 minutes
-  and event.dataset == "aws.cloudtrail"
+| where event.dataset == "aws.cloudtrail"
   and aws.cloudtrail.user_identity.arn is not null
   and aws.cloudtrail.user_identity.type == "IAMUser"
   and source.ip is not null
   and aws.cloudtrail.user_identity.access_key_id is not null
+  and not aws.cloudtrail.session_credential_from_console == "true"
   and not (
     user_agent.original like "*Terraform*" or
     user_agent.original like "*Ansible*" or
@@ -120,6 +122,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
 
 | stats
   Esql.event_action_values = values(event.action),
+  Esql.event_provider_count_distinct = count_distinct(event.provider),
   Esql.event_provider_values = values(event.provider),
   Esql.aws_cloudtrail_user_identity_access_key_id_values = values(Esql.aws_cloudtrail_user_identity_access_key_id),
   Esql.aws_cloudtrail_user_identity_arn_values = values(Esql.aws_cloudtrail_user_identity_arn),
@@ -166,6 +169,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.timestamp_last_seen,
   Esql.aws_cloudtrail_user_identity_arn_values,
   Esql.aws_cloudtrail_user_identity_access_key_id_values,
+  Esql.event_provider_count_distinct,
   Esql.event_action_values,
   Esql.event_provider_values,
   Esql.source_ip_values,
@@ -181,11 +185,11 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   Esql.source_network_org_name_count_distinct,
   Esql.data_stream_namespace_values
 
-| where Esql.activity_fidelity_score == "high"
+| where Esql.activity_fidelity_score == "high" and Esql.event_provider_count_distinct > 1
 
 // this rule only alerts for "high" fidelity cases, to broaden the rule scope to include all activity
 // change the final condition to 
-// | where Esql.activity_type != "normal_activity"
+// | where Esql.activity_type != "normal_activity" and Esql.event_provider_count_distinct > 1
 
 '''
 
