@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["okta"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Correlates the first occurrence of an Okta user session started via a proxy with subsequent Okta security alerts for the
+same user. Attackers frequently use proxy infrastructure (VPNs, Tor, residential proxies) to mask their origin when
+using stolen credentials, and their post-authentication activity often triggers additional detection rules.
+"""
+false_positives = [
+    """
+    Legitimate users who routinely use VPN or proxy services for privacy may trigger this if they also trigger unrelated
+    security alerts.
+    """,
+    "Security testing or red team exercises using proxy infrastructure.",
+]
+from = "now-60m"
+index = [".alerts-security.*"]
+interval = "30m"
+language = "eql"
+license = "Elastic License v2"
+name = "Okta Alerts Following Unusual Proxy Authentication"
+note = """## Triage and analysis
+
+### Investigating Okta Alerts Following Unusual Proxy Authentication
+
+This rule correlates the first occurrences of authentication behind a proxy followed by an alert with subsequent Okta security alerts for the same user. Attackers frequently use proxy infrastructure (VPNs, Tor, residential proxies) to mask their origin when using stolen credentials, and their post-authentication activity often triggers additional detection rules.
+
+By correlating the proxy alert with other Okta alerts using an EQL sequence, this rule identifies users whose proxy-based authentication was followed by suspicious activity within a 1-hour window.
+
+#### Possible investigation steps
+- Identify the affected user and review the correlated security alerts to understand what suspicious activity was detected after the proxy authentication.
+- Examine the proxy source IP addresses and cross-reference with threat intelligence feeds for known malicious infrastructure.
+- Review the time gap between the proxy authentication and subsequent alert generation.
+- Review the user's recent Okta activity for signs of account takeover (MFA changes, new devices, unusual app access).
+- Verify with the user whether they intentionally used a proxy or VPN during this session.
+
+### False positive analysis
+- Users who legitimately use VPN services for privacy or remote work may trigger this rule if they also trigger unrelated alerts.
+- Security testing or red team exercises using proxy infrastructure combined with testing that triggers alerts.
+- Corporate VPN egress points that Okta classifies as proxy infrastructure.
+
+### Response and remediation
+- If account compromise is suspected, immediately revoke all active sessions for the user.
+- Reset the user's password and MFA factors.
+- Review and revoke any OAuth tokens or API keys associated with the account.
+- Block the source proxy IP at the network perimeter if confirmed malicious.
+- Review the user's access to sensitive applications and data during the suspicious session.
+"""
+references = [
+    "https://developer.okta.com/docs/reference/api/system-log/",
+    "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
+    "https://cloud.google.com/blog/topics/threat-intelligence/expansion-shinyhunters-saas-data-theft",
+]
+risk_score = 73
+rule_id = "af2d8e4c-3b7c-4e91-8f5a-6c9d0e1f2a3b"
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Domain: Cloud",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Data Source: Okta",
+    "Data Source: Okta System Logs",
+    "Tactic: Initial Access",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by user.name with maxspan=30m
+    [any where event.dataset == "okta.system" and
+        kibana.alert.rule.rule_id == "6f1bb4b2-7dc8-11ee-92b2-f661ea17fbcd"]
+    [any where event.dataset == "okta.system" and
+        kibana.alert.rule.rule_id != null and
+        kibana.alert.severity != "low" and
+        kibana.alert.rule.rule_id not in  (
+            "6f1bb4b2-7dc8-11ee-92b2-f661ea17fbcd",
+            "af2d8e4c-3b7c-4e91-8f5a-6c9d0e1f2a3b"
+        )
+    ]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
