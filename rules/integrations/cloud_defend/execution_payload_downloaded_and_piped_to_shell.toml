@@ -69,7 +69,11 @@ type = "eql"
 query = '''
 sequence by process.parent.entity_id, container.id with maxspan=1s
   [process where event.type == "start" and event.action == "exec" and process.name in ("curl", "wget")]
-  [process where event.type == "end" and event.action == "end" and
+  [process where event.action in ("exec", "end") and
+  /*
+    If the flow is executed from a parent script, the event action will be "exec".
+    If the flow is executed manually, the event action will be "end".
+  */
    process.name like (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
      "python*", "perl*", "ruby*", "lua*", "php*"
