@@ -1,0 +1,174 @@
+[metadata]
+creation_date = "2026/03/05"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of a base64 decoded payload to an interpreter inside a container. Attackers
+may use this technique to execute malicious code, while attempting to evade detection.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Decoded Payload Piped to Interpreter Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Decoded Payload Piped to Interpreter Detected via Defend for Containers
+
+This detection flags a container process that decodes an obfuscated payload (commonly base64 or similar) and immediately feeds the output into an interpreter, a high-signal pattern for fileless execution and defense evasion. Attackers use it to deliver short-lived scripts without writing them to disk, reducing forensic artifacts and bypassing simple content controls. A common pattern is echoing an encoded blob, decoding it, and piping it into `sh`/`bash` or `python` to run a downloader or backdoor inline.
+
+### Possible investigation steps
+
+- Correlate the paired exec events to reconstruct the full pipeline and determine whether it originated from an interactive exec session, the container entrypoint, or an orchestrated task.  
+- Extract the encoded blob from the command invocation or captured stdin, decode it in an isolated environment, and assess the decoded script for downloader/backdoor logic, persistence attempts, or secret access.  
+- Pivot from the interpreter execution to spawned children and concurrent outbound connections to identify second-stage payload retrieval, command-and-control, or lateral movement activity.  
+- Validate workload legitimacy by reviewing the container’s image tag/digest and the owning pod/deployment, namespace, and service account, and compare against recent changes or redeploys for compromise indicators.  
+- Look for post-execution artifacts in writable layers and mounted volumes (new scripts/binaries, modified init files, scheduled tasks), and if suspicious preserve evidence and rotate potentially exposed credentials.
+
+### False positive analysis
+
+- Containerized init/entrypoint or CI job logic decodes embedded base64 configuration or a small helper script at runtime (e.g., `base64 -d | sh` or `python -c ...b64decode...`) to avoid shipping plaintext in the image and to support templating across environments.  
+- An operator troubleshooting a container uses an interactive exec session to paste an encoded one-liner that decodes and pipes into a shell or interpreter to quickly run diagnostics or apply a transient fix without creating files in the container filesystem.
+
+### Response and remediation
+
+- Immediately isolate or stop the affected container/pod and block further `kubectl exec`/interactive sessions into the workload while preserving the full command line, container image digest, and recent stdout/stderr logs for evidence.  
+- Decode the observed base64/openssl/python/perl/ruby payload in a sandbox to identify its actions, then terminate any spawned interpreter children and remove any dropped binaries/scripts from writable layers and mounted volumes.  
+- If the decoded script performs outbound retrieval or C2, quarantine the node or restrict egress for the namespace and rotate any secrets, tokens, or cloud credentials accessible to the container’s service account.  
+- Rebuild and redeploy the workload from a known-good image (pin by digest), revoke the compromised image/tag from the registry, and validate the deployment manifests for unauthorized entrypoint/command changes.  
+- Escalate to incident response if the payload includes credential access, lateral movement tooling, or creates persistence on the node (e.g., cron/systemd changes, modified kubelet paths), or if multiple containers show similar decode-to-interpreter pipelines.  
+- Harden by enforcing admission controls to deny privileged containers and runtime `exec`, require read-only root filesystems and least-privilege service accounts, and add detections/blocks for decode-to-interpreter patterns and unexpected interpreters in production images.
+"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "0fb83aa0-3d17-41e9-b09c-56397bf7a7d9"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.parent.entity_id, container.id with maxspan=3s
+  [process where event.type == "start" and event.action == "exec" and container.id like "?*" and (
+    (
+      (
+        process.name in ("base64", "basez", "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16") or
+        (
+          process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+          process.args in ("base64", "basez", "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16")
+        )
+      ) and
+      process.args like~ "*-*d*"
+    ) or
+    (
+      process.name == "openssl" and
+      process.args == "enc" and process.args in ("-d", "-base64", "-a", "-A")
+    ) or
+    (
+      process.name like "python*" and (
+        (process.args == "base64" and process.args in ("-d", "-u", "-t")) or
+        (process.args == "-c" and process.args like "*base64*" and process.args like~ "*b64decode*")
+      )
+    ) or
+    (
+      process.name like "perl*" and
+      process.args like~ "*decode_base64*"
+    ) or
+    (
+      process.name like "ruby*" and
+      process.args == "-e" and
+      process.args like~ "*Base64.decode64*"
+    )
+  )]
+  [process where event.type == "start" and event.action == "exec" and process.name like (
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+    "python*", "perl*", "ruby*", "lua*", "php*"
+  ) and
+  process.args like (
+    "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish", "-busybox",
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+    "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh",
+    "/bin/zsh", "/bin/ksh", "/bin/fish", "/bin/busybox",
+    "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh",
+    "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish",
+    "/usr/bin/busybox",
+    "*python*", "*perl*", "*ruby*", "*lua*", "*php*", "/dev/fd/*"
+  ) and
+  not (
+    process.working_directory like (
+      "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
+      "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
+    ) or
+    process.args in (
+      "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+      "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+      "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+      "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+    )
+  )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Obfuscated Files or Information"
+    id = "T1027"
+    reference = "https://attack.mitre.org/techniques/T1027/"
+
+    [[rule.threat.technique]]
+    name = "Deobfuscate/Decode Files or Information"
+    id = "T1140"
+    reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique]]
+    name = "User Execution"
+    id = "T1204"
+    reference = "https://attack.mitre.org/techniques/T1204/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Malicious File"
+      id = "T1204.002"
+      reference = "https://attack.mitre.org/techniques/T1204/002/"
