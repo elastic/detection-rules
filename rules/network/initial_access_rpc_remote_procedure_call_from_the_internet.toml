@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/02"
 
 [rule]
 author = ["Elastic"]
@@ -28,6 +28,7 @@ type = "query"
 query = '''
 (event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
   network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
+  not (event.type: denied or event.action: flow_dropped or event.outcome: failure) and
   not source.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or

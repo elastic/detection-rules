@@ -793,7 +793,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
-            modified_rules = result.splitlines()
+            modified_rules = [path for path in result.splitlines() if path.endswith(".toml")]
             failed_rules = []
             for modified_rule_path in modified_rules:
                 diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
