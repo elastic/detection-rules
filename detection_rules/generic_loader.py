@@ -28,7 +28,7 @@ GenericCollectionContentTypes = TOMLActionContents | TOMLActionConnectorContents
 
 def matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
     """Check if the item is associated with any of the given rule IDs."""
-    rule_ids_list = getattr(item.contents.metadata, "rule_ids", [])
+    rule_ids_list = getattr(item.contents.metadata, "rule_ids", []) + getattr(item.contents.metadata, "rule_id", [])
     return any(rule_id in rule_ids for rule_id in rule_ids_list)
 
 
