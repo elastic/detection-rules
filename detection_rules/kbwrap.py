@@ -23,7 +23,7 @@ from .action_connector import (
 from .cli_utils import multi_collection
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
-from .generic_loader import GenericCollection, matches_rule_ids
+from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
@@ -179,13 +179,11 @@ def kibana_import_rules(  # noqa: PLR0915
         cl = GenericCollection.default()
         exception_dicts = [
             d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLExceptionContents) and matches_rule_ids(d, rule_ids)
+            for d in cl.items_matching(TOMLExceptionContents, rule_ids)
         ]
         action_connectors_dicts = [
             d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLActionConnectorContents) and matches_rule_ids(d, rule_ids)
+            for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
         ]
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,

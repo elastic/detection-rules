@@ -83,6 +83,17 @@ class GenericCollection:
 
         return filtered_collection
 
+    def items_matching(
+        self,
+        contents_type: type[GenericCollectionContentTypes],
+        rule_ids: set[str],
+    ) -> list[GenericCollectionTypes]:
+        """Return items whose contents are of the given type and match any of the rule IDs."""
+        return [
+            d for d in self.items
+            if isinstance(d.contents, contents_type) and matches_rule_ids(d, rule_ids)
+        ]
+
     @staticmethod
     def deserialize_toml_string(contents: bytes | str) -> dict[str, Any]:
         """Deserialize a TOML string into a dictionary."""
