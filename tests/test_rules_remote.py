@@ -8,7 +8,13 @@ from copy import deepcopy
 
 import pytest
 
-from detection_rules.esql_errors import EsqlSchemaError, EsqlSyntaxError, EsqlTypeMismatchError, EsqlUnknownIndexError
+from detection_rules.esql_errors import (
+    EsqlSchemaError,
+    EsqlSemanticError,
+    EsqlSyntaxError,
+    EsqlTypeMismatchError,
+    EsqlUnknownIndexError,
+)
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -25,6 +31,59 @@ from .base import BaseRuleTest
 )
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
+
+    def test_get_hashable_content_required_fields_popped_when_keep_star_used(self):
+        """Hashable content must not contain required_fields when query uses keep * or field wildcards."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        # Non-aggregate queries must include _id, _version, _index in keep when keep is not exactly "*"
+        base = "from logs-aws.cloudtrail* metadata _id, _version, _index\n"
+        base += '| where event.action == "start"\n | eval Esql.entity_type = cloud.target.entity.type\n | keep '
+        keep_star_queries = [
+            base + "*",
+            base + "Esql.*, _id, _version, _index",
+            base + "host.name, Esql.*, _id, _version, _index",
+            base + "event.*, _id, _version, _index",
+        ]
+        for query in keep_star_queries:
+            production_rule_copy = deepcopy(production_rule)
+            production_rule_copy["rule"]["query"] = query
+            rule = RuleCollection().load_dict(production_rule_copy)
+            hashable = rule.contents.get_hashable_content()
+            assert "required_fields" not in hashable, f"required_fields should be popped for keep-star query: {query!r}"
+
+    def test_get_hashable_content_required_fields_kept_when_no_keep_star(self):
+        """Hashable content keeps required_fields when query uses explicit keep (no wildcards)."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | where event.action == "start"
+        | keep _id, _version, _index
+        """
+        rule = RuleCollection().load_dict(production_rule)
+        api = rule.contents.to_api_format()
+        hashable = rule.contents.get_hashable_content()
+        if "required_fields" in api:
+            assert "required_fields" in hashable, "required_fields must not be popped when keep has no wildcards"
+
+    def test_get_hashable_content_required_fields_kept_for_explicit_keep_only(self):
+        """Hashable content keeps required_fields when keep lists only explicit fields."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | where event.action == "start"
+        | keep host.name, user.name, _id, _version, _index
+        """
+        rule = RuleCollection().load_dict(production_rule)
+        api = rule.contents.to_api_format()
+        hashable = rule.contents.get_hashable_content()
+        if "required_fields" in api:
+            assert "required_fields" in hashable
 
     def test_esql_related_integrations(self):
         """Test an ESQL rule has its related integrations built correctly."""
@@ -251,3 +310,21 @@ class TestRemoteRules(BaseRuleTest):
         event.outcome, _id, _version, _index
         """
         _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_multiple_keeps(self):
+        """Test an ESQL rule that has multiple keeps in the query."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep aws.cloudtrail.user_identity.type, _id, _version, _index
+        | eval Esql.user_type = aws.cloudtrail.user_identity.type
+        | keep Esql.user_type
+        """
+        with pytest.raises(EsqlSemanticError):
+            _ = RuleCollection().load_dict(production_rule)
