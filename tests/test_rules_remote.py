@@ -8,7 +8,13 @@ from copy import deepcopy
 
 import pytest
 
-from detection_rules.esql_errors import EsqlSchemaError, EsqlSyntaxError, EsqlTypeMismatchError, EsqlUnknownIndexError
+from detection_rules.esql_errors import (
+    EsqlSchemaError,
+    EsqlSemanticError,
+    EsqlSyntaxError,
+    EsqlTypeMismatchError,
+    EsqlUnknownIndexError,
+)
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -251,3 +257,21 @@ class TestRemoteRules(BaseRuleTest):
         event.outcome, _id, _version, _index
         """
         _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_multiple_keeps(self):
+        """Test an ESQL rule that has multiple keeps in the query."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | where @timestamp > now() - 30 minutes
+        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and aws.cloudtrail.user_identity.type == "IAMUser"
+        | keep aws.cloudtrail.user_identity.type, _id, _version, _index
+        | eval Esql.user_type = aws.cloudtrail.user_identity.type
+        | keep Esql.user_type
+        """
+        with pytest.raises(EsqlSemanticError):
+            _ = RuleCollection().load_dict(production_rule)
