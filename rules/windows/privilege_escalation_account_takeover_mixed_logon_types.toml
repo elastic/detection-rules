@@ -67,7 +67,7 @@ from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, 
     Esql.logon_type_values = VALUES(winlog.logon.type),
     Esql.count_distinct_logon_types = COUNT_DISTINCT(winlog.logon.type) by user.name
 
-// high count of logons is often associated with service account tied to a specific service, if observed in use with a different logon type its suspicious
+// high count of logons is often associated with service account tied to a specific service, if observed in use with a different logon type it's suspicious
 | WHERE Esql.count_distinct_logon_types >= 2 and Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 10)
 | EVAL winlog.logon.type = MV_FIRST(Esql.logon_type_values)
 | KEEP user.name, winlog.logon.type, Esql.*
