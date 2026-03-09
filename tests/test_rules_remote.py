@@ -44,7 +44,7 @@ class TestRemoteRules(BaseRuleTest):
             base + "*",
             base + "Esql.*, _id, _version, _index",
             base + "host.name, Esql.*, _id, _version, _index",
-            base + "event.*, _id, _version, _index"
+            base + "event.*, _id, _version, _index",
         ]
         for query in keep_star_queries:
             production_rule_copy = deepcopy(production_rule)
