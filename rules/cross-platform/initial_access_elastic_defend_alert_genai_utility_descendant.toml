@@ -86,7 +86,12 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
 
 // Elastic Defend alerts from a GenAI grandparent 
 | WHERE Esql.genai_ancestor_ids IS NOT NULL 
-        AND event.dataset == "endpoint.alerts" AND not rule.name in ("Persistence via GenAI Tool", "Code Editor Untrusted or Unsigned Child Process Execution", "Suspicious Credential Access via GenAI Tool", "Credential Access via GenAI Tool Descendant")
+        AND event.dataset == "endpoint.alerts" AND not rule.name in (
+            "Persistence via GenAI Tool",
+            "Code Editor Untrusted or Unsigned Child Process Execution",
+            "Suspicious Credential Access via GenAI Tool",
+            "Credential Access via GenAI Tool Descendant"
+        )
 
 | KEEP *
 '''
