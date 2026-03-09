@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/15"
+updated_date = "2026/03/05"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ permissions to make a file executable could indicate malicious activity, as an a
 or malicious code inside the container.
 """
 from = "now-6m"
-index = ["logs-cloud_defend.file*"]
+index = ["logs-cloud_defend.file*", "logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
@@ -56,6 +56,9 @@ Containers provide isolated environments for running applications, often on Linu
 - Escalate the incident to the security operations team for further investigation and to determine if the threat is part of a larger attack campaign.
 - Review and update container security policies to prevent unauthorized permission changes, such as implementing stricter access controls and using security tools that enforce policy compliance.
 - Enhance detection capabilities by configuring alerts for similar suspicious activities, ensuring that any future attempts to modify file permissions within containers are promptly identified and addressed."""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
 risk_score = 21
 rule_id = "ec604672-bed9-43e1-8871-cf591c052550"
 severity = "low"
@@ -71,7 +74,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.type in ("change", "creation") and (
+any where event.category in ("file", "process") and event.type in ("change", "creation", "start") and (
   process.name == "chmod" or
   (
     /* account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
@@ -86,8 +89,7 @@ file where host.os.type == "linux" and event.type in ("change", "creation") and 
     )
   )
 ) and process.args in ("4755", "755", "777", "0777", "444", "+x", "a+x") and
-process.args like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*") and
-process.interactive == true and container.id like "*" and not process.args == "-x"
+container.id like "?*" and not process.args == "-x"
 '''
 
 [[rule.threat]]

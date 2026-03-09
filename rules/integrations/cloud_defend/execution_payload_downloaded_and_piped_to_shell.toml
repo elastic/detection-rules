@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/10"
+updated_date = "2026/03/05"
 
 [rule]
 author = ["Elastic"]
@@ -67,12 +67,33 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by process.parent.entity_id, container.id with maxspan=5s
-  [process where event.type == "start" and event.action == "exec" and
-   process.name in ("curl", "wget") and process.interactive == true]
-  [process where event.type == "start" and event.action == "exec" and
-   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-   process.interactive == true] 
+sequence by process.parent.entity_id, container.id with maxspan=1s
+  [process where event.type == "start" and event.action == "exec" and process.name in ("curl", "wget")]
+  [process where event.action in ("exec", "end") and
+  /*
+    If the flow is executed from a parent script, the event action will be "exec".
+    If the flow is executed manually, the event action will be "end".
+  */
+   process.name like (
+     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+     "python*", "perl*", "ruby*", "lua*", "php*"
+   ) and
+   process.args like (
+     "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish",
+     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish",
+     "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh",
+     "/bin/zsh", "/bin/ksh", "/bin/fish",
+     "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh",
+     "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish",
+     "-busybox", "busybox", "/bin/busybox", "/usr/bin/busybox",
+     "*python*", "*perl*", "*ruby*", "*lua*", "*php*", "/dev/fd/*"
+   ) and
+   not process.args in (
+     "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+     "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+     "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+     "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+   )]
 '''
 
 [[rule.threat]]
