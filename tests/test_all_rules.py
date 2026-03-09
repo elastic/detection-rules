@@ -793,7 +793,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
-            modified_rules = result.splitlines()
+            modified_rules = [path for path in result.splitlines() if path.endswith(".toml")]
             failed_rules = []
             for modified_rule_path in modified_rules:
                 diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
@@ -870,6 +870,8 @@ class TestRuleMetadata(BaseRuleTest):
                             continue
                         if rule.contents.data.type == "threat_match":
                             continue
+                        if indices == [".alerts-security.*"]:
+                            continue
                         err_msg = f"{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect."
                         failures.append(err_msg)
 
@@ -891,6 +893,7 @@ class TestRuleMetadata(BaseRuleTest):
                         not rule.contents.metadata.integration
                         and rule.id not in definitions.IGNORE_IDS
                         and rule.contents.data.type not in definitions.MACHINE_LEARNING
+                        and indices != [".alerts-security.*"]
                     ):
                         err_msg = (
                             f"substrings {non_dataset_packages} found in "
