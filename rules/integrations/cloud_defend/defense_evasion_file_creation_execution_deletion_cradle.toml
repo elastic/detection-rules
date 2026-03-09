@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2026/03/05"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation, execution, and deletion of files inside a container, a common
+technique used by attackers to evade detection.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*", "logs-cloud_defend.file*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Ingress Tool Transfer Followed by Execution and Deletion Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Ingress Tool Transfer Followed by Execution and Deletion Detected via Defend for Containers
+
+This detection flags a rapid sequence inside a container where a file is written to a common transient or user-writable location, executed, then deleted shortly after—an evasion pattern meant to minimize on-disk artifacts and frustrate forensic review. Attackers often use a shell to pull a payload with common transfer utilities into `/tmp` or shared memory, run it immediately for credential theft or lateral movement, and then remove it to blend back into normal container churn.
+
+### Possible investigation steps
+
+- Pivot on the container to review the full process tree and preceding commands around the sequence to determine how the payload was introduced (interactive shell, entrypoint, cron, CI job, or exploited service) and what else executed nearby in time.  
+- Retrieve the file content if still present or recover it from container runtime logs/snapshots/registry layers, then compute hashes and run static/dynamic analysis to identify malware family, network indicators, and persistence or credential-access behavior.  
+- Review outbound network connections from the container during the same window to identify download sources, callback infrastructure, and any subsequent lateral movement attempts to internal services.  
+- Check whether the container or pod is running with elevated privileges (host mounts, privileged mode, sensitive service account tokens, or access to Docker/CRI sockets) to assess host-escape risk and scope potential impact beyond the container.  
+- Validate legitimacy by correlating with recent deploys/build steps and expected package/install activity, and if suspicious, isolate the workload and rotate any exposed secrets or tokens used by the container.
+
+### False positive analysis
+
+- A container entrypoint or bootstrap script downloads a small helper or configuration artifact into `/tmp` (or similar), executes it via a shell to perform initialization checks or configuration, and then deletes it immediately to keep the runtime filesystem clean.  
+- A build/test step running inside a container fetches transient binaries or linkable objects (e.g., via `curl`/`wget`/`scp` or `ld`) into writable paths like `/tmp` or `/opt`, executes them as part of compilation or validation, and removes them as part of routine cleanup.
+
+### Response and remediation
+
+- Quarantine the affected pod or container by isolating it from the network and scaling it to zero or killing the container while preserving a copy of the writable layer and runtime logs for forensic analysis.  
+- Identify and block the download and command-and-control endpoints used by the transfer utility (for example the `curl`/`wget` URL or `scp` destination) at egress controls, then search for the same indicator across other workloads and nodes to find additional compromised containers.  
+- Eradicate by rebuilding and redeploying the workload from a known-good image and clean source, removing any unauthorized startup scripts or injected binaries in paths like `/tmp`, `/dev/shm`, `/var/tmp`, `/root`, or `/opt`.  
+- Rotate and revoke any credentials the container could access such as Kubernetes service account tokens, API keys, registry credentials, and mounted secrets, and invalidate sessions if the executed payload could have harvested them.  
+- Escalate to incident response immediately if the workload was privileged, had hostPath mounts or container runtime socket access, touched `/proc/*/fd/*`, or showed signs of data access or lateral movement to internal services.  
+- Harden by enforcing least privilege and runtime controls such as read-only root filesystems, no shell or download tools in production images, restricted egress allowlists, and admission policies that block privileged pods and sensitive host mounts.
+"""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 73
+rule_id = "1dc56174-5d02-4ca4-af92-e391f096fb21"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by container.id, user.id with maxspan=10s
+  [file where event.action == "creation" and (
+     process.name in ("curl", "wget", "fetch", "ftp", "sftp", "scp", "rsync", "ld") or
+     (
+       process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+       process.args in (
+         "curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl",
+         "wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget",
+         "fetch", "/bin/fetch", "/usr/bin/fetch", "/usr/local/bin/fetch",
+         "ftp", "/bin/ftp", "/usr/bin/ftp", "/usr/local/bin/ftp",
+         "sftp", "/bin/sftp", "/usr/bin/sftp", "/usr/local/bin/sftp",
+         "scp", "/bin/scp", "/usr/bin/scp", "/usr/local/bin/scp",
+         "rsync", "/bin/rsync", "/usr/bin/rsync", "/usr/local/bin/rsync",
+         "ld", "/bin/ld", "/usr/bin/ld", "/usr/local/bin/ld"
+       ) and
+       /* default exclusion list to not FP on default multi-process commands */
+       not process.args in (
+         "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
+         "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man",
+         "chmod", "/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod",
+         "chown", "/bin/chown", "/usr/bin/chown", "/usr/local/bin/chown"
+       )
+     )
+   ) and file.path like (
+     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*",
+     "/proc/*/fd/*", "/home/*/*", "/root/*", "/opt/*"
+   )
+  ] by file.name
+  [process where event.type == "start" and event.action == "exec" and
+   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox")
+  ] by process.name
+  [file where event.action == "deletion" and file.path like (
+     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*",
+     "/proc/*/fd/*", "/home/*/*", "/root/*", "/opt/*"
+    ) and not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch", "ld")
+  ] by file.name
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
