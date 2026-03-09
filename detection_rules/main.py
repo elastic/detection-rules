@@ -302,7 +302,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                     exception_list_rule_table[exception_id] = []
                 exception_list_rule_table[exception_id].append(
                     {
-                        "id": contents.get("rule_id") or contents.get("id"),
+                        "id": contents.get("rule_id"),
                         "name": contents["name"],
                     }
                 )
@@ -315,7 +315,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                     action_connector_rule_table[action_id] = []
                 action_connector_rule_table[action_id].append(
                     {
-                        "id": contents.get("rule_id") or contents.get("id"),
+                        "id": contents.get("rule_id"),
                         "name": contents["name"],
                     }
                 )
