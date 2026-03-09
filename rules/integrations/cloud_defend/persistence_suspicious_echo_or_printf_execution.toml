@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/10"
+updated_date = "2026/03/05"
 
 [rule]
 author = ["Elastic"]
@@ -71,7 +71,8 @@ type = "eql"
 query = '''
 process where event.type == "start" and event.action == "exec" and process.interactive == true and
 process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-process.args in ("-lc", "-c") and process.args like ("*echo *", "*printf *") and process.args like (
+process.args in ("-lc", "-c", "-cl") and process.args like ("*echo *", "*printf *") and
+process.args like (
   "*/etc/cron*", "*/etc/rc.local*", "*/dev/tcp/*", "*/etc/init.d*", "*/etc/update-motd.d*",
   "*/etc/ld.so*", "*/etc/sudoers*", "*base64 *", "*base32 *", "*base16 *", "*/etc/profile*",
   "*/dev/shm/*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*" , "*~/.ssh/*", "*xxd *",
