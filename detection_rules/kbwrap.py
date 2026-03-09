@@ -177,13 +177,9 @@ def kibana_import_rules(  # noqa: PLR0915
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
-        exception_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items_matching(TOMLExceptionContents, rule_ids)
-        ]
+        exception_dicts = [d.contents.to_api_format() for d in cl.items_matching(TOMLExceptionContents, rule_ids)]
         action_connectors_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
+            d.contents.to_api_format() for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
         ]
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,
