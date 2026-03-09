@@ -2,14 +2,12 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/11/25"
+updated_date = "2026/02/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an excessive number of files are downloaded from OneDrive using OAuth authentication. Adversaries may
-conduct phishing campaigns to steal OAuth tokens and impersonate users. These access tokens can then be used to download
-files from OneDrive.
+Identifies when an excessive number of files are downloaded from OneDrive or SharePoint by an authorized user or application in a short period of time. This may indicate a potential data exfiltration event, especially if the downloads are performed using OAuth authentication which could suggest an OAuth phishing attack such as Device Code Authentication phishing.
 """
 false_positives = [
     """
@@ -21,10 +19,10 @@ from = "now-9m"
 interval = "8m"
 language = "esql"
 license = "Elastic License v2"
-name = "M365 OneDrive Excessive File Downloads with OAuth Token"
+name = "M365 OneDrive/SharePoint Excessive File Downloads"
 note = """## Triage and Analysis
 
-### Investigating M365 OneDrive Excessive File Downloads with OAuth Token
+### Investigating M365 OneDrive/SharePoint Excessive File Downloads
 
 This rule detects an excessive number of files downloaded from OneDrive using OAuth authentication. Threat actors may use OAuth phishing attacks, such as **Device Code Authentication phishing**, to obtain valid access tokens and perform unauthorized data exfiltration. This method allows adversaries to bypass traditional authentication mechanisms, making it a stealthy and effective technique.
 
@@ -32,8 +30,8 @@ This rule leverages ESQL aggregations which limit the field values available in 
 
 #### Possible Investigation Steps
 
-- Review the `o365.audit.UserId` field to identify the user who performed the downloads. Check if this user typically downloads large amounts of data from OneDrive.
-- Correlate `o365.audit.UserId` with Entra Sign-In logs to verify the authentication method used and determine if it was expected for this user.
+- Review the user ID field to identify the user who performed the downloads. Check if this user typically downloads large amounts of data from OneDrive.
+- Correlate user ID with Entra Sign-In logs to verify the authentication method used and determine if it was expected for this user.
 - Review the authentication method used. If OAuth authentication was used, investigate whether it was expected for this user.
 - Identify the client application used for authentication. Determine if it is a legitimate enterprise-approved app or an unauthorized third-party application.
 - Check the number of unique files downloaded. If a user downloads a high volume of unique files in a short period, it may indicate data exfiltration.
@@ -44,6 +42,8 @@ This rule leverages ESQL aggregations which limit the field values available in 
 - Look for multiple authentication attempts from different devices or locations within a short timeframe, which could indicate unauthorized access.
 - Investigate if other OAuth-related anomalies exist, such as consent grants for unfamiliar applications or unexpected refresh token activity.
 - Review the `file.directory` value from the original documents to identify the specific folders or paths where the files were downloaded.
+- Examine if the downloaded files are from Sharepoint or OneDrive by checking the `event.code` field.
+- Review the incoming token type to determine how authentication occurred. If the `token.id` field is populated, it indicates that OAuth authentication was used, which may suggest an OAuth phishing attack.
 
 ### False Positive Analysis
 
@@ -62,6 +62,7 @@ This rule leverages ESQL aggregations which limit the field values available in 
 """
 references = [
     "https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/",
+    "https://cloud.google.com/blog/topics/threat-intelligence/expansion-shinyhunters-saas-data-theft",
 ]
 risk_score = 47
 rule_id = "0e524fa6-eed3-11ef-82b4-f661ea17fbce"
@@ -69,7 +70,9 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: SaaS",
+    "Domain: Storage",
     "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
     "Data Source: SharePoint",
     "Data Source: OneDrive",
     "Use Case: Threat Detection",
@@ -81,28 +84,42 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-o365.audit-*
+from logs-o365.audit-* metadata _id, _version, _index
 | where
     event.dataset == "o365.audit" and
     event.provider == "OneDrive" and
     event.action == "FileDownloaded" and
-    o365.audit.AuthenticationType == "OAuth" and
     event.outcome == "success"
     and (user.id is not null and o365.audit.ApplicationId is not null)
+    and o365.audit.ApplicationId not in (
+        "08e18876-6177-487e-b8b5-cf950c1e598c", // SharePoint Online Web Client Extensibility
+        "fb8d773d-7ef8-4ec0-a117-179f88add510", // Enterprise Copilot Platform
+        "d3590ed6-52b3-4102-aeff-aad2292ab01c", // Microsoft Office
+        "7ab7862c-4c57-491e-8a45-d52a7e023983" // App Service
+    )
 | eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
 | where session.id is not null
-| eval Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
+| eval Esql.time_window_date_trunc = date_trunc(3 minutes, @timestamp)
 | stats
     Esql.file_directory_values = values(file.directory),
     Esql.file_extension_values = values(file.extension),
     Esql.application_name_values = values(application.name),
     Esql.file_name_count_distinct = count_distinct(file.name),
+    Esql.total_file_size_mb = round((mv_sum(values(file.size))) / 1048576.0, 2),
     Esql.o365_audit_Site_values = values(o365.audit.Site),
     Esql.o365_audit_SiteUrl_values = values(o365.audit.SiteUrl),
     Esql.user_domain_values = values(user.domain),
     Esql.token_id_values = values(token.id),
+    Esql.event_code_values = values(event.code),
+    Esql.event_provider_values = values(event.provider),
+    Esql.auth_type_values = values(o365.audit.AuthenticationType),
+    Esql.is_managed_device_values = values(o365.audit.IsManagedDevice),
+    Esql.platform_values = values(o365.audit.Platform),
+    Esql.user_agent_values = values(user_agent.name),
+    Esql.source_asn_org_values = values(source.as.organization.name),
+    Esql.geo_country_values = values(source.geo.country_name),
     Esql.event_count = count(*)
-by
+    by
     Esql.time_window_date_trunc,
     user.id,
     session.id,
@@ -117,19 +134,19 @@ by
     session.id
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -137,4 +154,3 @@ framework = "MITRE ATT&CK"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-

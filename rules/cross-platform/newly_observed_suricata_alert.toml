@@ -2,7 +2,7 @@
 creation_date = "2026/01/20"
 integration = ["suricata"]
 maturity = "production"
-updated_date = "2026/01/20"
+updated_date = "2026/02/17"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,9 @@ query = '''
 FROM logs-suricata.*
 
   // high severity alerts
-| where event.module == "suricata" and event.kind == "signal" and event.severity == 1
+| where event.module == "suricata" and event.kind == "signal" and event.severity == 1 and
+        rule.name is not null and
+        not rule.name like "SURICATA STREAM*"
 
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),

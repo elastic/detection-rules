@@ -2,7 +2,7 @@
 creation_date = "2025/06/18"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -68,9 +68,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and
-kubernetes.audit.userAgent:(* and not (*kubernetes/$Format)) and
+user_agent.original:(* and not (*kubernetes/$Format)) and
 not (
-  kubernetes.audit.userAgent:kubelet* and
+  user_agent.original:kubelet* and
   not kubernetes.audit.objectRef.resource:(pods or nodes or csinodes or csidrivers or configmaps or secrets or events or leases or runtimeclasses) and
   kubernetes.audit.verb:(get or list or watch or patch)
 )
@@ -86,7 +86,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "kubernetes.audit.userAgent"]
+value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
