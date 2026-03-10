@@ -24,8 +24,8 @@ from logs-endpoint.events.file-*
   starts_with(file.Ext.header_bytes, "4d5a") and process.code_signature.status == "trusted" and
   starts_with(process.code_signature.subject_name, "Microsoft") and process.executable rlike """[c-fC-F]:\\Windows\\(System32|SysWOW64)\\[a-zA-Z0-9_]+.exe"""
 | keep process.executable, host.id
-| stats occurences = count(*), agents = count_distinct(host.id) by process.executable
-| where agents == 1 and occurences <= 10
+| stats occurrences = count(*), agents = count_distinct(host.id) by process.executable
+| where agents == 1 and occurrences <= 10
 ''',
 '''
 from logs-windows.sysmon_operational-*
@@ -33,7 +33,7 @@ from logs-windows.sysmon_operational-*
 | where host.os.family == "windows" and event.category == "file" and event.action == "FileCreate" and
  file.extension in ("exe", "dll") and process.executable rlike """[c-fC-F]:\\Windows\\(System32|SysWOW64)\\[a-zA-Z0-9_]+.exe"""
 | keep process.executable, host.id
-| stats occurences = count(*), agents = count_distinct(host.id) by process.executable
-| where agents == 1 and occurences <= 10
+| stats occurrences = count(*), agents = count_distinct(host.id) by process.executable
+| where agents == 1 and occurrences <= 10
 '''
 ]
