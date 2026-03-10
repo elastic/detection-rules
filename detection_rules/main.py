@@ -301,7 +301,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 exception_id = exception["list_id"]
                 if exception_id not in exception_list_rule_table:
                     exception_list_rule_table[exception_id] = []
-                exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
+                exception_list_rule_table[exception_id].append(
+                    {
+                        "id": contents.get("rule_id"),
+                        "name": contents["name"],
+                    }
+                )
 
         if contents.get("actions"):
             # If rule has actions with connectors, add them to the action_connector_rule_table under the action_id
@@ -309,7 +314,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 action_id = action["id"]
                 if action_id not in action_connector_rule_table:
                     action_connector_rule_table[action_id] = []
-                action_connector_rule_table[action_id].append({"id": contents["id"], "name": contents["name"]})
+                action_connector_rule_table[action_id].append(
+                    {
+                        "id": contents.get("rule_id"),
+                        "name": contents["name"],
+                    }
+                )
 
     # Build TOMLException Objects
     if exceptions_import:
@@ -596,16 +606,21 @@ def _export_rules(  # noqa: PLR0913
     # Add exceptions to api format here and add to output_lines
     if include_exceptions or include_action_connectors:
         cl = GenericCollection.default()
-        # Get exceptions in API format
+        rule_ids = {r.id for r in rules}
+        # Get exceptions in API format (only those linked to the exported rules)
         if include_exceptions:
-            exceptions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)]
-            exceptions = [e for sublist in exceptions for e in sublist]
+            exceptions_raw: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLExceptionContents, rule_ids)
+            ]
+            exceptions: list[dict[str, Any]] = [e for sublist in exceptions_raw for e in sublist]
             output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
         if include_action_connectors:
-            action_connectors = [
-                d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            action_connectors: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
             ]
-            actions = [a for sublist in action_connectors for a in sublist]
+            actions: list[dict[str, Any]] = [a for sublist in action_connectors for a in sublist]
             output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)
 
     _ = outfile.write_text("\n".join(output_lines) + "\n")
