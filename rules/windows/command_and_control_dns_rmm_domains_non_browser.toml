@@ -2,7 +2,7 @@
 creation_date = "2026/03/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/03/03"
+updated_date = "2026/03/10"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Detects DNS queries to commonly abused remote monitoring and management (RMM) or remote access software domains from processes that are not browsers. 
 Intended to surface RMM clients, scripts, or other non-browser activity contacting these services.
 """
-from = "now-8d"
+from = "now-9m"
 index = [
     "logs-endpoint.events.network-*",
     "logs-windows.sysmon_operational-*",
@@ -56,7 +56,7 @@ tags = [
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -68,12 +68,6 @@ dns.question.name: (*teamviewer.com or *logmein* or *.anydesk.com or *screenconn
 not (process.code_signature.subject_name: ("Google LLC" or "Google Inc." or "Mozilla Corporation" or "Mozilla Foundation" or "Microsoft Corporation" or "Apple Inc." or "Brave Software, Inc." or "Opera Software AS" or "Vivaldi Technologies AS") and process.code_signature.trusted: true)
 '''
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "dns.question.name"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -90,3 +84,10 @@ reference = "https://attack.mitre.org/techniques/T1219/002/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "dns.question.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
