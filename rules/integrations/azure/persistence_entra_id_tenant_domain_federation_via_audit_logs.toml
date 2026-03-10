@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/03/03"
+integration = ["azure"]
+maturity = "development"
+updated_date = "2026/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when domain federation settings are configured or modified in an Entra ID tenant via the Microsoft Graph API.
+Adversaries with Global Administrator or Domain Administrator privileges may add a custom domain, verify ownership, and
+configure it to federate authentication with an attacker-controlled identity provider. Once federated, the adversary can
+forge SAML or WS-Federation tokens to authenticate as any user under that domain, bypassing MFA and conditional access
+policies. This technique, commonly known as Golden SAML, was used by UNC2452 (APT29) during the SolarWinds campaign for
+persistent, stealthy access to victim tenants.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Domain Federation Configuration Change"
+note = """## Triage and analysis
+
+### Investigating Entra ID Domain Federation Configuration Change
+
+This rule detects when domain federation settings are added or modified in an Entra ID tenant. Domain federation allows organizations to delegate authentication for a UPN domain suffix to an external Identity Provider (IdP). While this is a legitimate feature for organizations using external IdPs like Okta or ADFS, adversaries can abuse it to establish persistent access by federating a domain to an attacker-controlled IdP.
+
+This is the highest blast radius federation abuse technique, unlike app-level federated identity credentials (which affect a single service principal), domain federation affects all users whose UPN matches the federated domain.
+
+Both events share the same `correlation_id` but neither includes the federation configuration details (issuer URI, signing certificate) in the event properties.
+
+### Possible investigation steps
+
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `ipAddress` to identify who made the change and from where.
+- For `"Set domain authentication"` events, check `azure.auditlogs.properties.target_resources.0.display_name` to identify which domain was federated.
+- Use `azure.correlation_id` to correlate the companion `"Set federation settings on domain"` event and establish the full context.
+- Query the Graph API to retrieve the actual federation configuration details, since they are not logged in the audit event: `Get-MgDomainFederationConfiguration -DomainId "<domain>"`.
+- Review the configured issuer URI and signing certificate to determine if the external IdP is legitimate or attacker-controlled.
+- Check for precursor events with the same actor: `"Add unverified domain"` and `"Verify domain"` events targeting the same domain would indicate the full attack chain.
+- Review Azure sign-in logs for any authentication activity from users under the newly federated domain.
+- Investigate whether the domain was recently added to the tenant or was a pre-existing domain whose authentication type was changed.
+- Review the `user_agent.original` field for the actor to determine if the change was made via the Azure Portal, Microsoft Graph API, or PowerShell, which may provide additional context on whether this was a manual or scripted action.
+
+### False positive analysis
+
+- Legitimate domain federation changes by IT administrators during initial tenant setup or IdP migrations (e.g., migrating from ADFS to Okta).
+- Organizational restructuring such as mergers or acquisitions where new domains are federated.
+- Scheduled maintenance or updates to federation certificates or IdP endpoints.
+- Validate with the Global Administrator or identity team before dismissing.
+
+### Response and remediation
+
+- If the federation change is unauthorized, immediately remove the federation configuration: `Remove-MgDomainFederationConfiguration -DomainId "<domain>" -InternalDomainFederationId "<id>"`.
+- Revert the domain authentication type to managed if it should not be federated.
+- Revoke all active sessions and tokens for users under the affected domain.
+- Audit recent sign-in activity for users under the federated domain to identify unauthorized access.
+- Investigate how the adversary obtained Global Administrator privileges to perform this action.
+- Review and restrict who has Domain Administrator or Global Administrator roles using PIM (Privileged Identity Management).
+- Implement alerts on domain management operations and restrict domain federation changes via conditional access policies.
+"""
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/unc2452-merged-into-apt29",
+    "https://learn.microsoft.com/en-us/graph/api/domain-post-federationconfiguration",
+    "https://medium.com/tenable-techblog/roles-allowing-to-abuse-entra-id-federation-for-persistence-and-privilege-escalation-df9ca6e58360",
+    "https://securitylabs.datadoghq.com/articles/i-spy-escalating-to-entra-id-global-admin/",
+    "https://techcommunity.microsoft.com/blog/microsoft-entra-blog/understanding-and-mitigating-golden-saml-attacks/4418864",
+]
+risk_score = 73
+rule_id = "1cfb39e1-4b6c-4dc7-85fe-733e4a1a33ca"
+setup = """### Microsoft Entra ID Audit Logs
+This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: azure.auditlogs
+    and azure.auditlogs.properties.category: DirectoryManagement
+    and event.action: ("Set domain authentication" or "Set federation settings on domain")
+    and event.outcome: success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
