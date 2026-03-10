@@ -6,7 +6,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, get_args
 
@@ -177,8 +177,19 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         # Format date to match schema
         container = exceptions_dict["container"]
-        creation_date = datetime.strptime(container["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
-        updated_date = datetime.strptime(container["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        now_date = datetime.now(UTC).strftime("%Y/%m/%d")
+        created_at = container.get("created_at")
+        updated_at = container.get("updated_at")
+        creation_date = (
+            datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            if created_at
+            else now_date
+        )
+        updated_date = (
+            datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            if updated_at
+            else now_date
+        )
         metadata = {
             "creation_date": creation_date,
             "list_name": exceptions_dict["container"]["name"],
