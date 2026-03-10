@@ -992,8 +992,8 @@ class ESQLRuleData(QueryRuleData):
         # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
         # Match | followed by optional whitespace/newlines and then 'keep'
         keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-        keep_match = keep_pattern.search(query_lower)
-        if not keep_match:
+        keep_matches = list(keep_pattern.finditer(query_lower))
+        if not keep_matches:
             raise EsqlSemanticError(
                 f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
             )
@@ -1001,16 +1001,17 @@ class ESQLRuleData(QueryRuleData):
         # Ensure that keep clause includes metadata fields on non-aggregate queries
         aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
         if not aggregate_pattern.search(query_lower):
-            raw_keep = re.sub(r"//.*", "", keep_match.group(1))
-            keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
-            if "*" not in keep_fields:
-                required_metadata = {"_id", "_version", "_index"}
-                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
-                    raise EsqlSemanticError(
-                        f"Rule: {data['name']} contains a keep clause without"
-                        f" metadata fields '_id', '_version', and '_index' ->"
-                        f" Add '_id', '_version', '_index' to the keep command."
-                    )
+            for keep_match in keep_matches:
+                raw_keep = re.sub(r"//.*", "", keep_match.group(1))
+                keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
+                if "*" not in keep_fields:
+                    required_metadata = {"_id", "_version", "_index"}
+                    if not required_metadata.issubset(set(map(str.strip, keep_fields))):
+                        raise EsqlSemanticError(
+                            f"Rule: {data['name']} contains a keep clause without"
+                            f" metadata fields '_id', '_version', and '_index' ->"
+                            f" Add '_id', '_version', '_index' to the keep command."
+                        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1262,7 +1263,7 @@ class BaseRuleContents(ABC):
         return obj
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
-        """Check if this is an ES|QL rule that uses `| keep *`."""
+        """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
         if hashable_dict.get("language") != "esql":
             return False
 
@@ -1274,7 +1275,7 @@ class BaseRuleContents(ABC):
         keep_match: re.Match[str] | None = keep_pattern.search(query)
         if keep_match:
             keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
-            return "*" in keep_fields
+            return any(field == "*" or field.endswith("*") for field in keep_fields)
         return False
 
     @abstractmethod
