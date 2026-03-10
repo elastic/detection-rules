@@ -2,7 +2,7 @@
 creation_date = "2025/06/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,7 @@ query = '''
 event.dataset:"kubernetes.audit_logs" and
 kubernetes.audit.stage:"ResponseComplete" and
 kubernetes.audit.annotations.authorization_k8s_io/decision:"forbid" and
-kubernetes.audit.userAgent:(* and not (*kubernetes/$Format))
+user_agent.original:(* and not (*kubernetes/$Format))
 '''
 
 [[rule.threat]]
@@ -81,7 +81,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.userAgent"]
+value = ["user_agent.original"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

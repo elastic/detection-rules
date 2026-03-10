@@ -1,4 +1,4 @@
-# DNS Queries via LOLBins with Low Occurence Frequency
+# DNS Queries via LOLBins with Low Occurrence Frequency
 
 ---
 
@@ -10,7 +10,7 @@
 - **UUID:** `1c7be6db-12eb-4281-878d-b6abe0454f36`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
-- **Source File:** [DNS Queries via LOLBins with Low Occurence Frequency](../queries/domain_names_queried_via_lolbins_and_with_low_occurence_frequency.toml)
+- **Source File:** [DNS Queries via LOLBins with Low Occurrence Frequency](../queries/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.toml)
 
 ## Query
 
