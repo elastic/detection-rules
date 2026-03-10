@@ -27,5 +27,5 @@ Integration specific rules are stored in the [`integrations/`](integrations) dir
 | [`gcp/`](integrations/gcp)                             | Google Cloud Platform (GCP)          |
 | [`google_workspace/`](integrations/google_workspace)   | Google Workspace (formerly GSuite)   |
 | [`o365/`](integrations/o365)                           | Microsoft Office                     |
-| [`okta/`](integrations/okta)                           | Oka                                  |
+| [`okta/`](integrations/okta)                           | Okta                                 |
 
