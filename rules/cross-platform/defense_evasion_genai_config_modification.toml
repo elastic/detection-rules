@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/02/03"
+updated_date = "2026/03/10"
 
 [rule]
 author = ["Elastic"]
@@ -86,11 +86,17 @@ file.path : (
     */.moltbot/* or */AppData/Roaming/Moltbot/* or
     */.config/openclaw/*
 ) and not (
-  file.extension : (lck or lock) or
+  file.extension : (lck or lock or log or png or marker) or
+  file.name : .DS_Store or
+  file.path : (
+    */.claude/cache/* or
+    */.claude/statsig/* or
+    */.codex/log/* or
+    */.codex/sessions/*
+  ) or
   (
     file.path : */.config/github-copilot/* and 
     file.name : (apps.json or versions.json or copilot*nitrite.db)
-    
   )
 )
 '''

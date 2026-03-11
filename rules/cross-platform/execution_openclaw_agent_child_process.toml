@@ -2,7 +2,7 @@
 creation_date = "2026/02/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/02/02"
+updated_date = "2026/03/10"
 
 [rule]
 author = ["Elastic"]
@@ -75,7 +75,9 @@ query = '''
 process where event.type == "start" and
   process.parent.name : ("node", "node.exe") and 
   process.parent.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
-   process.name : ("bash", "sh", "zsh", "bash.exe", "cmd.exe", "powershell.exe", "curl.exe", "curl", "base64", "xattr", "osascript", "python*", "chmod", "certutil.exe", "rundll32.exe")
+   process.name : ("bash", "sh", "zsh", "bash.exe", "cmd.exe", "powershell.exe", "curl.exe", "curl", "base64", "xattr", "osascript", "python*", "chmod", "certutil.exe", "rundll32.exe") and
+   not process.command_line in ("/bin/sh -c ip neigh show", "/usr/bin/sh -c ip neigh show",
+                                "/bin/sh -c arp -a -n -l", "/usr/bin/sh -c arp -a -n -l")
 '''
 
 
