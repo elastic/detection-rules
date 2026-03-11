@@ -353,7 +353,7 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
         return contents or [{}]
     if extension == ".toml":
         rule = pytoml.loads(raw_text)  # type: ignore[reportUnknownVariableType]
-    elif extension.lower() in ("yaml", "yml"):
+    elif extension.lower() in (".yaml", ".yml"):
         rule = load_dump(str(rule_file))
     else:
         return []

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytoml  # type: ignore[reportMissingTypeStubs]
+import yaml
 from marshmallow import EXCLUDE
 
 from .config import parse_rules_config
@@ -110,6 +111,22 @@ class TOMLActionConnector:
             # Sort the dictionary so that 'metadata' is at the top
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
             pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
+
+    def save_yaml(self, path: Path | None = None) -> None:
+        """Save the action to a YAML file."""
+        target_path = path or self.path
+        if not target_path:
+            raise ValueError(f"Can't save action for {self.name} without a path")
+        if target_path.suffix not in (".yaml", ".yml"):
+            target_path = target_path.with_suffix(".yaml")
+        with target_path.open("w", encoding="utf-8", newline="\n") as f:
+            api_format = self.contents.to_api_format()
+            # If single item, write as dict; if multiple, write as list
+            content = api_format[0] if len(api_format) == 1 else api_format
+            output = yaml.safe_dump(content, default_flow_style=False, sort_keys=True)
+            _ = f.write(output)
+            if not output.endswith("\n"):
+                _ = f.write("\n")
 
 
 def parse_action_connector_results_from_api(
