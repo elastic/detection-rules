@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/03/12"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/03/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a new AWS CloudShell environment. CloudShell is a browser-based shell that provides
+command-line access to AWS resources directly from the AWS Management Console. The CreateEnvironment API is called when
+a user launches CloudShell for the first time or when accessing CloudShell in a new AWS region. Adversaries with console
+access may use CloudShell to execute commands, install tools, or interact with AWS services without needing local CLI
+credentials. Monitoring environment creation helps detect unauthorized CloudShell usage from compromised console
+sessions.
+"""
+false_positives = [
+    """
+    Legitimate use of CloudShell by administrators for routine AWS management tasks. Verify whether the user has a
+    legitimate need for CloudShell access and correlate with recent console login activity. Environment creation also
+    occurs when users access CloudShell in a new AWS region.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CloudShell Environment Created"
+note = """## Triage and analysis
+
+### Investigating AWS CloudShell Environment Created
+
+AWS CloudShell is a browser-based shell environment that provides instant command-line access to AWS resources without requiring local CLI installation or credential configuration. While this is convenient for legitimate administrators, it also provides adversaries with a powerful tool if they gain access to a compromised AWS console session.
+
+This rule detects when a CloudShell environment is created via the `CreateEnvironment` API. This event occurs when a user launches CloudShell for the first time or when accessing CloudShell in a new AWS region (each region maintains a separate environment). 
+
+### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` or `user.name` to determine which IAM principal created the CloudShell environment.
+  - Check `aws.cloudtrail.user_identity.type` to identify whether this is an IAM user or an assumed role session.
+  - Verify if this user typically performs command-line or administrative operations.
+
+- **Analyze the source context**
+  - Review `source.ip` and `source.geo` fields to verify the request origin matches expected administrator locations.
+  - Check `user_agent.original` to confirm the request came from a browser session.
+  - Look for the preceding `ConsoleLogin` event to understand how the session was established.
+
+- **Correlate with surrounding activity**
+  - Look for any IAM operations (CreateAccessKey, CreateUser, AttachRolePolicy) that occurred after CloudShell was accessed.
+  - Check for data exfiltration patterns or reconnaissance activity from the same session.
+
+- **Assess the broader context**
+  - Determine if this user has a legitimate need for CloudShell access based on their role.
+  - Review recent access patterns for the console session that initiated CloudShell.
+  - Check if MFA was used for the console login.
+
+### False positive analysis
+
+- Administrators routinely using CloudShell for AWS management tasks will trigger this rule. Consider tuning for known admin users if noise is a concern.
+- Users accessing CloudShell in a new AWS region will generate a `CreateEnvironment` event even if they have used CloudShell before in other regions.
+- Training or certification activities may involve CloudShell environment creation.
+
+### Response and remediation
+
+- If unauthorized, immediately terminate the console session to revoke CloudShell access.
+- Review and revoke any credentials or resources created during the CloudShell session.
+- Consider restricting CloudShell access via SCPs or IAM policies for sensitive accounts or users who do not require it.
+- Implement session duration limits to reduce the window of opportunity for console session abuse.
+- Enable MFA for all console logins to reduce the risk of session compromise.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/)**
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+"""
+references = [
+    "https://aws-samples.github.io/threat-technique-catalog-for-aws/Techniques/T1059.009.html",
+    "https://permiso.io/blog/lucr-3-scattered-spider-getting-saas-y-in-the-cloud",
+]
+risk_score = 21
+rule_id = "b625c9ad-16e5-4f16-8d38-3e9631952554"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS CloudShell",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "cloudshell.amazonaws.com"
+    and event.action: "CreateEnvironment"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.009"
+name = "Cloud API"
+reference = "https://attack.mitre.org/techniques/T1059/009/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
