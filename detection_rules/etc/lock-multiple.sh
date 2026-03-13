@@ -4,7 +4,7 @@ set -e
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-BRANCHES=($(echo $@ | sed "s/,/ /g"))
+BRANCHES=($(echo "$@" | sed "s/,/ /g" | tr ' ' '\n' | sort -V))
 LAST_INDEX=$((${#BRANCHES[@]} - 1))
 
 for i in "${!BRANCHES[@]}"
