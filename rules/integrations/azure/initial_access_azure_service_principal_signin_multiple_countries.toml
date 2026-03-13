@@ -16,17 +16,17 @@ principal secrets, and compromised automation accounts.
 """
 false_positives = [
     """
-    Service principals used by globally distributed CI/CD systems (e.g., GitHub Actions runners in multiple regions)
-    may legitimately authenticate from different countries. Baseline the expected geographic distribution for each
-    service principal.
+    Service principals used by globally distributed CI/CD systems (e.g., GitHub Actions runners in multiple regions) may
+    legitimately authenticate from different countries. Baseline the expected geographic distribution for each service
+    principal.
     """,
     """
-    VPN or proxy usage by administrators managing service principals from different locations may produce
-    multi-country sign-in patterns. Correlate with the administrator's known travel or access patterns.
+    VPN or proxy usage by administrators managing service principals from different locations may produce multi-country
+    sign-in patterns. Correlate with the administrator's known travel or access patterns.
     """,
 ]
-from = "now-30m"
-interval = "29m"
+from = "now-8h"
+interval = "1h"
 language = "esql"
 license = "Elastic License v2"
 name = "Azure Service Principal Authentication from Multiple Countries"
@@ -48,6 +48,10 @@ of credential compromise.
   identities, owner changes).
 - Check if the service principal has Azure Arc or Kubernetes-related role assignments, which could indicate
   targeting of cluster resources.
+
+### False positive analysis
+- If the service principal is used by a CI/CD pipeline, check if the different countries align with known runner locations. Baseline the expected geographic distribution for that SP.
+- If administrators manage the SP, correlate with known travel patterns or VPN usage that could explain multi-country access.
 
 ### Response and remediation
 
@@ -118,6 +122,7 @@ FROM logs-azure.signinlogs-* metadata _id, _index
 | KEEP *
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -128,6 +133,7 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
 
 
 [rule.threat.tactic]
@@ -155,3 +161,4 @@ field_names = [
     "Esql.timestamp_last_seen",
     "Esql.event_count",
 ]
+
