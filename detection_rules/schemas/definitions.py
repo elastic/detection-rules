@@ -59,6 +59,7 @@ def elastic_rule_name_regexp(pattern: Pattern[str]) -> Callable[[Any], Any]:
 HTTP_STATUS_BAD_REQUEST = 400
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
+KIBANA_IMPORT_BATCH_SIZE = 50
 
 DATE_PATTERN = re.compile(r"^\d{4}/\d{2}/\d{2}$")
 MATURITY_LEVELS = ["development", "experimental", "beta", "production", "deprecated"]

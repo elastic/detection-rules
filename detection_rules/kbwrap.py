@@ -111,7 +111,7 @@ def kibana_import_rules(  # noqa: PLR0915
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import rules into Kibana."""
 
-    def _handle_response_errors(response: dict[str, Any]) -> None:
+    def _handle_response_errors(response: dict[str, Any], imported_exception_dicts: list[list[dict[str, Any]]]) -> None:
         """Handle errors from the import response."""
 
         def _parse_list_id(s: str) -> str | None:
@@ -123,7 +123,7 @@ def kibana_import_rules(  # noqa: PLR0915
         workaround_errors: list[str] = []
         workaround_error_types: set[str] = set()
 
-        flattened_exceptions: list[dict[str, Any]] = [e for sublist in exception_dicts for e in sublist]
+        flattened_exceptions: list[dict[str, Any]] = [e for sublist in imported_exception_dicts for e in sublist]
         all_exception_list_ids: set[str] = {exception["list_id"] for exception in flattened_exceptions}
 
         click.echo(f"{len(response['errors'])} rule(s) failed to import!")
@@ -173,36 +173,57 @@ def kibana_import_rules(  # noqa: PLR0915
             click.echo(f" - {ids_str}")
 
     kibana = ctx.obj["kibana"]
-    rule_dicts = [r.contents.to_api_format() for r in rules]
-    rule_ids = {rule["rule_id"] for rule in rule_dicts}
+    batch_size = definitions.KIBANA_IMPORT_BATCH_SIZE
+    rules_list = list(rules)
+    imported_exception_dicts: list[list[dict[str, Any]]] = []
+    imported_action_connectors_dicts: list[list[dict[str, Any]]] = []
+    successful_rule_ids: list[str] = []
+    all_errors: list[dict[str, Any]] = []
+    results: list[RuleResource] = []
+
     with kibana:
         cl = GenericCollection.default()
-        exception_dicts: list[list[dict[str, Any]]] = [
-            d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-            for d in cl.items_matching(TOMLExceptionContents, rule_ids)
-        ]
-        action_connectors_dicts: list[list[dict[str, Any]]] = [
-            d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-            for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
-        ]
-        response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
-            rule_dicts,
-            exception_dicts,
-            action_connectors_dicts,
-            overwrite=overwrite,
-            overwrite_exceptions=overwrite_exceptions,
-            overwrite_action_connectors=overwrite_action_connectors,
-        )
+        for i in range(0, len(rules_list), batch_size):
+            batched_rules = rules_list[i : i + batch_size]
+            rule_dicts = [r.contents.to_api_format() for r in batched_rules]
+            rule_ids = {rule["rule_id"] for rule in rule_dicts}
+
+            exception_dicts: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLExceptionContents, rule_ids)
+            ]
+            action_connectors_dicts: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
+            ]
+
+            response, batch_successful_rule_ids, batch_results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
+                rule_dicts,
+                exception_dicts,
+                action_connectors_dicts,
+                overwrite=overwrite,
+                overwrite_exceptions=overwrite_exceptions,
+                overwrite_action_connectors=overwrite_action_connectors,
+            )
+            response = cast("dict[str, Any]", response)
+
+            imported_exception_dicts.extend(exception_dicts)
+            imported_action_connectors_dicts.extend(action_connectors_dicts)
+            successful_rule_ids.extend(cast("list[str]", batch_successful_rule_ids))
+            all_errors.extend(cast("list[dict[str, Any]]", response.get("errors", [])))
+            results.extend(cast("list[RuleResource]", batch_results))
+
+    response: dict[str, Any] = {"errors": all_errors}
 
     if successful_rule_ids:
         click.echo(f"{len(successful_rule_ids)} rule(s) successfully imported")  # type: ignore[reportUnknownArgumentType]
         rule_str = "\n - ".join(successful_rule_ids)  # type: ignore[reportUnknownArgumentType]
         click.echo(f" - {rule_str}")
     if response["errors"]:
-        _handle_response_errors(response)  # type: ignore[reportUnknownArgumentType]
+        _handle_response_errors(response, imported_exception_dicts)  # type: ignore[reportUnknownArgumentType]
     else:
-        _process_imported_items(exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
-        _process_imported_items(action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
+        _process_imported_items(imported_exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
+        _process_imported_items(imported_action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
 
     return response, results  # type: ignore[reportUnknownVariableType]
 
