@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/03/12"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/03/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a CloudWatch Log Group retention policy is set to 7 days or less via the PutRetentionPolicy API.
+Adversaries may set suspiciously short retention periods to ensure logs are automatically purged before incident
+response teams can analyze them. Unlike immediate log deletion, this technique allows logs to be silently removed over
+time, making it harder to detect evidence tampering. This rule specifically targets retention periods of < 7 days, which
+are unusually short for most production logging use cases.
+"""
+false_positives = [
+    """
+    Legitimate retention policy changes may occur during cost optimization efforts or compliance adjustments. Verify
+    whether the user identity, retention period, and target log group align with approved administrative workflows.
+    Short retention periods on non-critical log groups (e.g., development or testing) may be expected.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CloudWatch Log Retention Policy Set to Short Duration"
+note = """## Triage and analysis
+
+### Investigating AWS CloudWatch Log Retention Policy Set to Short Duration
+
+CloudWatch Log Groups store operational and security logs from AWS services and applications. Retention policies control how long logs are preserved before automatic deletion. Adversaries may abuse `PutRetentionPolicy` to set very short retention periods, causing logs to be silently purged over time without triggering obvious deletion alerts.
+
+This technique is subtler than `DeleteLogGroup` or `DeleteLogStream` because:
+- The log group continues to exist and appear "healthy"
+- Logs are gradually removed rather than immediately deleted
+- Monitoring may not notice the change until forensic analysis is needed
+
+### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id`.
+  - Determine whether this identity normally manages CloudWatch Logs configuration.
+
+- **Review the retention change**
+  - Inspect `aws.cloudtrail.request_parameters` for `retentionInDays` value.
+  - Identify the target `logGroupName` and assess its importance:
+    - CloudTrail logs, VPC Flow Logs, Lambda functions, or security service logs warrant higher scrutiny.
+
+- **Check source and context**
+  - Review `source.ip` and `source.geo` for unusual locations.
+  - Check `user_agent.original` for unexpected tools or automation.
+  - Look for patterns: multiple log groups modified in succession may indicate automated tampering.
+
+- **Correlate with surrounding activity**
+  - Search for other defense evasion indicators around the same timestamp:
+    - `StopLogging`, `DeleteTrail`, `UpdateTrail` (CloudTrail tampering)
+    - `DeleteLogGroup`, `DeleteLogStream` (direct log deletion)
+    - IAM permission changes by the same actor
+  - Check for suspicious activity that the adversary may be trying to hide.
+
+- **Assess business justification**
+  - Contact the log group owner or platform team to verify whether the change was planned.
+  - Review change management records for approved retention policy modifications.
+
+### False positive analysis
+
+- **Cost optimization**: Organizations may reduce retention on high-volume, low-value log groups.
+- **Compliance adjustments**: Some regulations require specific retention periods.
+- **Development/test environments**: Short retention is common for ephemeral workloads.
+
+**Tuning recommendations:**
+- Consider excluding known automation IAM roles
+- Exclude development/test account IDs if your organization uses separate accounts
+- Focus investigation on retention changes to critical log groups (CloudTrail, VPC Flow Logs, security service logs)
+
+### Response and remediation
+
+- **If unauthorized**
+  - Immediately restore appropriate retention periods on affected log groups.
+  - Identify what time range of logs may have been lost.
+  - Restrict permissions for the implicated IAM identity.
+
+- **Investigation**
+  - Reconstruct missing log data from alternative sources (S3 exports, third-party logging).
+  - Review the actor's recent CloudTrail activity for other suspicious actions.
+  - Determine if the retention change coincides with other malicious activity being concealed.
+
+- **Hardening**
+  - Enforce minimum retention periods via AWS Organizations SCPs.
+  - Configure AWS Config rules to detect non-compliant retention settings.
+  - Implement least-privilege access for `logs:PutRetentionPolicy`.
+  - Set up CloudWatch alarms for retention policy modifications on critical log groups.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/)**
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/)**
+"""
+references = [
+    "https://aws-samples.github.io/threat-technique-catalog-for-aws/Techniques/T1562.008.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html",
+]
+risk_score = 21
+rule_id = "7effb6e7-cddc-4ad0-baf6-619cf9d84fa6"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon CloudWatch",
+    "Use Case: Log Auditing",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "logs.amazonaws.com"
+    and event.action: "PutRetentionPolicy"
+    and aws.cloudtrail.flattened.request_parameters.retentionInDays: (1 or 2 or 3 or 4 or 5 or 6)
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
