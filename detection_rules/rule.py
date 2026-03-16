@@ -22,6 +22,7 @@ from uuid import uuid4
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
 import marshmallow
+import yaml
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, pre_load, validates_schema
@@ -1728,6 +1729,19 @@ class TOMLRule:
         with path.absolute().open("w", newline="\n") as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             _ = f.write("\n")
+
+    def save_yaml(self, path: Path, contents_override: dict[str, Any] | None = None) -> None:
+        """Save the rule in YAML format."""
+        path = path.with_suffix(".yaml")
+        with path.absolute().open("w", newline="\n") as f:
+            output = yaml.safe_dump(
+                contents_override if contents_override is not None else self.contents.to_api_format(),
+                sort_keys=True,
+                default_flow_style=False,
+            )
+            _ = f.write(output)
+            if not output.endswith("\n"):
+                _ = f.write("\n")
 
 
 @dataclass(frozen=True)
