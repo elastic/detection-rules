@@ -115,6 +115,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: definitions.Date | None = None
 
     # Optional fields
+    base_version: int | None = None
     bypass_bbr_timing: bool | None = None
     comments: str | None = None
     integration: str | list[str] | None = None
@@ -1648,7 +1649,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if include_metadata:
             converted["meta"] = rule_dict["metadata"]
 
-        if include_version:
+        if self.metadata.base_version is not None:
+            converted["version"] = self.metadata.base_version
+        elif include_version:
             converted["version"] = self.autobumped_version
 
         return converted

@@ -355,6 +355,7 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
         "creation_date": kwargs.get("creation_date") or creation_date,
         "updated_date": kwargs.get("updated_date") or creation_date,
         "maturity": "development",
+        "base_version": kwargs.get("base_version"),
     }
 
     try:

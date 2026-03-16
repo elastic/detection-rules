@@ -278,6 +278,9 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
             )
         )
 
+        if contents.get("version") is not None:
+            contents["base_version"] = contents["version"]
+
         output = rule_prompt(
             rule_path,
             required_only=required_only,
