@@ -15,7 +15,6 @@ from semver import Version
 from detection_rules import rule_loader
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.packaging import (
-    MIN_STACK_VERSION_DEPRECATED_STUBS,
     PACKAGE_FILE,
     Package,
     build_deprecated_rule_asset,

@@ -553,7 +553,7 @@ class Package:
                     rule_id=rule_id,
                     rule_name=dep_entry.rule_name,
                     deprecated_version=deprecated_version,
-                    deprecated_reason=getattr(dep_entry, "deprecated_reason", None),
+                    deprecated_reason=dep_entry.deprecated_reason,
                     stack_version=stack_version,
                 )
                 asset_path = rules_dir / f"{asset['id']}.json"
