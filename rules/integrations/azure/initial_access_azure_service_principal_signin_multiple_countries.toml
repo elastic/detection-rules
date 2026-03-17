@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/03/10"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/03/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an Azure service principal authenticates from multiple countries within a short time window, which may
+indicate stolen credentials being used from different geographic locations. Service principals typically authenticate
+from consistent locations tied to their deployment infrastructure. Authentication from multiple countries in a brief
+period suggests credential compromise, particularly when the source countries do not align with the organization's
+expected operating regions. This pattern has been observed in attacks using stolen CI/CD credentials, phished service
+principal secrets, and compromised automation accounts.
+"""
+false_positives = [
+    """
+    Service principals used by globally distributed CI/CD systems (e.g., GitHub Actions runners in multiple regions) may
+    legitimately authenticate from different countries. Baseline the expected geographic distribution for each service
+    principal.
+    """,
+    """
+    VPN or proxy usage by administrators managing service principals from different locations may produce multi-country
+    sign-in patterns. Correlate with the administrator's known travel or access patterns.
+    """,
+]
+from = "now-8h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure Service Principal Authentication from Multiple Countries"
+note = """## Triage and analysis
+
+### Investigating Azure Service Principal Authentication from Multiple Countries
+
+Service principals are non-interactive identities used for automation and application access. Unlike user accounts,
+they rarely change geographic location. Authentication from multiple countries in a short window is a strong indicator
+of credential compromise.
+
+### Possible investigation steps
+
+- Identify the service principal using the `app_id` and `app_display_name` from the alert.
+- Review the list of countries and source IPs — do they match known infrastructure locations?
+- Check when the service principal credentials were last rotated — stale credentials are more likely compromised.
+- Investigate what resources were accessed after authentication using Azure Activity Logs and Graph Activity Logs.
+- Correlate with Azure AD Audit Logs for recent changes to the service principal (new credentials, federated
+  identities, owner changes).
+- Check if the service principal has Azure Arc or Kubernetes-related role assignments, which could indicate
+  targeting of cluster resources.
+
+### False positive analysis
+- If the service principal is used by a CI/CD pipeline, check if the different countries align with known runner locations. Baseline the expected geographic distribution for that SP.
+- If administrators manage the SP, correlate with known travel patterns or VPN usage that could explain multi-country access.
+
+### Response and remediation
+
+- Immediately rotate the service principal credentials (secrets and certificates).
+- Revoke active sessions and tokens.
+- Review and remove any unauthorized role assignments.
+- Audit resources accessed from the suspicious locations.
+- Enable conditional access policies to restrict service principal authentication by location if supported.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins",
+    "https://learn.microsoft.com/en-us/entra/identity/conditional-access/workload-identities",
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/",
+    "https://www.wiz.io/blog/lateral-movement-risks-in-the-cloud-and-how-to-prevent-them-part-3-from-compromis",
+]
+risk_score = 73
+rule_id = "db97a2aa-3ba5-4fa5-b8b9-bf42284edb5f"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs-* metadata _id, _index
+| WHERE event.dataset == "azure.signinlogs"
+    AND azure.signinlogs.category == "ServicePrincipalSignInLogs"
+    AND azure.signinlogs.properties.status.error_code == 0
+    AND source.geo.country_iso_code IS NOT NULL
+    AND azure.signinlogs.properties.service_principal_id IS NOT NULL
+    AND NOT azure.signinlogs.properties.app_owner_tenant_id IN (
+        "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+        "72f988bf-86f1-41af-91ab-2d7cd011db47"
+    )
+
+| EVAL
+    Esql.source_ip_string = TO_STRING(source.ip),
+    Esql.source_ip_country_pair = CONCAT(Esql.source_ip_string, " - ", source.geo.country_name)
+
+| STATS
+    Esql.source_geo_country_iso_code_count_distinct = COUNT_DISTINCT(source.geo.country_iso_code),
+    Esql.source_geo_country_name_values = VALUES(source.geo.country_name),
+    Esql.source_geo_city_name_values = VALUES(source.geo.city_name),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.source_ip_country_pair_values = VALUES(Esql.source_ip_country_pair),
+    Esql.source_network_org_name_values = VALUES(`source.as.organization.name`),
+    Esql.resource_display_name_values = VALUES(azure.signinlogs.properties.resource_display_name),
+    Esql.app_id_values = VALUES(azure.signinlogs.properties.app_id),
+    Esql.app_owner_tenant_id_values = VALUES(azure.signinlogs.properties.app_owner_tenant_id),
+    Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
+    Esql.source_geo_city_name_count_distinct = COUNT_DISTINCT(source.geo.city_name),
+    Esql.source_network_org_name_count_distinct = COUNT_DISTINCT(`source.as.organization.name`),
+    Esql.timestamp_first_seen = MIN(@timestamp),
+    Esql.timestamp_last_seen = MAX(@timestamp),
+    Esql.event_count = COUNT(*)
+    BY azure.signinlogs.properties.service_principal_id, azure.signinlogs.properties.app_display_name
+
+| WHERE Esql.source_geo_country_iso_code_count_distinct >= 2
+| KEEP *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.service_principal_id",
+    "azure.signinlogs.properties.app_display_name",
+    "Esql.source_geo_country_iso_code_count_distinct",
+    "Esql.source_geo_country_name_values",
+    "Esql.source_geo_city_name_values",
+    "Esql.source_ip_values",
+    "Esql.source_ip_country_pair_values",
+    "Esql.source_network_org_name_values",
+    "Esql.resource_display_name_values",
+    "Esql.app_id_values",
+    "Esql.app_owner_tenant_id_values",
+    "Esql.source_ip_count_distinct",
+    "Esql.source_geo_city_name_count_distinct",
+    "Esql.source_network_org_name_count_distinct",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+    "Esql.event_count",
+]
+
