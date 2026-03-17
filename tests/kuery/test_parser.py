@@ -120,38 +120,20 @@ class ParserTests(unittest.TestCase):
     def test_wildcard_with_spaces(self):
         """Test wildcard values containing spaces (WILDCARD_LITERAL patterns)."""
         # Pattern 1: Starts with * (e.g., *S3 Browser, *S3 Browser*)
-        self.validate(
-            "field: *S3 Browser*",
-            FieldComparison(Field("field"), Wildcard("*S3 Browser*"))
-        )
-        self.validate(
-            "field: *S3 Browser",
-            FieldComparison(Field("field"), Wildcard("*S3 Browser"))
-        )
+        self.validate("field: *S3 Browser*", FieldComparison(Field("field"), Wildcard("*S3 Browser*")))
+        self.validate("field: *S3 Browser", FieldComparison(Field("field"), Wildcard("*S3 Browser")))
 
         # Pattern 2: Ends with * but doesn't start with * (e.g., S3 Browser*)
-        self.validate(
-            "field: S3 Browser*",
-            FieldComparison(Field("field"), Wildcard("S3 Browser*"))
-        )
+        self.validate("field: S3 Browser*", FieldComparison(Field("field"), Wildcard("S3 Browser*")))
 
         # Pattern 3a: Middle * - star appears AFTER a space (e.g., S3 B*owser)
-        self.validate(
-            "field: S3 B*owser",
-            FieldComparison(Field("field"), Wildcard("S3 B*owser"))
-        )
+        self.validate("field: S3 B*owser", FieldComparison(Field("field"), Wildcard("S3 B*owser")))
 
         # Pattern 3b: Middle * - star appears BEFORE a space (e.g., S3* Browser)
-        self.validate(
-            "field: S3* Browser",
-            FieldComparison(Field("field"), Wildcard("S3* Browser"))
-        )
+        self.validate("field: S3* Browser", FieldComparison(Field("field"), Wildcard("S3* Browser")))
 
         # Multiple wildcards with spaces
-        self.validate(
-            "field: foo* bar* baz",
-            FieldComparison(Field("field"), Wildcard("foo* bar* baz"))
-        )
+        self.validate("field: foo* bar* baz", FieldComparison(Field("field"), Wildcard("foo* bar* baz")))
 
     def test_wildcard_with_spaces_and_keywords(self):
         """Test wildcard values containing spaces followed by keywords."""
@@ -164,14 +146,8 @@ class ParserTests(unittest.TestCase):
         self.assertIsNotNone(result)
 
         # Keywords inside wildcard values (should be part of the wildcard)
-        self.validate(
-            "field: *or something*",
-            FieldComparison(Field("field"), Wildcard("*or something*"))
-        )
-        self.validate(
-            "field: *not this*",
-            FieldComparison(Field("field"), Wildcard("*not this*"))
-        )
+        self.validate("field: *or something*", FieldComparison(Field("field"), Wildcard("*or something*")))
+        self.validate("field: *not this*", FieldComparison(Field("field"), Wildcard("*not this*")))
 
     def test_not_prefix_with_wildcard(self):
         """Test NOT keyword is not consumed as part of wildcard literal."""
@@ -185,10 +161,7 @@ class ParserTests(unittest.TestCase):
     def test_quoted_wildcard_as_literal(self):
         """Test that quoted wildcards are treated as literal strings, not wildcards."""
         # Quoted wildcard should be a String, not a Wildcard
-        self.validate(
-            'field: "*text*"',
-            FieldComparison(Field("field"), String("*text*"))
-        )
+        self.validate('field: "*text*"', FieldComparison(Field("field"), String("*text*")))
 
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
