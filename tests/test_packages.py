@@ -13,12 +13,12 @@ from marshmallow import ValidationError
 from semver import Version
 
 from detection_rules import rule_loader
-from detection_rules.rule_loader import RuleCollection
 from detection_rules.packaging import (
     PACKAGE_FILE,
     Package,
     build_deprecated_rule_asset,
 )
+from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import definitions
 from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
 from tests.base import BaseRuleTest
