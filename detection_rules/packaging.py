@@ -80,9 +80,7 @@ def build_deprecated_rule_asset(
         "deprecated": True,
     }
     # deprecated_reason is only available on 9.4+ (Kibana feature)
-    if deprecated_reason and (
-        stack_version is not None and stack_version >= MIN_STACK_VERSION_DEPRECATED_STUBS
-    ):
+    if deprecated_reason and stack_version is not None and stack_version >= MIN_STACK_VERSION_DEPRECATED_STUBS:
         attributes["deprecated_reason"] = deprecated_reason
     return {
         "id": asset_id,
