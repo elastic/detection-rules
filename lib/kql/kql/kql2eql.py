@@ -99,14 +99,22 @@ class KqlToEQL(BaseKqlParser):
         return eql.utils.to_unicode(literal)
 
     def value(self, tree):
-        # TODO: check the logic for kuery.peg
-        value = self.unescape_literal(tree.children[0])
-
         if self.scoped_field is None:
             raise self.error(tree, "Value not tied to field")
 
+        token = tree.children[0]
+        value = self.unescape_literal(token)
+
         field_name = self.scoped_field
         field = self.to_eql_field(field_name)
+
+        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in str(token.value)):
+            if eql.utils.is_string(value) and value.replace("*", "").strip() == "":
+                return eql.ast.IsNotNull(field)
+            value_ast = eql.ast.Literal.from_python(value)
+            return eql.ast.FunctionCall("wildcard", [field, value_ast])
+
         value = self.convert_value(field_name, value, tree)
         value_ast = eql.ast.Literal.from_python(value)
 
