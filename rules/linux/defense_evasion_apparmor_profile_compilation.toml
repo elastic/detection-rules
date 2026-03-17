@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/03/17"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the execution of "apparmor_parser" using the "-o" option to write a compiled AppArmor
+profile to an output file. This functionality is normally used by system administration tools
+or package installation scripts when building or loading AppArmor policies. In adversarial
+scenarios, attackers may use "apparmor_parser" to compile custom AppArmor profiles that can
+later be loaded into the kernel through AppArmor policy management interfaces. Malicious
+profiles may weaken security controls, alter the behavior of privileged programs, or assist in
+exploitation chains involving AppArmor policy manipulation.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Profile Compilation via apparmor_parser"
+note = """"""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 21
+rule_id = "d26331be-affe-46b2-bf4e-203d0e2d364c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "apparmor_parser" and process.args in ("-o", "-ofile", "--output")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
