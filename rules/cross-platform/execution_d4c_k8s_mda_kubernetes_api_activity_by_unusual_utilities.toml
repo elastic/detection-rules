@@ -4,7 +4,7 @@ integration = ["cloud_defend", "kubernetes"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/27"
+updated_date = "2026/03/05"
 
 [rule]
 author = ["Elastic"]
@@ -107,7 +107,10 @@ sequence with maxspan=1s
        )
      ) or
      /* General exclusions for utilities that are not typically used for Kubernetes API requests */
-     process.name in ("sleep", "head", "tail")
+     process.name in (
+       "sleep", "head", "tail", "apk", "apt", "apt-get", "dnf", "microdnf", "yum", "zypper", "tdnf",
+       "pacman", "rpm", "dpkg"
+     )
    )] by orchestrator.resource.name
   [any where
      event.dataset == "kubernetes.audit_logs" and
