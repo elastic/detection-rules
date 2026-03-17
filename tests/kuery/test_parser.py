@@ -176,11 +176,11 @@ class ParserTests(unittest.TestCase):
     def test_not_prefix_with_wildcard(self):
         """Test NOT keyword is not consumed as part of wildcard literal."""
         # NOT prefix should create NotExpr, not be part of the wildcard
-        result = kql.parse("process.executable: not /tmp/go-build*", optimize=False)
+        result = kql.parse("process.executable: not /test/go-build*", optimize=False)
         self.assertIsInstance(result, FieldComparison)
         self.assertIsInstance(result.value, NotValue)
         self.assertIsInstance(result.value.value, Wildcard)
-        self.assertEqual(result.value.value.value, "/tmp/go-build*")
+        self.assertEqual(result.value.value.value, "/test/go-build*")
 
     def test_quoted_wildcard_as_literal(self):
         """Test that quoted wildcards are treated as literal strings, not wildcards."""
