@@ -74,6 +74,7 @@ class DeprecatedRulesEntry(MarshmallowDataclassMixin):
     deprecation_date: definitions.Date | definitions.KNOWN_BAD_DEPRECATED_DATES
     rule_name: definitions.RuleName
     stack_version: definitions.SemVer
+    deprecated_reason: str | None = None  # Optional; from rule [metadata] when maturity == "deprecated"
 
 
 @dataclass(frozen=True)
@@ -337,11 +338,15 @@ class VersionLock:
 
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
-                current_deprecated_lock[rule.id] = {
+                entry: dict[str, Any] = {
                     "rule_name": rule.name,
                     "stack_version": current_stack_version(),
                     "deprecation_date": rule.contents.metadata["deprecation_date"],
                 }
+                # deprecated_reason is set in the rule TOML [metadata]; copy into lock when present.
+                if rule.contents.metadata.get("deprecated_reason"):
+                    entry["deprecated_reason"] = rule.contents.metadata["deprecated_reason"]
+                current_deprecated_lock[rule.id] = entry
 
         if save_changes or verbose:
             click.echo(f" - {len(changed_rules)} changed rules")
