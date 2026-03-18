@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/03/18"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint"]
 maturity = "production"
 updated_date = "2026/03/18"
 
@@ -19,10 +19,7 @@ should only be performed by root, non-root file activity in these locations is h
 detection helps identify early stages of the exploit before privilege escalation is completed.
 """
 from = "now-9m"
-index = [
-    "logs-crowdstrike.fdr*",
-    "logs-endpoint.events.process*",
-]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential snap-confine Privilege Escalation via CVE-2026-3888"
@@ -95,15 +92,14 @@ tags = [
     "Use Case: Vulnerability",
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
-    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.action in ("creation", "wrote-to-file", "file_create_event") and
-file.path like ("/tmp/.snap*", "/tmp/snap-private-tmp/*/tmp/.snap*") and user.id != 0 
+file where host.os.type == "linux" and event.action == "creation" and
+file.path like ("/tmp/.snap*", "/tmp/snap-private-tmp/*/tmp/.snap*") and
+user.id != "0"
 '''
 
 [[rule.threat]]
