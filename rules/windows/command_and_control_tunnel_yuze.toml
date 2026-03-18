@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/02/11"
+creation_date = "2026/03/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,7 @@ references = [
     "https://attack.mitre.org/techniques/T1572/",
     "https://www.trendmicro.com/tr_tr/research/26/c/dissecting-a-warlock-attack.html",
 ]
-risk_score = 65
+risk_score = 47
 rule_id = "e7f2c4a1-9b3d-5e8f-c6a0-2d1b4e7f8c3a"
 severity = "medium"
 tags = [
@@ -73,8 +73,8 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : "rundll32.exe" and
- process.command_line : "*yuze*" and process.command_line : "*RunYuze*"
+  (process.args : "reverse" and process.args : "-c") and 
+  (?process.code_signature.exists == false or process.name : "rundll32.exe")
 '''
 
 

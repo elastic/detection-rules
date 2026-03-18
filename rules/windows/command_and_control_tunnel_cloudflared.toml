@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/02/11"
+creation_date = "2026/03/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -72,9 +72,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- (process.name : "cloudflared.exe" or process.pe.original_file_name == "cloudflared.exe" or process.code_signature.subject_name : "Cloudflare, Inc.") and
- process.command_line : "*tunnel*" and
- (process.command_line : "*--url*" or process.command_line : "*tunnel run*" or process.command_line : "*quick*")
+ (process.name : "cloudflared.exe" or ?process.pe.original_file_name == "cloudflared.exe" or ?process.code_signature.subject_name : "Cloudflare, Inc.") and process.args : "tunnel"
 '''
 
 

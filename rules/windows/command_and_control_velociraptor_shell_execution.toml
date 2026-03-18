@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/02/11"
+creation_date = "2026/03/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,7 @@ references = [
     "https://www.huntress.com/blog/active-exploitation-solarwinds-web-help-desk-cve-2025-26399",
     "https://attack.mitre.org/techniques/T1219/",
 ]
-risk_score = 55
+risk_score = 47
 rule_id = "9aeca498-1e3d-4496-9e12-6ef40047eb23"
 severity = "medium"
 tags = [
@@ -74,7 +74,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.name like "velociraptor*" and
+ process.parent.name : "velociraptor.exe" and
  process.name : ("cmd.exe", "powershell.exe", "rundll32.exe") and
  not (process.name : "powershell.exe" and process.command_line : "*RwBlAHQALQBMAG8AYwBhAGwARwByAG8AdQBwAE0AZQBtAGIAZQBy*") and
  not (process.name : "powershell.exe" and process.command_line : "*RwBlAHQALQBEAGEAdABl*" and process.command_line : "*-Format*") and
