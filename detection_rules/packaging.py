@@ -29,10 +29,64 @@ from .utils import Ndjson, get_etc_path, get_path
 from .version_lock import loaded_version_lock
 
 RULES_CONFIG = parse_rules_config()
+
+# Minimum stack version that supports deprecated rule stubs in the package (Kibana SO mapping).
+# When this repo is backported to 8.latest, 9.latest-1, 9.latest-2, etc., packages are built
+# for that branch's stack; deprecated_reason is only added when stack_version >= 9.4.
+#
+# Rule deprecation workflows (must support both; 8.19 has no Kibana deprecation feature):
+#
+# - Pre-9.4 (e.g. 8.19), two-stage: (1) Add "Deprecated - " prefix to rule name, set
+#   maturity = "deprecated" and deprecation_date in [metadata], optionally reduce risk/severity
+#   (see in-place deprecation PRs). Ship so customers see the rule is deprecated. (2) Next
+#   release move the rule to rules/_deprecated/ or remove. The package filter (packages.yaml
+#   maturity) controls which rules ship as full rules; to ship stage-1 deprecated rules as
+#   full rules on pre-9.4 branches, include "deprecated" in the filter for that package.
+#
+# - 9.4+, one-step: Move rule to rules/_deprecated/, set maturity = "deprecated" and
+#   deprecation_date; optional deprecated_reason in [metadata]. Package emits stubs only
+#   (no full rule); Kibana shows deprecation UI. deprecated_reason is only added to the
+#   stub when stack_version >= 9.4.
+MIN_STACK_VERSION_DEPRECATED_STUBS = Version.parse("9.4.0")
+
 RELEASE_DIR = get_path(["releases"])
 PACKAGE_FILE = str(RULES_CONFIG.packages_file)
 NOTICE_FILE = get_path(["NOTICE.txt"])
 FLEET_PKG_LOGO = get_etc_path(["security-logo-color-64px.svg"])
+
+
+def build_deprecated_rule_asset(
+    rule_id: str,
+    rule_name: str,
+    deprecated_version: int,
+    deprecated_reason: str | None = None,
+    stack_version: Version | None = None,
+) -> dict[str, Any]:
+    """Build the saved-object dict for a deprecated rule stub (package asset).
+
+    Used when generating the registry package for stack versions that support
+    deprecated rule stubs (9.4.0+). Caller is responsible for version gate.
+
+    The deprecated_reason attribute is a 9.4+ Kibana feature; it is only added
+    when stack_version >= 9.4.0 and a non-empty value is provided. This ensures
+    that when the code is backported to 8.latest / 9.latest-1 / 9.latest-2, the
+    package built for those stacks will not include deprecated_reason.
+    """
+    asset_id = f"{rule_id}_{deprecated_version}"
+    attributes: dict[str, Any] = {
+        "rule_id": rule_id,
+        "version": deprecated_version,
+        "name": rule_name,
+        "deprecated": True,
+    }
+    # deprecated_reason is only available on 9.4+ (Kibana feature)
+    if deprecated_reason and stack_version is not None and stack_version >= MIN_STACK_VERSION_DEPRECATED_STUBS:
+        attributes["deprecated_reason"] = deprecated_reason
+    return {
+        "id": asset_id,
+        "type": definitions.SAVED_OBJECT_TYPE,
+        "attributes": attributes,
+    }
 
 
 def filter_rule(rule: TOMLRule, config_filter: dict[str, Any], exclude_fields: dict[str, Any] | None = None) -> bool:
@@ -285,7 +339,9 @@ class Package:
 
         rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
-        # add back in deprecated fields
+        # Deprecated rules are always attached; they are written as stubs for 9.4+ only.
+        # For pre-9.4 two-stage workflow, include "deprecated" in filter.maturity to ship
+        # them as full rules (e.g. with "Deprecated - " prefix) so customers see the deprecation.
         rules.deprecated = all_rules.deprecated
 
         if verbose:
@@ -479,6 +535,28 @@ class Package:
 
             asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
+        # Only generate deprecated rule assets for 9.4.0+, where Kibana has
+        # the SO mapping and logic to handle them
+        if stack_version >= MIN_STACK_VERSION_DEPRECATED_STUBS:
+            deprecated_lock = loaded_version_lock.deprecated_lock
+            version_lock = loaded_version_lock.version_lock
+
+            for rule_id, dep_entry in deprecated_lock.data.items():
+                lock_entry = version_lock.data.get(rule_id)
+                if lock_entry is None:
+                    continue
+
+                deprecated_version = lock_entry.version + 1
+                asset = build_deprecated_rule_asset(
+                    rule_id=rule_id,
+                    rule_name=dep_entry.rule_name,
+                    deprecated_version=deprecated_version,
+                    deprecated_reason=dep_entry.deprecated_reason,
+                    stack_version=stack_version,
+                )
+                asset_path = rules_dir / f"deprecated_{asset['id']}.json"
+                asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
+
         notice_contents = NOTICE_FILE.read_text()
         readme_text = textwrap.dedent("""
         # Prebuilt Security Detection Rules
@@ -500,9 +578,6 @@ class Package:
 
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)
-
-        deprecated_rules_file = package_dir / "deprecated_rules.json"
-        shutil.copyfile(get_etc_path(["deprecated_rules.json"]), deprecated_rules_file)
 
     def create_bulk_index_body(self) -> tuple[Ndjson, Ndjson]:
         """Create a body to bulk index into a stack."""
