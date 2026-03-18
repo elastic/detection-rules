@@ -2,7 +2,7 @@
 creation_date = "2022/07/12"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/22"
+updated_date = "2026/03/17"
 
 [transform]
 [[transform.osquery]]
@@ -166,11 +166,12 @@ tags = [
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
-   process.args in (
-     "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
-     "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
-    )]
+  [process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
+  process.args in (
+   "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
+   "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
+  ) and
+  not process.args like ("/var/tmp/mkinitramfs*", "/var/tmp/dracut*", "/tmp/mkinitcpio*")]
 [file where host.os.type == "linux" and event.action == "creation" and (file.extension == "so" or file.name like "*.so.*")]
 '''
 
