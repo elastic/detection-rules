@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/03/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/03/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the ScreenConnect client (ConnectWise Control) connects to a newly observed host server that is not the official ScreenConnect cloud. ScreenConnect is a common RMM/remote access tool abused for C2 and persistence. Self-hosted or non-standard relay servers may indicate abuse or compromise. The rule aggregates by server host (parsed from the client command line), requires first-time observation within the rule window, and limits to a single host to reduce noise.
+"""
+from = "now-5d"
+interval = "6m"
+language = "esql"
+license = "Elastic License v2"
+name = "Newly Observed ScreenConnect Host Server"
+note = """## Triage and analysis
+
+### Investigating Newly Observed ScreenConnect Host Server
+
+ScreenConnect (ConnectWise Control) is legitimate RMM software often abused by threat actors for command-and-control and persistence. This rule fires when a host is seen connecting to a ScreenConnect server host that was not seen before (within the rule window) and that is not the official *.screenconnect.com cloud—surfacing self-hosted or non-standard relay servers that may indicate abuse.
+
+### Possible investigation steps
+
+- Identify the host and user from the alert and confirm whether use of ScreenConnect is approved.
+- Inspect the parsed ScreenConnect server host (Esql.screenconnect_server)—is it an internal host, a known vendor, or an unknown domain/IP?
+- Review the process command line for the full connection parameters and any other suspicious options.
+- Correlate with the companion rule "First Time Seen Remote Monitoring and Management Tool" for the same host.
+- Check for other alerts on the host or user in the past 48 hours.
+
+### False positive analysis
+
+- Legitimate use of self-hosted ScreenConnect/ConnectWise Control by IT or MSP will trigger; allowlist known relay servers by host or exception if appropriate.
+- New deployments of on-prem ScreenConnect relays will appear as newly observed; validate with change management.
+
+### Response and remediation
+
+- If unauthorized RMM use or an unknown relay is confirmed: isolate the host, remove or block the client, and investigate how the software was installed and who operates the server.
+- Enforce policy that only approved RMM tools and approved relay servers may be used.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/002/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+]
+risk_score = 73
+rule_id = "a8b2c4d6-e8f0-12a4-b6c8-d0e2f4a6b8c0"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.events.process-* metadata _id, _version, _index
+| where event.category == "process" and event.type == "start" and (process.name == "ScreenConnect.ClientService.exe" or process.code_signature.subject_name == "ConnectWise, LLC")
+| grok process.command_line """e=Access&y=Guest&h=(?<Esql.screenconnect_server>[^&]+)&p"""
+| where Esql.screenconnect_server is not null and not Esql.screenconnect_server like "*.screenconnect.com"
+| stats Esql.count_distinct_host_id = count_distinct(host.id),
+        Esql.first_time_seen = min(@timestamp),
+        Esql.user_name_values = values(user.name),
+        Esql.command_line_values = values(process.command_line),
+        Esql.host_id_values = values(host.id),
+        Esql.host_name_values = values(host.name) by Esql.screenconnect_server
+| eval Esql.recent = date_diff("minute", Esql.first_time_seen, now())
+| where Esql.recent <= 6 and Esql.count_distinct_host_id == 1
+| eval host.id = mv_first(Esql.host_id_values),
+       host.name = mv_first(Esql.host_name_values),
+       process.command_line = mv_first(Esql.command_line_values)
+| keep host.id, host.name, process.command_line, Esql.screenconnect_server
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
