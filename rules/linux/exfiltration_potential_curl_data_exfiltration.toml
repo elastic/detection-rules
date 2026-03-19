@@ -2,15 +2,14 @@
 creation_date = "2025/04/29"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/01/07"
+updated_date = "2026/03/13"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the use of curl to upload an archived file to an internet server. Threat actors often will collect data on a 
-system and compress it in an archive file before exfiltrating the file back to their C2 server for review. Many threat 
-actors have been seen utilizing curl to upload this archive file with the collected data to do this. Use of curl in this 
-way while not inherently malicious should be considered highly abnormal and suspicious activity.
+Detects the use of curl to upload files to an internet server. Threat actors often will collect and exfiltrate data on a 
+system to their C2 server for review. Many threat actors have been observed using curl to upload the collected data. Use
+of curl in this way, while not inherently malicious, should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*",]
@@ -52,7 +51,10 @@ Curl is a command-line tool used for transferring data with URLs, commonly emplo
 - Review and update firewall and network security rules to block unauthorized outbound traffic, especially to suspicious or unknown external servers.
 - Implement enhanced monitoring and logging for curl usage and similar data transfer tools to detect and respond to future exfiltration attempts promptly.
 """
-references = ["https://everything.curl.dev/usingcurl/uploads"]
+references = [
+  "https://everything.curl.dev/usingcurl/uploads",
+  "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
+]
 risk_score = 47
 rule_id = "be70614d-4295-473c-a953-582aef41c865"
 setup = """## Setup
@@ -94,11 +96,18 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "curl" and
-?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like ("--data*", "--form*")) and 
-process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
-process.command_line like~ "*http*" and
-not ?process.parent.executable == "/usr/share/untangle/bin/configuration-backup-upload-backup.sh"
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and
+process.name == "curl" and ?process.parent.executable != null and
+(
+  process.args in ("-T", "--upload-file") or
+  (
+    (process.args in ("-F", "-d", "--form") or process.args like "--data*") and process.command_line like "*@*"
+  )
+) and
+(
+  process.command_line like ("*http:*", "*https:*", "*ftp:*", "*ftps:*") or
+  process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
+)
 '''
 
 [[rule.threat]]
