@@ -66,39 +66,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-(
-  process.name in (
-    "pg_dump", "pg_dumpall",
-    "mysqldump", "mariadb-dump",
-    "mongodump"
-  )
-  or
-  (
-    process.name in (
-      "sqlite3",
-      "sqlcmd", "bcp",
-      "expdp", "exp", "impdp",
-      "db2look", "db2move"
-    ) and
-    process.command_line like (
-      "*.dump*",
-      "*queryout*",
-      "*out *",
-      "*outfile*",
-      "*to *",
-      "*fromtable*",
-      "*tables=*",
-      "*userid=*",
-      "*directory=*",
-      "*dumpfile=*",
-      "*logfile=*",
-      "*schema=*",
-      "*full=*",
-      "*COPY*TO*",
-      "*SELECT*INTO OUTFILE*"
-    )
-  )
-)
+process.name in ("pg_dump", "pg_dumpall", "mysqldump", "mariadb-dump", "mongodump")
 '''
 
 [[rule.threat]]
