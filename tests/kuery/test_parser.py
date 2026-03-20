@@ -7,12 +7,16 @@ import unittest
 
 import kql
 from kql.ast import (
+    AndExpr,
     Exists,
     Field,
     FieldComparison,
     FieldRange,
+    NotExpr,
+    NotValue,
     Number,
     String,
+    Wildcard,
 )
 
 
@@ -112,3 +116,59 @@ class ParserTests(unittest.TestCase):
         kql.lark_parse('"Test-ServiceDaclPermission" \nor "Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermission" or\n "Update-ExeFunctions"')
         kql.lark_parse('"Test-ServiceDaclPermissionOr" or\n "Update-ExeAndFunctions"')
+
+    def test_wildcard_with_spaces(self):
+        """Test wildcard values containing spaces (WILDCARD_LITERAL patterns)."""
+        # Pattern 1: Starts with * (e.g., *S3 Browser, *S3 Browser*)
+        self.validate("field: *S3 Browser*", FieldComparison(Field("field"), Wildcard("*S3 Browser*")))
+        self.validate("field: *S3 Browser", FieldComparison(Field("field"), Wildcard("*S3 Browser")))
+
+        # Pattern 2: Ends with * but doesn't start with * (e.g., S3 Browser*)
+        self.validate("field: S3 Browser*", FieldComparison(Field("field"), Wildcard("S3 Browser*")))
+
+        # Pattern 3a: Middle * - star appears AFTER a space (e.g., S3 B*owser)
+        self.validate("field: S3 B*owser", FieldComparison(Field("field"), Wildcard("S3 B*owser")))
+
+        # Pattern 3b: Middle * - star appears BEFORE a space (e.g., S3* Browser)
+        self.validate("field: S3* Browser", FieldComparison(Field("field"), Wildcard("S3* Browser")))
+
+        # Multiple wildcards with spaces
+        self.validate("field: foo* bar* baz", FieldComparison(Field("field"), Wildcard("foo* bar* baz")))
+
+    def test_wildcard_with_spaces_and_keywords(self):
+        """Test wildcard values containing spaces followed by keywords."""
+        # Wildcard followed by 'and' keyword
+        result = kql.parse("field: *S3 Browser* and other: value", optimize=False)
+        self.assertIsInstance(result, AndExpr)
+
+        # Wildcard followed by 'or' keyword
+        result = kql.parse("field: S3 Browser* or other: value", optimize=False)
+        self.assertIsNotNone(result)
+
+        # Keywords inside wildcard values (should be part of the wildcard)
+        self.validate("field: *or something*", FieldComparison(Field("field"), Wildcard("*or something*")))
+        self.validate("field: *not this*", FieldComparison(Field("field"), Wildcard("*not this*")))
+
+    def test_not_prefix_with_wildcard(self):
+        """Test NOT keyword is not consumed as part of wildcard literal."""
+        # NOT prefix should create NotExpr, not be part of the wildcard
+        result = kql.parse("process.executable: not /test/go-build*", optimize=False)
+        self.assertIsInstance(result, FieldComparison)
+        self.assertIsInstance(result.value, NotValue)
+        self.assertIsInstance(result.value.value, Wildcard)
+        self.assertEqual(result.value.value.value, "/test/go-build*")
+
+    def test_quoted_wildcard_as_literal(self):
+        """Test that quoted wildcards are treated as literal strings, not wildcards."""
+        # Quoted wildcard should be a String, not a Wildcard
+        self.validate('field: "*text*"', FieldComparison(Field("field"), String("*text*")))
+
+    def test_triple_not_optimization(self):
+        """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
+        # Triple NOT should optimize to single NOT
+        result = kql.parse("process.name: not not not foo", optimize=True)
+        # After optimization, not(not(not(foo))) should become not(foo)
+        # The structure is NotExpr(FieldComparison(..., String(...)))
+        self.assertIsInstance(result, NotExpr)
+        self.assertIsInstance(result.expr, FieldComparison)
+        self.assertEqual(result.expr.value.value, "foo")

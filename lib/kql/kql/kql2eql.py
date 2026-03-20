@@ -72,19 +72,49 @@ class KqlToEQL(BaseKqlParser):
     def not_list_of_values(self, tree):
         return eql.ast.Not(self.visit(tree.children[-1]))
 
+    def list_of_values(self, tree):
+        if len(tree.children) == 2:
+            # optional_not value
+            opt_not_tree, value_tree = tree.children
+            not_count = self.visit(opt_not_tree)
+            value = self.visit(value_tree)
+            for _ in range(not_count):
+                value = eql.ast.Not(value)
+            return value
+        else:
+            # "(" or_list_of_values ")"
+            return self.visit(tree.children[1])
+
+    def optional_not(self, tree):
+        count = 0
+        for child in tree.children:
+            if hasattr(child, "type") and child.type == "NOT":
+                count += 1
+            else:
+                count += self.visit(child)
+        return count
+
     def field(self, tree):
         literal = self.visit(tree.children[0])
         return eql.utils.to_unicode(literal)
 
     def value(self, tree):
-        # TODO: check the logic for kuery.peg
-        value = self.unescape_literal(tree.children[0])
-
         if self.scoped_field is None:
             raise self.error(tree, "Value not tied to field")
 
+        token = tree.children[0]
+        value = self.unescape_literal(token)
+
         field_name = self.scoped_field
         field = self.to_eql_field(field_name)
+
+        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in str(token.value)):
+            if eql.utils.is_string(value) and value.replace("*", "").strip() == "":
+                return eql.ast.IsNotNull(field)
+            value_ast = eql.ast.Literal.from_python(value)
+            return eql.ast.FunctionCall("wildcard", [field, value_ast])
+
         value = self.convert_value(field_name, value, tree)
         value_ast = eql.ast.Literal.from_python(value)
 
