@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/03/20"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies access to AppArmor kernel policy control interfaces through the .load, .replace, or .remove files under
+/sys/kernel/security/apparmor/. These special files are used to load, modify, or remove AppArmor profiles and are
+rarely accessed during normal system activity outside of policy administration. Reads or writes to these interfaces
+may indicate legitimate security configuration changes, but can also reflect defense evasion, unauthorized policy
+tampering, or the installation of attacker-controlled profiles. This detection is especially valuable on systems
+where AppArmor policy changes are uncommon or tightly controlled.
+"""
+from = "now-9m"
+index = [
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Policy Interface Access"
+note = """"""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 21
+rule_id = "d32f0c27-8edb-4bcf-975e-01696c961e08"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-w /sys/kernel/security/apparmor/.load -p rw -k apparmor_policy_change
+-w /sys/kernel/security/apparmor/.replace -p rw -k apparmor_policy_change
+-w /sys/kernel/security/apparmor/.remove -p rw -k apparmor_policy_change
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("opened-file", "wrote-to-file", "deleted") and
+file.path in (
+  "/sys/kernel/security/apparmor/.load", ".load",
+  "/sys/kernel/security/apparmor/.replace", ".replace",
+  "/sys/kernel/security/apparmor/.remove", ".remove"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
