@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -90,6 +90,11 @@ process where host.os.type == "windows" and event.type == "start" and
     not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
   ) and
 
+  not process.parent.executable : (
+        "?:\\Program Files\\*.exe",
+        "?:\\Program Files (x86)\\*.exe"
+  ) and
+
   (
     process.command_line : (
           "*^*^*^*^*^*^*^*^*^*",
@@ -171,6 +176,10 @@ process where host.os.type == "windows" and event.type == "start" and
     (
       process.parent.name : ("explorer.exe", "cmd.exe") and
       process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
+    ) and
+    not process.command_line : (
+      "*Use-Icinga -Minimal*",
+      "*& {$j = sajb {Add-Type -AssemblyName*"
     )
 '''
 

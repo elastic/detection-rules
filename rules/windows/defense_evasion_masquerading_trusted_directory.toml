@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/28"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -84,8 +84,8 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.executable : (
-    "C:\\*Program*Files*\\*.exe",
-    "\\Device\\HarddiskVolume*\\*Program*Files*\\*.exe"
+    "C:\\*Program Files*\\*.exe",
+    "\\Device\\HarddiskVolume*\\*Program Files*\\*.exe"
   ) and
   not process.executable : (
         "?:\\Program Files\\*.exe",
@@ -94,20 +94,14 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\ProgramData\\*.exe",
         "?:\\Windows\\Downloaded Program Files\\*.exe",
         "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?FilesOpera*\\*.exe",
-        "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe"
-  ) and
-  not (
-    /* Crowdstrike specific exclusion as it uses NT Object paths */
-    event.dataset == "crowdstrike.fdr" and
-      process.executable : (
+        "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe",
+
+        /* NT Object Paths */
         "\\Device\\HarddiskVolume*\\Program Files\\*.exe",
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\*.exe",
         "\\Device\\HarddiskVolume*\\Users\\*.exe",
         "\\Device\\HarddiskVolume*\\ProgramData\\*.exe",
-        "\\Device\\HarddiskVolume*\\Windows\\Downloaded Program Files\\*.exe",
-        "\\Device\\HarddiskVolume*\\Windows\\Temp\\.opera\\????????????\\CProgram?FilesOpera*\\*.exe",
-        "\\Device\\HarddiskVolume*\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe"
-      )
+        "\\Device\\HarddiskVolume*\\Windows\\Downloaded Program Files\\*.exe"
   )
 '''
 

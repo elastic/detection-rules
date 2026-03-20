@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/02/20"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects common utilities accessing kprobes and tracing-related paths in debugfs/tracefs, which may indicate
+discovery of kernel instrumentation hooks. Adversaries can enumerate these locations to understand or prepare
+for eBPF, kprobe, or tracepoint-based activity. This behavior can also be benign during troubleshooting,
+performance analysis, or observability tooling validation.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Kernel Instrumentation Discovery via kprobes and tracefs"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Instrumentation Discovery via kprobes and tracefs
+
+This rule detects common Linux utilities and shells reading kprobes and tracing locations under debugfs/tracefs, signaling discovery of kernel instrumentation hooks. Attackers use this to understand which kprobe/tracepoint interfaces are available or already in use before deploying eBPF-based collection or stealthy monitoring. A typical pattern is a script that iterates tracing directories and reads kprobe and tracepoint listings to map callable probes and active tracing state.
+
+### Possible investigation steps
+
+- Review the full command line and the specific tracefs/debugfs paths accessed to determine whether this was benign directory enumeration or targeted inspection of sensitive files like `available_filter_functions`, `kprobe_events`, `set_ftrace_filter`, or `trace_pipe`.  
+- Identify the initiating user and process tree, then search nearby activity for follow-on steps such as writing to `kprobe_events`/`uprobe_events`, enabling tracing events, or sustained reads from `trace_pipe`.  
+- Validate whether `debugfs`/`tracefs` are mounted and assess the host’s role and installed observability/performance tooling to quickly separate routine diagnostics from unexpected tracing access.  
+- Hunt for adjacent signals of kernel instrumentation setup or abuse, including use of eBPF tooling (`bpftool`, `bpftrace`, BCC), `perf`, suspicious `bpf()` syscall activity, or module loading around the same time window.  
+- Compare current tracing configuration and recent file modification activity under `/sys/kernel/debug/tracing` and `/sys/kernel/tracing` against baseline expectations to detect tampering or persistence.
+
+### False positive analysis
+
+- A system administrator or automated diagnostic script may use basic utilities like `cat`, `grep`, or `find` to enumerate `/sys/kernel/debug/tracing` or `/sys/kernel/tracing` during kernel troubleshooting or performance triage to confirm tracefs/debugfs is mounted and to review available functions/events.
+- Routine validation of tracing configuration after kernel upgrades or configuration changes can involve shells running `ls`, `stat`, or `readlink` over kprobe and tracing paths to verify current settings and permissions, even when no malicious instrumentation is intended.
+
+### Response and remediation
+
+- Contain suspected abuse by isolating the host and immediately stopping the offending script/process tree that is enumerating `/sys/kernel/debug/kprobes/*` or `/sys/kernel/*tracing/*`, then preserve the shell history and the script/binary on disk for analysis.  
+- Eradicate kernel instrumentation changes by checking for and removing any attacker-added entries in `kprobe_events`/`uprobe_events`, disabling any enabled tracing knobs, and remounting or unmounting `debugfs`/`tracefs` if they are not required for operations.  
+- Recover to a known-good state by rebooting to clear transient tracing state, validating that `trace_pipe` is not being read continuously, and confirming that expected observability tooling (if any) still functions after tracing is reset.  
+- Escalate to incident response immediately if you observe writes to `kprobe_events`/`uprobe_events`, sustained reads from `trace_pipe`, or nearby execution of eBPF/performance tooling (e.g., `bpftool`, `bpftrace`, `perf`) by an unexpected user or from an unusual parent process.  
+- Harden to prevent recurrence by restricting access to `debugfs`/`tracefs` to administrators only, disabling unprivileged BPF where feasible, and enforcing MAC policies (SELinux/AppArmor) to deny non-approved processes from reading or writing tracing interfaces."""
+risk_score = 21
+rule_id = "fb542346-1624-4cf2-bcc7-c68abaab261b"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name in (
+  "cat", "grep", "head", "tail", "ls",
+  "less", "more",
+  "awk", "sed", "cut", "tr", "xargs", "tee",
+  "find", "stat", "readlink",
+  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox"
+) and
+process.args like ("/sys/kernel/debug/kprobes/*", "/sys/kernel/debug/tracing/*", "/sys/kernel/tracing/*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

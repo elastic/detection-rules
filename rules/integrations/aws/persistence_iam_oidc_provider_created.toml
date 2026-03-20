@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2026/02/05"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/02/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an uncommon user or role creates an OpenID Connect (OIDC) Identity Provider in AWS IAM. OIDC providers
+enable web identity federation, allowing users authenticated by external identity providers (such as Google, GitHub, or
+custom OIDC-compliant providers) to assume IAM roles and access AWS resources. Adversaries who have gained
+administrative access may create rogue OIDC providers to establish persistent, federated access that survives credential
+rotation. This technique allows attackers to assume roles using tokens from an IdP they control. While OIDC provider
+creation is benign in some environments, it should still be validated against authorized infrastructure changes.
+"""
+false_positives = [
+    """
+    OIDC providers may be created during legitimate CI/CD integration (e.g., GitHub Actions, GitLab CI), Kubernetes
+    service account federation, or other web identity use cases. Verify whether the user identity and timing align with
+    approved change management processes. If this is expected administrative activity, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM OIDC Provider Created by Rare User"
+note = """## Triage and analysis
+
+### Investigating AWS IAM OIDC Provider Created by Rare User
+
+OpenID Connect (OIDC) providers in AWS IAM enable web identity federation, allowing external identity providers to authenticate users who then assume IAM roles. Common legitimate use cases include GitHub Actions accessing AWS resources, Kubernetes pods authenticating to AWS, and web applications using social login.
+
+This rule detects the first time a specific user or role creates an OIDC provider within an account. While OIDC provider creation is common in some environments, a new user creating one for the first time warrants validation to ensure it's authorized.
+
+### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` to determine who created the OIDC provider.
+  - Check if this user has created OIDC providers before in other accounts.
+
+- **Review the OIDC provider details**
+  - Examine `aws.cloudtrail.request_parameters` for the provider URL and client IDs.
+  - Identify the external IdP (e.g., GitHub, Google, custom provider).
+
+- **Validate business justification**
+  - Confirm with DevOps or platform teams whether this aligns with CI/CD pipeline setup.
+  - Check for related change tickets or infrastructure-as-code deployments.
+
+- **Check for follow-on activity**
+  - Search for `CreateRole` or `UpdateAssumeRolePolicy` calls that trust the new OIDC provider.
+  - Look for `AssumeRoleWithWebIdentity` calls using the newly created provider.
+
+- **Correlate with other suspicious activity**
+  - Check for preceding privilege escalation or credential access events.
+  - Look for other persistence mechanisms being established concurrently.
+
+### False positive analysis
+
+- **CI/CD pipeline integration**
+  - GitHub Actions, GitLab CI, and other CI/CD systems commonly use OIDC for AWS authentication.
+  - Validate against known DevOps workflows.
+
+- **Kubernetes federation**
+  - EKS and self-managed Kubernetes clusters may use OIDC providers for pod identity.
+  - Confirm with platform engineering teams.
+
+- **Infrastructure-as-code deployments**
+  - Terraform, CloudFormation, or other IaC tools may create OIDC providers.
+  - Verify via CI/CD logs.
+
+### Response and remediation
+
+- **Immediate containment**
+  - If unauthorized, delete the OIDC provider using `DeleteOpenIDConnectProvider`.
+  - Review and remove any IAM roles that trust the rogue provider.
+
+- **Investigation**
+  - Audit CloudTrail for any `AssumeRoleWithWebIdentity` calls using this provider.
+  - Review all IAM roles with web identity trust relationships.
+
+- **Hardening**
+  - Restrict `iam:CreateOpenIDConnectProvider` permissions to authorized roles.
+  - Implement SCPs to control OIDC provider creation in member accounts.
+  - Enable AWS Config rules to monitor identity provider configurations.
+
+### Additional information
+- **[AWS IAM OIDC Providers Documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)**
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)**
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)**
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-320a",
+]
+risk_score = 47
+rule_id = "47403d72-3ee2-4752-a676-19dc8ff2b9d6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: "CreateOpenIDConnectProvider"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

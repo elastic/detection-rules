@@ -2,7 +2,7 @@
 creation_date = "2026/01/07"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/01/12"
+updated_date = "2026/03/13"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,10 @@ This rule flags Linux processes that launch wget with options that upload a loca
 - Escalate to incident response and initiate wider containment if the destination domain/IP is not owned by the organization or resolves to an anonymizing/VPS service, if multiple hosts exhibit wget --post-file from non-interactive sessions, or if the uploader executed as root.
 - Harden by enforcing SELinux/AppArmor policies that restrict wget/curl from posting files, requiring egress web proxy allowlists for HTTP POST destinations, adding detections for wget --post-file/--body-file and curl --upload-file/-F, and removing wget from systems where it is unnecessary.
 """
-references = ["https://gtfobins.github.io/gtfobins/wget/"]
+references = [
+  "https://gtfobins.github.io/gtfobins/wget/",
+  "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
+]
 risk_score = 47
 rule_id = "8d8c0b55-ef27-4c20-959f-fa8dd3ac25e6"
 setup = """## Setup
@@ -100,7 +103,20 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "wget" and process.args like ("--post-file=*", "--body-file=*")
+process.name == "wget" and ?process.parent.executable != null and (
+  process.args like ("--post-file*", "--post-data*", "--body-file*") or
+  (
+    process.command_line like ("*cat*", "*base64*") and
+    process.command_line like (
+      "*/etc/passwd*", "*/etc/shadow*", "*~/.ssh/*", "*.env*", "*credentials*", "*/tmp/*",
+      "*/var/tmp/*", "*/dev/shm/*", "*/home/*/*", "*/root/*"
+    )
+  )
+) and
+(
+  process.command_line like ("*http:*", "*https:*") or
+  process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
+)
 '''
 
 [[rule.threat]]

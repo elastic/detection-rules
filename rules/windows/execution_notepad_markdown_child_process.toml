@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/02/16"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/02/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a process started by Notepad after opening a Markdown file. This may indicate successful exploitation of a
+Notepad markdown parsing vulnerability (CVE-2026-20841) that can lead to arbitrary code execution.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-windows.sysmon_operational-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Notepad Markdown RCE Exploitation"
+note = """## Triage and analysis
+
+### Investigating Potential Notepad Markdown RCE Exploitation
+
+This rule detects a new child process launched by `notepad.exe` when Notepad was opened with a Markdown (`.md`) file.
+This behavior can indicate exploitation of a Notepad remote code execution vulnerability where crafted Markdown content
+triggers unintended process execution.
+
+### Possible investigation steps
+
+- Validate the parent-child relationship and confirm `notepad.exe` is the direct parent of the suspicious process.
+- Review the full command line of both parent and child processes, including the Markdown file path in `process.parent.args`.
+- Identify the Markdown file source (email attachment, browser download, chat client, removable media, or network share).
+- Inspect process ancestry and descendants for additional payload execution, script interpreters, or LOLBIN activity.
+- Correlate with file, registry, and network events around the same timestamp to identify follow-on behavior.
+- Determine whether the child process and its execution path are expected in your environment.
+
+### False positive analysis
+
+- Legitimate automation or editor extensions may occasionally spawn helper processes from Notepad workflows.
+- User-driven workflows that invoke external tools from Markdown previews can trigger this behavior.
+- If benign, tune by excluding known-safe child process names, hashes, signed binaries, and approved file paths.
+
+### Response and remediation
+
+- Isolate affected endpoints until scope is understood.
+- Terminate suspicious child and descendant processes initiated from `notepad.exe`.
+- Quarantine and preserve the triggering Markdown file for forensic analysis.
+- Run endpoint malware scans and collect volatile artifacts (running processes, network connections, autoruns).
+- Patch Windows/Notepad to the latest security update level addressing the vulnerability.
+- Hunt for the same parent-child pattern across other hosts to identify additional impacted systems.
+"""
+references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20841"]
+risk_score = 73
+rule_id = "7f3521dd-fb80-4548-a7eb-8db37b898dc2"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "notepad.exe" and process.parent.args : "*.md"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

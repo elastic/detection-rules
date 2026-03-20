@@ -1,0 +1,170 @@
+[metadata]
+creation_date = "2026/02/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a service principal authenticates using a federated identity credential for the first time in the
+historical window. This indicates that Entra ID validated a JWT token potentially against an external OIDC identity
+provider and issued an access token. While legitimate for CI/CD workflows (GitHub Actions, Azure DevOps), adversaries
+may abuse this by configuring rogue identity providers (BYOIDP) to authenticate as compromised applications. First-time
+federated credential usage for a service principal warrants investigation to determine if the external identity provider
+is legitimate.
+"""
+false_positives = [
+    """
+    New CI/CD pipeline deployments using GitHub Actions, Azure DevOps, or Kubernetes OIDC will trigger this rule when
+    federated authentication is first used. Validate the issuer URL against approved identity providers.
+    """,
+    """
+    Application migrations or reconfigurations that switch from certificate/secret authentication to federated
+    credentials will appear as new behavior. Confirm with application owners.
+    """,
+    """New workload identity federation configurations for legitimate automation will trigger on first use.
+    """
+]
+from = "now-9m"
+index = ["logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Service Principal Federated Credential Authentication by Unusual Client"
+note = """## Triage and analysis
+
+### Investigating Entra ID Service Principal Federated Credential Authentication by Unusual Client
+
+If this rule triggers, it indicates that a service principal has authenticated using a federated identity credential for the first time within the historical window. This means that Entra ID validated a JWT token potentially issued by an external OIDC identity provider and issued an access token for the service principal. While this can be legitimate for CI/CD workflows (e.g., GitHub Actions, Azure DevOps, Kubernetes OIDC), it can also indicate abuse by adversaries who have configured rogue identity providers (BYOIDP) to authenticate as compromised applications. For BYOIDP attacks, this is the moment the adversary's rogue identity provider is used to authenticate as the
+compromised application for the first time.
+
+### Possible investigation steps
+
+- Identify the service principal using `azure.signinlogs.properties.app_id` and `app_display_name`.
+- Critical: Check the application's federated credential configuration in Entra ID:
+  - What is the issuer URL? Is it a known legitimate provider (GitHub Actions, Azure DevOps, Kubernetes)?
+  - When was the federated credential added? Was it recent?
+  - Who added the federated credential?
+- Review the `service_principal_credential_thumbprint` - does it match expected certificates?
+- Investigate the source IP (`azure.signinlogs.caller_ip_address`) - is it from expected CI/CD infrastructure?
+- Check what resources were accessed after authentication using `azure.signinlogs.properties.resource_display_name`.
+- Correlate with Graph Activity logs to see what API calls were made with this token.
+- Use the `correlation_id` to find related sign-in and activity events.
+- Review audit logs for recent changes to this application's federated credentials.
+
+### False positive analysis
+
+- Legitimate CI/CD pipelines using GitHub Actions, Azure DevOps, or Kubernetes OIDC will trigger this rule on first use.
+- New application deployments with workload identity federation are expected to show as new behavior.
+- Validate the issuer URL against approved identity providers before dismissing.
+- Create baseline of applications expected to use federated credentials.
+
+### Response and remediation
+
+- If this is unexpected federated auth for the application, immediately investigate the federated credential configuration.
+- Review the external IdP issuer URL configured on the application - is it legitimate?
+- If BYOIDP is confirmed:
+    - Remove the malicious federated credential immediately.
+    - Revoke active sessions and tokens for the affected service principal.
+    - Audit what actions were performed using the compromised identity.
+    - Investigate how the federated credential was added (compromised admin account)."""
+references = [
+    "https://dirkjanm.io/persisting-with-federated-credentials-entra-apps-managed-identities/",
+    "https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation",
+    "https://github.com/dirkjanm/ROADtools",
+]
+risk_score = 47
+rule_id = "616b8d00-05f8-11f1-8f33-f661ea17fbce"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+To use this rule, ensure that Microsoft Entra ID Sign-In Logs are being collected and streamed into the Elastic Stack via the Azure integration.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "azure.signinlogs"
+    and azure.signinlogs.category: "ServicePrincipalSignInLogs"
+    and azure.signinlogs.properties.client_credential_type: "federatedIdentityCredential"
+    and azure.signinlogs.result_signature: "SUCCESS"
+    and azure.signinlogs.properties.app_id: *
+    and not azure.signinlogs.properties.app_owner_tenant_id: (
+        "f8cdef31-a31e-4b4a-93e4-5f571e91255a" or
+        "72f988bf-86f1-41af-91ab-2d7cd011db47"
+    )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.service_principal_name",
+    "azure.signinlogs.properties.service_principal_id",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_owner_tenant_id",
+    "azure.signinlogs.properties.client_credential_type",
+    "azure.signinlogs.properties.service_principal_credential_thumbprint",
+    "azure.signinlogs.caller_ip_address",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.unique_token_identifier",
+    "azure.correlation_id",
+    "azure.signinlogs.properties.session_id",
+    "source.geo.country_name",
+    "source.geo.city_name",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.app_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+

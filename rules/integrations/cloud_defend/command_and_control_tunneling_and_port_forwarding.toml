@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of tunneling and/or port forwarding tools inside a container. This
+could indicate a threat actor is using these tools to communicate with a C2 server, is attempting
+to exfiltrate data from the container, or is attempting to pivot within the container network.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Tunneling and/or Port Forwarding Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Tunneling and/or Port Forwarding Detected via Defend for Containers
+
+This detects tunneling or port-forwarding tools launched inside Linux containers, which attackers use to create hidden pathways for command-and-control, data theft, or lateral movement across the container network. A common pattern is running SSH with local/remote/dynamic forwarding or tools like chisel/socat to expose an internal service (e.g., database or kube API) through an external relay, bypassing normal network controls and segmentation.
+
+### Possible investigation steps
+
+- Identify the owning workload (pod/deployment/cronjob), image tag, and recent rollout or configuration changes to determine whether the tunnel/forwarding behavior is expected for that service.  
+- Review the full executed command line, environment variables, and process ancestry to confirm what local/remote addresses and ports are being bridged and whether execution originated from an interactive session or startup script.  
+- Enumerate active listeners and established connections from the container/node at the time of the alert to find externally reachable forwards, unexpected egress destinations, and any traffic to known C2 or relay infrastructure.  
+- Correlate container network telemetry with DNS queries and outbound proxy usage to detect protocol tunneling patterns (e.g., long-lived sessions, high-entropy subdomains, unusual ports) and identify the initial ingress path.  
+- Check for follow-on actions in the container and cluster (new binaries dropped, modified entrypoints, created secrets/serviceaccounts, or lateral access attempts) that would indicate persistence or pivoting beyond simple debugging.
+
+### False positive analysis
+
+- A developer or SRE launches `ssh` with `-L`/`-R`/`-D` options from inside a container during troubleshooting to temporarily reach an internal service (e.g., database or API) from their workstation through the container network.  
+- A containerized service legitimately embeds proxying/forwarding behavior (e.g., `socat`, `3proxy`, `frps`, or `proxychains`) to expose or bridge ports as part of its normal runtime configuration, causing expected long-lived listeners and relayed connections that match tunnel/forwarding patterns.
+
+### Response and remediation
+
+- Isolate the affected pod/container by scaling the workload to zero or cordoning/quarantining the node and applying a deny-all egress policy to stop the active tunnel/forward while preserving artifacts for collection.  
+- Terminate the tunneling process (e.g., ssh with -L/-R/-D, socat TCP4-LISTEN, chisel client/server, ngrok) and remove any dropped binaries or modified entrypoints/startup scripts that re-launch the forwarder.  
+- Capture and review the running command line, parent process chain, active listeners, and established connections to identify exposed internal services and block the destination IPs/domains/ports used by the tunnel at the network edge and cluster egress controls.  
+- Rotate potentially exposed credentials (Kubernetes service account tokens, cloud/API keys, database passwords) and validate RBAC/service account usage for unauthorized access originating from the affected workload.  
+- Rebuild and redeploy from a known-good image, pin image digests, and add admission controls to block images containing tunneling utilities or starting processes with port-forwarding arguments unless explicitly approved.  
+- Escalate to incident response immediately if the tunnel connects to external infrastructure, forwards access to sensitive services (e.g., kube-apiserver, etcd, databases), or similar tunneling behavior appears in multiple pods/namespaces."""
+references = [
+    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
+]
+risk_score = 47
+rule_id = "9d94d61b-9476-41ff-a8d3-3d24b4bb8158"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and (
+  (
+    // Tunneling and/or Port Forwarding via process args
+    (process.args regex """.*[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,5}:[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,5}.*""") or
+    // gost
+    (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or
+    // ssh
+    (process.name == "ssh" and (process.args like ("-*R*", "-*L*", "-*D*", "-*w*") and 
+     not (process.args == "chmod" or process.args like "*rungencmd*"))) or
+    // ssh Tunneling and/or Port Forwarding via SSH option
+    (process.name == "ssh" and process.args == "-o" and process.args like~(
+      "*ProxyCommand*", "*LocalForward*", "*RemoteForward*", "*DynamicForward*", "*Tunnel*", "*GatewayPorts*", "*ExitOnForwardFailure*", "*ProxyCommand*", "*ProxyJump*"
+    )) or
+    // sshuttle
+    (process.name == "sshuttle" and process.args in ("-r", "--remote", "-l", "--listen")) or
+    // earthworm
+    (process.args == "-s" and process.args == "-d" and process.args == "rssocks") or
+    // socat
+    (process.name == "socat" and process.args : ("TCP4-LISTEN:*", "SOCKS*")) or
+    // chisel
+    (process.name : "chisel*" and process.args in ("client", "server")) or
+    // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
+    (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok", "wstunnel", "pivotnacci", "frps", "proxychains"))
+  )
+) and container.id like "?*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

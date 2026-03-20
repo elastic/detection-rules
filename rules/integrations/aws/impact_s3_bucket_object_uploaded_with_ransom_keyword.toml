@@ -2,7 +2,7 @@
 creation_date = "2024/04/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -123,6 +123,7 @@ file where
   /* common ransom note file name keywords */
   aws.cloudtrail.resources.arn regex~ "arn:aws:s3:::[^/]+/.*?(how|decrypt|restor|help|instruct|read|get|recov|save|encrypt|info|ransom).*"
   and not aws.cloudtrail.resources.arn regex~ ".*(AWSLogs|CloudTrail|access-logs).*"
+  and not aws.cloudtrail.user_identity.type == "AWSService"
 '''
 
 [rule.investigation_fields]

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/02/02"
 maturity = "production"
-updated_date = "2026/02/02"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,8 @@ type = "esql"
 
 query = '''
 from .alerts-security.*
-| where kibana.alert.rule.type == "machine_learning"
+| where kibana.alert.rule.type == "machine_learning" and
+  not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | stats Esql.count_distinct_job_id = COUNT_DISTINCT(job_id),
         Esql.job_id_values = VALUES(job_id),
         Esql.rule_name_values = VALUES(kibana.alert.rule.name),

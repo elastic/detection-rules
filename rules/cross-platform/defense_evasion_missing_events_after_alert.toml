@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an Elastic Defend endpoint alert is generated on a host and is not followed by any subsequent endpoint
+telemetry (process, network, registry, library, or DNS events) within a short time window. This behavior may indicate
+endpoint security evasion, agent tampering, sensor disablement, service termination, system crash, or malicious
+interference with telemetry collection following detection.
+"""
+false_positives = ["Misconfiguration, system reboot, network issues or expected uninstall of the Elastic Defend agent."]
+from = "now-9m"
+index = ["logs-endpoint.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Elastic Defend Alert Followed by Telemetry Loss"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Elastic Defend Alert Followed by Telemetry Loss
+
+This rule identifies situations where an Elastic Defend alert is generated on a host and is not followed by
+any normal endpoint activity events within a short time window. This may indicate agent tampering, sensor
+disablement, host shutdown, system crash, or defense evasion behavior.
+
+### Possible investigation steps
+
+- Review the original `endpoint.alert` event and identify the detection that triggered the alert.
+- Check the host’s online status, uptime, and reboot history.
+- Verify the health and status of the Elastic Defend agent and related services.
+- Look for evidence of agent tampering, service stops, or security control modifications.
+- Correlate with activity immediately preceding the alert for signs of exploitation or evasion.
+- Determine if similar alert → silence patterns are occurring on other hosts.
+
+### False positive analysis
+
+- Legitimate system reboots or shutdowns
+- Network connectivity loss
+- Elastic Agent upgrades or restarts
+- Endpoint service crashes
+- Maintenance or IT operations
+
+### Response and remediation
+
+- Validate host and agent availability.
+- Reconnect or re-enroll the agent if telemetry is missing.
+- Isolate the host if malicious activity is suspected.
+- Investigate for security control tampering.
+- Perform broader environment hunting for similar patterns.
+"""
+references = ["https://attack.mitre.org/techniques/T1562/001/"]
+risk_score = 73
+rule_id = "fc552f49-8f1c-409b-90f8-6f5b9869b6c4"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: Elastic Defend",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=5m
+ [any where event.dataset == "endpoint.alerts"]
+ ![any where event.category in ("process", "library", "registry", "network", "dns")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

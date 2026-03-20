@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,8 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:process and event.type:start and 
 process.name.caseless:("ping.exe" or "tracert.exe" or "pathping.exe") and
-not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "::1")
+not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "::1" or 192.168.*) and
+process.command_line:*.*
 '''
 
 
@@ -62,6 +63,6 @@ field = "new_terms_fields"
 value = ["host.id", "user.id", "process.command_line"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
 
 

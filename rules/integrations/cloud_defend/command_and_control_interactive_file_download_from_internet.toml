@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -84,16 +84,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   ) or
   (
     (process.name == "wget" or process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget")) and
-    (
-      process.args like ("-*O*", "--output-document=*", "--output-file=*") or
-      /* to address for wget without any flags (storing in CWD), where wget is the process name */
-      process.args_count == 2
-    )
-  ) or
-  /* to address for wget without any flags (storing in CWD), where wget isn't the process name */
-  (
-    (process.name != "wget" and process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget")) and
-    process.args_count in (2, 3)
+    process.args like ("-*O*", "--output-document=*", "--output-file=*")
   )
 ) and (
  process.args like~ "*http*" or

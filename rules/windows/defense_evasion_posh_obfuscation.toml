@@ -2,7 +2,7 @@
 creation_date = "2024/07/03"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +14,13 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Potential PowerShell Obfuscated Script"
+name = "Deprecated - Potential PowerShell Obfuscated Script"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential PowerShell Obfuscated Script
+### Investigating Deprecated - Potential PowerShell Obfuscated Script
 
 PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its flexibility to obfuscate scripts, evading security measures like AMSI. The detection rule identifies obfuscation patterns, such as string manipulation and encoding techniques, to flag potentially malicious scripts, aiding in defense evasion detection.
 
@@ -51,27 +51,14 @@ PowerShell is a powerful scripting language used for task automation and configu
 - Monitor the system and network for any signs of re-infection or similar obfuscation patterns to ensure the threat has been fully mitigated.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
 references = ["https://github.com/danielbohannon/Invoke-Obfuscation"]
-risk_score = 47
+risk_score = 21
 rule_id = "8025db49-c57c-4fc0-bd86-7ccd6d10a35a"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",

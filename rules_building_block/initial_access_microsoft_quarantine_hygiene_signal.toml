@@ -1,0 +1,64 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/02/20"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/02/20"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies Microsoft 365 email quarantine, hygiene, and mail submission events. These signals indicate blocked threats,
+spam filtering actions, and user-reported suspicious emails. While these represent blocked or mitigated threats, they
+provide valuable telemetry for understanding attempted attacks and attack patterns. This building block rule generates
+security events for correlation, threat hunting, and telemetry collection.
+"""
+from = "now-9m"
+index = ["logs-o365.audit-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Quarantine and Hygiene Signal"
+references = [
+    "https://learn.microsoft.com/en-us/defender-office-365/quarantine-about",
+    "https://learn.microsoft.com/en-us/defender-office-365/outbound-spam-protection-about",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-auditlogrecordtype---type-edmint32",
+]
+risk_score = 21
+rule_id = "4bae6c34-57be-403a-a556-e48f9ecef0b7"
+setup = """### Additional notes
+
+For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Defender for Office 365",
+    "Use Case: Threat Detection",
+    "Use Case: Blocked Threat Tracking",
+    "Tactic: Initial Access",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.code:(Quarantine or HygieneEvent or MailSubmission)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
