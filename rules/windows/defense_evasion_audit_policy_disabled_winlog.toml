@@ -98,7 +98,7 @@ from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _ind
 // Aggregate policy changes within each 5m window per host and sub-category,
 // then keep only removals that were not re-enabled in the same window
 | inline stats
-    Esql.changes_values = VALUES(winlog.event_data.AuditPolicyChangesDescription)
+    Esql.winlog_AuditPolicyChangesDescription_values = VALUES(winlog.event_data.AuditPolicyChangesDescription)
   by host.id, winlog.event_data.SubCategory, Esql.time_window
 | where winlog.event_data.AuditPolicyChangesDescription == "Success removed" and not MV_CONTAINS(Esql.changes_values, "Success Added")
 
