@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2025/10/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/10/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of files with names containing curly braces "{}" or command substitution "$()". Such naming conventions
+are often used in scripts to dynamically generate file names or execute commands, which can be exploited by attackers for obfuscation
+or evasion techniques. The presence of these characters in file names may indicate an attempt to create files in a non-standard manner,
+potentially as part of a malicious activity.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "File Creation with Curly Braces or Command Substitution"
+references = ["https://www.trellix.com/blogs/research/the-silent-fileless-threat-of-vshell/"]
+risk_score = 21
+rule_id = "0fda68c7-afaf-4ea2-9195-3df18cdc8428"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "creation" and (
+  file.name regex~ """.*\{[^\}]*,[^\}]*\}.*""" or
+  file.name : "*$(*"
+) and not (
+  process.name in ("git", "dockerd", "tar", "smbd", "jetbrains-toolbox", "executor", "nautilus", "singularity") or
+  file.path like~ ("/tmp/plz_sandbox*", "/usr/local/share/nvm/*", "/mnt/*", "/datastore/*", "/builds/*") or
+  file.name like~ ("Running 'nvm*", ".Running 'nvm*")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    name = "Obfuscated Files or Information"
+    id = "T1027"
+    reference = "https://attack.mitre.org/techniques/T1027/"
+
+    [[rule.threat.technique]]
+    name = "Deobfuscate/Decode Files or Information"
+    id = "T1140"
+    reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+    [[rule.threat.technique]]
+    name = "User Execution"
+    id = "T1204"
+    reference = "https://attack.mitre.org/techniques/T1204/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Malicious File"
+      id = "T1204.002"
+      reference = "https://attack.mitre.org/techniques/T1204/002/"
