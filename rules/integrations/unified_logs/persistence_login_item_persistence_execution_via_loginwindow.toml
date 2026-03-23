@@ -22,8 +22,8 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unified_logs.log-*"]
-language = "eql"
+index = ["logs-unifiedlogs.unifiedlogs-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Login Item Persistence Execution via Unified Logs"
 note = """## Triage and analysis
@@ -71,11 +71,11 @@ tags = [
     "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-any where event.dataset == "unified_logs.log" and host.os.type == "macos" and
-  message like "*performAutolaunch*"
+event.dataset: "unifiedlogs.unifiedlogs" and host.os.type: "macos" and unified_log.subsystem: "com.apple.loginwindow.logging" and
+  message: "performAutolaunch"
 '''
 
 [[rule.threat]]
@@ -99,6 +99,7 @@ field_names = [
     "host.name",
     "host.id",
     "message",
+    "unified_log.subsystem",
     "event.dataset",
     "process.name",
     "process.executable",
