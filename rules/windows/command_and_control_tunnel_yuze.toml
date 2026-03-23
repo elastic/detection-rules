@@ -51,6 +51,7 @@ Yuze is a C-based tunneling tool used for intranet penetration and supports forw
 """
 references = [
     "https://attack.mitre.org/techniques/T1572/",
+    "https://github.com/P001water/yuze",
     "https://www.trendmicro.com/tr_tr/research/26/c/dissecting-a-warlock-attack.html",
 ]
 risk_score = 47
@@ -75,7 +76,10 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.args : "reverse" and process.args : "-c") and 
+  ( 
+    (process.args : "reverse" and process.args : ("-c", "-s")) or 
+    (process.args : ("proxy", "fwd") and process.args : "-l") or 
+   ) and 
   (?process.code_signature.exists == false or process.name : "rundll32.exe")
 '''
 
