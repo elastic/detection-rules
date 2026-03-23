@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/03/20"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies access to AppArmor kernel policy control interfaces through the .load, .replace, or .remove files under
+/sys/kernel/security/apparmor/. These special files are used to load, modify, or remove AppArmor profiles and are
+rarely accessed during normal system activity outside of policy administration. Reads or writes to these interfaces
+may indicate legitimate security configuration changes, but can also reflect defense evasion, unauthorized policy
+tampering, or the installation of attacker-controlled profiles. This detection is especially valuable on systems
+where AppArmor policy changes are uncommon or tightly controlled.
+"""
+from = "now-9m"
+index = [
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Policy Interface Access"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AppArmor Policy Interface Access
+
+This rule detects reads, writes, or deletions against the Linux AppArmor policy control files that load, replace, or remove profiles, actions that directly change how the kernel restricts processes. That matters because unauthorized access to these interfaces can disable enforcement or install permissive rules that hide malicious activity; for example, an intruder with elevated privileges might replace a profile protecting a web server so a dropped backdoor can run and touch sensitive files without confinement.
+
+### Possible investigation steps
+
+- Determine whether the access coincides with an approved AppArmor administration task by validating the initiating account, privilege escalation history, maintenance windows, and any related change or deployment records for the host.
+- Review the full execution lineage around the event to confirm whether the interface was touched by expected policy management activity such as package updates or configuration automation versus an interactive shell, ad hoc script, or remote session.
+- Inspect recent changes to AppArmor profile files and deployment artifacts under standard policy locations to identify which profile was loaded, replaced, or removed and whether the resulting policy became weaker or disabled confinement for sensitive services.
+- Correlate the activity with nearby authentication, sudo, process execution, and network events on the same system to assess whether the policy modification was part of normal administration or followed potentially malicious hands-on-keyboard behavior.
+- If the change is not authorized, preserve the modified policy artifacts and relevant host evidence, then restore known-good AppArmor profiles from a trusted source and verify enforcement is active to prevent further defense evasion.
+
+### False positive analysis
+
+- Approved system maintenance such as package updates, service installation, or boot-time policy initialization can legitimately access AppArmor `.load` or `.replace`, so verify the parent process and command line map to expected package management or startup activity during a documented change window.
+- An administrator may manually reload, replace, or remove an AppArmor profile while troubleshooting or deploying a local service, so confirm the initiating user, any `sudo` or privileged session history, and recent edits to AppArmor profile files align with an authorized operational task.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while preserving forensic access, terminate the process or shell session that wrote to `/sys/kernel/security/apparmor/.load`, `.replace`, or `.remove`, and disable the originating account’s privileged access until the scope is understood.
+- Collect and review the active AppArmor state and on-disk profiles from `/etc/apparmor.d/`, recent shell history, sudo activity, and any scripts or package hooks involved, then remove attacker-added profiles and reverse any profile changes that weakened or removed confinement.
+- Hunt for and delete persistence that relied on the AppArmor change, including malicious systemd units, cron entries, startup scripts, modified container launch settings, or dropped binaries that were able to run only after the profile was replaced or removed.
+- Restore the system to a known-good state by reinstalling trusted AppArmor policy packages or redeploying validated profiles from source control, reloading them with approved tools, and rebuilding the host from a clean image if root access or core security files were modified.
+- Escalate to incident response immediately if the tampered profile protected an internet-facing service, credential store, or security tool, if the same behavior is seen on multiple hosts, or if the attacker also changed sudoers, SSH access, or other local security controls.
+- Harden the environment by restricting who can administer AppArmor, requiring signed or change-controlled profile updates, alerting on future writes to the AppArmor policy interfaces, and validating that critical services remain in enforce mode after patching or deployment."""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 21
+rule_id = "d32f0c27-8edb-4bcf-975e-01696c961e08"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-w /sys/kernel/security/apparmor/.load -p rw -k apparmor_policy_change
+-w /sys/kernel/security/apparmor/.replace -p rw -k apparmor_policy_change
+-w /sys/kernel/security/apparmor/.remove -p rw -k apparmor_policy_change
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("opened-file", "wrote-to-file", "deleted") and
+file.path in (
+  "/sys/kernel/security/apparmor/.load", ".load",
+  "/sys/kernel/security/apparmor/.replace", ".replace",
+  "/sys/kernel/security/apparmor/.remove", ".remove"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
