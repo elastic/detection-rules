@@ -390,6 +390,38 @@ class TestESQLValidation(unittest.TestCase):
         ):
             _ = RuleCollection().load_dict(rule_dict, path=rule_path)
 
+    def test_esql_metadata_validation_bypass_missing_from_metadata(self):
+        """ES|QL FROM METADATA checks are skipped when DR_BYPASS_ESQL_METADATA_VALIDATION is set."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational*
+            | WHERE event.code == "4104"
+            | KEEP event.code, _id, _version, _index
+        """
+        rule_dict["rule"]["query"] = query
+        with unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_METADATA_VALIDATION": "1"}):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_metadata_bypass_does_not_skip_keep_validation(self):
+        """`keep` validation still applies when only FROM metadata validation is bypassed."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational*
+            | WHERE event.code == "4104"
+        """
+        rule_dict["rule"]["query"] = query
+        with (
+            unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_METADATA_VALIDATION": "1"}),
+            pytest.raises(EsqlSemanticError),
+        ):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
     def test_esql_keep_validation_bypass_missing_metadata_in_keep(self):
         """ES|QL metadata-in-keep checks are skipped when DR_BYPASS_ESQL_KEEP_VALIDATION is set."""
         # A random ESQL rule to deliver a test query
