@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unified_logs"]
+maturity = "development"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects AppleScript `run script` execution referencing a hidden file in a common staging directory via macOS Unified Logs
+Apple Event telemetry. The Apple Event type `syso,dsct` corresponds to the `run script` command. This rule matches
+UTF-16LE hex-encoded paths for hidden files (dot-prefixed) in `/tmp/`, `/private/tmp/`, `/var/tmp/`, and `/Users/Shared/`.
+macOS stealers commonly stage obfuscated or secondary-stage scripts as hidden files in these world-writable directories
+before executing them via `run script` to evade casual inspection and file-based detection. This detection leverages the
+`com.apple.appleevents` subsystem debug logs and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Legitimate applications rarely use `run script` to execute hidden files from temporary or shared directories. If this
+    activity is observed, investigate the source process and the contents of the referenced file. Automated build or CI/CD
+    processes running on macOS endpoints may occasionally use temporary hidden files for script staging.
+    """,
+]
+from = "now-9m"
+index = ["logs-unified_logs.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AppleScript Run Script from Hidden File in Staging Directory"
+note = """## Triage and analysis
+
+### Investigating AppleScript Run Script from Hidden Temporary File
+
+This rule detects the `run script` AppleScript command (`syso,dsct` Apple Event) targeting a hidden file in common staging directories (`/tmp/`, `/private/tmp/`, `/var/tmp/`, `/Users/Shared/`). The path appears in the Apple Event debug output as a UTF-16LE hex-encoded string. Stealers commonly write obfuscated or secondary-stage scripts as hidden files in these world-writable directories before executing them.
+
+### Possible investigation steps
+
+- Review the `message` field to extract the full hex-encoded file path and decode it to identify the exact hidden file being executed.
+- Check if the hidden file still exists on disk at the decoded path (e.g., `/tmp/.payload.scpt`, `/Users/Shared/.stage2.scpt`) and analyze its contents.
+- Identify the source process by correlating timestamps with process execution logs from Elastic Defend or other endpoint telemetry.
+- Look for preceding file write events to the staging directory that created the hidden file, particularly from `curl`, `wget`, `osascript`, or other download/scripting tools.
+- Check for subsequent Apple Events such as `syso,exec` (shell execution), `Jons,gClp` (clipboard access), or `syso,dlog` (dialog display) that may indicate the payload's actions.
+- Review network connections from the host around the time of execution for data exfiltration indicators.
+
+### False positive analysis
+
+- Legitimate use of `run script` with hidden files in temporary or shared directories is very uncommon. This pattern is a strong indicator of malicious activity.
+- Some development or build tools may stage scripts in these directories but rarely as hidden files.
+
+### Response and remediation
+
+- Immediately isolate the affected host as this is a strong indicator of active malware execution.
+- Recover and analyze the hidden script file before it is cleaned up.
+- Identify the full attack chain: how the file was created, what it executed, and what data may have been compromised.
+- Remove any persistence mechanisms and malicious files identified during investigation.
+"""
+references = [
+    "https://pberba.github.io/security/2026/02/21/aemonitor/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 47
+rule_id = "30c1662e-b7c7-4210-abd5-2a9a544cab78"
+severity = "medium"
+tags = [
+    "Domain: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "unified_logs.log" and host.os.type: "macos" and message: *syso,dsct* and
+  (
+    message: *2f0074006d0070002f002e00* or
+    message: *2f0070007200690076006100740065002f0074006d0070002f002e00* or
+    message: *2f007600610072002f0074006d0070002f002e00* or
+    message: *2f00550073006500720073002f005300680061007200650064002f002e00*
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]

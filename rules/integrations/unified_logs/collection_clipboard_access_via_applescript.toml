@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unified_logs"]
+maturity = "development"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects clipboard data access via AppleScript using macOS Unified Logs Apple Event telemetry. The Apple Event type
+`Jons,gClp` corresponds to the `the clipboard` or `get the clipboard` AppleScript command, which retrieves the contents
+of the system clipboard. macOS stealers commonly access clipboard data to harvest cryptocurrency wallet addresses,
+passwords, sensitive tokens, or other data the user has recently copied. This detection leverages the
+`com.apple.appleevents` subsystem debug logs and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Clipboard manager applications, productivity tools, and text processing utilities may legitimately access clipboard
+    contents via AppleScript. Review the source process and context to determine if the activity is expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-unified_logs.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Clipboard Access via AppleScript"
+note = """## Triage and analysis
+
+### Investigating Clipboard Access via AppleScript
+
+This rule detects the `Jons,gClp` Apple Event, which indicates an AppleScript accessed the system clipboard. Clipboard access is a common technique used by macOS stealers to harvest sensitive data such as cryptocurrency wallet addresses, passwords, or tokens.
+
+### Possible investigation steps
+
+- Review the `message` field for the full Apple Event debug output to understand the clipboard access context.
+- Identify the source process by correlating timestamps with process execution logs from Elastic Defend or other endpoint telemetry.
+- Look for related Apple Events on the same host, such as `syso,exec` (shell execution) or network connections, which may indicate exfiltration of clipboard contents.
+- Check for recent `syso,dlog` (display dialog) events that may indicate a fake prompt was used to trick the user into copying sensitive data.
+- Review the host for known stealer malware indicators, unauthorized scripts, or recently modified files.
+- Check if the clipboard access coincides with the user interacting with sensitive applications (password managers, cryptocurrency wallets, banking sites).
+
+### False positive analysis
+
+- Clipboard manager applications (e.g., Paste, CopyClip) frequently access clipboard contents.
+- Productivity tools and text editors with clipboard integration may trigger this rule.
+- Automation workflows (Shortcuts, Automator) that process clipboard data.
+
+### Response and remediation
+
+- If clipboard access is determined to be malicious, assume sensitive data may have been captured and take appropriate action (rotate credentials, move cryptocurrency funds, etc.).
+- Isolate the affected host and investigate the full attack chain.
+- Remove any malicious scripts, applications, or persistence mechanisms.
+"""
+references = [
+    "https://pberba.github.io/security/2026/02/21/aemonitor/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 47
+rule_id = "28fd38cf-43c0-4904-b756-8ed9694e8f13"
+severity = "medium"
+tags = [
+    "Domain: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "unified_logs.log" and host.os.type: "macos" and message: *Jons,gClp*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1115"
+name = "Clipboard Data"
+reference = "https://attack.mitre.org/techniques/T1115/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]

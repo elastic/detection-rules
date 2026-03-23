@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unified_logs"]
+maturity = "development"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects AppleScript ASCII character obfuscation followed by script execution via macOS Unified Logs Apple Event
+telemetry. The Apple Event type `syso,ntoc` corresponds to the AppleScript `ASCII character` function, which converts
+integer values to characters. When multiple `syso,ntoc` events are observed in rapid succession followed by `syso,exec`
+(do shell script) or `syso,dsct` (run script), it indicates an attacker is building obfuscated command strings
+character-by-character before execution. This is a common evasion technique used by macOS stealers to bypass static
+string-based detection of malicious commands. This detection leverages the `com.apple.appleevents` subsystem debug logs
+and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Some legitimate AppleScript-based tools or utilities may use ASCII character conversion for text processing. However,
+    the combination of repeated ASCII character conversions followed by shell execution is uncommon in legitimate usage.
+    Review the source process and context to determine if the activity is expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-unified_logs.log-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AppleScript ASCII Character Obfuscation and Shell Execution"
+note = """## Triage and analysis
+
+### Investigating AppleScript ASCII Character Obfuscation and Shell Execution
+
+This rule detects a pattern where multiple AppleScript `ASCII character` conversions (`syso,ntoc` events) are followed by script or shell execution. This technique is used by macOS stealers to evade detection by building malicious command strings one character at a time instead of using plaintext strings.
+
+### Possible investigation steps
+
+- Review the `message` fields across the sequence to understand what characters were being converted (the integer values may reveal the reconstructed command).
+- Identify the source process by correlating timestamps with process execution logs from Elastic Defend or other endpoint telemetry.
+- Look for the resulting `syso,exec` or `syso,dsct` event to understand what command was ultimately executed.
+- Check for network connections, file writes, or credential access events following the execution.
+- Review the host for known stealer malware indicators, unauthorized `.scpt` files, or recently modified LaunchAgents/LaunchDaemons.
+- Attempt to reconstruct the obfuscated command by collecting all `syso,ntoc` events in the sequence and mapping the integer parameters to ASCII characters.
+
+### False positive analysis
+
+- Legitimate text processing scripts that convert character codes are uncommon but possible. The key differentiator is the sequence of multiple conversions followed by shell execution.
+- Developer tools that generate or transform text using ASCII values may trigger this rule if they also execute the result.
+
+### Response and remediation
+
+- If the obfuscated command is determined to be malicious, immediately isolate the affected host.
+- Identify and remove the source script or application responsible for the obfuscated execution.
+- Review what was executed via the `syso,exec`/`syso,dsct` event and assess the impact (credential theft, data exfiltration, persistence, etc.).
+- Check for persistence mechanisms installed by the executed payload.
+"""
+references = [
+    "https://pberba.github.io/security/2026/02/21/aemonitor/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 47
+rule_id = "4c37d695-95e2-4ed8-a567-8a24f28a1028"
+severity = "medium"
+tags = [
+    "Domain: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=30s
+  [any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*syso,ntoc*"] with runs=5
+  [any where event.dataset == "unified_logs.log" and host.os.type == "macos" and
+    (message like "*syso,exec*" or message like "*syso,dsct*")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]
