@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2026/03/18"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an MSI installer execution followed by the execution of commonly abused Remote Management Software like ScreenConnect.
+This behavior may indicate abuse where an attacker triggers an MSI install then connects via a guest link with a known session key.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote Management Access Launch After MSI Install"
+note = """## Triage and analysis
+
+### Investigating Remote Management Access Launch After MSI Install
+
+This rule fires when the same host runs msiexec with an install argument (/i) and within one minute starts a pre-configured RMM software.
+
+### Possible investigation steps
+
+- Confirm the sequence on the host: first event should be msiexec.exe with process.args containing "/i"; second should be a remote management software.
+- Review the source of the MSI file using file events.
+- Check whether use of RMM software is approved for this host.
+- Check network events to validate which remote host the RMM software connects to.
+- Correlate with other alerts for the same host (initial access, persistence, C2).
+
+### False positive analysis
+
+- Legitimate IT/MSP deployment of RMM for support.
+
+### Response and remediation
+
+- If unauthorized RMM use or abuse is confirmed: isolate the host, terminate the ScreenConnect client, remove or block the installation, and investigate how the MSI was delivered and who operates the relay.
+"""
+references = ["https://attack.mitre.org/techniques/T1219/"]
+risk_score = 47
+rule_id = "1b5e9d4a-7c2f-4e8b-a3d6-0f9c8e2b1a4d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike", 
+    "Data Source: Windows Security Event Logs", 
+    "Data Source: Elastic Endgame"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=1m
+ [process where host.os.type == "windows" and event.type == "start" and process.name : "msiexec.exe" and process.args : ("/i*", "-i*")]
+ [process where host.os.type == "windows" and event.type == "start" and
+  (
+   (process.name : "ScreenConnect.ClientService.exe" and process.command_line : "*?e=Access&y=Guest&h*&k=*") or
+   (process.name : "Syncro.Installer.exe" and process.args : "--config-json" and process.args : "--key") or 
+    process.name : ("tvnserver.exe", "winvnc.exe") 
+  )
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
