@@ -46,6 +46,8 @@ Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detec
 
 Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
 
+Using the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION` will bypass local validation that ES|QL rules include a `keep` command and that non-aggregate queries list `_id`, `_version`, and `_index` in `keep` (other ES|QL checks are unchanged).
+
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
 

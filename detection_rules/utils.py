@@ -142,6 +142,7 @@ def set_all_validation_bypass(env_value: bool = False) -> None:
     os.environ["DR_BYPASS_BBR_LOOKBACK_VALIDATION"] = str(env_value)
     os.environ["DR_BYPASS_TAGS_VALIDATION"] = str(env_value)
     os.environ["DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION"] = str(env_value)
+    os.environ["DR_BYPASS_ESQL_KEEP_VALIDATION"] = str(env_value)
 
 
 def set_nested_value(obj: dict[str, Any], compound_key: str, value: Any) -> None:
