@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unified_logs"]
+maturity = "development"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a TCC permission change event via macOS Unified Logs TCC telemetry. The `com.apple.TCC` subsystem logs
+`publishAccessChangedEvent` when a TCC permission is granted, revoked, or modified for an application. While
+permission changes are a normal part of macOS administration, unexpected or unauthorized changes may indicate an
+attacker tampering with TCC protections to gain access to sensitive resources such as Full Disk Access, Screen
+Capture, Camera, Microphone, or Accessibility. TCC database manipulation is a known technique used by macOS malware
+to bypass privacy protections. This detection leverages the `com.apple.TCC` subsystem and does not require private
+data enablement.
+"""
+false_positives = [
+    """
+    Users granting or revoking application permissions via System Settings > Privacy & Security will generate these
+    events. MDM-managed permission profiles and IT administration changes will also trigger this rule. Review the
+    context of the permission change to determine if it was user-initiated.
+    """,
+]
+from = "now-9m"
+index = ["logs-unified_logs.log-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "TCC Privacy Permission Change Detected"
+note = """## Triage and analysis
+
+### Investigating TCC Privacy Permission Change Detected
+
+This rule detects `publishAccessChangedEvent` in TCC logs, which fires when a TCC permission entry is created, modified, or removed. This includes both user-initiated changes (via System Settings) and programmatic modifications (via `tccutil`, direct TCC.db manipulation, or MDM profiles).
+
+### Possible investigation steps
+
+- Review the `message` field to determine which TCC service permission was changed and for which application.
+- Check if the change was user-initiated by correlating with System Settings or MDM activity.
+- Look for `tccutil reset` or direct TCC.db file access events that may indicate programmatic permission manipulation.
+- Check if the permission change grants access to sensitive services (Full Disk Access, Accessibility, Screen Capture) for an unexpected application.
+- Correlate with process execution logs to determine if any suspicious process triggered the permission change.
+- Review the host for signs of TCC.db manipulation (e.g., SIP bypass, direct database writes, fake TCC.db attacks).
+
+### False positive analysis
+
+- User-initiated permission changes via System Settings are normal administrative activity.
+- MDM-managed devices commonly have permissions pushed via configuration profiles, which generate these events.
+- Application installers may request and receive permissions during setup.
+- macOS updates may reset or modify TCC permissions.
+
+### Response and remediation
+
+- If the permission change is unauthorized, immediately review what access was granted and to which application.
+- Revoke any suspicious permissions via System Settings or `tccutil reset`.
+- Investigate the source of the change — if TCC.db was directly modified, this may indicate SIP bypass or privilege escalation.
+- Check for persistence mechanisms associated with the application that received the permission change.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 47
+rule_id = "a96b3d0f-beb1-413d-b498-114ad6d26965"
+severity = "medium"
+tags = [
+    "Domain: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.dataset == "unified_logs.log" and host.os.type == "macos" and
+  message like "*publishAccessChangedEvent*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]

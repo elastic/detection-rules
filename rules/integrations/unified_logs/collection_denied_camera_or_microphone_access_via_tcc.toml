@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unified_logs"]
+maturity = "development"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a denied Camera or Microphone access request via macOS Unified Logs TCC telemetry. The `com.apple.TCC`
+subsystem logs access decisions for protected resources. When `kTCCServiceCamera` or `kTCCServiceMicrophone` appears
+with `auth_value=0`, it indicates an application was denied access to the camera or microphone. Spyware and
+surveillance tools commonly attempt to activate the camera or microphone to record the user. While legitimate
+conferencing and communication applications may also trigger denials, this event is significant when correlated with
+other suspicious activity on the host. This detection leverages the `com.apple.TCC` subsystem with category `access`
+and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Video conferencing tools (Zoom, FaceTime, Teams), voice recording applications, and communication software
+    will trigger camera and microphone denials before the user grants access. Browser-based conferencing may also
+    trigger these events when requesting media permissions for the first time.
+    """,
+]
+from = "now-9m"
+index = ["logs-unified_logs.log-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Camera or Microphone Access Denied via TCC"
+note = """## Triage and analysis
+
+### Investigating Camera or Microphone Access Denied via TCC
+
+This rule detects when an application is denied Camera or Microphone access by macOS TCC. The `kTCCServiceCamera` and `kTCCServiceMicrophone` services control which applications can access the device's camera and microphone respectively.
+
+### Possible investigation steps
+
+- Review the `message` field to identify which service was denied (Camera vs. Microphone) and the process identity (bundle ID, binary path, PID).
+- Correlate the denied process with Elastic Defend telemetry to understand how the process was launched.
+- Check if the application is a known communication or conferencing tool, or if it is unexpected on the host.
+- Look for related TCC denials (e.g., screen capture) from the same process, which may indicate surveillance or spyware behavior.
+- Check if the same process has been repeatedly denied, which could indicate persistent spyware attempting to activate recording.
+- Review the host for recently installed applications or persistence mechanisms that could be associated with the denied process.
+
+### False positive analysis
+
+- Zoom, FaceTime, Microsoft Teams, Slack, and other conferencing tools generate these events before being granted access.
+- Web browsers (Safari, Chrome) trigger camera/mic denials when websites request media access.
+- Voice memo, dictation, and accessibility tools may access the microphone legitimately.
+
+### Response and remediation
+
+- If the denied application is unknown or suspicious, isolate the host and investigate the process.
+- Check for indicators of spyware or surveillance tools (persistent camera/mic access attempts, exfiltration behaviors).
+- Review network connections from the denied process for data exfiltration.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 21
+rule_id = "816933da-57dd-4c07-a65a-91616b8871cb"
+severity = "low"
+tags = [
+    "Domain: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.dataset == "unified_logs.log" and host.os.type == "macos" and
+  (message like "*kTCCServiceCamera*" or message like "*kTCCServiceMicrophone*") and message like "*auth_value=0*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1125"
+name = "Video Capture"
+reference = "https://attack.mitre.org/techniques/T1125/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]
