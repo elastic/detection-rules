@@ -22,8 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unifiedlogs.unifiedlogs-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "AppleScript Run Script from Hidden File in Staging Directory"
 note = """## Triage and analysis
@@ -69,16 +68,19 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-any where event.dataset == "unifiedlogs.log" and host.os.type == "macos" and apple_event.type_code in ("syso,dsct", "syso,exec") and
-  (
-    apple_event.decoded_payloads like "*/tmp/.*" or
-    apple_event.decoded_payloads like "*/private/tmp/.*" or
-    apple_event.decoded_payloads like "*/var/tmp/.*" or
-    apple_event.decoded_payloads like "*/Users/Shared/.*"
+FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos"
+  AND apple_event.type_code IN ("syso,dsct", "syso,exec")
+  AND (
+    apple_event.decoded_payloads LIKE "*/tmp/.*" OR
+    apple_event.decoded_payloads LIKE "*/private/tmp/.*" OR
+    apple_event.decoded_payloads LIKE "*/var/tmp/.*" OR
+    apple_event.decoded_payloads LIKE "*/Users/Shared/.*"
   )
+| KEEP @timestamp, _id, _version, _index, host.name, host.id, host.os.type, event.dataset, unified_log.subsystem, unified_log.category, apple_event.type_code, apple_event.decoded_payloads, message
 '''
 
 [[rule.threat]]
