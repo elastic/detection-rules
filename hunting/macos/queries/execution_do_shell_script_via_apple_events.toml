@@ -8,7 +8,7 @@ for reconnaissance, credential theft, data exfiltration, and payload execution. 
 for `syso,exec` Apple Events, enabling analysts to identify unusual volumes of shell execution via AppleScript. This
 detection leverages the `com.apple.appleevents` subsystem debug logs and does not require private data enablement.
 """
-integration = ["unified_logs"]
+integration = ["unifiedlogs"]
 uuid = "447987db-4501-416b-b3b3-9176871a6b20"
 name = "Do Shell Script Execution via Apple Events"
 language = ["ES|QL"]
@@ -23,9 +23,9 @@ notes = [
 mitre = ["T1059.002"]
 query = [
 '''
-FROM logs-unifiedlogs.log-*
+FROM logs-unifiedlogs.unifiedlogs-*
 | WHERE @timestamp > NOW() - 7 day
-| WHERE host.os.type == "macos" AND event.dataset == "unifiedlogs.log" AND apple_event.type_code == "syso,exec"
+| WHERE host.os.type == "macos" AND event.dataset == "unifiedlogs.unifiedlogs" AND apple_event.type_code == "syso,exec"
 | STATS event_count = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY host.name
 | WHERE event_count >= 3
 | SORT event_count DESC
