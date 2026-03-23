@@ -2,7 +2,7 @@
 creation_date = "2023/08/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -42,16 +42,7 @@ Audit Directory Service Access (Success,Failure)
 ```
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Active Directory",
-    "Use Case: Active Directory Monitoring",
-    "Rule Type: BBR",
-    "Data Source: Windows Security Event Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Active Directory", "Use Case: Active Directory Monitoring", "Rule Type: BBR", "Data Source: Windows Security Event Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -63,19 +54,26 @@ host.os.type: "windows" and event.action : ("Directory Service Access" or "objec
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1222"
-name = "File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/"
-[[rule.threat.technique.subtechnique]]
-id = "T1222.001"
-name = "Windows File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/001/"
-
-
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

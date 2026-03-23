@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/12/24"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,14 +17,7 @@ name = "First Occurrence of Personal Access Token (PAT) Use For a GitHub User"
 risk_score = 21
 rule_id = "f94e898e-94f1-4545-8923-03e4b2866211"
 severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Persistence",
-    "Rule Type: BBR",
-    "Data Source: Github",
-]
+tags = ["Domain: Cloud", "Use Case: Threat Detection", "Use Case: UEBA", "Rule Type: BBR", "Tactic: Defense Evasion", "Data Source: Github"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -37,22 +30,21 @@ github.programmatic_access_type:("OAuth access token" or "Fine-grained personal 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
 [[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
-
-
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.name", "github.hashed_token"]
