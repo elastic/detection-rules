@@ -21,7 +21,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-unified_logs.log-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Clipboard Access via AppleScript"
 note = """## Triage and analysis
@@ -66,10 +66,10 @@ tags = [
     "Tactic: Collection",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.dataset: "unified_logs.log" and host.os.type: "macos" and message: *Jons,gClp*
+any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*Jons,gClp*"
 '''
 
 [[rule.threat]]

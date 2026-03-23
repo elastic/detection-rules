@@ -23,7 +23,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-unified_logs.log-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "AppleScript Run Script from Hidden File in Staging Directory"
 note = """## Triage and analysis
@@ -69,15 +69,15 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.dataset: "unified_logs.log" and host.os.type: "macos" and message: *syso,dsct* and
+any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*syso,dsct*" and
   (
-    message: *2f0074006d0070002f002e00* or
-    message: *2f0070007200690076006100740065002f0074006d0070002f002e00* or
-    message: *2f007600610072002f0074006d0070002f002e00* or
-    message: *2f00550073006500720073002f005300680061007200650064002f002e00*
+    message like "*2f0074006d0070002f002e00*" or
+    message like "*2f0070007200690076006100740065002f0074006d0070002f002e00*" or
+    message like "*2f007600610072002f0074006d0070002f002e00*" or
+    message like "*2f00550073006500720073002f005300680061007200650064002f002e00*"
   )
 '''
 
