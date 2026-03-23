@@ -23,8 +23,8 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unified_logs.log-*"]
-language = "eql"
+index = ["logs-unifiedlogs.unifiedlogs-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "TCC Permission Probing Without Prompt Entitlement"
 note = """## Triage and analysis
@@ -69,11 +69,11 @@ tags = [
     "Tactic: Discovery",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-any where event.dataset == "unified_logs.log" and host.os.type == "macos" and
-  message like "*does not allow prompting*"
+event.dataset: "unifiedlogs.unifiedlogs" and host.os.type: "macos" and unified_log.subsystem: "com.apple.TCC" and
+  unified_log.category: "access" and message: "does not allow prompting"
 '''
 
 [[rule.threat]]
@@ -97,6 +97,8 @@ field_names = [
     "host.name",
     "host.id",
     "message",
+    "unified_log.subsystem",
+    "unified_log.category",
     "event.dataset",
     "process.name",
     "process.executable",
