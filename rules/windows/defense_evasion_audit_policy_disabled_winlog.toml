@@ -100,7 +100,7 @@ from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _ind
 | inline stats
     Esql.winlog_AuditPolicyChangesDescription_values = VALUES(winlog.event_data.AuditPolicyChangesDescription)
   by host.id, winlog.event_data.SubCategory, Esql.time_window
-| where winlog.event_data.AuditPolicyChangesDescription == "Success removed" and not MV_CONTAINS(Esql.changes_values, "Success Added")
+| where winlog.event_data.AuditPolicyChangesDescription == "Success removed" and not MV_CONTAINS(Esql.winlog_AuditPolicyChangesDescription_values, "Success Added")
 
 // Wait 5m for a potential "Success Added" to arrive before alerting
 | where @timestamp < NOW() - 5m
