@@ -2,7 +2,7 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/19"
+updated_date = "2026/03/19"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.name : "msiexec.exe" and process.args : ("-i", "/i") and process.command_line : "*http*" and
+  process.name : "msiexec.exe" and process.args : ("-i*", "/i*", "-p*", "/p*") and process.command_line : "*http*" and
   process.args : ("/qn", "-qn", "-q", "/q", "/quiet") and
   process.parent.name : ("sihost.exe", "explorer.exe", "cmd.exe", "wscript.exe", "mshta.exe", "powershell.exe", "wmiprvse.exe", "pcalua.exe", "forfiles.exe", "conhost.exe") and
   not process.command_line : ("*--set-server=*", "*UPGRADEADD=*" , "*--url=*",
