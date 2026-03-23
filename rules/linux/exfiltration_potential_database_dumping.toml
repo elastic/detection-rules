@@ -2,7 +2,7 @@
 creation_date = "2026/03/13"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/13"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +20,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Database Dumping Activity"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Database Dumping Activity
+
+This alert flags a Linux process starting a common database export tool, which matters because these utilities can quickly copy entire datasets into portable files for theft. An attacker with shell access may run mysqldump, pg_dump, or mongodump to dump customer records or application data to disk and then transfer the archive off the host over a separate network channel.
+
+### Possible investigation steps
+
+- Review the full command line, parent and ancestor process chain, and execution user to determine whether the dump was launched by approved backup automation, an administrator shell, or an unexpected process such as a web server or scripting interpreter.
+- Validate whether the account and host normally perform database backups by comparing the activity with change windows, cron or systemd timer jobs, deployment scripts, and historical executions on this and similar systems.
+- Identify any dump artifacts created around the alert by looking for new large files, archive or compression activity, staging in temporary directories, or writes to mounted shares that could indicate preparation for transfer.
+- Examine surrounding authentication and network activity for signs of compromise or exfiltration, including recent SSH or VPN access to the host, unusual database logins, and outbound connections or file transfers shortly after the dump began.
+- If the activity is not authorized, isolate the host as appropriate and scope for related activity across the environment by searching for the same user, parent process, command pattern, and follow-on transfer utilities on other systems.
+
+### False positive analysis
+
+- Scheduled backup or maintenance scripts may legitimately run pg_dump, mysqldump, or mongodump on Linux database hosts; confirm the execution user, parent process, and timing match documented cron or systemd jobs and that the output is written to the expected backup location.
+- A DBA or application administrator may manually export data for migration, troubleshooting, or upgrade validation; verify the user account, shell history or change records, and command-line options align with an approved maintenance task and that no unusual outbound transfer follows the dump.
+
+### Response and remediation
+
+- Quarantine the affected Linux host from the network except for approved management access, stop any active pg_dump, mysqldump, mariadb-dump, pg_dumpall, or mongodump activity and any follow-on compression or transfer processes, and block the account and destination used to stage the dump.
+- Remove attacker persistence by deleting unauthorized cron jobs, systemd services or timers, startup scripts, SSH authorized_keys entries, web shells, and any scripts or binaries used to create, archive, or move the database export.
+- Revoke and rotate the database credentials, local passwords, SSH keys, and API tokens exposed on the host, then review database users for newly granted backup, export, replication, or superuser privileges and disable anything not explicitly approved.
+- Restore to a known-good state by rebuilding the host or reverting from a trusted image, validating the database against clean backups, and deleting dump files, archives, and copied datasets from temporary directories, mounted shares, and storage buckets.
+- Escalate to incident response immediately if any dump file was transferred to an external server, cloud service, or user workstation, if similar dumping activity is found on other hosts, or if the attacker used a privileged administrator or database account.
+- Harden the environment by limiting dump utilities to approved backup hosts and service accounts, enforcing MFA and least privilege for administrators, restricting outbound network paths from database servers, and alerting on new dump archives or unexpected database export tool execution.
+"""
 references = [
   "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
 ]
@@ -60,6 +91,7 @@ tags = [
   "Data Source: Crowdstrike",
   "Data Source: SentinelOne",
   "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
