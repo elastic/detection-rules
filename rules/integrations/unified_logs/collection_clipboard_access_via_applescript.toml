@@ -20,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unified_logs.log-*"]
+index = ["logs-unifiedlogs.unifiedlogs-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Clipboard Access via AppleScript"
@@ -69,7 +69,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*Jons,gClp*"
+any where event.dataset == "unifiedlogs.unifiedlogs" and host.os.type == "macos" and apple_event.type_code == "Jons,gClp"
 '''
 
 [[rule.threat]]
@@ -89,6 +89,7 @@ field_names = [
     "host.name",
     "host.id",
     "message",
+    "apple_event.type_code",
     "event.dataset",
     "process.name",
     "process.executable",

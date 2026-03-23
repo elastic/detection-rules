@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unified_logs.log-*"]
+index = ["logs-unifiedlogs.unifiedlogs-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Volume Mute via AppleScript"
@@ -70,7 +70,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*aevt,stvl*" and message like "*mute*"
+any where event.dataset == "unifiedlogs.unifiedlogs" and host.os.type == "macos" and apple_event.type_code == "aevt,stvl" and
+  apple_event.mute == true
 '''
 
 [[rule.threat]]

@@ -22,7 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-unified_logs.log-*"]
+index = ["logs-unifiedlogs.unifiedlogs-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AppleScript Run Script from Hidden File in Staging Directory"
@@ -72,12 +72,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "unified_logs.log" and host.os.type == "macos" and message like "*syso,dsct*" and
+any where event.dataset == "unifiedlogs.unifiedlogs" and host.os.type == "macos" and apple_event.type_code == "syso,dsct" and
   (
-    message like "*2f0074006d0070002f002e00*" or
-    message like "*2f0070007200690076006100740065002f0074006d0070002f002e00*" or
-    message like "*2f007600610072002f0074006d0070002f002e00*" or
-    message like "*2f00550073006500720073002f005300680061007200650064002f002e00*"
+    apple_event.decoded_payloads like "*/tmp/.*" or
+    apple_event.decoded_payloads like "*/private/tmp/.*" or
+    apple_event.decoded_payloads like "*/var/tmp/.*" or
+    apple_event.decoded_payloads like "*/Users/Shared/.*"
   )
 '''
 
