@@ -981,12 +981,18 @@ class ESQLRuleData(QueryRuleData):
         )
 
         # Ensure that non-aggregate queries have metadata
-        if not combined_pattern.search(query_lower):
-            raise EsqlSemanticError(
-                f"Rule: {data['name']} contains a non-aggregate query without"
-                f" metadata fields '_id', '_version', and '_index' ->"
-                f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None:
+            bypass_metadata_hint = (
+                " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+                "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
             )
+            if not combined_pattern.search(query_lower):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a non-aggregate query without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+                    + bypass_metadata_hint
+                )
 
         # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
         if os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is None:
