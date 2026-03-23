@@ -2,7 +2,7 @@
 creation_date = "2025/04/23"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,7 @@ note = """## Triage and analysis
 
 ### Investigating Microsoft Graph Request User Impersonation by Unusual Client
 
-This rule detects the first observed occurrence of a Microsoft Graph API request by a specific client application ID (`azure.graphactivitylogs.properties.app_id`) in combination with a user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`) and tenant ID (`azure.tenant_id`) within the last 14 days. This may indicate unauthorized access following a successful phishing attempt, token theft, or abuse of OAuth workflows.
+This rule detects the first observed occurrence of a Microsoft Graph API request by a specific client application ID (`azure.graphactivitylogs.properties.app_id`) in combination with a user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`) and tenant ID (`azure.tenant_id`) within specific number of days. This may indicate unauthorized access following a successful phishing attempt, token theft, or abuse of OAuth workflows.
 
 Adversaries frequently exploit legitimate Microsoft or third-party application IDs to avoid raising suspicion during initial access. By using pre-consented or trusted apps to interact with Microsoft Graph, attackers can perform actions on behalf of users without triggering conventional authentication alerts or requiring additional user interaction.
 
@@ -94,10 +94,21 @@ type = "new_terms"
 query = '''
 event.dataset: "azure.graphactivitylogs"
     and event.type: "access"
+    and azure.graphactivitylogs.properties.app_id: *
     and azure.graphactivitylogs.properties.c_idtyp: "user"
     and azure.graphactivitylogs.properties.client_auth_method: 0
     and http.response.status_code: 200
     and url.domain: "graph.microsoft.com"
+    and not url.path: (
+        /v1.0/organization
+        or /v1.0/me/licenseDetails
+        or /v1.0/me/photo*
+        or /v1.0/me/photos*
+        or /beta/me/settings/regionalAndLanguageSettings
+        or /v1.0/me/drive/special/copilotuploads
+        or /v1.0/me/informationProtection/sensitivityLabels
+        or /beta/me/informationProtection/dataLossPreventionPolicies
+    )
 '''
 
 
@@ -139,6 +150,6 @@ value = [
 ]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"
 
 
