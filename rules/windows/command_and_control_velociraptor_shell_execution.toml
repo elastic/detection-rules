@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/03/18"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects shell executions (cmd, PowerShell, rundll32) spawned by Velociraptor. Threat actors have been observed
+installing Velociraptor to execute shell commands on compromised systems, blending in with legitimate system processes.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Shell Execution via Velociraptor"
+note = """## Triage and analysis
+
+### Investigating Suspicious Shell Execution via Velociraptor
+
+Velociraptor is a legitimate endpoint visibility and response tool. Threat actors have been observed deploying it on compromised systems to run shell commands (cmd, PowerShell, rundll32), making their activity look like normal Velociraptor-collector behavior.
+
+### Possible investigation steps
+
+- Confirm the parent process name matches a Velociraptor binary (e.g. velociraptor.exe, Velociraptor.exe) and the child is cmd.exe, powershell.exe, or rundll32.exe.
+- Review the child process command line for suspicious or interactive commands (e.g. download, lateral movement, credential access) versus known Velociraptor artifact scripts (Get-LocalGroupMember, Get-Date, registry queries, Velociraptor Tools module).
+- Identify how Velociraptor was installed (dropped by another process, scheduled task, service); correlate with earlier process or file events on the host.
+- Check whether the Velociraptor executable path and code signature are expected (e.g. Program Files vs. temp or user writable); unauthorized installs are often from non-standard paths.
+- Correlate with other alerts for the same host or user (initial access, persistence, C2) to determine if this is abuse vs. legitimate IR/DFIR use.
+
+### False positive analysis
+
+- Legitimate Velociraptor artifacts that run Get-LocalGroupMember, Get-Date, registry Run key checks, or Velociraptor Tools PowerShell module are excluded by the rule; remaining FPs may be custom artifacts. Allowlist by command-line pattern or host if you use Velociraptor for authorized IR and see known-good artifacts.
+
+### Response and remediation
+
+- If abuse is confirmed: isolate the host, terminate the Velociraptor and child shell processes, and remove the Velociraptor installation (binary, service, config).
+- Determine how Velociraptor was deployed and close the initial access vector; rotate credentials for affected accounts.
+- If the deployment was authorized (IR/DFIR), document and tune the rule or add an exception to reduce noise.
+"""
+references = [
+    "https://www.huntress.com/blog/active-exploitation-solarwinds-web-help-desk-cve-2025-26399",
+    "https://attack.mitre.org/techniques/T1219/",
+]
+risk_score = 47
+rule_id = "9aeca498-1e3d-4496-9e12-6ef40047eb23"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame", 
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.command_line != null and
+ process.parent.name : "velociraptor.exe" and
+ process.name : ("cmd.exe", "powershell.exe", "rundll32.exe") and
+ not (process.name : "powershell.exe" and process.command_line : "*RwBlAHQALQBMAG8AYwBhAGwARwByAG8AdQBwAE0AZQBtAGIAZQBy*") and
+ not (process.name : "powershell.exe" and process.command_line : "*RwBlAHQALQBEAGEAdABl*" and process.command_line : "*-Format*") and
+ not (process.name : "cmd.exe" and process.command_line : "*start*127.0.0.1:8889*") and
+ not (process.name : "powershell.exe" and process.command_line : "*RwBlAHQALQBJAHQAZQBt*" and process.command_line : "*UgBlAGcAaQBzAHQAcgB5*" and process.command_line : "*UgB1AG4A*") and
+ not (process.name : "powershell.exe" and
+      process.args : ("RwBlAHQALQ*", "UgBlAG0AbwB2AGUALQBJAHQAZQBtACA*", "C:\\Program Files\\Velociraptor\\thor.db",
+                      "import-module \"C:\\Program Files\\Velociraptor\\Tools\\*"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
