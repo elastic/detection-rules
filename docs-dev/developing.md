@@ -50,6 +50,8 @@ Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will byp
 
 Using the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION` will bypass local validation that ES|QL rules include a `keep` command and that non-aggregate queries list `_id`, `_version`, and `_index` in `keep` (other ES|QL checks are unchanged).
 
+Using the environment variable `DR_BYPASS_ESQL_METADATA_VALIDATION` will bypass local validation that non-aggregate ES|QL queries use `FROM ... METADATA _id, _version, _index` or an aggregate `STATS ... BY` pattern (other ES|QL checks are unchanged).
+
 
 ## Using the `RuleResource` methods built on detections `_bulk_action` APIs
 
