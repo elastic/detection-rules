@@ -2,7 +2,7 @@
 creation_date = "2026/02/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/02/16"
+updated_date = "2026/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,8 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "notepad.exe" and process.parent.args : "*.md"
+  process.parent.name : "notepad.exe" and process.parent.args : "*.md" and
+  not process.executable : "C:\\Program Files\\WindowsApps\\Microsoft.WindowsNotepad_*\\Notepad\\Notepad.exe"
 '''
 
 
