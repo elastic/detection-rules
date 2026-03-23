@@ -2,7 +2,7 @@
 creation_date = "2024/09/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/03/19"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,11 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
- [process where host.os.type in ("windows", "macos") and event.type == "start" and process.name : "python*"]
+ [process where host.os.type in ("windows", "macos") and event.type == "start" and process.name : "python*" and
+  not (
+    process.args : ("*gcloud.py", "*conda-script.py", "*compileall.py", "*.lmstudio*") or
+    process.parent.args : ("*gcloud.py", "*conda-script.py", "*compileall.py", "*.lmstudio*")
+  )]
  [file where host.os.type in ("windows", "macos") and
   event.action != "deletion" and process.name : "python*" and file.name : "rot_??.cpython-*.pyc*"]
 '''
