@@ -2,7 +2,7 @@
 creation_date = "2025/06/18"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/03"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -56,14 +56,7 @@ Kubernetes orchestrates containerized applications, relying on API requests for 
 risk_score = 21
 rule_id = "8a1db198-da6f-4500-b985-7fe2457300af"
 severity = "low"
-tags = [
-    "Data Source: Kubernetes",
-    "Domain: Kubernetes",
-    "Domain: Container",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-]
+tags = ["Tactic: Discovery", "Data Source: Kubernetes", "Domain: Kubernetes", "Domain: Container", "Use Case: Threat Detection", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -79,11 +72,15 @@ not (
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
 
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]

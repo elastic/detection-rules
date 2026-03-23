@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -63,18 +63,7 @@ references = [
 risk_score = 73
 rule_id = "25224a80-5a4a-4b8a-991e-6ab390465c4f"
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: Microsoft Defender for Endpoint", "Data Source: SentinelOne", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -91,36 +80,46 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.001"
 name = "Remote Desktop Protocol"
 reference = "https://attack.mitre.org/techniques/T1021/001/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1021.002"
+name = "SMB/Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1021/002/"
 
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.001"
 name = "Registry Run Keys / Startup Folder"
 reference = "https://attack.mitre.org/techniques/T1547/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

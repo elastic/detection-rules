@@ -2,7 +2,7 @@
 creation_date = "2025/10/02"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/10/02"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -71,16 +71,7 @@ To ensure this rule functions correctly, the following diagnostic logs must be e
 - StorageRead: This log captures all read operations performed on blobs in the storage account, including GetBlob operations. These logs should be streamed to the Event Hub used for the Azure integration configuration.
 """
 severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Domain: Storage",
-    "Data Source: Azure",
-    "Data Source: Azure Platform Logs",
-    "Data Source: Azure Storage",
-    "Use Case: Threat Detection",
-    "Tactic: Exfiltration",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Cloud", "Domain: Storage", "Tactic: Collection", "Data Source: Azure", "Data Source: Azure Platform Logs", "Data Source: Azure Storage", "Use Case: Threat Detection", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -95,22 +86,16 @@ event.dataset: azure.platformlogs and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1567"
-name = "Exfiltration Over Web Service"
-reference = "https://attack.mitre.org/techniques/T1567/"
-[[rule.threat.technique.subtechnique]]
-id = "T1567.002"
-name = "Exfiltration to Cloud Storage"
-reference = "https://attack.mitre.org/techniques/T1567/002/"
-
-
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
 
 [rule.threat.tactic]
-id = "TA0010"
-name = "Exfiltration"
-reference = "https://attack.mitre.org/tactics/TA0010/"
-
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.platformlogs.properties.accountName"]

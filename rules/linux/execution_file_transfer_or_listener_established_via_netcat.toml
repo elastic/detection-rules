@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/10/15"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -116,18 +116,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Auditd Manager",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Tactic: Execution", "Tactic: Exfiltration", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Auditd Manager", "Data Source: Crowdstrike", "Data Source: SentinelOne"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -148,6 +137,24 @@ process.args like~ (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
@@ -161,3 +168,16 @@ reference = "https://attack.mitre.org/techniques/T1059/004/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

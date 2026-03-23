@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -23,14 +23,7 @@ references = [
 risk_score = 73
 rule_id = "15606250-449d-46a8-aaff-4043e42aefb9"
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
-]
+tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 note = """## Triage and analysis
@@ -80,17 +73,35 @@ file where host.os.type == "macos" and event.type != "deletion" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Persistence"
-  id = "TA0003"
-  reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
 
-  [[rule.threat.technique]]
-  name = "Boot or Logon Initialization Scripts"
-  id = "T1037"
-  reference = "https://attack.mitre.org/techniques/T1037/"
+[[rule.threat.technique.subtechnique]]
+id = "T1037.005"
+name = "Startup Items"
+reference = "https://attack.mitre.org/techniques/T1037/005/"
 
-    [[rule.threat.technique.subtechnique]]
-    name = "Startup Items"
-    id = "T1037.005"
-    reference = "https://attack.mitre.org/techniques/T1037/005/"
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1037.005"
+name = "Startup Items"
+reference = "https://attack.mitre.org/techniques/T1037/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

@@ -2,7 +2,7 @@
 creation_date = "2023/09/05"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/22"
+updated_date = "2026/03/23"
 
 [transform]
 [[transform.osquery]]
@@ -135,17 +135,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -156,14 +146,6 @@ process.name == "setcap" and process.args : "cap_set?id+ep" and not (
   process.args like "/usr/bin/new?idmap"
 )
 '''
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

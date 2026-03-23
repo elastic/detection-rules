@@ -2,7 +2,7 @@
 creation_date = "2022/11/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -76,16 +76,7 @@ Audit Directory Service Changes (Success,Failure)
 ```
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Data Source: Active Directory",
-    "Tactic: Privilege Escalation",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Active Directory", "Use Case: Active Directory Monitoring", "Data Source: Windows Security Event Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -98,14 +89,26 @@ event.code:"5136" and host.os.type:"windows" and winlog.event_data.AttributeLDAP
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1068"
-name = "Exploitation for Privilege Escalation"
-reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

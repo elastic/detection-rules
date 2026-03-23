@@ -2,7 +2,7 @@
 creation_date = "2024/12/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/22"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,15 +79,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -129,15 +121,19 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1014"
-name = "Rootkit"
-reference = "https://attack.mitre.org/techniques/T1014/"
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name", "file.name"]

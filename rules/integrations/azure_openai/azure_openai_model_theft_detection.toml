@@ -2,7 +2,7 @@
 creation_date = "2025/02/25"
 integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2025/09/25"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -62,14 +62,7 @@ streaming events, see the Azure OpenAI documentation:
 https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
 """
 severity = "medium"
-tags = [
-    "Domain: LLM",
-    "Data Source: Azure OpenAI",
-    "Data Source: Azure Event Hubs",
-    "Use Case: Model Theft",
-    "Mitre Atlas: T0044",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: LLM", "Tactic: Credential Access", "Tactic: Exfiltration", "Tactic: AI Model Access", "Data Source: Azure OpenAI", "Data Source: Azure Event Hubs", "Use Case: Model Theft", "Mitre Atlas: T0044", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -98,3 +91,54 @@ from logs-azure_openai.logs-*
     Esql.event_count desc
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0040"
+name = "AI Model Inference API Access"
+reference = "https://atlas.mitre.org/techniques/AML.T0040/"
+
+[rule.threat.tactic]
+id = "AML.TA0000"
+name = "AI Model Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0000/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0024"
+name = "Exfiltration via AI Inference API"
+reference = "https://atlas.mitre.org/techniques/AML.T0024/"
+
+[rule.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"

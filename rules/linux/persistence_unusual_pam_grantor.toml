@@ -2,7 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/12/23"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -65,15 +65,7 @@ Add Auditd Manager
 For this detection rule to trigger, no additional configuration is required.
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Credential Access",
-    "Tactic: Persistence",
-    "Data Source: Auditd Manager",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Data Source: Auditd Manager", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -85,14 +77,19 @@ auditd.data.grantors:(* and not (pam_rootok or *pam_cap* or *pam_permit*))
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1543"
-name = "Create or Modify System Process"
-reference = "https://attack.mitre.org/techniques/T1543/"
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.003"
+name = "Pluggable Authentication Modules"
+reference = "https://attack.mitre.org/techniques/T1556/003/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -102,11 +99,15 @@ id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
 
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.003"
+name = "Pluggable Authentication Modules"
+reference = "https://attack.mitre.org/techniques/T1556/003/"
 
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["auditd.data.grantors"]

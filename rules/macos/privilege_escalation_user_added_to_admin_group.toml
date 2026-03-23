@@ -2,7 +2,7 @@
 creation_date = "2024/09/12"
 integration = ["jamf_protect"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2026/03/23"
 
 [transform]
 [[transform.investigate]]
@@ -84,14 +84,7 @@ Jamf Protect is integrated into the Elastic Agent using Fleet. Upon configuratio
 - Click "Save and Continue".
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Jamf Protect",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Jamf Protect", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -103,19 +96,36 @@ configuration where host.os.type == "macos" and event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
-id = "T1078.003"
-name = "Local Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/003/"
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
 
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

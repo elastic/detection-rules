@@ -2,7 +2,7 @@
 creation_date = "2022/02/07"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -76,14 +76,7 @@ Audit Security System Extension (Success)
 ```
 """
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Windows Security Event Logs",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Windows Security Event Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -109,19 +102,36 @@ configuration where host.os.type == "windows" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

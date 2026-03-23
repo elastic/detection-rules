@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -60,15 +60,7 @@ references = ["https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-
 risk_score = 47
 rule_id = "8f919d4b-a5af-47ca-a594-6be59cd924a4"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Lateral Movement", "Data Source: Elastic Defend", "Data Source: Sysmon", "Resources: Investigation Guide"]
 type = "eql"
 
 query = '''
@@ -85,19 +77,36 @@ sequence by host.id with maxspan=5s
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
+reference = "https://attack.mitre.org/techniques/T1559/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1559.001"
+name = "Component Object Model"
+reference = "https://attack.mitre.org/techniques/T1559/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.003"
 name = "Distributed Component Object Model"
 reference = "https://attack.mitre.org/techniques/T1021/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

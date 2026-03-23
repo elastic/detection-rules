@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -46,15 +46,7 @@ However, if more advanced configuration is required to detect specific behavior,
   -- "-w /root/ -p rwxa -k audit_root"
 """
 severity = "medium"
-tags = [
-    "Data Source: Auditd Manager",
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
+tags = ["Tactic: Defense Evasion", "Tactic: Privilege Escalation", "Data Source: Auditd Manager", "Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 type = "eql"
 
 query = '''
@@ -109,14 +101,31 @@ In Linux, CAP_CHOWN and CAP_FOWNER are capabilities that allow processes to chan
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1068"
-name = "Exploitation for Privilege Escalation"
-reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1222.002"
+name = "Linux and Mac File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/002/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

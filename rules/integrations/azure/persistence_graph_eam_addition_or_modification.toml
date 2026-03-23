@@ -2,7 +2,7 @@
 creation_date = "2025/07/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -52,16 +52,7 @@ references = ["https://dirkjanm.io/persisting-with-federated-credentials-entra-a
 risk_score = 47
 rule_id = "42c97e6e-60c3-11f0-832a-f661ea17fbcd"
 severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Domain: Identity",
-    "Data Source: Azure",
-    "Data Source: Microsoft Graph",
-    "Data Source: Microsoft Graph Activity Logs",
-    "Use Case: Identity and Access Audit",
-    "Resources: Investigation Guide",
-    "Tactic: Persistence",
-]
+tags = ["Domain: Cloud", "Domain: Identity", "Tactic: Defense Evasion", "Tactic: Persistence", "Data Source: Azure", "Data Source: Microsoft Graph", "Data Source: Microsoft Graph Activity Logs", "Use Case: Identity and Access Audit", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -75,22 +66,29 @@ event.dataset: azure.graphactivitylogs and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
-[[rule.threat.technique.subtechnique]]
-id = "T1556.009"
-name = "Conditional Access Policies"
-reference = "https://attack.mitre.org/techniques/T1556/009/"
 
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.graphactivitylogs.properties.user_principal_object_id"]

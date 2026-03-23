@@ -2,7 +2,7 @@
 creation_date = "2024/05/04"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/09/25"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -66,16 +66,7 @@ This rule requires that guardrails are configured in AWS Bedrock. For more infor
 https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
-tags = [
-    "Domain: LLM",
-    "Data Source: AWS Bedrock",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS S3",
-    "Use Case: Potential Overload",
-    "Use Case: Resource Exhaustion",
-    "Mitre Atlas: LLM04",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: LLM", "Tactic: Exfiltration", "Tactic: Impact", "Tactic: AI Model Access", "Data Source: AWS Bedrock", "Data Source: Amazon Web Services", "Data Source: AWS S3", "Use Case: Potential Overload", "Use Case: Resource Exhaustion", "Mitre Atlas: LLM04", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -115,3 +106,72 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_risk_score desc
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1499.003"
+name = "Application Exhaustion Flood"
+reference = "https://attack.mitre.org/techniques/T1499/003/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0040"
+name = "AI Model Inference API Access"
+reference = "https://atlas.mitre.org/techniques/AML.T0040/"
+
+[rule.threat.tactic]
+id = "AML.TA0000"
+name = "AI Model Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0000/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0024"
+name = "Exfiltration via AI Inference API"
+reference = "https://atlas.mitre.org/techniques/AML.T0024/"
+
+[rule.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0046"
+name = "Spamming AI System with Chaff Data"
+reference = "https://atlas.mitre.org/techniques/AML.T0046/"
+
+[rule.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"

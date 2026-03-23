@@ -2,7 +2,7 @@
 creation_date = "2020/04/27"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -104,17 +104,7 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
 severity = "high"
-tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Discovery",
-  "Data Source: Elastic Endgame",
-  "Data Source: Elastic Defend",
-  "Data Source: Crowdstrike",
-  "Data Source: SentinelOne",
-  "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -138,9 +128,32 @@ process.args in (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1082"
-name = "System Information Discovery"
-reference = "https://attack.mitre.org/techniques/T1082/"
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
 
 [rule.threat.tactic]
 id = "TA0007"

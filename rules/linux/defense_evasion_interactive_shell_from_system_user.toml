@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -46,14 +46,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend",
-        "Resources: Investigation Guide"
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -124,21 +117,20 @@ In Linux environments, system users are typically non-interactive and serve spec
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[rule.threat.tactic]
-name = "Defense Evasion"
-id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat.technique]]
-id = "T1564"
-name = "Hide Artifacts"
-reference = "https://attack.mitre.org/techniques/T1564/"
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1564.002"
-name = "Hidden Users"
-reference = "https://attack.mitre.org/techniques/T1564/002/"
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]

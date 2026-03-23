@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -89,15 +89,7 @@ references = [
 risk_score = 47
 rule_id = "151d8f72-0747-11ef-a0c2-f661ea17fbcc"
 severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Lambda",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Cloud", "Tactic: Defense Evasion", "Data Source: AWS", "Data Source: Amazon Web Services", "Data Source: AWS Lambda", "Use Case: Threat Detection", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -113,17 +105,21 @@ info where event.dataset == "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1546"
-name = "Event Triggered Execution"
-reference = "https://attack.mitre.org/techniques/T1546/"
 
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

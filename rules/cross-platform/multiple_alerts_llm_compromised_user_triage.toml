@@ -3,7 +3,7 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -73,14 +73,7 @@ following the [LLM connector documentation](https://www.elastic.co/docs/explore-
 and update the `inference_id` parameter in the query to reference your configured connector.
 """
 severity = "critical"
-tags = [
-    "Domain: Identity",
-    "Domain: LLM",
-    "Use Case: Threat Detection",
-    "Use Case: Identity and Access Audit",
-    "Resources: Investigation Guide",
-    "Rule Type: Higher-Order Rule",
-]
+tags = ["Domain: Identity", "Domain: LLM", "Use Case: Threat Detection", "Use Case: Identity and Access Audit", "Tactic: Initial Access", "Resources: Investigation Guide", "Rule Type: Higher-Order Rule"]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -159,3 +152,15 @@ from .alerts-security.* METADATA _id, _version, _index
 | keep user.name, user.id, user.email, host.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

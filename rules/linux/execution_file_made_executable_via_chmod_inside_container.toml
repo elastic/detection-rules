@@ -2,7 +2,7 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,15 +79,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = [
-    "Domain: Container",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Container", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -96,19 +88,6 @@ process.entry_leader.entry_meta.type == "container" and process.name in ("chmod"
 process.args in ("4755", "755", "000", "777", "444", "+x") and
 process.args like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*")
 '''
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

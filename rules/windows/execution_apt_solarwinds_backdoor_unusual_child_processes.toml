@@ -2,7 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -57,16 +57,7 @@ references = [
 risk_score = 47
 rule_id = "93b22c0a-06a0-4131-b830-b10d5e166ff4"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Initial Access", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -96,31 +87,36 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1106"
-name = "Native API"
-reference = "https://attack.mitre.org/techniques/T1106/"
 
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1195.002"
 name = "Compromise Software Supply Chain"
 reference = "https://attack.mitre.org/techniques/T1195/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-

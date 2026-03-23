@@ -4,7 +4,7 @@ integration = ["cloud_defend", "kubernetes"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/27"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -66,17 +66,7 @@ This detection links an interactive invocation of common networking utilities or
 risk_score = 47
 rule_id = "9d312839-339a-4e10-af2e-a49b15b15d13"
 severity = "medium"
-tags = [
-    "Data Source: Elastic Defend for Containers",
-    "Data Source: Kubernetes",
-    "Domain: Container",
-    "Domain: Kubernetes",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Discovery",
-    "Resources: Investigation Guide",
-]
+tags = ["Tactic: Discovery", "Data Source: Elastic Defend for Containers", "Data Source: Kubernetes", "Domain: Container", "Domain: Kubernetes", "OS: Linux", "Use Case: Threat Detection", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -107,24 +97,6 @@ sequence with maxspan=1s
   ] by orchestrator.resource.name
   [any where event.dataset == "kubernetes.audit_logs" and kubernetes.audit.stage in ("ResponseComplete", "ResponseStarted")] by `kubernetes.audit.user.extra.authentication.kubernetes.io/pod-name` 
 '''
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

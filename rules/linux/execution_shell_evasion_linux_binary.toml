@@ -2,7 +2,7 @@
 creation_date = "2022/05/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/12/11"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -126,15 +126,7 @@ Session View uses process data collected by the Elastic Defend integration, but 
 For more information about the additional fields collected when this setting is enabled and the usage of Session View for Analysis refer to the [helper guide](https://www.elastic.co/guide/en/security/current/session-view.html).
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -194,19 +186,31 @@ process where host.os.type == "linux" and event.type == "start" and process.exec
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

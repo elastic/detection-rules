@@ -2,7 +2,7 @@
 creation_date = "2025/12/09"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -65,14 +65,7 @@ references = [
 risk_score = 21
 rule_id = "03245b25-3849-4052-ab48-72de65a82c35"
 severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Tactic: Initial Access",
-    "Tactic: Persistence",
-    "Data Source: Github",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Impact", "Tactic: Initial Access", "Data Source: Github", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -84,32 +77,39 @@ event.dataset: "github.audit" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
+
 [[rule.threat.technique.subtechnique]]
-id = "T1195.002"
-name = "Compromise Software Supply Chain"
-reference = "https://attack.mitre.org/techniques/T1195/002/"
+id = "T1195.001"
+name = "Compromise Software Dependencies and Development Tools"
+reference = "https://attack.mitre.org/techniques/T1195/001/"
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["github.org_id", "github.repo"]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -64,14 +64,7 @@ references = ["https://cloud.google.com/storage/docs/access-control/iam-permissi
 risk_score = 47
 rule_id = "2326d1b2-9acf-4dee-bd21-867ea7378b4d"
 severity = "medium"
-tags = [
-    "Domain: Cloud",
-    "Data Source: GCP",
-    "Data Source: Google Cloud Platform",
-    "Use Case: Identity and Access Audit",
-    "Tactic: Defense Evasion",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Cloud", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Identity and Access Audit", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -82,14 +75,36 @@ event.dataset:gcp.audit and event.action:"storage.setIamPermissions" and event.o
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1222"
-name = "File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/"
 
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

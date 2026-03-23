@@ -2,7 +2,7 @@
 creation_date = "2021/01/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/04/24"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -51,16 +51,7 @@ references = [
 risk_score = 47
 rule_id = "5cd8e1f7-0050-4afc-b2df-904e40b2f5ae"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Resources: Investigation Guide",
-    "Use Case: Active Directory Monitoring",
-    "Data Source: Active Directory",
-    "Data Source: Windows Security Event Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Use Case: Active Directory Monitoring", "Data Source: Active Directory", "Data Source: Windows Security Event Logs"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -102,14 +93,36 @@ iam where host.os.type == "windows" and event.action == "added-member-to-group" 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

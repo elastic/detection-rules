@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_m
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/05"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -91,22 +91,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "Domain: Container",
-    "Domain: Kubernetes",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Discovery",
-    "Data Source: Auditd Manager",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: SentinelOne",
-    "Data Source: Elastic Defend for Containers",
-    "Resources: Investigation Guide"
-]
+tags = ["Domain: Endpoint", "Domain: Container", "Domain: Kubernetes", "OS: Linux", "Use Case: Threat Detection", "Tactic: Credential Access", "Tactic: Discovery", "Data Source: Auditd Manager", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Data Source: Elastic Defend for Containers", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -127,19 +112,19 @@ process.name in ("curl", "wget") and process.args like~ (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
+id = "T1552.007"
+name = "Container API"
+reference = "https://attack.mitre.org/techniques/T1552/007/"
 
 [rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

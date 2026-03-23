@@ -2,7 +2,7 @@
 creation_date = "2025/11/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/11/26"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -65,24 +65,7 @@ references = [
 risk_score = 47
 rule_id = "57e118c1-19eb-4c20-93a6-8a6c30a5b48b"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: Windows",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Initial Access",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Data Source: Auditd Manager",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Command and Control", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Windows Security Event Logs", "Data Source: Microsoft Defender for Endpoint", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Crowdstrike", "Data Source: Auditd Manager", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -95,32 +78,31 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
 
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1072"
+name = "Software Deployment Tools"
+reference = "https://attack.mitre.org/techniques/T1072/"
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1195"
-name = "Supply Chain Compromise"
-reference = "https://attack.mitre.org/techniques/T1195/"
-[[rule.threat.technique.subtechnique]]
-id = "T1195.002"
-name = "Compromise Software Supply Chain"
-reference = "https://attack.mitre.org/techniques/T1195/002/"
-
-
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
-

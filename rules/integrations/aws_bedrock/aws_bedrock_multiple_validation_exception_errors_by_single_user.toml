@@ -2,7 +2,7 @@
 creation_date = "2024/09/11"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/07/16"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -67,17 +67,7 @@ This rule requires that AWS Bedrock Integration be configured. For more informat
 https://www.elastic.co/docs/current/integrations/aws_bedrock
 """
 severity = "high"
-tags = [
-    "Domain: LLM",
-    "Data Source: AWS",
-    "Data Source: AWS Bedrock",
-    "Data Source: AWS S3",
-    "Use Case: Policy Violation",
-    "Mitre Atlas: T0015",
-    "Mitre Atlas: T0034",
-    "Mitre Atlas: T0046",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: LLM", "Tactic: AI Model Access", "Data Source: AWS", "Data Source: AWS Bedrock", "Data Source: AWS S3", "Use Case: Policy Violation", "Mitre Atlas: T0015", "Mitre Atlas: T0034", "Mitre Atlas: T0046", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -115,3 +105,15 @@ from logs-aws_bedrock.invocation-*
 [rule.investigation_fields]
 field_names = ["target_time_window", "user.id", "cloud.account.id", "total_denials"]
 
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0040"
+name = "AI Model Inference API Access"
+reference = "https://atlas.mitre.org/techniques/AML.T0040/"
+
+[rule.threat.tactic]
+id = "AML.TA0000"
+name = "AI Model Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0000/"

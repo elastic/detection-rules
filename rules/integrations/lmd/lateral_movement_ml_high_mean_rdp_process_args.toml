@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/03/23"
 
 [rule]
 anomaly_threshold = 70
@@ -51,13 +51,7 @@ The Lateral Movement Detection integration detects lateral movement activity by 
 - For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
 """
 severity = "low"
-tags = [
-    "Use Case: Lateral Movement Detection",
-    "Rule Type: ML",
-    "Rule Type: Machine Learning",
-    "Tactic: Lateral Movement",
-    "Resources: Investigation Guide",
-]
+tags = ["Use Case: Lateral Movement Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Tactic: Execution", "Tactic: Lateral Movement", "Resources: Investigation Guide"]
 type = "machine_learning"
 note = """## Triage and analysis
 
@@ -95,14 +89,31 @@ Remote Desktop Protocol (RDP) facilitates remote access to systems, often target
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems have been compromised."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1210"
-name = "Exploitation of Remote Services"
-reference = "https://attack.mitre.org/techniques/T1210/"
 
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.001"
+name = "Remote Desktop Protocol"
+reference = "https://attack.mitre.org/techniques/T1021/001/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

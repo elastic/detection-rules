@@ -2,7 +2,7 @@
 creation_date = "2021/07/07"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
@@ -63,19 +63,7 @@ references = [
 risk_score = 73
 rule_id = "053a0387-f3b5-4ba5-8245-8002cca2bd08"
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Endgame",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: Microsoft Defender for Endpoint", "Data Source: Crowdstrike", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -106,19 +94,23 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
-id = "T1574.001"
-name = "DLL"
-reference = "https://attack.mitre.org/techniques/T1574/001/"
+id = "T1036.003"
+name = "Rename Legitimate Utilities"
+reference = "https://attack.mitre.org/techniques/T1036/003/"
 
-
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Resource Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

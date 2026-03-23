@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/02"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -84,17 +84,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Execution",
-  "Tactic: Command and Control",
-  "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
-  "Data Source: SentinelOne",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend", "Resources: Investigation Guide", "Data Source: Crowdstrike", "Data Source: SentinelOne"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -106,11 +96,6 @@ process.args:((/dev/shm/* or /tmp/* or /var/tmp/*) and not (/*fifo* or /var/tmp/
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -121,19 +106,15 @@ id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
+reference = "https://attack.mitre.org/techniques/T1559/"
 
 [rule.threat.tactic]
-name = "Command and Control"
-id = "TA0011"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"
-
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.command_line"]

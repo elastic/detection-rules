@@ -2,7 +2,7 @@
 creation_date = "2021/12/04"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -68,18 +68,7 @@ references = [
 risk_score = 47
 rule_id = "c3b915e0-22f3-4bf7-991d-b643513c722f"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Microsoft Defender for Endpoint", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -96,14 +85,26 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1197"
 name = "BITS Jobs"
 reference = "https://attack.mitre.org/techniques/T1197/"
 
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1197"
+name = "BITS Jobs"
+reference = "https://attack.mitre.org/techniques/T1197/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

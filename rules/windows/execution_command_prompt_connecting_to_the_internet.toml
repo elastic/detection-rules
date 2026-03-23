@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/02/23"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -100,16 +100,7 @@ references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-
 risk_score = 21
 rule_id = "89f9a4b0-9f8f-4ee0-8823-c4751a6d6696"
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
 type = "eql"
 
 query = '''
@@ -134,29 +125,39 @@ sequence by process.entity_id with maxspan=15s
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
 
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1105"
 name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
-
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

@@ -2,7 +2,7 @@
 creation_date = "2026/01/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/01/08"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -115,14 +115,7 @@ Setup instructions: https://ela.st/powershell-logging-setup
 This rule uses the following fields that require the Windows Integration v3.3.0 and up: `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, and `powershell.file.script_block_length`.
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: PowerShell Logs",
-    "Resources: Investigation Guide"
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Data Source: PowerShell Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -142,40 +135,39 @@ value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Prot
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
 
-[[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

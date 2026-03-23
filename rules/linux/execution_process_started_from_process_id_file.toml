@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -65,18 +65,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Threat: BPFDoor",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Auditd Manager",
-    "Data Source: Crowdstrike",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Threat: BPFDoor", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Auditd Manager", "Data Source: Crowdstrike", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -88,14 +77,18 @@ process where host.os.type == "linux" and event.type == "start" and user.id == "
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
 
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.008"
+name = "Masquerade File Type"
+reference = "https://attack.mitre.org/techniques/T1036/008/"
 
 [rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

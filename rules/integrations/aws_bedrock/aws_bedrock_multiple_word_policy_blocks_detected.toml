@@ -2,7 +2,7 @@
 creation_date = "2024/11/20"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/11/10"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -66,15 +66,7 @@ This rule requires that guardrails are configured in AWS Bedrock. For more infor
 https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
-tags = [
-    "Domain: LLM",
-    "Data Source: AWS Bedrock",
-    "Data Source: AWS S3",
-    "Use Case: Policy Violation",
-    "Mitre Atlas: T0051",
-    "Mitre Atlas: T0054",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: LLM", "Tactic: Discovery", "Data Source: AWS Bedrock", "Data Source: AWS S3", "Use Case: Policy Violation", "Mitre Atlas: T0051", "Mitre Atlas: T0054", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -106,3 +98,20 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_policy_blocked_profanity_count desc
 '''
 
+[[rule.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat.technique]]
+id = "AML.T0084"
+name = "Discover AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0084/"
+
+[[rule.threat.technique]]
+id = "AML.T0089"
+name = "Process Discovery"
+reference = "https://atlas.mitre.org/techniques/AML.T0089/"
+
+[rule.threat.tactic]
+id = "AML.TA0008"
+name = "Discovery"
+reference = "https://atlas.mitre.org/tactics/AML.TA0008/"

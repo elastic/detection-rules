@@ -2,7 +2,7 @@
 creation_date = "2025/11/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/11/27"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -93,17 +93,7 @@ After saving the integration change, the Elastic Agents running this policy will
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -115,49 +105,17 @@ not process.env_vars like~ "RUNNER_TRACKING_ID=github_*"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
 
-  [[rule.threat.technique]]
-  id = "T1059"
-  name = "Command and Scripting Interpreter"
-  reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-  [rule.threat.tactic]
-  name = "Initial Access"
-  id = "TA0001"
-  reference = "https://attack.mitre.org/tactics/TA0001/"
-
-  [[rule.threat.technique]]
-  name = "Supply Chain Compromise"
-  id = "T1195"
-  reference = "https://attack.mitre.org/techniques/T1195/"
-
-    [[rule.threat.technique.subtechnique]]
-    name = "Compromise Software Dependencies and Development Tools"
-    id = "T1195.001"
-    reference = "https://attack.mitre.org/techniques/T1195/001/"
-
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
-
-  [[rule.threat.technique]]
-  name = "Impair Defenses"
-  id = "T1562"
-  reference = "https://attack.mitre.org/techniques/T1562/"
-
-    [[rule.threat.technique.subtechnique]]
-    name = "Disable or Modify Tools"
-    id = "T1562.001"
-    reference = "https://attack.mitre.org/techniques/T1562/001/"
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

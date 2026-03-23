@@ -2,7 +2,7 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -66,19 +66,7 @@ references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34
 risk_score = 47
 rule_id = "c4818812-d44f-47be-aaef-4cfb2f9cc799"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
-    "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: Microsoft Defender for Endpoint", "Data Source: SentinelOne", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -91,14 +79,18 @@ file where host.os.type == "windows" and event.type == "deletion" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1068"
-name = "Exploitation for Privilege Escalation"
-reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
 
 [rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

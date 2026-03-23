@@ -2,7 +2,7 @@
 creation_date = "2025/04/14"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/09/18"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -54,18 +54,7 @@ references = [
 risk_score = 47
 rule_id = "c18975f5-676c-4091-b626-81e8938aa2ee"
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Data Source: Sysmon",
-    "Resources: Investigation Guide",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Microsoft Defender for Endpoint", "Data Source: SentinelOne", "Data Source: Sysmon", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -118,19 +107,36 @@ registry where host.os.type == "windows" and event.action != "deletion" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
 
 [[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1546.015"
+name = "Component Object Model Hijacking"
+reference = "https://attack.mitre.org/techniques/T1546/015/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.015"
+name = "Component Object Model Hijacking"
+reference = "https://attack.mitre.org/techniques/T1546/015/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

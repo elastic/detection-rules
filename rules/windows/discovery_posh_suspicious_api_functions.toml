@@ -2,7 +2,7 @@
 creation_date = "2021/10/13"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/02/09"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -106,16 +106,7 @@ PowerShell Script Block Logging must be enabled to generate the events used by t
 Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Tactic: Collection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: PowerShell Logs",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -165,25 +156,41 @@ case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1033"
+name = "System Owner/User Discovery"
+reference = "https://attack.mitre.org/techniques/T1033/"
+
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1069.002"
+name = "Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1069/002/"
 
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1087.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1087/001/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
 
 [[rule.threat.technique]]
 id = "T1135"
@@ -195,46 +202,10 @@ id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.001"
-name = "PowerShell"
-reference = "https://attack.mitre.org/techniques/T1059/001/"
-
-
-[[rule.threat.technique]]
-id = "T1106"
-name = "Native API"
-reference = "https://attack.mitre.org/techniques/T1106/"
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1039"
-name = "Data from Network Shared Drive"
-reference = "https://attack.mitre.org/techniques/T1039/"
-
-
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
