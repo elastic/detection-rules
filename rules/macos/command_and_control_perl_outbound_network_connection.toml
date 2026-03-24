@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
@@ -50,7 +50,15 @@ This rule detects Perl starting on macOS and then initiating an outbound connect
 risk_score = 47
 rule_id = "aba3bc11-e02f-4a03-8889-d86ea1a44f76"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=30s
@@ -66,12 +74,30 @@ sequence by process.entity_id with maxspan=30s
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Command and Scripting Interpreter"
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"

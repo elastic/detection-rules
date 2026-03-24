@@ -2,7 +2,7 @@
 creation_date = "2025/01/29"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -94,7 +94,18 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -109,37 +120,28 @@ not process.parent.name:(sshd or make or su or ds_agent or fortitraylauncher or 
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1036.009"
-name = "Break Process Trees"
-reference = "https://attack.mitre.org/techniques/T1036/009/"
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.name"]

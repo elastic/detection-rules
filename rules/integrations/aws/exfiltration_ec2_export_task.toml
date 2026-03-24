@@ -2,7 +2,7 @@
 creation_date = "2025/10/23"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,16 @@ references = [
 risk_score = 47
 rule_id = "deee5856-25ba-438d-ae53-09d66f41b127"
 severity = "medium"
-tags = ["Domain: Cloud", "Tactic: Exfiltration", "Data Source: AWS", "Data Source: Amazon Web Services", "Data Source: AWS EC2", "Use Case: Asset Visibility", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Asset Visibility",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -91,21 +100,39 @@ event.dataset: "aws.cloudtrail" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1567"
-name = "Exfiltration Over Web Service"
-reference = "https://attack.mitre.org/techniques/T1567/"
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1567.002"
-name = "Exfiltration to Cloud Storage"
-reference = "https://attack.mitre.org/techniques/T1567/002/"
 
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[[rule.threat.technique]]
+id = "T1119"
+name = "Automated Collection"
+reference = "https://attack.mitre.org/techniques/T1119/"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

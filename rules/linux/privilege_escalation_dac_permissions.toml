@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,14 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Credential Access", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -111,42 +118,15 @@ process.command_line:(*/etc/sudoers* or */etc/passwd* or */etc/shadow* or */root
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1003"
-name = "OS Credential Dumping"
-reference = "https://attack.mitre.org/techniques/T1003/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1003.008"
-name = "/etc/passwd and /etc/shadow"
-reference = "https://attack.mitre.org/techniques/T1003/008/"
-
-[[rule.threat.technique]]
-id = "T1552"
-name = "Unsecured Credentials"
-reference = "https://attack.mitre.org/techniques/T1552/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1552.004"
-name = "Private Keys"
-reference = "https://attack.mitre.org/techniques/T1552/004/"
-
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name"]

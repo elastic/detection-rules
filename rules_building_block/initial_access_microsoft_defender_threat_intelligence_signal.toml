@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2025/08/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,20 @@ setup = """### Additional notes
 For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
 """
 severity = "low"
-tags = ["Domain: Cloud", "Domain: SaaS", "Tactic: Initial Access", "Data Source: Microsoft 365", "Data Source: Microsoft 365 Audit Logs", "Data Source: Microsoft Defender", "Data Source: Microsoft Defender for Office 365", "Data Source: Microsoft Threat Intelligence", "Use Case: Threat Detection", "Resources: Investigation Guide", "Rule Type: BBR"]
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Defender",
+    "Data Source: Microsoft Defender for Office 365",
+    "Data Source: Microsoft Threat Intelligence",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -85,13 +98,26 @@ event.dataset: "o365.audit" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

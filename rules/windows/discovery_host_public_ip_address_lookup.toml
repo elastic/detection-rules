@@ -2,7 +2,7 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,19 @@ references = ["https://attack.mitre.org/techniques/T1016/"]
 risk_score = 73
 rule_id = "642ce354-4252-4d43-80c9-6603f16571c1"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne", "Data Source: Crowdstrike", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -119,18 +131,31 @@ network where host.os.type == "windows" and dns.question.name != null and proces
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1016"
 name = "System Network Configuration Discovery"
 reference = "https://attack.mitre.org/techniques/T1016/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1016.001"
-name = "Internet Connection Discovery"
-reference = "https://attack.mitre.org/techniques/T1016/001/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

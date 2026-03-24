@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,15 @@ name = "Execution of an Unsigned Service"
 risk_score = 21
 rule_id = "56fdfcf1-ca7c-4fd9-951d-e215ee26e404"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Rule Type: BBR", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -34,21 +42,39 @@ not process.code_signature.status : (errorCode_endpoint* or "errorChaining")
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1569"
 name = "System Services"
 reference = "https://attack.mitre.org/techniques/T1569/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1569.002"
 name = "Service Execution"
 reference = "https://attack.mitre.org/techniques/T1569/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable", "user.id"]

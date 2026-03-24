@@ -2,7 +2,7 @@
 creation_date = "2025/07/02"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,18 @@ references = [
 risk_score = 47
 rule_id = "f541ca3a-5752-11f0-b44b-f661ea17fbcd"
 severity = "medium"
-tags = ["Domain: Cloud", "Tactic: Credential Access", "Tactic: Discovery", "Data Source: Azure", "Data Source: Microsoft 365", "Data Source: Microsoft 365 Audit Logs", "Data Source: Microsoft Entra ID", "Data Source: Microsoft Entra ID Sign-in Logs", "Use Case: Identity and Access Audit", "Use Case: Threat Detection", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -92,46 +103,71 @@ event.dataset:("azure.signinlogs" or "o365.audit")
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
 
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+[[rule.threat.technique]]
+id = "T1201"
+name = "Password Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1201/"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat.technique]]
+id = "T1673"
+name = "Virtual Machine Discovery"
+reference = "https://attack.mitre.org/techniques/T1673/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1110"
 name = "Brute Force"
 reference = "https://attack.mitre.org/techniques/T1110/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1110.003"
 name = "Password Spraying"
 reference = "https://attack.mitre.org/techniques/T1110/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1069"
-name = "Permission Groups Discovery"
-reference = "https://attack.mitre.org/techniques/T1069/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1069.003"
-name = "Cloud Groups"
-reference = "https://attack.mitre.org/techniques/T1069/003/"
-
-[[rule.threat.technique]]
-id = "T1087"
-name = "Account Discovery"
-reference = "https://attack.mitre.org/techniques/T1087/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1087.004"
-name = "Cloud Account"
-reference = "https://attack.mitre.org/techniques/T1087/004/"
-
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"

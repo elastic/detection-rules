@@ -2,7 +2,7 @@
 creation_date = "2025/03/24"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/10"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,15 @@ references = [
 risk_score = 47
 rule_id = "0c3c80de-08c2-11f0-bd11-f661ea17fbcc"
 severity = "medium"
-tags = ["Domain: Cloud", "Tactic: Persistence", "Data Source: Microsoft 365", "Data Source: Microsoft 365 Audit Logs", "Use Case: Identity and Access Audit", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -94,16 +102,34 @@ event.dataset: "o365.audit"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

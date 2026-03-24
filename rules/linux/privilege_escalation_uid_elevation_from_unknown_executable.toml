@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,15 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -108,19 +116,33 @@ and process.parent.name:("bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1548.001"
-name = "Setuid and Setgid"
-reference = "https://attack.mitre.org/techniques/T1548/001/"
+id = "T1574.013"
+name = "KernelCallbackTable"
+reference = "https://attack.mitre.org/techniques/T1574/013/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]

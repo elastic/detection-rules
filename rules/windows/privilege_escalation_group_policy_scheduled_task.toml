@@ -2,7 +2,7 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,17 @@ Audit Directory Service Changes (Success,Failure)
 ```
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Privilege Escalation", "Data Source: Active Directory", "Resources: Investigation Guide", "Use Case: Active Directory Monitoring", "Data Source: Windows Security Event Logs"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Data Source: Active Directory",
+    "Resources: Investigation Guide",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Windows Security Event Logs",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -111,36 +121,41 @@ any where host.os.type == "windows" and event.code in ("5136", "5145") and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
 reference = "https://attack.mitre.org/techniques/T1053/005/"
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
 id = "T1484"
 name = "Domain or Tenant Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1484.001"
 name = "Group Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

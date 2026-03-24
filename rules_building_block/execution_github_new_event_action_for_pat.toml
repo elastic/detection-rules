@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,14 @@ name = "First Occurrence GitHub Event for a Personal Access Token (PAT)"
 risk_score = 21
 rule_id = "ce08b55a-f67d-4804-92b5-617b0fe5a5b5"
 severity = "low"
-tags = ["Domain: Cloud", "Use Case: Threat Detection", "Use Case: UEBA", "Rule Type: BBR", "Tactic: Persistence", "Data Source: Github"]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Execution",
+    "Rule Type: BBR",
+    "Data Source: Github",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -30,21 +37,17 @@ github.programmatic_access_type:("OAuth access token" or "Fine-grained personal 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["github.hashed_token", "event.action"]

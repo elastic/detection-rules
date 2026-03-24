@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -61,7 +61,20 @@ Security Support Providers (SSPs) in Windows environments facilitate authenticat
 risk_score = 47
 rule_id = "e86da94d-e54b-4fb5-b96c-cecff87e8787"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: Microsoft Defender for Endpoint", "Data Source: SentinelOne", "Data Source: Crowdstrike", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -84,18 +97,31 @@ registry where host.os.type == "windows" and event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.005"
 name = "Security Support Provider"
 reference = "https://attack.mitre.org/techniques/T1547/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

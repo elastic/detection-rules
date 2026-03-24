@@ -1,0 +1,284 @@
+[metadata]
+creation_date = "2026/02/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the exploitation of a web server through the execution of a suspicious process by common web server
+user accounts. Attackers may upload a web shell to a web server to maintain access to the system.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Web Server Exploitation Detected via Defend for Containers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Server Exploitation Detected via Defend for Containers
+
+This rule flags Linux container activity where a web server (or typical web-service account) executes a suspicious process, a strong indicator of web app exploitation rather than normal request handling. It matters because this pattern commonly marks initial foothold and post-exploitation execution that can lead to persistence and lateral movement from the service container. A typical attacker flow drops a web shell or abuses RCE to launch `sh -c` and pull or run a secondary payload (e.g., reverse shell).
+
+### Possible investigation steps
+
+- Capture the full executed command line and decode/normalize any obfuscation (base64, hex, URL encoding) to determine the operator intent and any payload retrieval or reverse-shell behavior.  
+- Correlate the execution timestamp with web access/error logs and ingress/WAF events to identify the triggering request path, parameters, and source IP/user-agent indicating RCE or web-shell invocation.  
+- Inspect recent file and permission changes in the container’s application and web directories (including temp and upload paths) to identify newly dropped scripts/binaries, cron entries, or modified server configs.  
+- Review container and orchestration context (image tag/digest, recent deploys, exec sessions, and Kubernetes events) to determine whether the activity aligns with a legitimate rollout or represents in-container compromise.  
+- Check network telemetry for the container around the event for suspicious outbound connections, DNS lookups, or downloads, then pivot to any contacted hosts to assess command-and-control or staging infrastructure.
+
+### False positive analysis
+
+- A web application or server-side script running under the web-service account legitimately invokes `sh -c` (e.g., to run maintenance tasks like log rotation, cache rebuilds, file conversions, or templating/asset compilation) from a web directory such as `/var/www/*`, causing the web server to spawn a shell child process.  
+- During container startup or a deployment/health-check routine, the web server process launches a shell via `sh -c` to perform initialization (e.g., environment substitution, dynamic configuration generation, permission fixes, or calling bundled helper scripts), which can resemble exploitation when the parent is a web server and the child is a shell.
+
+### Response and remediation
+
+- Immediately isolate the affected container/pod from inbound and outbound traffic (quarantine namespace/security group or apply a deny-all NetworkPolicy) and stop the workload to prevent further `sh -c` execution and potential C2.  
+- Preserve evidence by exporting the container filesystem and logs (web access/error logs, application logs, and process output) and capture the exact shell command string and any downloaded payloads or newly created files in web roots, temp, and upload directories.  
+- Eradicate by removing any identified web shells/backdoors and reverting unauthorized changes, then rebuild and redeploy the service from a known-good image digest while rotating secrets exposed to the container (service tokens, database creds, API keys).  
+- Recover by validating application integrity and behavior post-redeploy (no unexpected shell spawns, no abnormal outbound connections, clean health checks) and monitor the previously contacted IPs/domains for further callbacks from other workloads.  
+- Escalate to incident response and platform security immediately if the shell command indicates payload retrieval, reverse shell activity, credential access, or if similar `sh -c` executions are observed across multiple containers/namespaces.  
+- Harden by removing shell binaries from runtime images where feasible, enforcing non-root and read-only filesystems, restricting egress to required destinations only, disabling risky interpreter execution paths in the web app, and adding WAF/RCE protections for the identified vulnerable endpoint."""
+risk_score = 73
+rule_id = "497a7091-0ebd-44d7-88c4-367ab4d4d852"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and process.parent.interactive == false and
+container.id like "?*" and (
+  process.parent.name in (
+    "nginx", "apache2", "httpd", "caddy", "mongrel_rails", "uwsgi", "daphne", "httpd.worker", "flask",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs", "lswsctrl", "varnishd", "uvicorn", "waitress-serve", "starman"
+  ) or
+  process.parent.name like ("php-fpm*", "gunicorn*", "*.cgi", "*.fcgi") or
+  (process.parent.name like "ruby*" and process.parent.args like~ ("*puma*", "*rails*", "*passenger*")) or
+  (process.parent.name like "python*" and process.parent.args like~ (
+    "*hypercorn*", "*flask*", "*uvicorn*", "*django*", "*app.py*", "*server.py*", "*wsgi.py*", "*asgi.py*"
+  )) or
+  (process.parent.name like "perl*" and process.parent.args like~ "*plackup*") or
+  (process.parent.name == "node" and process.parent.args like~ (
+    "*next start*", "*--port*", "*PORT=*", "*HOST=*", "*0.0.0.0*", "*/dist/*.js*", "*/build/*.js*", "*/server/*.js*",
+    "*/app/*.js*","*/apps/*/*.js*", "*/index.js*", "*/main.js*", "*/srv/*", "*/opt/*", "*/var/www/*"
+    ) and
+    not process.parent.args like ("/opt/cursor-agent/*", "/home/*/*", "/root/*", "/opt/vscode-server/*", "/usr/lib/node_modules/openclaw/dist/index.js") 
+  ) or
+  (process.parent.name == "java" and process.parent.args like~ (
+    /* Tomcat */
+    "org.apache.catalina.startup.Bootstrap", "-Dcatalina.base=*",
+
+    /* Jetty */
+    "org.eclipse.jetty.start.Main", "-Djetty.home=*",
+
+    /* WildFly / JBoss */
+    "org.jboss.modules.Main", "-Djboss.home.dir=*",
+
+    /* WebLogic */
+    "weblogic.Server", "-Dweblogic.Name=*", "*weblogic-launcher.jar*",
+
+    /* WebSphere traditional + Liberty */
+    "com.ibm.ws.runtime.WsServer", "com.ibm.ws.kernel.boot.cmdline.Bootstrap",
+
+    /* GlassFish */
+    "com.sun.enterprise.glassfish.bootstrap.ASMain",
+
+    /* Resin */
+    "com.caucho.server.resin.Resin",
+
+    /* Spring Boot */
+    "org.springframework.boot.loader.*",
+
+    /* Quarkus */
+    "*quarkus-run.jar*", "io.quarkus.runner.GeneratedMain",
+
+    /* Micronaut */
+    "io.micronaut.runtime.Micronaut",
+
+    /* Dropwizard */
+    "io.dropwizard.cli.ServerCommand",
+
+    /* Play */
+    "play.core.server.ProdServerStart",
+
+    /* Helidon */
+    "io.helidon.microprofile.server.Main", "io.helidon.webserver*",
+
+    /* Vert.x */
+    "io.vertx.core.Launcher",
+
+    /* Keycloak */
+    "org.keycloak*",
+
+    /* Apereo CAS */
+    "org.apereo.cas*",
+
+    /* Elasticsearch */
+    "org.elasticsearch.bootstrap.Elasticsearch",
+
+    /* Atlassian / Gerrit */
+    "com.atlassian.jira.startup.Launcher", "*BitbucketServerLauncher*", "com.google.gerrit.pgm.Daemon",
+
+    /* Solr */
+    "*-Dsolr.solr.home=*"
+    )
+  )
+) and
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
+process.args in ("-c", "-cl", "-lc") and (
+  process.args like (
+    /* Suspicious Paths */
+    "* /tmp/* ", "* /var/tmp/* ", "* /dev/shm/*", "* /var/www/*", "* /run/*", "* /var/run/*",
+
+    /* Interpreter Execution */
+    "*python* -c*", "*php* -r*", "*perl* -e*", "*ruby* -e*", "*lua* -e*", "*node * -e *",
+
+    /* Encoding / Decoding */
+    "*base64 -*d*", "*|*base64 *", "*xxd *", "*openssl*enc * -d *",
+
+    /* Reverse Shells */
+    "*netcat *", "* nc *", "*ncat *", "*/dev/tcp*", "*/dev/udp/*", " *socat *", "*openssl*s_client *", "*stty*raw*-echo*",
+
+    /* File Access */
+    "*>*/etc/cron*", "*/etc/ssh*", "*/home/*/.ssh/*", "*/root/.ssh*", "*~/.ssh/*", "*/etc/shadow*", "*/etc/passwd*", "*chpasswd*",
+      
+    /* AWS Credentials */
+    "*aws_access_key_id*", "*aws_secret_access_key*", "*aws_session_token*", "*accesskeyid*", "*secretaccesskey*",
+    "*access_key*", "*.aws/credentials*", "*/.aws/config*",
+    
+    /* Azure Credentials */
+    "*AZURE_CLIENT_ID*", "*AZURE_TENANT_ID*", "*AZURE_CLIENT_SECRET*", "*AZURE_FEDERATED_TOKEN_FILE*",
+    "*IDENTITY_ENDPOINT*", "*IDENTITY_HEADER*", "*MSI_ENDPOINT*", "*MSI_SECRET*", "*/.azure/*",
+    "*/run/secrets/azure/*",
+    
+    /* GCP Credentials */
+    "*/.config/gcloud/*", "*application_default_credentials.json*", "*type: service_account*",
+    "*client_email*", "*private_key_id*", "*private_key*", "*/run/secrets/google/*", "*GOOGLE_APPLICATION_CREDENTIALS*",
+    
+    /* Misc. Cloud */
+    "*/.docker/config.json*", "*/.npmrc*", "*/secrets/kubernetes.io/serviceaccount/*",
+
+    /* Helpers */
+    "*nohup*", "*setsid *", "*timeout *sh -c *", "*disown*", "*env *sh *-c*",
+
+    /* Miscellaneous */
+    "*echo *", "*chattr *", "*busybox *",  "*#!*", "*chmod +x *", "*chmod 777*", 
+    
+    /* Decompression */
+    "*gzip -*d *", "*bzip2 -*d *", "*xz -*d *", "*tar -*x*",
+     
+     /* Path Traversal */
+     "*../../../*etc/*", "*/.../*", "*../../../*home/*/*", "*../../../*root/*",
+
+     "*|*sh", "*|*python*", "*|*php*", "*|*perl*", "*|*ruby*", "*|*node*", "*|*lua*", "*|*busybox*"
+  ) or
+  (
+    process.args like ("*wget *", "*curl *") and (
+      (
+        process.args like~ ("* -o *", "* --output*", "* -o- *") and
+        process.args regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
+      ) or
+      (
+        process.args like ("*http://*", "*https://*") and
+        process.args like (
+          "* /tmp/*", "* /var/tmp/*", "* /dev/shm/* ", "* /var/www/*", "* ~/*",
+          "* /home/*", "* /run/*", "* /var/run/*"
+        )
+      )
+    )
+  )
+) and
+not (
+  (process.parent.name == "nginx" and process.args like ("chmod 777 /etc/resty-*", "resty*")) or
+  (process.parent.name == "apache2" and (
+    process.args in (
+      "/usr/local/bin/php -r 'echo phpversion();'",
+      "/usr/local/bin/php -r 'echo phpversion();'",
+      "/usr/bin/php -r 'echo phpversion();'"
+    ) or
+    process.args like """bash -c "( /home/*/apps/richdocumentscode/collabora/Collabora_Online.AppImage*"""
+    )
+  ) or
+  (process.parent.name like "php-fpm*" and process.args in (
+    "/usr/bin/php -r 'echo phpversion();'",
+    "/usr/bin/php -r 'echo phpversion();'",
+    "php -r 'print_r(phpversion());'",
+    "chattr -i -a /usr/local/virtualizor/license2.php"
+    )
+  ) or
+  (process.parent.name == "php-cgi" and process.args like (
+    "nohup php /home/*/public_html/lockindex.php index.php >/dev/null 2>&1 &",
+    "nohup php /home/*/public_html/wp-content/* >> /dev/null 2>&1 &",
+    "nohup php /home/*/public_html/wp-includes/* >> /dev/null 2>&1 &",
+    "nohup php /home/*/public_html/*/wp-content/* >> /dev/null 2>&1 &"
+    )
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Persistence"
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"

@@ -2,7 +2,7 @@
 creation_date = "2023/09/20"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -83,7 +83,17 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Tactic: Execution", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -92,19 +102,6 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name in ("setsid", "nohup") and process.args : "*/dev/tcp/*0>&1*" and
 process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1095"
-name = "Non-Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1095/"
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -123,3 +120,16 @@ reference = "https://attack.mitre.org/techniques/T1059/004/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,15 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -113,39 +121,20 @@ process.parent.executable:(
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1016"
-name = "System Network Configuration Discovery"
-reference = "https://attack.mitre.org/techniques/T1016/"
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
-[[rule.threat.technique]]
-id = "T1033"
-name = "System Owner/User Discovery"
-reference = "https://attack.mitre.org/techniques/T1033/"
-
-[[rule.threat.technique]]
-id = "T1049"
-name = "System Network Connections Discovery"
-reference = "https://attack.mitre.org/techniques/T1049/"
-
-[[rule.threat.technique]]
-id = "T1057"
-name = "Process Discovery"
-reference = "https://attack.mitre.org/techniques/T1057/"
-
-[[rule.threat.technique]]
-id = "T1082"
-name = "System Information Discovery"
-reference = "https://attack.mitre.org/techniques/T1082/"
-
-[[rule.threat.technique]]
-id = "T1083"
-name = "File and Directory Discovery"
-reference = "https://attack.mitre.org/techniques/T1083/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
 [rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.name"]

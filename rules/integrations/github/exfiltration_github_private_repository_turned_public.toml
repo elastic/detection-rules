@@ -2,7 +2,7 @@
 creation_date = "2025/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -50,7 +50,14 @@ This rule flags when a previously private repository is made public, a high-risk
 risk_score = 21
 rule_id = "8c707e4c-bd20-4ff4-bda5-4dc3b34ce298"
 severity = "low"
-tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Exfiltration", "Data Source: Github", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Impact",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -60,6 +67,11 @@ event.action == "repo.access" and github.previous_visibility == "private" and gi
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
 
 [[rule.threat.technique]]
 id = "T1567"
@@ -75,3 +87,11 @@ reference = "https://attack.mitre.org/techniques/T1567/001/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

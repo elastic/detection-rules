@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -64,7 +64,21 @@ The Microsoft Build Engine (MSBuild) is a platform for building applications, ty
 risk_score = 47
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae3"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Windows Security Event Logs", "Data Source: Microsoft Defender for Endpoint", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Crowdstrike", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -77,18 +91,26 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1127"
 name = "Trusted Developer Utilities Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1127/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1127.001"
 name = "MSBuild"
 reference = "https://attack.mitre.org/techniques/T1127/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

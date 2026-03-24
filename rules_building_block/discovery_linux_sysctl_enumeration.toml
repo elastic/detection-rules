@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,13 @@ For this detection rule to trigger, the following additional audit rules are req
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 severity = "low"
-tags = ["Tactic: Defense Evasion", "Tactic: Discovery", "Data Source: Auditd Manager", "OS: Linux", "Use Case: Threat Detection", "Rule Type: BBR"]
+tags = [
+    "Data Source: Auditd Manager",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -64,27 +70,15 @@ file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1083"
-name = "File and Directory Discovery"
-reference = "https://attack.mitre.org/techniques/T1083/"
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]

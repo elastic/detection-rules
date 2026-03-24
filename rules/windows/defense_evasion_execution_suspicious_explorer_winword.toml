@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,20 @@ DLL side-loading exploits the DLL search order to load malicious code into trust
 risk_score = 47
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: Microsoft Defender for Endpoint", "Resources: Investigation Guide", "Data Source: Crowdstrike", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -110,18 +123,24 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.001"
 name = "DLL"
 reference = "https://attack.mitre.org/techniques/T1574/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

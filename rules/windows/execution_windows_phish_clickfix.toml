@@ -2,7 +2,7 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/08/20"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,20 @@ references = ["https://mrd0x.com/filefix-clickfix-alternative/"]
 risk_score = 73
 rule_id = "7dc45430-7407-4790-b89e-c857c3f6bf23"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Windows Security Event Logs", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Microsoft Defender for Endpoint", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -70,23 +83,61 @@ not (process.name : "rundll32.exe" and process.args : ("ndfapi.dll,NdfRunDllDiag
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1204"
-name = "User Execution"
-reference = "https://attack.mitre.org/techniques/T1204/"
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1204.002"
-name = "Malicious File"
-reference = "https://attack.mitre.org/techniques/T1204/002/"
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1204.004"
-name = "Malicious Copy and Paste"
-reference = "https://attack.mitre.org/techniques/T1204/004/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

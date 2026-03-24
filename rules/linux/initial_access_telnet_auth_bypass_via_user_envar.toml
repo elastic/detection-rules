@@ -2,7 +2,7 @@
 creation_date = "2026/01/24"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/24"
 
 [rule]
 author = ["Elastic"]
@@ -76,7 +76,19 @@ references = [
 risk_score = 99
 rule_id = "ab7795cc-0e0b-4f9d-a934-1f17a58f869a"
 severity = "critical"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Initial Access", "Resources: Investigation Guide", "Use Case: Vulnerability", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Crowdstrike", "Data Source: SentinelOne"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne"
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -89,13 +101,26 @@ process where host.os.type == "linux" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

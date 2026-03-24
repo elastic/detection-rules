@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,17 @@ name = "Bitsadmin Activity"
 risk_score = 21
 rule_id = "8eec4df1-4b4b-4502-b6c3-c788714604c9"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Data Source: Elastic Defend", "Rule Type: BBR", "Data Source: Sysmon", "Data Source: Elastic Endgame", "Data Source: Windows Security Event Logs"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+    "Data Source: Sysmon",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -47,26 +57,38 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
 
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1197"
 name = "BITS Jobs"
 reference = "https://attack.mitre.org/techniques/T1197/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1197"
 name = "BITS Jobs"
 reference = "https://attack.mitre.org/techniques/T1197/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

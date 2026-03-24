@@ -2,7 +2,7 @@
 creation_date = "2021/10/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/03/19"
 
 [transform]
 [[transform.osquery]]
@@ -103,7 +103,15 @@ references = [
 risk_score = 73
 rule_id = "2dd480be-1263-4d9c-8672-172928f6789a"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -135,13 +143,26 @@ process where host.os.type == "windows" and event.code == "10" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1106"
 name = "Native API"
 reference = "https://attack.mitre.org/techniques/T1106/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

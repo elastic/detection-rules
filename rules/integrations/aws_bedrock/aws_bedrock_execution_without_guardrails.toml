@@ -2,7 +2,7 @@
 creation_date = "2024/11/25"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,15 @@ This rule requires that guardrails are configured in AWS Bedrock. For more infor
 https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
-tags = ["Domain: LLM", "Tactic: Defense Evasion", "Tactic: AI Model Access", "Data Source: AWS Bedrock", "Data Source: AWS S3", "Resources: Investigation Guide", "Use Case: Policy Violation", "Mitre Atlas: T0051", "Mitre Atlas: T0054"]
+tags = [
+    "Domain: LLM",
+    "Data Source: AWS Bedrock",
+    "Data Source: AWS S3",
+    "Resources: Investigation Guide",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0051",
+    "Mitre Atlas: T0054",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -99,41 +107,3 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_invocations_no_guardrails_count desc
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATLAS"
-
-[[rule.threat.technique]]
-id = "AML.T0040"
-name = "AI Model Inference API Access"
-reference = "https://atlas.mitre.org/techniques/AML.T0040/"
-
-[rule.threat.tactic]
-id = "AML.TA0000"
-name = "AI Model Access"
-reference = "https://atlas.mitre.org/tactics/AML.TA0000/"
-
-[[rule.threat]]
-framework = "MITRE ATLAS"
-
-[[rule.threat.technique]]
-id = "AML.T0094"
-name = "Delay Execution of LLM Instructions"
-reference = "https://atlas.mitre.org/techniques/AML.T0094/"
-
-[rule.threat.tactic]
-id = "AML.TA0007"
-name = "Defense Evasion"
-reference = "https://atlas.mitre.org/tactics/AML.TA0007/"

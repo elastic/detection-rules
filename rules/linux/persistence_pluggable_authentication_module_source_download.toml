@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/22"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,17 @@ references = [
 risk_score = 47
 rule_id = "53ef31ea-1f8a-493b-9614-df23d8277232"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Crowdstrike"]
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Credential Access",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -75,11 +85,24 @@ process.args like~ "https://github.com/linux-pam/linux-pam/releases/download/v*/
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
 
 [rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

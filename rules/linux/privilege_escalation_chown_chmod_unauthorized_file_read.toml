@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/23"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,19 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Auditd Manager", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -100,16 +112,29 @@ process where host.os.type == "linux" and event.type == "start" and
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1222"
-name = "File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1222.002"
-name = "Linux and Mac File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/002/"
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1003.008"
+name = "/etc/passwd and /etc/shadow"
+reference = "https://attack.mitre.org/techniques/T1003/008/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

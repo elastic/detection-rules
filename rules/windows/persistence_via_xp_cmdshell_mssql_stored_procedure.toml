@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/09/11"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,20 @@ references = ["https://thedfirreport.com/2022/07/11/select-xmrig-from-sqlserver/
 risk_score = 47
 rule_id = "4ed493fc-d637-4a36-80ff-ac84937e5461"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Windows Security Event Logs", "Data Source: Microsoft Defender for Endpoint", "Data Source: Sysmon", "Data Source: SentinelOne", "Data Source: Crowdstrike"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -95,39 +108,39 @@ process.parent.name:"sqlservr.exe" and process.command_line : * and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.001"
+name = "SQL Stored Procedures"
+reference = "https://attack.mitre.org/techniques/T1505/001/"
 
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1505"
-name = "Server Software Component"
-reference = "https://attack.mitre.org/techniques/T1505/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1505.001"
-name = "SQL Stored Procedures"
-reference = "https://attack.mitre.org/techniques/T1505/001/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.command_line"]

@@ -3,7 +3,7 @@ creation_date = "2025/04/29"
 integration = ["azure"]
 maturity = "production"
 promotion = true
-updated_date = "2026/03/23"
+updated_date = "2026/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -78,7 +78,17 @@ To use this rule, ensure that Microsoft Entra ID Protection logs are being colle
 For information on troubleshooting the maximum alerts warning please refer to this [guide](https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).
 """
 severity = "high"
-tags = ["Domain: Cloud", "Domain: Identity", "Tactic: Credential Access", "Tactic: Initial Access", "Data Source: Azure", "Data Source: Entra ID", "Use Case: Identity and Access Audit", "Use Case: Threat Detection", "Use Case: Risk Detection", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Entra ID",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Use Case: Risk Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -112,16 +122,39 @@ value = "low"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1110"
 name = "Brute Force"
 reference = "https://attack.mitre.org/techniques/T1110/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1110.003"
 name = "Password Spraying"
 reference = "https://attack.mitre.org/techniques/T1110/003/"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+
 
 [rule.threat.tactic]
 id = "TA0006"
@@ -130,21 +163,17 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
 
 [rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

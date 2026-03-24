@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,13 @@ For this detection rule to trigger, the following additional audit rules are req
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 severity = "low"
-tags = ["Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Auditd Manager", "OS: Linux", "Use Case: Threat Detection", "Rule Type: BBR"]
+tags = [
+    "Data Source: Auditd Manager",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -67,37 +73,15 @@ not (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1547.006"
-name = "Kernel Modules and Extensions"
-reference = "https://attack.mitre.org/techniques/T1547/006/"
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1547.006"
-name = "Kernel Modules and Extensions"
-reference = "https://attack.mitre.org/techniques/T1547/006/"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]

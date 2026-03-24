@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2025/11/26"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
+maturity = "production"
+updated_date = "2025/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the configuration of a GitHub Actions self-hosted runner using the Runner.Listener binary.
+When a machine is registered to a remote repository, its owner gains the ability to execute arbitrary workflow commands on that host.
+Unexpected or unauthorized runner registration may indicate adversarial activity aimed at establishing remote code execution
+via malicious GitHub workflows.
+"""
+false_positives = [
+    "Authorized github repository with no malicious workflow actions.",
+]
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote GitHub Actions Runner Registration"
+note = """## Triage and analysis
+
+### Investigating Remote GitHub Actions Runner Registration
+
+Unexpected or unauthorized Github actions runner registration may indicate adversarial activity aimed at establishing remote code execution via malicious GitHub workflows.
+
+### Possible investigation steps
+
+- Review the remote repository details and reputation.
+- Examine the remote repository for any suspicious workflows run commands in the `.github/workflows` folder.
+- Examine the execution context like process tree, associated network and file activities.
+- Verify if there is adjascent any sensitive file access or collection.
+- Correlate with other alerts and investiguate if this activity is related to a supply chain attack.
+
+### False positive analysis
+
+- Authorized configuration changes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized command execution and potential lateral movement.
+- Terminate any suspicious child processes that were initiated by the registered Github actions runner.
+- Conduct a thorough review of the affected system's logs and configurations to identify any unauthorized changes or additional indicators of compromise.
+- Restore the system from a known good backup if any unauthorized changes or malicious activities are confirmed.
+- Implement application whitelisting to prevent unauthorized execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
+references = [
+    "https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise",
+    "https://socket.dev/blog/shai-hulud-strikes-again-v2",
+]
+risk_score = 47
+rule_id = "57e118c1-19eb-4c20-93a6-8a6c30a5b48b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.name in ("Runner.Listener", "Runner.Listener.exe") and
+ process.args == "configure" and process.args == "--url" and process.args == "--token"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

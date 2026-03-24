@@ -2,7 +2,7 @@
 creation_date = "2026/03/03"
 integration = ["azure"]
 maturity = "development"
-updated_date = "2026/03/23"
+updated_date = "2026/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -71,7 +71,17 @@ setup = """### Microsoft Entra ID Audit Logs
 This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
 """
 severity = "high"
-tags = ["Domain: Cloud", "Domain: Identity", "Tactic: Defense Evasion", "Tactic: Persistence", "Data Source: Azure", "Data Source: Microsoft Entra ID", "Data Source: Microsoft Entra ID Audit Logs", "Use Case: Identity and Access Audit", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -85,44 +95,33 @@ event.dataset: azure.auditlogs
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1484"
 name = "Domain or Tenant Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1484.002"
 name = "Trust Modification"
 reference = "https://attack.mitre.org/techniques/T1484/002/"
 
-[[rule.threat.technique]]
-id = "T1556"
-name = "Modify Authentication Process"
-reference = "https://attack.mitre.org/techniques/T1556/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1556.007"
-name = "Hybrid Identity"
-reference = "https://attack.mitre.org/techniques/T1556/007/"
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1556"
-name = "Modify Authentication Process"
-reference = "https://attack.mitre.org/techniques/T1556/"
-
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 [[rule.threat.technique.subtechnique]]
-id = "T1556.007"
-name = "Hybrid Identity"
-reference = "https://attack.mitre.org/techniques/T1556/007/"
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"

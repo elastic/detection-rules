@@ -4,7 +4,7 @@ integration = ["azure"]
 maturity = "production"
 min_stack_version = "9.2.0"
 min_stack_comments = "Changes in ECS added cloud.* fields which are not available prior to ^9.2.0"
-updated_date = "2026/03/23"
+updated_date = "2026/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,7 +61,17 @@ setup = """### Microsft Entra ID Audit Logs
 This rule requires the Azure integration with Microsoft Entra ID Audit Logs data stream ingesting in your Elastic Stack deployment. For more information, refer to the [Microsoft Entra ID Audit Logs integration documentation](https://www.elastic.co/docs/reference/integrations/azure/adlogs).
 """
 severity = "high"
-tags = ["Domain: Cloud", "Domain: Identity", "Tactic: Persistence", "Data Source: Azure", "Data Source: Microsoft Entra ID", "Data Source: Microsoft Entra ID Audit Logs", "Use Case: Identity and Access Audit", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -81,18 +91,36 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.001"
 name = "Additional Cloud Credentials"
 reference = "https://attack.mitre.org/techniques/T1098/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

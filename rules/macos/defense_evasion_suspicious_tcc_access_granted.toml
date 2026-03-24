@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/02/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,15 @@ name = "Suspicious TCC Access Granted for User Folders"
 risk_score = 73
 rule_id = "ffd8b5e9-aa63-42b3-aead-6fdb170da9a3"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Collection", "Tactic: Defense Evasion", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
 type = "esql"
 note = """## Triage and analysis
 
@@ -77,48 +85,30 @@ FROM logs-endpoint.events.*
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1005"
-name = "Data from Local System"
-reference = "https://attack.mitre.org/techniques/T1005/"
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
+  [[rule.threat.technique]]
+  name = "Abuse Elevation Control Mechanism"
+  id = "T1548"
+  reference = "https://attack.mitre.org/techniques/T1548/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.006"
-name = "TCC Manipulation"
-reference = "https://attack.mitre.org/techniques/T1548/006/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+    [[rule.threat.technique.subtechnique]]
+    name = "TCC Manipulation"
+    id = "T1548.006"
+    reference = "https://attack.mitre.org/techniques/T1548/006/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1548.006"
-name = "TCC Manipulation"
-reference = "https://attack.mitre.org/techniques/T1548/006/"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
+  [[rule.threat.technique]]
+  name = "Data from Local System"
+  id = "T1005"
+  reference = "https://attack.mitre.org/techniques/T1005/"

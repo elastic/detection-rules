@@ -2,7 +2,7 @@
 creation_date = "2024/05/05"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,15 @@ This rule requires that guardrails are configured in AWS Bedrock. For more infor
 https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
-tags = ["Domain: LLM", "Tactic: Execution", "Data Source: AWS Bedrock", "Data Source: AWS S3", "Use Case: Policy Violation", "Mitre Atlas: T0051", "Mitre Atlas: T0054", "Resources: Investigation Guide"]
+tags = [
+    "Domain: LLM",
+    "Data Source: AWS Bedrock",
+    "Data Source: AWS S3",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0051",
+    "Mitre Atlas: T0054",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -112,15 +120,3 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_policy_blocked_violation_total_count desc
 '''
 
-[[rule.threat]]
-framework = "MITRE ATLAS"
-
-[[rule.threat.technique]]
-id = "AML.T0051"
-name = "LLM Prompt Injection"
-reference = "https://atlas.mitre.org/techniques/AML.T0051/"
-
-[rule.threat.tactic]
-id = "AML.TA0005"
-name = "Execution"
-reference = "https://atlas.mitre.org/tactics/AML.TA0005/"

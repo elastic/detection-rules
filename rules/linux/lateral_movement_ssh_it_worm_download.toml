@@ -2,7 +2,7 @@
 creation_date = "2023/09/21"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,18 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Data Source: Auditd Manager", "Data Source: Crowdstrike", "Data Source: SentinelOne", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -101,11 +112,26 @@ process where host.os.type == "linux" and event.type == "start" and
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
 
 [rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

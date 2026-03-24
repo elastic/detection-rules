@@ -2,7 +2,7 @@
 creation_date = "2021/05/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -104,7 +104,16 @@ references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/API_Opera
 risk_score = 73
 rule_id = "2045567e-b0af-444a-8c0b-0b6e2dae9e13"
 severity = "high"
-tags = ["Domain: Cloud", "Tactic: Resource Development", "Data Source: AWS", "Data Source: Amazon Web Services", "Data Source: AWS Route 53", "Use Case: Asset Visibility", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Route 53",
+    "Use Case: Asset Visibility",
+    "Tactic: Persistence",
+    "Tactic: Resource Development",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -118,21 +127,34 @@ event.dataset: aws.cloudtrail
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1584"
 name = "Compromise Infrastructure"
 reference = "https://attack.mitre.org/techniques/T1584/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1584.001"
 name = "Domains"
 reference = "https://attack.mitre.org/techniques/T1584/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0042"
 name = "Resource Development"
 reference = "https://attack.mitre.org/tactics/TA0042/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

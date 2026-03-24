@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +80,15 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Exfiltration", "Data Source: Elastic Defend", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
@@ -163,12 +171,15 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1048"
-name = "Exfiltration Over Alternative Protocol"
-reference = "https://attack.mitre.org/techniques/T1048/"
-
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

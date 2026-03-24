@@ -2,7 +2,7 @@
 creation_date = "2026/03/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/03/05"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,14 @@ references = [
 risk_score = 21
 rule_id = "78c6559d-47a7-4f30-91fe-7e2e983206c2"
 severity = "low"
-tags = ["Tactic: Execution", "Data Source: Kubernetes", "Domain: Kubernetes", "Use Case: Threat Detection", "Resources: Investigation Guide"]
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
@@ -68,24 +75,38 @@ not kubernetes.audit.user.groups:"system:masters"
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1053"
-name = "Scheduled Task/Job"
-reference = "https://attack.mitre.org/techniques/T1053/"
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1053.007"
-name = "Container Orchestration Job"
-reference = "https://attack.mitre.org/techniques/T1053/007/"
-
-[[rule.threat.technique]]
-id = "T1610"
-name = "Deploy Container"
-reference = "https://attack.mitre.org/techniques/T1610/"
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
 
 [rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user_agent.original", "source.ip", "kubernetes.audit.user.username"]

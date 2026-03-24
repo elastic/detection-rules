@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -81,7 +91,6 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -92,7 +101,21 @@ id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1039"
+name = "Data from Network Shared Drive"
+reference = "https://attack.mitre.org/techniques/T1039/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+

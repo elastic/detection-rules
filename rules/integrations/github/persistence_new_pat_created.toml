@@ -2,7 +2,7 @@
 creation_date = "2023/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/01/12"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,14 @@ references = [
 risk_score = 21
 rule_id = "214d4e03-90b0-4813-9ab6-672b47158590"
 severity = "low"
-tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Github", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -66,16 +73,29 @@ github.category == "personal_access_token" and event.action == "personal_access_
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
