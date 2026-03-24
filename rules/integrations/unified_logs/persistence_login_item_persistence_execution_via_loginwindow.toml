@@ -8,8 +8,8 @@ updated_date = "2026/03/23"
 author = ["Elastic"]
 description = """
 Detects login item persistence execution via the macOS Unified Logs `com.apple.loginwindow.logging` subsystem. The
-`performAutolaunch` message indicates that a login item was automatically launched during user login. Login items are
-a common persistence mechanism used by macOS malware to ensure execution after system reboot. While many legitimate
+`LoginItemsLauncher` message indicates that login items were launched during user login. Login items are a common
+persistence mechanism used by macOS malware to ensure execution after system reboot. While many legitimate
 applications register login items for auto-start behavior, unexpected or recently added login items warrant
 investigation. This subsystem produces very low event volume with high signal fidelity, making it an effective
 detection source. This rule operates at default log level and does not require debug or private data enablement.
@@ -29,7 +29,7 @@ note = """## Triage and analysis
 
 ### Investigating Login Item Persistence Execution via Unified Logs
 
-This rule detects the `performAutolaunch` pattern from the `com.apple.loginwindow.logging` subsystem, which fires when a login item is executed during user login. Login items persist across reboots and are a favored persistence mechanism for macOS malware.
+This rule detects the `LoginItemsLauncher` pattern from the `com.apple.loginwindow.logging` subsystem, which fires when login items are launched during user login. Login items persist across reboots and are a favored persistence mechanism for macOS malware.
 
 ### Possible investigation steps
 
@@ -75,7 +75,7 @@ type = "esql"
 query = '''
 FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
 | WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.loginwindow.logging"
-  AND message LIKE "*performAutolaunch*"
+  AND message LIKE "*LoginItemsLauncher*"
 | KEEP @timestamp, _id, _version, _index, host.name, host.id, host.os.type, event.dataset, unified_log.subsystem, unified_log.category, message
 '''
 
