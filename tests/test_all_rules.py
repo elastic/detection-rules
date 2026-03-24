@@ -11,7 +11,6 @@ import unittest
 import uuid
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 import eql
 import kql
@@ -42,39 +41,6 @@ from detection_rules.version_lock import loaded_version_lock
 from .base import BaseRuleTest
 
 PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
-
-
-def _flat_threat_tactic_names(threat: list[Any]) -> list[str]:
-    """Tactic display names from ``rule.threat`` in encounter order (may repeat)."""
-    names: list[str] = []
-    for entry in threat:
-        tactic = getattr(entry, "tactic", None)
-        if tactic is None:
-            continue
-        raw = getattr(tactic, "name", None)
-        if raw:
-            names.append(str(raw))
-    return names
-
-
-def _mitre_tactic_tag_gaps(
-    rule_tags: list[str],
-    threat_tactic_names: list[str],
-    attack_tactics_set: set[str],
-    *,
-    prefix: str = "Tactic: ",
-) -> tuple[list[str], list[str]]:
-    """``(missing Tactic tags, orphan MITRE tactic names on tags)``."""
-    unique_names = list(dict.fromkeys(threat_tactic_names))
-    missing = [f"{prefix}{name}" for name in unique_names if f"{prefix}{name}" not in rule_tags]
-    tagged_mitre: list[str] = []
-    for t in rule_tags:
-        if isinstance(t, str) and t.startswith(prefix):
-            suffix = t.removeprefix(prefix).strip()
-            if suffix in attack_tactics_set:
-                tagged_mitre.append(suffix)
-    unexpected = [n for n in tagged_mitre if n not in threat_tactic_names]
-    return missing, unexpected
 
 
 class TestValidRules(BaseRuleTest):
@@ -397,16 +363,16 @@ class TestThreatMappings(BaseRuleTest):
                             )
 
     def test_duplicated_tactics(self):
-        """Check that a tactic is only defined once per framework (ATT&CK vs ATLAS may share display names)."""
+        """Check that a tactic is only defined once."""
         for rule in self.all_rules:
             threat_mapping = rule.contents.data.threat
-            pairs = [(t.framework, t.tactic.name) for t in threat_mapping or []]
-            duplicates = sorted({p for p in pairs if pairs.count(p) > 1})
+            tactics = [t.tactic.name for t in threat_mapping or []]
+            duplicates = sorted({t for t in tactics if tactics.count(t) > 1})
 
             if duplicates:
                 self.fail(
                     f"{self.rule_str(rule)} duplicate tactics defined for {duplicates}. "
-                    f"Flatten to a single entry per tactic within each framework"
+                    f"Flatten to a single entry per tactic"
                 )
 
 
@@ -504,42 +470,45 @@ class TestRuleTags(BaseRuleTest):
             error_rules = "\n".join(invalid_bbr_rules)
             self.fail(f"The following building block rule(s) have missing tag: Rule Type: BBR:\n{error_rules}")
 
-    def test_threat_tactics_have_matching_tags(self):
-        """MITRE ATT&CK tactics in ``rule.threat`` must match ``Tactic: <name>`` tags (and vice versa for ATT&CK names).
+    def test_primary_tactic_as_tag(self):
+        """Test that the primary tactic is present as a tag."""
+        from detection_rules.attack import tactics
 
-        Replaces the legacy check that tied the rule filename prefix to the first tactic tag.
-        """
-        from detection_rules.attack import tactics as attack_tactic_names
-
-        prefix = "Tactic: "
-        attack_tactics_set = set(attack_tactic_names)
         invalid = []
+        tactics = set(tactics)
 
         for rule in self.all_rules:
-            rule_tags = rule.contents.data.tags or []
+            rule_tags = rule.contents.data.tags
 
             if "Continuous Monitoring" in rule_tags or rule.contents.data.type == "machine_learning":
                 continue
 
             threat = rule.contents.data.threat
-            if not threat:
-                continue
+            if threat:
+                missing = []
+                threat_tactic_names = [e.tactic.name for e in threat]
+                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
 
-            threat_tactic_names = _flat_threat_tactic_names(threat)
-            missing, unexpected = _mitre_tactic_tag_gaps(
-                rule_tags, threat_tactic_names, attack_tactics_set, prefix=prefix
-            )
+                # missing primary tactic
+                if primary_tactic not in rule.contents.data.tags:
+                    missing.append(primary_tactic)
 
-            if missing or unexpected:
-                err_msg = self.rule_str(rule)
-                if missing:
-                    err_msg += f"\n    expected: {missing}"
-                if unexpected:
-                    err_msg += f"\n    unexpected (or missing from threat mapping): {unexpected}"
-                invalid.append(err_msg)
+                # listed tactic that is not in threat mapping
+                tag_tactics = set(rule_tags).intersection(tactics)
+                missing_from_threat = list(tag_tactics.difference(threat_tactic_names))
+
+                if missing or missing_from_threat:
+                    err_msg = self.rule_str(rule)
+                    if missing:
+                        err_msg += f"\n    expected: {missing}"
+                    if missing_from_threat:
+                        err_msg += f"\n    unexpected (or missing from threat mapping): {missing_from_threat}"
+
+                    invalid.append(err_msg)
 
         if invalid:
-            self.fail("Rules with misaligned tactic tags and threat mapping:\n" + "\n".join(invalid))
+            err_msg = "\n".join(invalid)
+            self.fail(f"Rules with misaligned tags and tactics:\n{err_msg}")
 
     def test_os_tags(self):
         """Test that OS tags are present within rules."""
@@ -654,6 +623,33 @@ class TestRuleTimelines(BaseRuleTest):
 
 class TestRuleFiles(BaseRuleTest):
     """Test the expected file names."""
+
+    def test_rule_file_name_tactic(self):
+        """Test to ensure rule files have the primary tactic prepended to the filename."""
+        bad_name_rules = []
+
+        for rule in self.all_rules:
+            rule_path = rule.path.resolve()
+            filename = rule_path.name
+
+            # machine learning jobs should be in rules/ml or rules/integrations/<name>
+            if rule.contents.data.type == definitions.MACHINE_LEARNING:
+                continue
+
+            threat = rule.contents.data.threat
+            authors = rule.contents.data.author
+
+            if threat and "Elastic" in authors:
+                primary_tactic = threat[0].tactic.name
+                tactic_str = primary_tactic.lower().replace(" ", "_")
+
+                if tactic_str != filename[: len(tactic_str)]:
+                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}")
+
+        if bad_name_rules:
+            error_msg = "filename does not start with the primary tactic - update the tactic or the rule filename"
+            rule_err_str = "\n".join(bad_name_rules)
+            self.fail(f"{error_msg}:\n{rule_err_str}")
 
     def test_bbr_in_correct_dir(self):
         """Ensure that BBR are in the correct directory."""
