@@ -12,7 +12,7 @@ may use Python to execute shell commands to gain access to the system or to perf
 malicious activities, such as credential access, data exfiltration, or lateral movement.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Python Shell Command Execution"
@@ -29,7 +29,7 @@ tags = [
 ]
 type = "eql"
 query = '''
-process where event.type == "start" and process.parent.name like "python*" and
+process where event.type == "start" and event.action == "exec" andprocess.parent.name like "python*" and
 process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
 process.args in ("-c", "-cl", "-lc") and
 (
