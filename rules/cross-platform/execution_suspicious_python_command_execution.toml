@@ -37,7 +37,7 @@ FROM logs-endpoint.events.process* METADATA _id, _version, _index
 // truncate timestamp to 1-minute window
 | EVAL Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
 
-| EVAL Esql.patterns = CASE(
+| EVAL Esql.process_command_line_patterns = CASE(
   process.command_line like "*grep*", "grep",
   process.command_line like "*find*", "find",
   process.command_line like "*curl*", "curl",
