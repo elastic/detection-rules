@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/13"
+updated_date = "2026/03/25"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,17 @@ system to their C2 server for review. Many threat actors have been observed usin
 of curl in this way, while not inherently malicious, should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*",]
+index = [
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Data Exfiltration Through Curl"
@@ -86,18 +96,24 @@ severity = "medium"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
+  "OS: Windows",
+  "OS: macOS",
   "Use Case: Threat Detection",
   "Tactic: Exfiltration",
-  "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
+  "Data Source: Elastic Defend",
   "Data Source: Crowdstrike",
-  "Data Source: SentinelOne"
+  "Data Source: SentinelOne", 
+  "Data Source: Sysmon", 
+  "Data Source: Auditd Manager", 
+  "Data Source: Windows Security Event Logs"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and
-process.name == "curl" and ?process.parent.executable != null and
+process where event.type == "start" and 
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name : ("curl", "curl.exe") and 
 (
   process.args in ("-T", "--upload-file") or
   (
@@ -107,7 +123,8 @@ process.name == "curl" and ?process.parent.executable != null and
 (
   process.command_line like ("*http:*", "*https:*", "*ftp:*", "*ftps:*") or
   process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
-)
+) and 
+not process.args : ("https://*/ap/fleet/*", "https://*/api/saved_objects/*", "http*localhost:*", "http*127.0.0.*", "*ApiKey*", "http*.us-central1.run.app/*", "*Authorization*", "*session.id*", "http*.elastic-cloud.com*", "http*.elastic.dev*", "http*.elastic.cloud*", "http*.aws.found.io*", "http*.gcp.cloud.es.io*", "http*.cisco.com/api/*", "-u", "http://192.168*")
 '''
 
 [[rule.threat]]
