@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2025/06/23"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager", "cloud_defend"]
+integration = ["endpoint", "windows", "system", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager", "cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/05"
+updated_date = "2026/03/26"
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +23,10 @@ index = [
     "logs-sentinel_one_cloud_funnel.*",
     "logs-auditd_manager.auditd-*",
     "logs-cloud_defend.process*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -96,9 +100,13 @@ tags = [
     "Domain: Container",
     "Domain: Kubernetes",
     "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Discovery",
+    "Data Source: Sysmon",
+    "Data Source: Windows Security Event Logs",
     "Data Source: Auditd Manager",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
@@ -110,9 +118,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where event.type == "start" and
 event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
-process.name in ("curl", "wget") and process.args like~ (
+process.name : ("curl", "wget", "curl.exe", "wget.exe") and process.command_line like~ (
   "*http*//*/apis/authorization.k8s.io/*",
   "*http*//*/apis/rbac.authorization.k8s.io/*",
   "*http*//*/api/v1/secrets*",
