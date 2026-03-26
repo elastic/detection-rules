@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2026/03/26"
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager", "windows", "system"]
+maturity = "production"
+updated_date = "2026/03/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the OpenSSL utility to encrypt data. Adversaries may use OpenSSL to encrypt data to
+disrupt the availability of their target's data and may attempt to hold the organization's data to ransom for the
+purposes of extortion.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*", 
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Data Encrypted via OpenSSL Utility"
+risk_score = 21
+rule_id = "feba48f6-40ca-4d04-b41f-5dfa327de865"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action in ("start", "exec", "executed", "exec_event", "ProcessRollup2") and
+process.name : "openssl*" and process.args : "enc" and process.args : "-in" and process.args : "-out"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.013"
+name = "Encrypted/Encoded File"
+reference = "https://attack.mitre.org/techniques/T1027/013/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data Staged"
+  id = "T1074"
+  reference = "https://attack.mitre.org/techniques/T1074/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Local Data Staging"
+    id = "T1074.001"
+    reference = "https://attack.mitre.org/techniques/T1074/001/"
