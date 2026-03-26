@@ -12,7 +12,6 @@ may use Python to execute shell commands to gain access to the system or to perf
 malicious activities, such as credential access, data exfiltration, or lateral movement.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
 language = "esql"
 license = "Elastic License v2"
 name = "Suspicious Python Shell Command Execution"
@@ -29,7 +28,7 @@ tags = [
 ]
 type = "esql"
 query = '''
-FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+FROM logs-endpoint.events.process* METADATA _id, _version, _index
 
 | WHERE host.os.type in ("linux", "macos") and event.type == "start" and TO_LOWER(process.parent.name) like "python*" and
   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
