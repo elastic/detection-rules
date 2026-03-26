@@ -48,6 +48,12 @@ Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detec
 
 Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
 
+Using the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION` will bypass local validation that ES|QL rules include a `keep` command and that non-aggregate queries list `_id`, `_version`, and `_index` in `keep` (other ES|QL checks are unchanged).
+
+Using the environment variable `DR_BYPASS_ESQL_METADATA_VALIDATION` will bypass local validation that non-aggregate ES|QL queries use `FROM ... METADATA _id, _version, _index` or an aggregate `STATS ... BY` pattern (other ES|QL checks are unchanged).
+
+In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of these bypass env vars when config is loaded. You can instead set individual top-level flags (`bypass_note_validation_and_parse`, `bypass_bbr_lookback_validation`, `bypass_tags_validation`, `bypass_timeline_template_validation`, `bypass_esql_keep_validation`, `bypass_esql_metadata_validation`); the bulk flag takes precedence if it is true. See `detection_rules/etc/_config.yaml` for an example.
+
 
 ## Using the `RuleResource` methods built on detections `_bulk_action` APIs
 
