@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2026/03/26"
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the OpenSSL utility to encrypt data. Adversaries may use OpenSSL to encrypt data to
+disrupt the availability of their target's data and may attempt to hold the organization's data to ransom for the
+purposes of extortion.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Data Encrypted via OpenSSL Utility"
+risk_score = 21
+rule_id = "feba48f6-40ca-4d04-b41f-5dfa327de865"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action in ("start", "exec", "executed", "exec_event", "ProcessRollup2") and
+process.name : "openssl*" and process.args : "enc" and process.args : "-in" and process.args : "-out"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data Staged"
+  id = "T1074"
+  reference = "https://attack.mitre.org/techniques/T1074/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Local Data Staging"
+    id = "T1074.001"
+    reference = "https://attack.mitre.org/techniques/T1074/001/"
