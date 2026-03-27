@@ -2,7 +2,7 @@
 creation_date = "2021/10/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/19"
 
 [transform]
 [[transform.osquery]]
@@ -102,14 +102,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "2dd480be-1263-4d9c-8672-172928f6789a"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -131,9 +123,11 @@ process where host.os.type == "windows" and event.code == "10" and
  not winlog.event_data.CallTrace :
             ("?:\\WINDOWS\\SYSTEM32\\ntdll.dll*",
              "?:\\WINDOWS\\SysWOW64\\ntdll.dll*",
+             "?:\\WINDOWS\\System32\\sysfer.dll*",
              "?:\\Windows\\System32\\wow64cpu.dll*",
              "?:\\WINDOWS\\System32\\wow64win.dll*",
-             "?:\\Windows\\System32\\win32u.dll*") and
+             "?:\\Windows\\System32\\win32u.dll*",
+             "?:\\ProgramData\\Symantec\\Symantec Endpoint Protection\\*\\sysfer.dll*") and
 
  not winlog.event_data.TargetImage :
             ("?:\\Program Files (x86)\\Malwarebytes Anti-Exploit\\mbae-svc.exe",

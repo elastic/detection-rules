@@ -7,12 +7,19 @@
 
 import unittest
 import uuid
+from pathlib import Path
 
 from marshmallow import ValidationError
 from semver import Version
 
 from detection_rules import rule_loader
-from detection_rules.packaging import PACKAGE_FILE, Package
+from detection_rules.packaging import (
+    PACKAGE_FILE,
+    Package,
+    build_deprecated_rule_asset,
+)
+from detection_rules.rule_loader import RuleCollection
+from detection_rules.schemas import definitions
 from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
 from tests.base import BaseRuleTest
 
@@ -108,3 +115,87 @@ class TestRegistryPackage(unittest.TestCase):
 
         with self.assertRaises(ValidationError):
             RegistryPackageManifestV1.from_dict(registry_config)
+
+
+class TestDeprecatedRuleAsset(unittest.TestCase):
+    """Test deprecated rule stub asset building and version gate."""
+
+    def test_build_deprecated_rule_asset_structure(self):
+        """build_deprecated_rule_asset returns a dict with id, type, and attributes."""
+        asset = build_deprecated_rule_asset(
+            rule_id="aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee",
+            rule_name="Deprecated Rule Name",
+            deprecated_version=3,
+        )
+        self.assertIsInstance(asset, dict)
+        self.assertEqual(asset["id"], "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee_3")
+        self.assertEqual(asset["type"], definitions.SAVED_OBJECT_TYPE)
+        self.assertIn("attributes", asset)
+        self.assertEqual(asset["attributes"]["rule_id"], "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee")
+        self.assertEqual(asset["attributes"]["version"], 3)
+        self.assertEqual(asset["attributes"]["name"], "Deprecated Rule Name")
+        self.assertIs(asset["attributes"]["deprecated"], True)
+
+    def test_build_deprecated_rule_asset_serializable(self):
+        """Asset is JSON-serializable and matches expected shape for package."""
+        import json
+
+        asset = build_deprecated_rule_asset(
+            rule_id="00000000-0000-4000-8000-000000000001",
+            rule_name="Test",
+            deprecated_version=1,
+        )
+        # Should not raise
+        json_str = json.dumps(asset, indent=4, sort_keys=True)
+        loaded = json.loads(json_str)
+        self.assertEqual(loaded["attributes"]["deprecated"], True)
+        self.assertEqual(loaded["type"], "security-rule")
+
+    def test_build_deprecated_rule_asset_deprecated_reason_only_on_94(self):
+        """deprecated_reason is only added when stack_version is 9.4+ (Kibana feature)."""
+        reason = "Replaced by rule X"
+        # With stack_version None or < 9.4, deprecated_reason must not appear
+        for stack_ver in (None, Version(9, 3, 0)):
+            with self.subTest(stack_version=stack_ver):
+                asset = build_deprecated_rule_asset(
+                    rule_id="aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee",
+                    rule_name="Deprecated Rule",
+                    deprecated_version=2,
+                    deprecated_reason=reason,
+                    stack_version=stack_ver,
+                )
+                self.assertNotIn("deprecated_reason", asset["attributes"])
+        # With stack_version >= 9.4 it appears
+        asset = build_deprecated_rule_asset(
+            rule_id="aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee",
+            rule_name="Deprecated Rule",
+            deprecated_version=2,
+            deprecated_reason=reason,
+            stack_version=Version(9, 4, 0),
+        )
+        self.assertEqual(asset["attributes"]["deprecated_reason"], reason)
+
+    @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_deprecated_rule_load_dict_preserves_deprecated_reason(self):
+        """Loading a deprecated rule dict with deprecated_reason in [metadata] preserves it."""
+        rule_id = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee"
+        reason = "Replaced by rule X"
+        obj = {
+            "metadata": {
+                "creation_date": "2020/01/01",
+                "deprecation_date": "2024/01/01",
+                "updated_date": "2024/01/01",
+                "maturity": "deprecated",
+                "deprecated_reason": reason,
+            },
+            "rule": {
+                "rule_id": rule_id,
+                "name": "Test Deprecated Rule",
+                "description": "Minimal deprecated rule for test",
+            },
+        }
+        collection = RuleCollection()
+        path = Path("rules/_deprecated/test_deprecated_reason.toml")
+        rule = collection.load_dict(obj, path=path)
+        self.assertIn("deprecated_reason", rule.contents.metadata)
+        self.assertEqual(rule.contents.metadata["deprecated_reason"], reason)
