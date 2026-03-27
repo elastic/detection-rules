@@ -27,7 +27,7 @@ tags = [
     "Tactic: Defense Evasion",
     ]
 timestamp_override = "event.ingested"
-type = "kuery"
+type = "new_terms"
 query = '''
 event.dataset:"kubernetes.audit_logs" and
 kubernetes.audit.stage:"ResponseComplete" and
@@ -67,3 +67,11 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 id = "T1610"
 name = "Deploy Container"
 reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "user_agent.original", "user.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
