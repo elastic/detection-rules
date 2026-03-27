@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/03/27"
 
 [rule]
 author = ["Elastic"]
@@ -23,9 +23,9 @@ note = """## Triage and analysis
 
 Adversaries may register a malicious application in Microsoft Entra ID and trick users into granting excessive permissions via OAuth consent. These applications can access sensitive data—such as mail, profiles, or files—on behalf of the user once consent is granted. This is commonly delivered via spearphishing links that prompt users to approve permissions for seemingly legitimate applications.
 
-This rule identifies a new consent grant event based on Azure audit logs where the application was granted access with potentially risky scopes, such as offline_access, Mail.Read, or User.Read, and may include admin consent or tenant-wide delegation.
+This rule identifies a new consent grant event based on Azure audit logs where a user or admin granted consent to an application.
 
-This is a New Terms rule that will only trigger if the user and client ID have not been seen doing this activity in the last 14 days.
+This is a New Terms rule that will only trigger if the user and application service principal have not been seen doing this activity in the last 14 days.
 
 #### Possible investigation steps
 
@@ -79,8 +79,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "azure.auditlogs" and
-  (
+event.dataset: "azure.auditlogs"
+  and (
     azure.auditlogs.operation_name:"Consent to application"
     or event.action:"Consent to application"
   )
@@ -136,7 +136,7 @@ field_names = [
 field = "new_terms_fields"
 value = [
     "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
-    "azure.auditlogs.properties.additional_details.value",
+    "azure.auditlogs.properties.target_resources.0.id",
 ]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
