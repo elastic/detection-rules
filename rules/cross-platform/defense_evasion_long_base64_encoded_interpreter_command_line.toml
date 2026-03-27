@@ -64,7 +64,7 @@ query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 | MV_EXPAND _ignored
 | WHERE _ignored == "process.command_line"
-| WHERE host.os.type in ("linux", "macos", "windows") and event.category == "process" and event.type == "start" and event.action != "fork"
+| WHERE event.category == "process" and event.type == "start"
 | EVAL command_line = TO_LOWER(process.command_line.text), pname = TO_LOWER(process.name)
 | WHERE 
 (
