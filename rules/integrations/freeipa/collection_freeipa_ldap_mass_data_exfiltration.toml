@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies LDAP search operations against the FreeIPA 389 Directory Server that return an unusually large number of
+entries in a single query. Large result sets from subtree searches against the domain base DN indicate bulk directory
+data exfiltration. SSSD clients typically perform targeted searches returning small result sets.
+"""
+false_positives = [
+    """
+    Legitimate LDAP replication, backup tools, or directory synchronization agents may perform large queries.
+    Exclude known replication manager DNs and backup service IPs. SSSD clients performing group cache refreshes
+    may return moderately large result sets but typically stay well below 500 entries per query.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA LDAP Mass Data Exfiltration"
+note = """## Triage and analysis
+
+### Investigating FreeIPA LDAP Mass Data Exfiltration
+
+Large LDAP searches against FreeIPA can expose user details, group memberships, SSH public keys, sudo rules, HBAC policies, and other sensitive directory data. An attacker with authenticated LDAP access can dump the entire directory for offline analysis.
+
+### Possible investigation steps
+
+- Check `freeipa.directory.bind_dn` to identify the account performing the search.
+- Review `freeipa.directory.base_dn`, `freeipa.directory.scope`, and `freeipa.directory.filter` to understand what was queried.
+- Check `freeipa.directory.entries_returned` to quantify the exposure.
+- Correlate with `source.ip` to identify the origin.
+- Determine if the bind DN is a legitimate service account, replication manager, or a compromised user.
+
+### Response and remediation
+
+- Block the source IP if unauthorized.
+- Reset credentials for the bind DN if compromised.
+- Review LDAP ACIs to restrict the maximum entries returned per query.
+- Implement `nsslapd-sizelimit` to cap LDAP result sizes for non-admin users.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1213/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 47
+rule_id = "f8a1b2c3-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - 389DS access: `/var/log/dirsrv/slapd-*/access` (directory_access data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA Directory Server",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.directory_access-*
+| where freeipa.directory.operation == "RESULT"
+    and freeipa.directory.entries_returned >= 500
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "freeipa.directory.bind_dn",
+    "freeipa.directory.base_dn",
+    "freeipa.directory.scope",
+    "freeipa.directory.filter",
+    "freeipa.directory.entries_returned",
+]
