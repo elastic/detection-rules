@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+min_stack_comments = "ES|QL LOOKUP JOIN requires 8.19+ for GA support with lookup-mode indices."
+min_stack_version = "8.19.0"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects authenticated LDAP sessions returning large numbers of entries where the bind DN is not a service account
+(Directory Manager, host principals, or Kerberos services). SSSD and internal FreeIPA processes use host principals
+or Directory Manager; human-initiated enumeration uses user principals. A high total entry count from a user principal
+indicates potential directory reconnaissance.
+"""
+false_positives = [
+    """
+    Legitimate administrative tools or custom LDAP scripts run under user principals may query large portions of the
+    directory. Add known administrative user DNs to the exclusion list if they routinely perform bulk queries.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Mass LDAP Enumeration by Non-Service Account"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Mass LDAP Enumeration by Non-Service Account
+
+Service accounts and internal FreeIPA processes legitimately perform large LDAP queries for replication, cache refreshes, and policy evaluation. When a regular user principal performs bulk queries returning hundreds of entries, it typically indicates manual directory reconnaissance — either by an attacker with stolen credentials or an insider threat.
+
+### Possible investigation steps
+
+- Identify the user from `freeipa.directory.bind_dn` and determine if they have a legitimate need for bulk directory access.
+- Review `Esql.total_entries` and `Esql.query_count` to understand the scale and pattern of the enumeration.
+- Check `source.ip` to determine if the queries originate from the user's expected workstation or an unusual location.
+- Examine correlated SRCH events on the same connection to understand what base DNs, scopes, and filters were used.
+- Look for follow-up activity from the same user — privilege escalation, credential access, or lateral movement.
+
+### Response and remediation
+
+- If unauthorized, reset the user's credentials and revoke active Kerberos tickets.
+- Review LDAP ACIs and consider implementing `nsslapd-sizelimit` for non-admin users.
+- Determine what data was exposed and assess the impact.
+- Block the source IP if it is not a legitimate workstation.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1087/002/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 47
+rule_id = "6ab88d87-ffed-477a-9752-c2f6d7c7d4c8"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - 389DS access: `/var/log/dirsrv/slapd-*/access` (directory_access data stream)
+
+This rule requires the `latest_bind` transform to be running. Verify the transform is running: `GET _transform/logs-freeipa-latest-bind/_stats`. The destination index must use `index.mode: lookup`. See the integration README for setup instructions.
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA Directory Server",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.directory_access-*
+| where freeipa.directory.operation == "RESULT"
+    and freeipa.directory.entries_returned > 50
+| LOOKUP JOIN freeipa-lookup-bind ON freeipa.directory.connection_id
+    | KEEP @timestamp, freeipa.*, source.ip, user.*, observer.*, host.name, event.action, event.outcome, event.kind, event.category, event.type, event.module
+| where freeipa.directory.bind_dn is not null
+    and freeipa.directory.bind_dn != ""
+    and not freeipa.directory.bind_dn like "*cn=Directory Manager*"
+    and not freeipa.directory.bind_dn like "fqdn=*"
+    and not freeipa.directory.bind_dn like "krbprincipalname=*"
+| stats Esql.total_entries = sum(freeipa.directory.entries_returned),
+    Esql.query_count = count(*) by freeipa.directory.bind_dn
+| where Esql.total_entries > 200
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "freeipa.directory.bind_dn",
+    "freeipa.directory.connection_id",
+    "freeipa.directory.entries_returned",
+    "Esql.total_entries",
+    "Esql.query_count",
+]

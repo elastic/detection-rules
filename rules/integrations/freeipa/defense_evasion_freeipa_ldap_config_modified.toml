@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+min_stack_comments = "ES|QL LOOKUP JOIN requires 8.19+ for GA support with lookup-mode indices."
+min_stack_version = "8.19.0"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects LDAP modifications to the 389 Directory Server configuration (cn=config). This includes changes to ACLs,
+logging configuration, and security settings. An attacker with Directory Manager or equivalent access may modify
+cn=config to disable audit logging, weaken ACLs, or alter security settings to facilitate further attacks. The
+LOOKUP JOIN identifies who made the change.
+"""
+false_positives = [
+    """
+    FreeIPA installers and upgrade scripts modify cn=config during installation and patching. Legitimate administrators
+    may also tune performance settings or logging levels. Correlate with scheduled maintenance windows and verify
+    the bind DN is an authorized administrator.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA LDAP Server Configuration Modified"
+note = """## Triage and analysis
+
+### Investigating FreeIPA LDAP Server Configuration Modified
+
+The 389 Directory Server cn=config subtree controls ACLs, logging, security parameters, and plugin configuration. Modifications to this subtree are rare in production and can have severe security implications — disabling access logging eliminates visibility, weakening ACLs grants unauthorized access, and modifying security settings can downgrade encryption.
+
+### Possible investigation steps
+
+- Identify the authenticated user from `freeipa.directory.bind_dn`.
+- Review `freeipa.directory.target_dn` to determine which specific configuration entry was modified.
+- Check 389 DS audit log (`/var/log/dirsrv/slapd-*/audit`) for the exact attribute changes if available.
+- Determine if the change coincides with a scheduled maintenance window or FreeIPA upgrade.
+- Review subsequent directory activity for signs of exploitation — new binds with elevated privileges, disabled logging, or ACL bypass.
+
+### Response and remediation
+
+- If unauthorized, revert the configuration change immediately.
+- If logging was disabled, re-enable it and investigate what occurred during the gap.
+- Reset credentials for the bind DN if compromised.
+- Review who has modify access to cn=config and restrict it to the minimum necessary accounts.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1562/002/",
+    "https://www.port389.org/docs/389ds/design/logging.html",
+]
+risk_score = 73
+rule_id = "888a3074-6eba-4d40-bd43-13eb8ddc9deb"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - 389DS access: `/var/log/dirsrv/slapd-*/access` (directory_access data stream)
+
+This rule requires the `latest_bind` transform to be running. Verify the transform is running: `GET _transform/logs-freeipa-latest-bind/_stats`. The destination index must use `index.mode: lookup`. See the integration README for setup instructions.
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA Directory Server",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.directory_access-*
+| where freeipa.directory.operation == "MOD"
+    and freeipa.directory.target_dn like "*cn=config*"
+| LOOKUP JOIN freeipa-lookup-bind ON freeipa.directory.connection_id
+    | KEEP @timestamp, freeipa.*, source.ip, user.*, observer.*, host.name, event.action, event.outcome, event.kind, event.category, event.type, event.module
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.002"
+name = "Disable Windows Event Logging"
+reference = "https://attack.mitre.org/techniques/T1562/002/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "freeipa.directory.bind_dn",
+    "freeipa.directory.connection_id",
+    "freeipa.directory.operation",
+    "freeipa.directory.target_dn",
+]

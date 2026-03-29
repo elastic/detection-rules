@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a Kerberos principal authenticates from a particular source IP. This may indicate credential
+theft, CCACHE ticket reuse, or keytab abuse from a new location. Uses 14-day history to establish baseline. Normal
+user behavior involves authentication from a small set of known workstations; a new source IP warrants investigation.
+"""
+false_positives = [
+    """
+    Users legitimately authenticating from new workstations, VPN endpoints, or after IP address changes will trigger
+    this rule. Environments with dynamic DHCP addressing may see frequent new source IPs for the same principal.
+    Consider tuning the history window or excluding known VPN address ranges.
+    """,
+]
+from = "now-9m"
+index = ["logs-freeipa.kdc-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First FreeIPA Kerberos Authentication from New Source IP"
+note = """## Triage and analysis
+
+### Investigating First FreeIPA Kerberos Authentication from New Source IP
+
+When a Kerberos principal authenticates from a source IP that has not been seen in the past 14 days, it may indicate credential theft. Attackers who steal keytabs, CCACHE files, or passwords can authenticate from their own infrastructure. This is especially concerning for service principals and admin accounts that should authenticate from fixed locations.
+
+### Possible investigation steps
+
+- Identify the principal from `freeipa.kdc.client_principal` and determine if it is a user, host, or service principal.
+- Check `source.ip` and `source.geo` to determine if the new location is expected (e.g., a known office, VPN, or cloud provider).
+- For service principals and host keytabs, verify the source IP matches the expected host — any deviation is highly suspicious.
+- Review recent activity for the principal across all data streams (KDC, IPA API, directory_access).
+- Check if the principal's credentials were recently changed or if there are signs of credential theft.
+
+### Response and remediation
+
+- For compromised service principals, regenerate the keytab on the legitimate host.
+- For compromised user accounts, reset the password and revoke active tickets.
+- Block the suspicious source IP if it is external.
+- Review CCACHE file permissions on the principal's expected hosts.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1078/002/",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/linux-active-directory#ccache-ticket-reuse",
+]
+risk_score = 47
+rule_id = "7a5d8b04-ec31-4a51-884c-f936b083d465"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - KDC: `/var/log/krb5kdc.log` (kdc data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA KDC",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "freeipa.kdc" and event.action: "kdc_tgt_grant"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "source.geo.country_name",
+    "freeipa.kdc.client_principal",
+    "freeipa.kdc.service_principal",
+    "freeipa.kdc.request_type",
+    "event.action",
+    "event.outcome",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["freeipa.kdc.client_principal", "source.ip"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
