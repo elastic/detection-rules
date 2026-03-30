@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/27"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ accomplished by tricking a user into granting consent to the application, typica
 establishes an OAuth grant that allows the malicious client applocation to access resources on-behalf-of the user.
 """
 from = "now-7d"
-interval = "9m"
+interval = "8m"
 language = "esql"
 license = "Elastic License v2"
 name = "Entra ID Illicit Consent Grant via Registered Application"
@@ -25,7 +25,7 @@ Adversaries may register a malicious application in Microsoft Entra ID and trick
 
 This rule identifies a new consent grant event based on Azure audit logs where a user or admin granted consent to an application.
 
-This rule uses ES|QL aggregation-based new terms logic with a 7-day history window. It extracts the AppId from the multi-valued additional_details array using MV_EXPAND and UUID regex filtering, then alerts only when the user-application pair is first seen within the last 9 minutes.
+This rule uses ES|QL aggregation-based new terms logic with a 7-day history window. It extracts the AppId from the multi-valued additional_details array using MV_EXPAND and UUID regex filtering, then alerts when the user-application pair is first seen within the last 9 minutes OR when Microsoft flags the consent as a "Risky application detected".
 
 #### Possible investigation steps
 
@@ -83,7 +83,6 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
 | WHERE (azure.auditlogs.operation_name == "Consent to application"
     OR event.action == "Consent to application")
   AND event.outcome == "success"
-  AND azure.auditlogs.properties.additional_details.key == "AppId"
 
 | MV_EXPAND azure.auditlogs.properties.additional_details.value
 | WHERE azure.auditlogs.properties.additional_details.value
@@ -96,8 +95,12 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     Esql.app_display_name_values = VALUES(`azure.auditlogs.properties.target_resources.0.display_name`),
     Esql.service_principal_id_values = VALUES(`azure.auditlogs.properties.target_resources.0.id`),
     Esql.is_admin_consent_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`),
+    Esql.is_app_only_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`),
     Esql.on_behalf_of_all_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value`),
+    Esql.consent_context_tags_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`),
     Esql.consent_permissions_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value`),
+    Esql.consent_reason_values = VALUES(`azure.auditlogs.properties.target_resources.0.modified_properties.5.new_value`),
+    Esql.user_id_values = VALUES(azure.auditlogs.properties.initiated_by.user.id),
     Esql.ip_address_values = VALUES(azure.auditlogs.properties.initiated_by.user.ipAddress),
     Esql.tenant_id_values = VALUES(azure.tenant_id),
     Esql.correlation_id_values = VALUES(azure.auditlogs.properties.correlation_id),
@@ -105,6 +108,7 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     BY azure.auditlogs.properties.initiated_by.user.userPrincipalName, Esql.app_id
 
 | WHERE Esql.timestamp_first_seen >= NOW() - 9 minutes
+    OR Esql.consent_reason_values LIKE "*Risky application detected*"
 | KEEP *
 '''
 
