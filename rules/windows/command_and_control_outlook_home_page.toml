@@ -2,7 +2,7 @@
 creation_date = "2024/08/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -23,40 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Outlook Home Page Registry Modification"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Outlook Home Page Registry Modification
-
-The Outlook Home Page feature allows users to set a webpage as the default view for folders, leveraging registry keys to store URL configurations. Adversaries exploit this by modifying these keys to redirect to malicious sites, enabling command and control or persistence. The detection rule identifies suspicious registry changes, focusing on URL entries within specific paths, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the registry path and value to confirm the presence of a suspicious URL entry in the specified registry paths, such as "HKCU\\\\*\\\\SOFTWARE\\\\Microsoft\\\\Office\\\\*\\\\Outlook\\\\Webview\\\\Inbox\\\\URL".
-- Investigate the URL found in the registry data strings to determine if it is known to be malicious or associated with suspicious activity.
-- Check the modification history of the registry key to identify when the change occurred and which user or process made the modification.
-- Correlate the registry modification event with other security events on the host, such as network connections or process executions, to identify potential malicious activity.
-- Assess the affected system for signs of compromise, including unusual network traffic or unauthorized access attempts, to determine the scope of the incident.
-- Consult threat intelligence sources to see if the URL or related indicators are associated with known threat actors or campaigns.
-
-### False positive analysis
-
-- Legitimate software updates or installations may modify the registry keys associated with Outlook's Home Page feature. Users can create exceptions for known software update processes to prevent unnecessary alerts.
-- Custom scripts or administrative tools used by IT departments to configure Outlook settings across multiple machines might trigger this rule. Identifying and excluding these trusted scripts or tools can reduce false positives.
-- Some third-party Outlook add-ins or plugins may alter the registry keys for legitimate purposes. Users should verify the legitimacy of these add-ins and whitelist them if they are deemed safe.
-- Automated backup or recovery solutions that restore Outlook settings might cause registry changes. Users can exclude these processes if they are part of a regular and secure backup routine.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further communication with potentially malicious sites.
-- Use endpoint detection and response (EDR) tools to terminate any suspicious processes associated with the modified registry keys.
-- Restore the modified registry keys to their default values to remove the malicious URL configuration.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional threats.
-- Review and analyze network logs to identify any outbound connections to suspicious domains or IP addresses, and block these at the firewall.
-- Escalate the incident to the security operations center (SOC) for further investigation and to determine if other systems are affected.
-- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of the threat, focusing on registry changes and network activity."""
 references = [
     "https://cloud.google.com/blog/topics/threat-intelligence/breaking-the-rules-tough-outlook-for-home-page-attacks/",
     "https://github.com/trustedsec/specula",
@@ -86,12 +52,138 @@ registry where host.os.type == "windows" and event.action != "deletion" and regi
     registry.path : (
         "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\*",
         "*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Today\\*"
-    ) and registry.data.strings : ("*://*", "*:\\*")
+    ) and registry.data.strings : ("*://*", "*:\\*", "\\\\*\\*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Outlook Home Page Registry Modification
+
+This alert fires when registry telemetry shows a non-deletion change to Outlook Home Page settings under Outlook Webview or Today keys. Treat it as evidence that a process changed what Outlook may render for a folder or landing page, not proof that Outlook opened the configured content. First determine what content the value enables, then identify who wrote it, whether the target was staged or reached, and whether the activity stays local or reflects broader abuse.
+
+#### Possible investigation steps
+
+- What does the written registry value tell you about the configured Outlook content target?
+  - Focus: `registry.path`, `registry.value`, `registry.data.type`, and `registry.data.strings`, plus which Outlook folder or Today page the key controls.
+  - Hint: check for a subsequent deletion event on the same `registry.path` and `host.id` after the alert time. If the value was already removed, urgency shifts from active risk to post-exploitation cleanup or transient testing. If a loopback or localhost URL is present, also check for COM object registrations (CLSID entries) that serve content on that port.
+  - Implication: a loopback or localhost URL with a non-standard port is a strong indicator of Specula-style COM server abuse -- do not treat it as benign internal traffic. External URLs, local HTML files, and UNC paths also support concern. The investigation path is narrower only when the target uses a non-loopback internal hostname or a path consistent with enterprise branding.
+
+- Which process wrote the setting, and does the writer context fit expected Outlook administration?
+  - Focus: `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `user.id`.
+  - Hint: if the direct writer is a broker or service process, check `Effective_process.executable` for the true initiator and record `process.entity_id` when present for later pivots. If signer fields are absent on the registry event, recover the same writer from nearby process telemetry before deciding whether the workflow fits.
+  - Implication: the writer context is harder to justify when a script host, LOLBin, unsigned helper, or user-writable binary changes the key, or when the user context does not match known Outlook administration tooling; it is more explainable when the writer is a signed deployment or profile-management tool with a recognized signer.
+
+- What does the target URL or path resolve to, and does it fit a known abuse pattern?
+  - Why: Outlook Home Page abuse can target remote URLs, loopback URLs serving local COM objects, or UNC paths, so the written target must be interpreted before the registry change can be triaged accurately.
+  - Focus: the written target in `registry.data.strings`; for URL targets, review same-host DNS "lookup_result" and connection events with `dns.question.name`, `dns.resolved_ip`, and `destination.ip`; for path targets, pivot to `file.path` on the same `host.id`.
+  - Hint: if the target is a UNC path, confirm whether the same host also reached the backing server in nearby connection activity and whether a local `file.path` copy was staged or cached before Outlook could render it.
+  - Implication: a localhost or loopback URL with a non-standard port is a strong indicator of Specula-style COM server abuse and should not be treated as benign internal traffic. External URLs pointing to rare domains or public IPs, user-writable HTML files, and unrecognized network shares also support concern. The target is less concerning when it resolves to a recognized enterprise portal or branding content path. Missing corroborating network or file telemetry is unresolved, not benign.
+
+- Do nearby file events show the target or supporting content being staged locally?
+  - Focus: same-host file activity tied to the writer or target path, with attention to `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and `file.Ext.original.path`.
+  - Implication: staging is more concerning when the writer drops HTML or script content in user-writable locations, preserves internet provenance, or renames content into the Outlook page path; it is more explainable when the file path and provenance fit a managed branding or profile package.
+
+- Do nearby Outlook or Office process events show the target being activated?
+  - Focus: nearby `process.executable`, `process.command_line`, and `process.parent.executable` for Outlook or other Office processes, plus target-correlated DNS or file access only when needed to confirm activation.
+  - Hint: if the page target is a URL, correlate Outlook activity to the same resolved IPs or domains; if it is a local or UNC path, look for the same path being opened shortly after the write.
+  - Implication: activation evidence strengthens concern when Outlook or another Office process reaches the same target soon after the registry write, or when the modified profile context is followed by suspicious child or network activity; it is weaker when no follow-on Outlook activity or target access appears in the surrounding window.
+
+- If the local evidence stays suspicious, how did the account authenticate to this host before the registry write?
+  - Why: writing the Outlook Home Page registry key requires access to the user's HKCU hive on the host, so understanding how the session was established can reveal whether the attacker gained access through compromised credentials, lateral movement, or an unexpected remote method.
+  - Focus: if Windows Security logs are ingested, query authentication events for the same `user.id` and `host.id` around the alert time, checking `winlog.logon.type`, `source.ip`, and `winlog.event_data.AuthenticationPackageName` to determine whether the session was local, remote, or service-based. If authentication data is unavailable, fall back to `process.Ext.session_info.logon_type` from the writer's process event.
+  - Implication: supports concern when the session originated from an unexpected source IP, used an unusual logon type or authentication package, or cannot be tied to the user's normal access pattern for this host; more explainable when the session origin and method match the user's documented administrative or interactive access to the host.
+
+- If the local evidence stays suspicious, does this host show related alerts or adjacent Outlook Home Page variants?
+  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to identify precursor delivery, suspicious Office execution, network command-and-control, or additional persistence activity on the same asset or user. $investigate_0 $investigate_1
+  - Implication: this suggests broader host compromise when the asset also shows delivery, suspicious Office execution, or follow-on persistence alerts; it stays locally bounded when nearby host alerts are limited to routine administration or unrelated benign software activity.
+
+- What disposition is supported by the registry value, writer context, target, staging, activation, and scope evidence?
+  - Focus: weigh the modified Outlook registry path and value, the writer identity and user context, the target URL or path, any staging or activation evidence, and any user or host spread seen in related alerts.
+  - Implication: escalate when those evidence categories align on unauthorized Outlook customization, malicious content delivery, or broader persistence activity; close only when the registry change, writer, target, and surrounding scope all fit a documented Outlook customization or profile-management workflow with no contradictory evidence; if answers remain mixed or incomplete, preserve the artifacts and escalate.
+
+### False positive analysis
+
+- Enterprise Outlook branding or approved internal portal customization can legitimately trigger this rule. Confirm it only when the modified `registry.path` family, the written `registry.data.strings` target, and any same-host DNS or file evidence all point to the same approved internal page or managed content package. If the target, path family, or supporting infrastructure diverges from that workflow, do not close as benign.
+- Profile migration, workstation build, or configuration-management tooling can legitimately write these keys. Confirm it only when the same writer identity, user or service context, and surrounding file or process activity match the deployment workflow and no staged external content appears.
+- Before creating an exception, validate that the same `registry.path` family, `registry.data.strings` target, and writer identity recur across prior alerts from this rule. Build the exception from the minimum confirmed pattern: the specific `registry.data.strings` value, `process.code_signature.subject_name` or `Effective_process.executable`, and the specific `registry.path` family. Avoid exceptions on `registry.value` alone, `user.name` alone, or the entire Outlook registry subtree.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the approved `registry.path` family, `registry.data.strings` target, and writer identity that proved the Outlook customization workflow. Create an exception using the same `registry.data.strings` value, writer signer, and `registry.path` family.
+- If suspicious but unconfirmed, preserve the modified `registry.path`, written value data, recovered `process.entity_id`, writer identity, any staged `file.path` content, and any related destination or alert context. Apply reversible containment first, such as blocking the page target or limiting Outlook use on the affected host, and avoid destructive cleanup until scope is clearer.
+- If confirmed malicious, document the recovered `process.entity_id`, `process.command_line`, `process.code_signature.subject_name`, `registry.data.strings` target, and the modified `registry.path` values before initiating response actions. Use available endpoint response integrations to contain the affected host or account when the writer, target, staging, or activation evidence indicates unauthorized Outlook Home Page abuse. If direct endpoint response is unavailable, escalate with the documented artifacts to the team that can act.
+- Restore the affected Outlook Webview or Today values to a known-good state, remove any malicious local HTML or script content identified during the investigation, and block confirmed malicious domains, IPs, or network shares referenced by the page target.
+- If the target points to external infrastructure or a shared path, review proxy, DNS, firewall, and related-alert data for additional hosts or users that reached the same content, then scope any follow-on delivery or persistence activity found on those assets.
+- After containment, review whether Outlook Home Page functionality is still needed in the environment and restrict who can manage those settings.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "user.id",
+    "user.name",
+    "registry.path",
+    "registry.value",
+    "registry.data.type",
+    "registry.data.strings",
+    "process.executable",
+    "process.entity_id",
+    "process.code_signature.subject_name",
+    "Effective_process.executable",
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
 
 [rule.threat.tactic]
 id = "TA0011"
@@ -108,10 +200,7 @@ id = "T1137.004"
 name = "Outlook Home Page"
 reference = "https://attack.mitre.org/techniques/T1137/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
