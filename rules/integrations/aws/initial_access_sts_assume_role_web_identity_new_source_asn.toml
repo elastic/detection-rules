@@ -1,0 +1,179 @@
+[metadata]
+creation_date = "2026/03/31"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/03/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a given IAM role is successfully assumed via OIDC or web identity federation (STS
+AssumeRoleWithWebIdentity) from a specific source autonomous system number (ASN). Legitimate CI/CD (for example
+GitHub Actions or GitLab CI) typically presents a small, repeatable set of provider or runner ASNs per role over time.
+A novel ASN for the same role can indicate a web identity token replayed from unexpected infrastructure, such as a VPN,
+hosting provider, or compromised token used outside the normal pipeline egress path. This does not catch in-runner
+abuse where network context matches ordinary jobs; pair with behavioral rules for broad enumeration.
+"""
+false_positives = [
+    """
+    New CI regions, new self-hosted runners, corporate network changes, or cloud provider expansions can introduce a
+    first-seen ASN for a federated role. Geolocation and ASN enrichment gaps may also suppress or skew results. Tune
+    with exceptions on `aws.cloudtrail.resources.arn`, `source.as.organization.name`, or expected ASNs; extend the
+    history window if your environment warms up identities slowly.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS STS AssumeRole with Web Identity from Unusual ASN"
+note = """## Triage and Analysis
+
+### Investigating AWS STS AssumeRole with Web Identity from Unusual ASN
+
+AWS Security Token Service can issue temporary credentials through `AssumeRoleWithWebIdentity` when a caller presents a
+valid web identity or OIDC token and the IAM role trust policy allows that federation. In healthy CI/CD, the same
+federated role is usually exercised from a small, repeating set of provider or runner networks, so autonomous system
+numbers (ASNs) stabilize after a baseline period. This detection is a New Terms rule: it flags the first observed pairing
+of the role being assumed and the source ASN on a successful `AssumeRoleWithWebIdentity` event. That pattern can
+surface a web identity token replayed from unexpected infrastructure (for example a VPN, VPS, or residential egress) after
+credential theft or pipeline compromise, and it complements analyses of cloud account abuse seen after supply-chain
+incidents where attackers later validate or use stolen federation-related material.
+
+### Possible investigation steps
+
+- Review `aws.cloudtrail.resources.arn` to identify which IAM role was assumed and confirm whether it is intended for
+  CI/CD, workload identity, or application federation.
+- Examine `source.as.number` and `source.as.organization.name` together with `source.ip` and `source.geo.*` to
+  determine whether the ASN matches known GitHub Actions, GitLab, self-hosted runner, or corporate egress for that
+  role.
+- Compare this event to historical CloudTrail for the same role: search for prior successful `AssumeRoleWithWebIdentity`
+  from the same `aws.cloudtrail.resources.arn` and document which ASNs are normally expected.
+- Inspect `aws.cloudtrail.flattened.request_parameters.roleSessionName` and `user_agent.original` for context on the
+  client and session naming conventions used by your pipelines versus one-off or scripted callers.
+- Parse `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements` when available for trust-relevant
+  fields (for example issuer or subject-style claims) according to your AWS integration mapping.
+- Correlate timeline with IAM changes such as `CreateOpenIDConnectProvider`, `UpdateAssumeRolePolicy`, or role creation,
+  and with repository or container supply-chain indicators if the role is tied to a pipeline.
+- Search for follow-on API activity from the same `aws.cloudtrail.user_identity` or access key prefix, especially broad
+  discovery (`List*`, `Describe*`, `Get*`), S3 bucket policy or ACL reads, or privilege changes.
+
+### False positive analysis
+
+- Adding a new cloud region, new self-hosted runners, or moving CI to a different provider can introduce a first-seen ASN
+  for an existing federated role until the New Terms history window learns the new pattern.
+- Corporate VPN or split-tunnel changes may shift apparent egress ASNs without malicious activity.
+- GeoIP and ASN enrichment updates, missing enrichment, or carrier renumbering can change or blank `source.as.number`
+  and either suppress the rule or create one-off novelty; tune allowances for known infrastructure.
+- Brand-new roles have no prior ASN history; expect more noise in the first days after onboarding unless you exclude or
+  allowlist known rollout patterns.
+- Legitimate developers testing federation from a laptop or lab may produce a novel ASN compared to automated CI.
+
+### Response and remediation
+
+- If the activity is unexpected, treat the web identity token as potentially exposed: rotate OIDC IdP client secrets or
+  Git provider credentials as applicable, and review the IdP and AWS role trust conditions (audience, subject, token
+  lifetime).
+- Tighten the role trust policy to the narrowest issuer, audience, and subject claims required; reduce `MaxSessionDuration`
+  where business allows and enforce least privilege on the role permissions boundary.
+- Query CloudTrail for additional successful or failed `AssumeRoleWithWebIdentity` for the same role and ASN, and for
+  sessions established shortly before or after suspicious IAM or data-plane events.
+- Disable or delete rogue OIDC providers or trust relationships that are confirmed unauthorized, and open an incident
+  review if stolen tokens or pipeline compromise is suspected.
+- Improve coverage for cases this rule cannot see (for example token use entirely inside a standard runner ASN) with
+  behavioral detections and pipeline integrity controls.
+- Follow AWS incident response and STS hardening guidance in your security playbook and document exceptions for approved
+  ASN changes.
+"""
+references = [
+    "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html",
+    "https://kudelskisecurity.com/research/investigating-two-variants-of-the-trivy-supply-chain-compromise",
+]
+risk_score = 47
+rule_id = "9f8c2532-b959-4915-876a-5f4b80eefd31"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS STS",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sts.amazonaws.com"
+    and event.action: "AssumeRoleWithWebIdentity"
+    and event.outcome: "success"
+    and aws.cloudtrail.resources.arn: *
+    and source.as.number: *
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_iso_code",
+    "source.geo.city_name",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.resources.arn", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
