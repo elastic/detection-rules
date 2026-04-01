@@ -66,22 +66,21 @@ note = """## Triage and analysis
 
 ### Investigating Network Activity to a Suspicious Top Level Domain
 
-This alert fires when a Windows process queries a domain under a top-level domain that is frequently abused by malware, and the process identity or execution context already looks harder to trust than routine DNS. Treat it as evidence of suspicious name resolution, not proof that the process established command-and-control. Prioritize what the alert-local DNS result actually shows, whether the process and launch chain fit a legitimate workflow, and whether the same process follows the lookup with connections, staging, or variant infrastructure reuse.
+This alert fires when a process with suspicious identity or execution context queries a domain under a TLD frequently abused by malware. Treat it as evidence of suspicious name resolution, not proof that the process established command-and-control. Prioritize what the alert-local DNS result actually shows, whether the process and launch chain fit a legitimate workflow, and whether the same process follows the lookup with connections, staging, or variant infrastructure reuse.
 
 #### Possible investigation steps
 
 - Does the alert-local DNS result and domain shape fit the process role?
-  - Why: read the preserved DNS evidence first so you know whether the process made a successful lookup, a failed probe, or a request-only attempt before you pivot to other telemetry.
-  - Focus: the alert's `event.action`, `dns.question.name`, `dns.Ext.status`, `dns.resolved_ip`, and the emitting `process.name`; use "lookup_result" for resolved IPs and "lookup_requested" for failed or request-only lookups.
-  - Implication: concern rises when the name is algorithmic, newly introduced for that tool, or resolves successfully to unrelated external infrastructure; support is weaker when the lookup fails immediately or the domain clearly matches an approved vendor or service pattern for that same process role, but a failed lookup alone does not clear the process. Note that `.onion` lookups are qualitatively different from cheap-TLD queries because they indicate Tor hidden-service resolution and signal anonymized infrastructure use; treat these as an elevated concern and look for Tor binaries, proxy configuration changes, or relay activity on the same host.
+  - Focus: the alert's `event.action`, `dns.question.name`, `dns.Ext.status`, and `dns.resolved_ip`; use "lookup_result" for resolved IPs and "lookup_requested" for failed or request-only lookups.
+  - Implication: concern rises when the name is algorithmic, newly introduced for that tool, or resolves to unrelated external infrastructure; weaker when the lookup fails immediately or the domain matches a known vendor pattern for that process, but a failed lookup alone does not clear the process. `.onion` lookups signal Tor hidden-service resolution -- treat these as elevated concern and look for Tor binaries or proxy configuration.
 
 - Is the alerting binary the expected tool in the expected install context?
-  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, and signer context in `process.code_signature.subject_name` and `process.code_signature.trusted`.
-  - Implication: more concerning when the binary is unsigned, renamed, user-writable, or inconsistent with its usual signer or hash history; lower suspicion when the same path, signer, and binary identity match a documented tool or deployment pattern. Identity alone does not clear the DNS behavior.
+  - Focus: `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.pe.original_file_name`.
+  - Implication: more concerning when the binary is unsigned, renamed, user-writable, or inconsistent with its usual signer. Identity alone does not clear the DNS behavior.
 
-- Does the command line and launch chain fit a legitimate updater, installer, script, or admin workflow?
-  - Focus: `process.command_line`, `process.working_directory`, `process.parent.executable`, and `process.parent.command_line`.
-  - Implication: more concerning if a document, script, or unexpected launcher started the process, or if the arguments and working directory look staged or evasive; more explainable if the parent chain, arguments, and working directory match an approved software-delivery, developer, or administrative workflow for the same user and host.
+- Does the command line and launch chain fit a legitimate workflow?
+  - Focus: `process.command_line`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: more concerning if a document, script, or unexpected launcher started the process, or if the arguments look staged or evasive.
 
 - Does the same process resolve the domain and then communicate with the returned infrastructure?
   - Why: a suspicious DNS lookup carries more weight when the same process reuses the returned IPs for follow-on connections or transfer behavior in the same window.
@@ -89,31 +88,28 @@ This alert fires when a Windows process queries a domain under a top-level domai
   - Hint: if the transform returns no results, broaden to host-scoped network events around the alert time.
   - Implication: escalate when the same process repeatedly resolves the domain, connects to the returned IPs, or shows suspicious transfer patterns; lower suspicion when activity is limited to a one-off lookup with no matching connection behavior. Missing follow-on network telemetry is unresolved, not benign.
 
-- Do nearby file events or child processes show download-and-execute or artifact staging from the same chain?
+- Do file events or child processes from the same process chain show download-and-execute or artifact staging?
   - Focus: same-host file and process activity around the alert time, scoped to the alert's `process.entity_id`, with attention to `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse of a written path.
   - Hint: if file coverage is missing, keep the artifact review bounded to the same host, lineage, and alert window rather than treating the lookup as harmless.
-  - Implication: staging risk rises when the chain writes scripts, archives, or executables to user-writable paths and later runs them; lower suspicion when surrounding file activity stays inside an approved install, update, or developer workflow with no follow-on execution.
+  - Implication: staging risk rises when the chain writes scripts, archives, or executables to user-writable paths and later runs them.
 
 - Does the same process chain pivot to direct-IP traffic, lookalike domains, or TLD rotation that this rule would miss?
   - Why: attackers often keep the same process chain but swap to a nearby domain, a different abusive TLD, or direct-IP egress after the first lookup.
   - Focus: reuse the process-scoped network results from the prior step to look for direct `destination.ip` connections with no preceding DNS, sibling `dns.question.name` values under different TLDs, or repeated reuse of the same `dns.resolved_ip` across multiple domains. $investigate_2
-  - Implication: escalate when the process shifts from the flagged lookup to direct-IP traffic, nearby domain variants, or fast domain and TLD rotation on the same infrastructure; lower suspicion when surrounding DNS stays limited to one approved vendor domain family with no adjacent variant traffic.
+  - Implication: escalate when the process shifts from the flagged lookup to direct-IP traffic, nearby domain variants, or fast domain and TLD rotation on the same infrastructure; lower suspicion when surrounding DNS stays limited to one recognized vendor domain family with no adjacent variant traffic.
 
 - If the local DNS, process, or artifact evidence stays suspicious or unresolved, does related alert history show this DNS pattern is isolated or part of broader compromise?
   - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to test whether the same lineage, domain family, or follow-on activity recurs on the asset or follows the user across hosts.
     - $investigate_0
     - $investigate_1
-  - Implication: broaden scope when the host or user view shows repeated suspicious lineage, related delivery or persistence alerts, or reuse of the same infrastructure on other assets; keep scope narrow when the pattern stays confined to one documented workflow with no contradictory evidence.
+  - Implication: broaden scope when the host or user view shows repeated suspicious lineage, related delivery or persistence alerts, or reuse of the same infrastructure on other assets; keep scope narrow when the pattern stays confined to one recognized workflow with no contradictory evidence.
 
-- Based on DNS fit, binary identity, launch context, follow-on communication, artifact staging, variant traffic, and alert scope, what disposition is supported?
-  - Focus: weigh `dns.question.name`, `process.executable`, `process.command_line`, `destination.ip`, and `file.path` together, then use related `host.id` or `user.id` alerts only to decide whether the pattern is isolated or broader.
-  - Implication: escalate when the domain fit, process context, follow-on network behavior, or staged artifacts point to unauthorized command-and-control or delivery; close only when DNS fit, binary identity, launch context, and surrounding scope all align with a documented benign workflow; if answers remain mixed or visibility is incomplete, preserve artifacts and escalate rather than closing.
+- Escalate when DNS fit, process context, follow-on communication, artifacts, or variant traffic point to unauthorized C2 or delivery; close only when all evidence aligns with a recognized benign workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
-- Approved software distribution, package management, or developer tooling can legitimately query less common top-level domains when vendor hosting or CDN patterns change. Confirm it when the same `process.executable`, `process.code_signature.subject_name`, `process.parent.command_line`, and `dns.question.name` family all align with the documented delivery path. If change records are unavailable, require the same `process.executable`, `dns.question.name`, and `host.id` or `user.id` pattern to recur across prior alerts before treating it as benign.
-- Security testing, sinkhole validation, or malware detonation can also trigger this rule. Confirm it when `dns.question.name`, any returned `dns.resolved_ip` or `destination.ip`, and surrounding `file.path` or `process.executable` activity all stay inside the controlled test scope, with no unexpected staging, persistence, or follow-on compromise on the same `host.id`.
-- Before creating an exception, validate that the same `process.executable`, `process.code_signature.subject_name`, `dns.question.name` family, and `host.id` or `user.id` scope recur across prior alerts from this rule. Build the exception from that minimum confirmed workflow pattern. Avoid exceptions on the TLD alone, `process.name` alone, or `host.id` alone.
+- Software distribution, developer tooling, or security-testing workflows can legitimately query less common TLDs. Confirm by matching the same `process.executable`, `process.code_signature.subject_name`, `dns.question.name` family, and `host.id` across prior alerts or against workflow records.
+- Before creating an exception, build on `process.executable`, `process.code_signature.subject_name`, the `dns.question.name` family, and `host.id` or `user.id`. Avoid exceptions on the TLD alone, `process.name` alone, or `host.id` alone.
 
 ### Response and remediation
 

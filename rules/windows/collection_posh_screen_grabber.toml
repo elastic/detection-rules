@@ -42,61 +42,56 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Suspicious Script with Screenshot Capabilities
 
-This alert fires when PowerShell script block logging preserves screenshot-capture logic built around "CopyFromScreen" and bitmap classes. Treat it as evidence of interactive screen collection, not proof that images were saved or transferred. Prioritize what the preserved script shows about capture scope, what the full script does with the images, and whether nearby process, file, and network telemetry shows staging or transfer.
+This alert fires when PowerShell script block logging preserves screenshot-capture logic built around "CopyFromScreen" and bitmap classes. Treat it as evidence of interactive screen collection, not proof that images were saved or transferred. Prioritize what the preserved script shows about capture scope, what the full script does with the images, and whether surrounding process, file, and network telemetry shows staging or transfer.
 
 #### Possible investigation steps
 
 - Does the alert-preserved script content indicate a bounded screenshot action or deliberate repeated screen collection?
-  - Focus: the preserved script text on the alert, any associated `file.path`, and the alert scope from `@timestamp`, `host.id`, and `user.id`.
-  - Implication: supports deliberate collection when the script loops, captures full desktops, or targets multiple monitors or regions; weaker support when the preserved content shows a single bounded capture tied to a documented support or test action.
+  - Focus: the preserved script text on the alert and any associated `file.path`.
+  - Implication: supports deliberate collection when the script loops, captures full desktops, or targets multiple monitors; weaker support when the content shows a single bounded capture tied to a recurring support or test action.
 
 - Does the reconstructed script add save, encode, archive, or transfer logic that changes risk?
-  - Why: screenshot collection becomes materially higher risk once the same script writes images, serializes them, compresses them, or stages them for outbound transfer.
-  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` needed to rebuild adjacent fragments, then the reconstructed script body for output paths, image encoding, archive helpers, or remote destinations. $investigate_0
-  - Implication: staging becomes more likely when reconstruction shows image saves, compression, archiving, or transfer logic; risk stays narrower when the completed script only captures or previews the screen with no storage or delivery path.
+  - Why: script block logging can split one script across multiple records; later fragments often reveal output paths, encoding, or transfer logic.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` to rebuild adjacent fragments, then the reconstructed script body for output paths, image encoding, archive helpers, or remote destinations. $investigate_0
+  - Implication: staging becomes more likely when reconstruction shows image saves, compression, archiving, or transfer logic.
 
 - Can you recover the PowerShell process and explain how it was launched?
-  - Why: the launch chain distinguishes an approved support tool from an ad hoc script or malicious wrapper that happens to use the same .NET screen-capture calls.
-  - Focus: same-host process events around the alert time, pivoting on the alert's `process.pid` and `host.id` to find the matching process start event, then `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type` to recover the launch context. $investigate_1
-  - Hint: if the transform returns no process start event, try expanding the time window before concluding endpoint data is unavailable. If the process event still cannot be found, keep later file and network review bounded to the same host and alert time rather than assuming a wider process scope.
-  - Implication: supports an approved-tool explanation when the recovered command line and parent chain match a sanctioned support or QA launcher; favors ad hoc or malicious use when the process runs from user-writable paths, inherits an unusual parent, or lands in an unexpected session type.
+  - Focus: the matching process start event via `process.pid` and `host.id`, recovering `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`. $investigate_1
+  - Hint: if the process event cannot be found, keep later file and network review bounded to the same host and alert time.
+  - Implication: supports unauthorized use when the process runs from user-writable paths, inherits an unusual parent, or lands in an unexpected session type.
 
-- Does the user-host pattern fit a documented support, accessibility, or QA workflow?
-  - Focus: the same `user.id` and `host.id`, the recovered `process.parent.executable`, and any case evidence that can prove the workflow such as a support ticket or QA job identifier; if case data is unavailable, fall back to whether the same pairing and launcher recur in prior alerts from this rule.
-  - Implication: more concerning when the same user-host pair has no recurring support or QA pattern, the launcher is new for that pairing, or the host is used for privileged sessions; more explainable when the same pairing and launcher recur in documented support or test cases with bounded capture behavior.
+- Does the user-host pattern fit a recognized support, accessibility, or QA workflow?
+  - Focus: the `user.id` and `host.id` pairing, the recovered `process.parent.executable`, and any prior alert recurrence for the same pairing and launcher.
+  - Hint: if workflow documentation is unavailable, require the same pairing and launcher to recur across prior alerts.
+  - Implication: escalate when the user-host pair has no recurring support or QA pattern, the launcher is new, or the host is used for privileged sessions.
 
 - Do file events show screenshot output, staging artifacts, or suspicious script provenance?
-  - Focus: same-host file events for the recovered `process.entity_id` when available, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, `file.origin_url` or `file.Ext.windows.zone_identifier` for script provenance, and later reuse of a written path as `process.executable`.
-  - Implication: artifact staging is more likely when the script arrives from download locations, writes screenshots or archives to user-writable paths, or produces files that later execute; artifact evidence is less concerning when source and outputs stay inside a controlled support or QA path with no staging pattern.
+  - Focus: file events for the same `process.entity_id`, with attention to `file.path`, `file.Ext.header_bytes`, `file.origin_url` or `file.Ext.windows.zone_identifier`, and later reuse of a written path as `process.executable`.
+  - Implication: staging is more likely when the script arrives from download locations, writes screenshots to user-writable paths, or produces files that later execute.
 
 - Do network events show transfer of captured images or related staging activity?
-  - Focus: same-host network events for the recovered `process.entity_id` when available, separating DNS "lookup_result" events from connection events and using `dns.resolved_ip` to bridge `dns.question.name` to `destination.ip`; treat `destination.as.organization.name` as ownership context, not a verdict.
-  - Implication: delivery risk increases when the process resolves or reaches rare external infrastructure, remote storage, or destinations named in the script; delivery risk falls when traffic stays on documented internal transfer, proxy, or QA infrastructure. Missing network telemetry is unresolved, not benign.
+  - Focus: network events for the same `process.entity_id`, separating DNS `lookup_result` events (`dns.question.name`, `dns.resolved_ip`) from connection events (`destination.ip`, `destination.port`).
+  - Implication: delivery risk increases when the process reaches rare external infrastructure, remote storage, or destinations named in the script. Missing network telemetry is unresolved, not benign.
 
 - Does the host or session context suggest privileged or sensitive on-screen data could have been exposed?
-  - Why: the same capture script is far more consequential on admin workstations, jump hosts, finance endpoints, or remote sessions than on a lab box used for UI testing.
-  - Focus: the recovered `process.Ext.session_info.logon_type` and the `user.id`/`host.id` pairing. If the session is remote and origin matters, bridge `process.Ext.authentication_id` to authentication events to recover `source.ip`; if that bridge is unavailable, treat origin as unresolved.
-  - Implication: raise urgency when the visible desktop likely contained credentials, privileged consoles, finance data, or remote admin sessions; keep urgency lower when the session is local, low sensitivity, and consistent with a documented support or QA task.
+  - Why: the same capture script is far more consequential on admin workstations, jump hosts, or finance endpoints than on a lab box used for UI testing.
+  - Focus: the recovered `process.Ext.session_info.logon_type` and the `user.id`/`host.id` pairing. For remote sessions, bridge `process.Ext.authentication_id` to authentication events for `source.ip`; if unavailable, treat origin as unresolved.
+  - Implication: raise urgency when the visible desktop likely contained credentials, privileged consoles, or finance data.
 
-- If the local evidence stays suspicious, does related alert history show isolated screen capture or broader collection on this user or host?
-  - Focus: related alerts for the same `user.id` and `host.id` in the last 48 hours, using the user view to test recurrence across hosts or sessions and the host view to spot same-host archive helpers, staging alerts, or alternate .NET/native capture routines that reuse the same screenshot `file.path` pattern or delivery path through `dns.question.name` and `destination.ip`.
-    - $investigate_2
-    - $investigate_3
-  - Implication: broaden when the same user repeats screenshot capture or staging across hosts, or when the same host also shows suspicious precursor access, archive helpers, or alternate capture routines around the alert; keep scope narrow when both alert views stay confined to one approved launcher and bounded support or QA workflow.
+- If the local evidence stays suspicious, do related alerts suggest broader compromise?
+  - Focus: related alerts for the same `user.id` and `host.id` in the last 48 hours to spot recurrence across hosts or same-host staging, archive helpers, or alternate capture routines. $investigate_2 $investigate_3
+  - Implication: broaden when the same user repeats screenshot capture across hosts or the host shows precursor access or alternate capture routines; keep narrow when both views stay confined to one recognized launcher.
 
-- What disposition do the capture, execution, artifact, transfer, sensitivity, and scope findings support?
-  - Focus: synthesize capture scope, storage or delivery behavior, recovered launch chain, user-host fit, file artifacts, session sensitivity, and related-alert scope.
-  - Implication: escalate when the content and corroborating telemetry show unauthorized screen collection, staging, or transfer; close only when capture scope, launch context, artifacts, delivery signals, and surrounding scope all align with a documented benign support or test workflow; if answers remain mixed or visibility is incomplete, preserve artifacts and escalate rather than closing.
+- Escalate when capture scope, launch context, artifacts, network, or session sensitivity align on unauthorized screen collection; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
-- Approved remote support or help-desk tooling can legitimately capture screenshots. Confirm it when the same `user.id`, `host.id`, recovered launcher, and internal transfer pattern align with a documented support ticket or tool inventory; if that context is unavailable, fall back to recurrence of the same launcher and transfer pattern in prior alerts from this rule. If the launcher, capture scope, or destination pattern breaks that workflow, do not close as benign.
-- QA, UI regression testing, or accessibility automation can legitimately use screen-capture routines. Confirm it when reconstructed script content stays limited to bounded capture calls, the recovered parent chain maps to the test harness or accessibility tool, and written images remain in controlled test paths with no archive or external-delivery logic. If test documentation is unavailable, fall back to whether the same `user.id`, `host.id`, and launcher recur in a bounded pattern across prior alerts from this rule. If capture scope, launcher, artifact placement, or delivery behavior extends beyond that workflow, do not close as benign.
-- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts from this rule. Avoid exceptions on screenshot-related strings alone, `user.name` alone, or the host alone.
+- Support, QA, accessibility, or testing workflows can legitimately trigger this rule. Confirm by matching the same `process.executable`, signer, and `host.id` pattern across prior alerts or against workflow records.
+- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts. Avoid exceptions on screenshot-related strings alone, `user.name` alone, or the host alone.
 
 ### Response and remediation
 
-- If confirmed benign, reverse any temporary containment and document the approved workflow evidence: the stable user-host pairing, recovered launch chain, and bounded internal capture or transfer path. Create an exception only if the same user, host, and launch context recur consistently across prior alerts from this rule.
+- If confirmed benign, reverse any temporary containment and document the confirmed workflow evidence: the stable user-host pairing, recovered launch chain, and bounded internal capture or transfer path. Create an exception only if the same user, host, and launch context recur consistently across prior alerts from this rule.
 - If suspicious but unconfirmed, preserve the reconstructed script content, recovered `process.entity_id`, written `file.path` artifacts, and any `dns.question.name` or `destination.ip` values linked to transfer. Apply reversible containment such as temporary egress restrictions or tighter monitoring on the exposed session. Escalate to host isolation only when capture, staging, or transfer evidence is strong and the host role can tolerate it. Avoid destructive cleanup until scope is clearer.
 - If confirmed malicious, document the recovered `process.entity_id`, `process.command_line`, `process.parent.executable`, written `file.path` artifacts, and any confirmed `dns.question.name` or `destination.ip` values before initiating response actions. Use available endpoint response integrations to isolate the host and contain the affected account when capture scope, launch chain, artifacts, or delivery evidence shows unauthorized screen collection or transfer. If direct endpoint response is unavailable, escalate with the documented artifacts to the team that can act.
 - If linked `dns.question.name`, `destination.ip`, or transfer artifacts confirm screenshot delivery or staging, block the confirmed destination, channel, or automation path before cleanup and preserve any related cloud, messaging, or remote-storage identifiers needed for follow-on scoping.

@@ -66,48 +66,41 @@ note = """## Triage and analysis
 
 ### Investigating Potential File Download via a Headless Browser
 
-This alert fires when a browser starts in headless mode from a suspicious parent process and with arguments consistent with scripted retrieval or rendering. Attackers use headless browsers as ingress-tool-transfer proxies because the browser is a trusted, signed binary that application-control and proxy policies typically allow through, letting it fetch or decode content that direct download utilities would be blocked from retrieving. Treat it as evidence that a browser may be being abused as a download or staging utility, not proof that malware was retrieved. Prioritize whether the browser instance is legitimate automation, what the command line is trying to fetch or render, and whether the same process produced network and file activity consistent with payload delivery.
+This alert fires when a browser starts in headless mode from a suspicious parent process with arguments consistent with scripted retrieval or rendering. Attackers use headless browsers because the browser is a trusted, signed binary that proxy and application-control policies allow through, bypassing restrictions that block direct download tools. Treat it as evidence of potential download abuse, not proof that malware was retrieved. Prioritize whether the browser instance is legitimate automation, what the command line fetches or renders, and whether the same process produced network and file activity consistent with payload delivery.
 
 #### Possible investigation steps
 
 - What headless pattern does the command line express, and is the browser the installed product?
-  - Why: this rule fires on three distinct retrieval patterns -- fetching a remote URL to disk, decoding inline base64 HTML via "data:text/html;base64", or dumping rendered DOM via "--dump-dom". Identifying which pattern the command line uses changes what follow-on evidence matters.
-  - Focus: `process.command_line`, `process.args`, and `process.working_directory`, with attention to remote URLs, "data:text/html;base64" content, "--dump-dom" usage, and redirected output paths. Confirm the browser is the installed product via `process.executable`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
-  - Implication: retrieval intent is stronger when the command line pairs headless rendering flags with external content, inline base64 HTML, redirected output into unusual paths, and when the browser is unsigned, portable, or renamed; it is more explainable when the arguments match a rendering, QA, or report-generation workflow and the browser is the standard signed installation.
+  - Why: this rule fires on three distinct retrieval patterns -- remote URL fetch, inline base64 HTML decode ("data:text/html;base64"), or DOM dump ("--dump-dom") -- and each requires different follow-on evidence.
+  - Focus: `process.command_line` and `process.working_directory` to identify the retrieval pattern and output destination; confirm the browser is the installed product via `process.executable`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: retrieval intent is stronger when the command line targets external content, decodes base64, or redirects output to unusual paths, especially when the browser is unsigned, portable, or renamed; more explainable when the arguments match a rendering or automation workflow and the browser is the standard signed installation.
 
-- Does the parent and ancestry explain why a browser is being driven headlessly?
+- Does the parent, ancestry, and user-host pattern explain why a browser is being driven headlessly?
   - Why: the same browser arguments mean different things when launched by a web-rendering service than when launched by a script host, Office application, or interactive shell.
-  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`.
-  - Implication: more concerning if the chain starts from a script host, Office process, MSI, WMI, or an interactive session that does not fit the user; more explainable if the ancestry resolves to a documented renderer, test harness, or application component already approved for that host role.
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`; also check whether `user.id` and `host.id` fit a role where headless browser automation is expected.
+  - Implication: more concerning if launched by a script host, Office process, MSI, WMI, or an unexpected interactive session, or when the user-host pair should not be running headless browsers; more explainable if the ancestry resolves to a recognized rendering service or automation component for that host role.
 
 - Do network events show the browser reaching destinations consistent with the claimed workflow?
   - Focus: same-host network events scoped to the alert's `process.entity_id`, using `dns.resolved_ip` to bridge `dns.question.name` to `destination.ip` and treating `destination.as.organization.name` as ownership context rather than a verdict. $investigate_2
   - Hint: if `process.entity_id` is not available, stay on the same `host.id` and alert window and use `dns.question.name`, `dns.resolved_ip`, and `destination.ip` to test whether the browser likely reached the fetched content.
-  - Implication: delivery risk increases when the same browser process reaches rare public destinations, direct download endpoints, or infrastructure unrelated to the claimed workflow, or when another process connects to an exposed debugging port; delivery risk falls when the destinations align with approved internal services, vendor rendering inputs, or known automation targets. Missing network telemetry is unresolved, not benign.
+  - Implication: delivery risk increases when the browser reaches rare public destinations or infrastructure unrelated to the workflow, or when another process connects to an exposed debugging port; risk falls when destinations align with recognized internal services or known automation targets. Missing network telemetry is unresolved, not benign.
 
-- Do file events or nearby child processes show downloaded, decoded, or staged artifacts from the browser?
-  - Focus: file events and process activity on the same host, scoped to the alert's `process.entity_id`, with attention to `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, `file.Ext.header_bytes`, browser-child `process.parent.executable`, and later `process.executable` reuse of a written path.
-  - Implication: artifact delivery is more likely when the browser writes decoded HTML, scripts, executables, archives, or renamed content to user-writable or deceptive paths, or when the browser spawns follow-on child processes or the written artifact later appears in execution telemetry; artifact evidence is less concerning when file output stays inside an expected renderer cache or temporary report directory with no suspicious reuse.
-
-- Does the user-host pattern fit approved automation, server-side rendering, or testing workflow?
-  - Focus: `user.id`, `host.id`, `process.executable`, `process.parent.executable`, and the destination pattern already established from `dns.question.name` or `destination.ip`.
-  - Implication: workflow fit is weaker when the activity runs under a user or on a host that should not launch headless browsers, or when the timing and host role do not fit the claimed workflow; workflow fit improves when the same user-host pair and automation pattern align with a documented recurring workflow.
+- Do file events or child processes from the browser show downloaded, decoded, or staged artifacts?
+  - Focus: file events scoped to `process.entity_id` (`file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, `file.Ext.header_bytes`), child process activity, and later `process.executable` reuse of a written path.
+  - Implication: more likely delivery when the browser writes scripts, executables, archives, or decoded content to user-writable or deceptive paths, spawns child processes, or the artifact later appears in execution telemetry; less concerning when output stays in a renderer cache or report directory with no suspicious reuse.
 
 - If the local browser, destination, or artifact evidence stays suspicious or unresolved, does related alert history show isolated automation or broader download activity on this user or host?
-  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to find sibling transfer tools, non-headless browser automation, or alternate renderer binaries that reuse the same destinations or stage similar outputs, and to test whether the same execution pattern follows the user across hosts.
+  - Focus: related alerts for `host.id` and `user.id` in the last 48 hours, checking for sibling transfer tools, non-headless browser automation, or reuse of the same destinations across hosts.
     - $investigate_0
     - $investigate_1
-  - Implication: broaden when the same user repeats suspicious delivery or command-and-control behavior across hosts, or when the same host reuses the same destinations or artifacts through sibling tools or non-headless browser automation; keep scope narrow when both alert views stay confined to one approved automation component.
+  - Implication: broaden when the same user or host shows repeated delivery behavior across hosts or through sibling tools; keep narrow when both alert views stay within one recognized automation component.
 
-- What disposition do the browser, command-line, destination, artifact, workflow, and scope findings support?
-  - Focus: weigh `process.executable`, `process.command_line`, `process.parent.executable`, `dns.question.name`, `destination.ip`, and `file.path` together, then use related `user.id` or `host.id` alerts only to decide whether the activity is isolated or broader.
-  - Implication: escalate when the evidence shows unauthorized headless browsing, suspicious destinations, or downloaded or staged artifacts; close only when browser identity, destination fit, artifacts, and workflow context all align with a documented benign automation pattern.
+- Escalate when browser identity, command line, destinations, artifacts, or alert scope point to unauthorized headless retrieval or staging; close only when all evidence aligns with a recognized automation workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
-- Server-side rendering, web testing, or browser automation can legitimately start a headless browser with retrieval arguments. Confirm it when `process.executable`, `process.parent.executable`, and the `dns.question.name` or `destination.ip` pattern all align with one automation component. If automation records are unavailable, require the same browser, parent, and destination pattern to recur across prior alerts before treating it as benign.
-- Threat-research, QA, or sandbox workflows can intentionally retrieve content through a headless browser. Confirm it when `dns.question.name`, `destination.ip`, and written `file.path` artifacts all stay inside a contained test scope on the same `host.id` with no unexpected execution or persistence. If test records are unavailable, require the same destination and host pattern to recur across prior alerts.
-- Before creating an exception, build on stable fields: `process.executable`, `process.parent.executable`, `process.code_signature.subject_name`, and `host.id` or `user.id`. Avoid exceptions on `process.name` alone, the "--headless" flag alone, or `host.id` alone.
+- Server-side rendering, web testing, QA, or browser automation can legitimately start a headless browser with retrieval arguments. Confirm when `process.executable`, `process.parent.executable`, and the `dns.question.name` or `destination.ip` pattern all align with one automation component and no staged artifacts diverge from that workflow. If automation records are unavailable, require the same browser, parent, and destination pattern to recur across prior alerts.
+- Before creating an exception, build on `process.executable`, `process.parent.executable`, `process.code_signature.subject_name`, and `host.id` or `user.id`. Avoid exceptions on `process.name` alone, the "--headless" flag alone, or `host.id` alone.
 
 ### Response and remediation
 

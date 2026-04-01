@@ -54,62 +54,58 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Keylogging Script
 
-This alert fires when PowerShell script block logging preserves content associated with key-state polling, low-level keyboard hooks, or related input-capture routines. Treat it as evidence of attempted keylogging, not proof that keystrokes were successfully captured or exfiltrated. Prioritize what the preserved script content shows, whether the full script adds logging or delivery logic, and whether nearby process, file, network, and authentication telemetry show collection or post-capture use. Because the detection is string-driven, renamed hook functions or fragmented input-capture strings may only surface when you rebuild adjacent script blocks and correlate the logging, transfer, and authentication behavior.
+This alert fires when PowerShell script block logging preserves content associated with key-state polling, low-level keyboard hooks, or related input-capture routines. Treat it as evidence of attempted keylogging, not proof that keystrokes were successfully captured or exfiltrated. Prioritize what the preserved script content shows, whether the full script adds logging or delivery logic, and whether surrounding process, file, network, and authentication telemetry show collection or post-capture credential use.
 
 #### Possible investigation steps
 
 - Does the preserved script content show active keylogging intent rather than inert reference text?
-  - Focus: the preserved script text on the alert, any associated `file.path`, and the alert scope from `@timestamp`, `host.id`, and `user.id`.
-  - Implication: supports concern when the content clearly invokes polling loops, hook registration, window-labeling routines, output formatting, or commodity functions such as "Get-Keystrokes"; carries less weight when the text is clearly documentation, training content, or another inert reference with no adjacent execution evidence.
+  - Focus: the preserved script text on the alert and any associated `file.path`.
+  - Implication: supports concern when the content invokes polling loops, hook registration, window-labeling routines, output formatting, or commodity functions such as "Get-Keystrokes"; carries less weight when the text is clearly documentation, training content, or inert reference with no adjacent execution evidence.
 
 - Does reconstructing the full script reveal logging, labeling, staging, or transmission behavior that changes urgency?
-  - Why: PowerShell script block logging can split one script across multiple records, and later fragments often reveal invocation flow, output paths, timer loops, or exfiltration that the matching fragment did not show.
-  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` needed to rebuild adjacent fragments, then the reconstructed content for foreground-window labeling, output files, archives, remote destinations, cleanup routines, or persistence helpers. $investigate_0
-  - Implication: supports active collection when reconstruction shows continuous polling, registered hooks, keystroke formatting, saved logs, compression, upload logic, or cleanup after collection; is more explainable when the complete content resolves to a bounded accessibility, kiosk, or lab workflow with no hostile follow-on logic.
+  - Why: script block logging can split one script across multiple records; later fragments often reveal output paths, timer loops, or exfiltration.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` to rebuild adjacent fragments, then the reconstructed content for foreground-window labeling, output files, archives, remote destinations, or cleanup logic. $investigate_0
+  - Implication: supports active collection when reconstruction shows continuous polling, registered hooks, keystroke formatting, saved logs, compression, upload logic, or cleanup after collection.
 
-- Does the user-host pairing fit approved accessibility tooling, kiosk automation, hotkey software, or sanctioned security assessment?
-  - Focus: the `user.id` and `host.id` pairing, whether the host role or asset classification supports input-capture tooling, and any prior alert recurrence from this rule for the same pairing and launcher.
-  - Hint: if workflow documentation is unavailable, require the same `user.id`, `host.id`, and parent launch context to recur across prior alerts before treating the activity as benign.
-  - Implication: more concerning if the user is a standard office user, the host handles privileged or sensitive workflows, or the timing is inconsistent with approved support or test activity; more explainable if the same pairing, schedule, and launch context match a documented kiosk, accessibility, or assessment workflow.
+- Does the user-host pairing fit recognized accessibility tooling, kiosk automation, or security assessment?
+  - Focus: the `user.id` and `host.id` pairing, whether the host role supports input-capture tooling, and any prior alert recurrence for the same pairing and launcher.
+  - Hint: if workflow documentation is unavailable, require the same pairing and launcher to recur across prior alerts.
+  - Implication: escalate when the user has no recurring pattern of input capture, the host handles privileged workflows, or the timing falls outside scheduled testing.
 
 - Can you recover the PowerShell process and explain how it was launched?
-  - Why: the preserved script content explains capability, but the launch chain determines whether it came from interactive admin work, a kiosk component, a scheduled task, or an unexpected parent.
-  - Focus: same-host process events around the alert time, pivoting on the alert's `process.pid` and `host.id` to find the matching process start event, then `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type` to recover the launch context. $investigate_1
-  - Hint: if the transform returns no process start event, try expanding the time window before concluding endpoint data is unavailable. If the process event still cannot be found, keep later file, network, and authentication review bounded to the same host and alert time rather than assuming a wider process scope.
-  - Implication: supports unauthorized use when the recovered process is launched by a document, browser, chat client, remote session, or user-writable script path that does not fit the user; fits sanctioned activity when the launch chain stays inside the same approved kiosk, accessibility, support, or assessment workflow that legitimately uses input-capture tooling.
+  - Focus: the matching process start event via `process.pid` and `host.id`, recovering `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`. $investigate_1
+  - Hint: if the process event cannot be found, keep later file, network, and authentication review bounded to the same host and alert time.
+  - Implication: supports unauthorized use when the recovered process is launched by a document, browser, chat client, scheduled task, remote session, or user-writable script path.
 
-- Do nearby file events show keystroke logs, staged archives, or renamed artifacts consistent with collection?
-  - Focus: same-host file events, preferably scoped to the recovered `process.entity_id`, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, and `file.Ext.original.path` when logs or archives are renamed for staging.
-  - Implication: supports active collection when log files, archives, or renamed artifacts appear in user-writable, hidden, or deceptive paths, or when the header bytes do not match the visible extension; is less concerning when file activity stays inside approved kiosk or accessibility-tool locations with no suspicious reuse.
+- Do file events show keystroke logs, staged archives, or renamed artifacts?
+  - Focus: file events for the same `process.entity_id`, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, and `file.Ext.original.path` when logs or archives are renamed for staging.
+  - Implication: supports active collection when log files, archives, or renamed artifacts appear in user-writable or hidden paths, or when header bytes do not match the visible extension.
 
-- Do nearby network events show credential exfiltration, webhook delivery, or remote staging behavior?
-  - Focus: same-host network events, preferably scoped to the recovered `process.entity_id`, and separated into DNS "lookup_result" evidence with `dns.question.name` and `dns.resolved_ip` versus connection events with `destination.ip` and `destination.port`.
-  - Implication: suggests exfiltration or staging when the same process or host reaches rare public destinations, messaging or webhook services, cloud storage, or other transfer paths that do not fit the claimed workflow; keeps scope local when network activity is absent or stays limited to expected internal kiosk, support, proxy, or assessment infrastructure. Missing network telemetry is unresolved, not benign.
+- Do network events show credential exfiltration, webhook delivery, or remote staging?
+  - Focus: network events for the same `process.entity_id`, separating DNS `lookup_result` events (`dns.question.name`, `dns.resolved_ip`) from connection events (`destination.ip`, `destination.port`).
+  - Implication: suggests exfiltration when the process reaches rare public destinations, messaging or webhook services, or cloud storage. Missing network telemetry is unresolved, not benign.
 
-- Do authentication events tie this session to a suspicious origin or show later credential use after capture?
-  - Why: keylogging becomes higher priority when the active session came from an unusual source or auth method, or when the same host or user is followed by new logons or explicit-credential use that could reflect captured input being used.
-  - Focus: if `process.Ext.authentication_id` was recovered in the process step, bridge to `winlog.event_data.TargetLogonId` on the same `host.id` to recover `source.ip` and `winlog.event_data.AuthenticationPackageName` for the session origin. Independently, review post-alert authentication on the same `host.id` and `user.id` for new 4624 or 4648 events, checking `winlog.event_data.TargetUserName` and `winlog.event_data.TargetDomainName` for accounts that do not match the alert user or the host's expected access pattern.
-  - Hint: "4648" explicit-credential events do not use `winlog.event_data.TargetLogonId`; if you need explicit-credential evidence, search `winlog.event_data.SubjectLogonId` or the same host and user after the alert instead of treating the bridge as complete.
-  - Implication: suggests captured-input abuse when the bridged session has an unexpected origin or auth method, or when later "4624" or "4648" events show new remote, privileged, or explicit-credential activity that does not fit the user; is more explainable when the session origin and later authentication activity stay bounded to the same approved kiosk, accessibility, support, or assessment workflow.
+- Do authentication events show the session came from an unusual origin or that captured credentials were reused?
+  - Why: keylogging becomes higher priority when post-capture authentication shows new logons or explicit-credential use that could reflect captured input being used.
+  - Focus: if `process.Ext.authentication_id` was recovered, bridge to `winlog.event_data.TargetLogonId` for session origin (`source.ip`, `winlog.event_data.AuthenticationPackageName`). Also check post-alert 4624 or 4648 events on the same `host.id` for accounts that do not match the alert user.
+  - Hint: "4648" explicit-credential events do not use `winlog.event_data.TargetLogonId`; search `winlog.event_data.SubjectLogonId` instead.
+  - Implication: suggests captured-input abuse when the session has an unexpected origin or when later logons show new remote, privileged, or explicit-credential activity.
 
-- If the local or authentication evidence stays suspicious, do related alerts or repeated script content suggest broader compromise?
-  - Focus: related alerts for the same `user.id` in the last 48 hours to find repeated collection, execution, or defense-evasion activity across other hosts or sessions. $investigate_2
-  - Hint: compare related alerts for the same `host.id` and repeated preserved script substrings on this asset to look for persistence, repeated collection, follow-on staging, or renamed input-capture variants. $investigate_3
-  - Implication: broaden the investigation when either view shows collection, execution, defense-evasion, persistence, or follow-on compromise outside the approved workflow; keep the case local when surrounding alerts and repeated script logic stay confined to the same documented kiosk, support, or test pattern.
+- If the local evidence stays suspicious, do related alerts suggest broader compromise?
+  - Focus: related alerts for the same `user.id` to find repeated collection or defense-evasion activity. $investigate_2
+  - Hint: compare related alerts for the same `host.id` for persistence, repeated collection, or renamed input-capture variants. $investigate_3
+  - Implication: broaden when either view shows collection, defense-evasion, persistence, or transfer activity outside the expected workflow; keep the case local when surrounding alerts stay confined to one recognized workflow.
 
-- Do the content, launch, artifact, network, and authentication findings support unauthorized input capture or follow-on use?
-  - Focus: script intent and reconstruction, user-host fit, recovered launch chain, keystroke artifacts, network delivery, authentication effects, and related-alert scope.
-  - Implication: escalate when those evidence categories align on unauthorized input capture, staging, credential reuse, or transfer; close only when they all support a documented benign workflow with no contradictory findings; if answers remain mixed or visibility is incomplete, preserve artifacts and escalate rather than closing.
+- Escalate when script intent, launch context, artifacts, network, or authentication evidence align on unauthorized input capture; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
-- Accessibility, kiosk, macro, or hotkey tooling can legitimately reference low-level input APIs. Confirm it only when reconstructed script content matches the approved workflow, the same `user.id` and `host.id` align with the expected operator or kiosk endpoint, and the recovered launch chain plus written log paths stay inside that same workflow. If workflow documentation is unavailable, require the same pairing and launcher to recur across prior alerts from this rule. If any of those elements point away from the workflow, do not close as benign.
-- Security testing or malware-analysis workflows can legitimately include keylogging modules. Confirm it when the full script, related `file.path` artifacts, any `dns.question.name` or `destination.ip` evidence, and later authentication activity all stay inside a contained non-production workflow with no unexplained spread, credential use, or exfiltration. If test schedules are unavailable, fall back to whether the same `user.id`, `host.id`, and script content recur in a bounded pattern across prior alerts. If any of those conditions fail, do not close as benign.
-- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts from this rule. Build the exception from that minimum confirmed workflow pattern. Avoid exceptions on hook-function strings alone, `user.name` alone, or the host alone.
+- Accessibility, kiosk, security-testing, or malware-analysis workflows can legitimately trigger this rule. Confirm by matching the same `process.executable`, signer, and `host.id` pattern across prior alerts or against workflow records.
+- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts. Avoid exceptions on hook-function strings alone, `user.name` alone, or the host alone.
 
 ### Response and remediation
 
-- If confirmed benign, reverse any temporary containment and document the script content, recovered launch chain, user-host scope, and any benign artifact or destination pattern that proved the approved workflow. Create an exception only if the same workflow recurs consistently across prior alerts from this rule.
+- If confirmed benign, reverse any temporary containment and document the script content, recovered launch chain, user-host scope, and any benign artifact or destination pattern that proved the confirmed workflow. Create an exception only if the same workflow recurs consistently across prior alerts from this rule.
 - If suspicious but unconfirmed, preserve the reconstructed script content, recovered `process.entity_id`, related `file.path` artifacts, any `dns.question.name` or `destination.ip` values linked to transfer, and authentication events around the alert. Apply reversible containment such as session restrictions or temporary destination blocking. Escalate to host isolation only when active collection, credential reuse, or transfer evidence is strong and the host role can tolerate it. Avoid destructive cleanup until scope is clearer.
 - If confirmed malicious, document the recovered `process.entity_id`, `process.command_line`, `process.parent.executable`, written `file.path` artifacts, any confirmed `dns.question.name` or `destination.ip` values, and logon session details before initiating response actions. Prefer host isolation over process termination for initial containment when the asset can tolerate it, then contain affected accounts, block malicious destinations and scripts, and terminate recovered processes only after evidence capture.
 - If keystroke logs, archives, or staging artifacts are identified, preserve them as sensitive evidence. Review related users and hosts for the same `powershell.file.script_block_text` content, `file.path` pattern, or `dns.question.name` destinations before eradicating. Then remove the artifacts and any persistence or automation identified during reconstruction or host-scoping.
