@@ -61,7 +61,8 @@ risk_score = 47
 rule_id = "f08230a3-4bf1-488c-953d-6f4853f1bbfc"
 severity = "medium"
 tags = [
-    "Domain: macOS",
+    "Domain: Endpoint",
+    "OS: macOS",
     "Data Source: macOS Unified Logs",
     "Data Source: Unified Logs",
     "Use Case: Threat Detection",
@@ -76,7 +77,7 @@ FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
 | WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
   AND unified_log.category == "access"
   AND message LIKE "*does not allow prompting*"
-| KEEP @timestamp, _id, _version, _index, host.name, host.id, host.os.type, event.dataset, unified_log.subsystem, unified_log.category, message
+| KEEP *
 '''
 
 [[rule.threat]]
