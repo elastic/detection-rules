@@ -53,8 +53,6 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Suspicious Script with Audio Capture Capabilities
 
-This alert fires when PowerShell script block logging captures content associated with microphone recording or Windows audio-capture APIs. Treat it as evidence of collection capability, not proof that recording succeeded. Prioritize what the preserved script content shows, whether the full script adds staging or transfer logic, and whether surrounding process, file, and network telemetry support actual collection activity.
-
 #### Possible investigation steps
 
 - Does the preserved script content show live microphone capture logic rather than inert reference text?
@@ -73,7 +71,7 @@ This alert fires when PowerShell script block logging captures content associate
 - Can you recover the PowerShell process and explain how it was launched?
   - Focus: the matching process start event via `process.pid` and `host.id`, recovering `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`. $investigate_1
   - Hint: if the process event cannot be found, keep later file and network review bounded to the same host and alert time rather than assuming a wider process scope.
-  - Implication: supports unauthorized use when the recovered process is launched by a document, browser, chat client, scheduled task, remote session, or user-writable script path.
+  - Implication: supports concern when the recovered process is launched by a document, browser, chat client, scheduled task, remote session, or user-writable script path.
 
 - Do file events from the same process show recorded audio or staging artifacts?
   - Focus: file events for the same `process.entity_id`, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, and `file.Ext.original.path` when media files or archives are renamed for staging.
@@ -86,9 +84,9 @@ This alert fires when PowerShell script block logging captures content associate
 - If the local evidence stays suspicious, do related alerts or repeated script-block activity suggest broader compromise?
   - Focus: related alerts for the same `user.id` to find repeated collection, execution, or defense-evasion activity. $investigate_2
   - Hint: compare related alerts for the same `host.id` and repeated preserved script substrings on this asset to look for persistence, repeated collection, follow-on staging, or renamed audio-capture variants. $investigate_3
-  - Implication: broaden the investigation when either view shows collection, execution, defense-evasion, persistence, or transfer activity outside the expected workflow.
+  - Implication: suggests broader compromise when either view shows collection, execution, defense-evasion, persistence, or transfer activity; stays localized when alerts are confined to the known script and host with no repeated collection or follow-on staging.
 
-- Escalate when script intent, launch context, artifacts, or network activity align on unauthorized collection; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
+- Escalate when script intent, launch context, artifacts, or network activity align on active collection; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
