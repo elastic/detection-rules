@@ -73,16 +73,16 @@ This alert fires on known Remcos RAT indicators: log files, persistence registry
 #### Possible investigation steps
 
 - Which Remcos-related artifact family matched, and does it indicate install, persistence, or cleanup evidence?
-  - Focus: the alert-local artifact family in `event.category` plus the matched `file.path`, `registry.path`, `registry.value`, `registry.data.strings`, and whether the file or registry trace sits in the same user profile or hive scope as `user.id`.
-  - Implication: "logs.dat" indicates active or recent keystroke/clipboard logging; a Run-key or licence registry path indicates persistence is set; a temp-file deletion indicates installer cleanup. The user profile or hive scope that the artifact sits in identifies WHICH user account is compromised.
+  - Focus: `event.category` plus the matched `file.path`, `registry.path`, `registry.value`, `registry.data.strings`, and whether the trace's user profile or hive scope matches `user.id`.
+  - Implication: "logs.dat" indicates active or recent keystroke/clipboard logging; a Run-key or licence registry path indicates persistence is set; a temp-file deletion indicates installer cleanup. The artifact's user profile or hive scope identifies which account is compromised.
 
 - Which process or user touched the Remcos trace, and does that writer fit detonation, remediation, or malware execution?
   - Focus: the recovered writer identity and launch context, especially `process.executable`, `process.code_signature.subject_name`, `process.parent.executable`, and `user.id`.
-  - Hint: if the source event lacks full process identity, recover the writer from nearby process telemetry on the same `host.id`, using `process.entity_id` when present and `process.pid` plus a tight time window otherwise, before deciding whether the workflow is expected.
+  - Hint: if the source event lacks process identity, recover the writer via `process.entity_id` or `process.pid` plus a tight time window on the same `host.id`.
   - Implication: if the writer is an unknown binary on a non-lab host, treat it as the Remcos payload or its installer. If the writer is a known sandbox, detonation engine, or IR cleanup tool on a designated lab host, the trace is expected.
 
 - What payload or persistence target do adjacent file and registry events resolve to?
-  - Focus: adjacent file and registry telemetry on the same `host.id`, emphasizing `file.path`, `file.Ext.original.path`, `registry.path`, `registry.data.strings`, and any payload path or autorun target tied to the same `process.entity_id` when it is available.
+  - Focus: file and registry events on the same `host.id`: `file.path`, `file.Ext.original.path`, `registry.path`, `registry.data.strings`, and any payload or autorun target tied to `process.entity_id`.
   - Implication: a surviving Run-key target, startup copy, or staged binary under `%APPDATA%` or `%TEMP%` confirms the infection has active persistence and the payload is still present. Bounded removal of those artifacts without a surviving payload indicates cleanup is underway but verify that ALL persistence mechanisms are gone, not just the ones visible in the alert.
 
 - Is there active outbound C2 or proxy traffic on this host?
@@ -90,14 +90,12 @@ This alert fires on known Remcos RAT indicators: log files, persistence registry
   - Implication: active C2 traffic confirms the infection is live and requires immediate containment; absence of C2 traffic may indicate the payload was already removed or has not yet activated. Missing network telemetry is unresolved, not benign.
 
 - If the local evidence stays suspicious, does this host or user show related alerts that explain precursor compromise or follow-on access?
-  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to identify nearby delivery, persistence, credential, command-and-control, or lateral-movement activity.
+  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to identify delivery, persistence, credential, command-and-control, or lateral-movement activity.
     - $investigate_0
     - $investigate_1
   - Implication: broaden when the host or user shows delivery, credential theft, or follow-on remote-access alerts after the artifact; keep the case narrower when related activity is absent or resolves to one detonation or remediation workflow.
 
-- Based on the artifact type, writer identity, payload status, C2 activity, and broader scope, what disposition is supported?
-  - Focus: combine the evidence categories from the matched artifact family, writer identity, artifact or persistence target, network activity, and broader scoping evidence.
-  - Implication: escalate when the trace, writer, adjacent artifacts, and follow-on network or session activity align with active Remcos execution or recent cleanup of a malicious foothold; close when the writer identity, host role, surrounding artifacts, and follow-on activity all fit a documented detonation or remediation workflow with no contradictory evidence; if findings are mixed or incomplete, preserve artifacts and escalate rather than closing.
+- Escalate when the artifact, writer, persistence status, C2 activity, or alert scope align with active Remcos execution; close only when all evidence fits a recognized detonation or remediation workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
@@ -106,7 +104,7 @@ This alert fires on known Remcos RAT indicators: log files, persistence registry
 
 ### Response and remediation
 
-- If confirmed benign, reverse any temporary containment and document the approved writer, `host.id`, and artifact family that justified the closure. Create an exception only if that same workflow recurs consistently across prior alerts from this rule.
+- If confirmed benign, reverse any temporary containment and document the confirmed writer, `host.id`, and artifact family that justified the closure. Create an exception only if that same workflow recurs consistently across prior alerts from this rule.
 - If suspicious but unconfirmed, preserve the matched `file.path` or `registry.path`, `registry.data.strings`, recovered `process.entity_id`, writer executable and parent context. Apply the least disruptive reversible containment that matches the findings, starting with outbound restrictions on confirmed destinations and using host isolation only when active command-and-control or lateral movement is still plausible for that asset. Avoid destructive cleanup until scope is clearer.
 - If confirmed malicious, use endpoint response to isolate the host after weighing host criticality and record the `process.entity_id`, command line, parent chain, and trace paths. If direct endpoint response is unavailable, escalate with that evidence set to the team that can contain the host and implicated accounts.
 - Before eradicating or reimaging, review other hosts and users for the same writer identity, artifact family, or C2 destinations so scoping is complete. For confirmed infections, consider reimaging over manual cleanup -- Remcos can establish multiple persistence mechanisms and manual eradication risks missing one. If reimaging is not feasible, eradicate all identified Remcos artifacts including Run keys, licence-related registry paths, staged binaries, "logs.dat", and linked temp artifacts, then verify no alternate persistence survives.

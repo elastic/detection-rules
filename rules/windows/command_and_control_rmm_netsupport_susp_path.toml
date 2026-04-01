@@ -64,41 +64,39 @@ note = """## Triage and analysis
 
 ### Investigating NetSupport Manager Execution from an Unusual Path
 
-NetSupport Manager is legitimate remote-support software, but it is also abused for command-and-control, interactive control, and follow-on tooling execution. This alert fires when the NetSupport client runs from a user-writable or otherwise non-default path, which is a strong signal of portable deployment, repackaging, or staged execution rather than a normal installation. Treat the unusual path as evidence of how the client reached the host, not as a verdict by itself. Attackers can rename NetSupport components or stage adjacent RMM installers while leaving only lineage, file, or network clues. Prioritize confirming the client identity, explaining the launch chain, and determining whether the same process behaves like sanctioned support or unapproved remote control.
+NetSupport Manager is legitimate remote-support software, but it is also abused for command-and-control, interactive control, and follow-on tooling execution. This alert fires when the NetSupport client runs from a user-writable or non-default path, signaling portable deployment or staged execution rather than standard installation. Treat the path as evidence of how the client reached the host, not a verdict. Attackers can rename NetSupport components or stage adjacent RMM installers while leaving only lineage, file, or network clues. Prioritize confirming the client identity, explaining the launch chain, and determining whether the process behaves like recognized support or unauthorized remote control.
 
 #### Possible investigation steps
 
 - What is the alerting process and how did NetSupport reach this host from a non-default path?
-  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`.
-  - Implication: escalate when the client is unsigned, portable, or mismatched to its original file name, or when the parent chain starts from a script host, archive utility, browser, or Office process; lower suspicion when the client identity, signer, install path, and parent chain all resolve to an approved deployment. Identity alone does not clear the behavior.
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when the client is unsigned, portable, or mismatched to its original file name, or when the parent chain starts from a script host, archive utility, browser, or Office process; lower suspicion when signer, path, and parent chain resolve to a recognized deployment. Identity alone does not clear the behavior.
 
-- Does the client or child command line show sanctioned deployment behavior or covert control intent?
-  - Focus: `process.command_line`, `process.args`, `process.working_directory`, and `process.parent.command_line`, with attention to connection targets, deployment switches, relay parameters, and hidden or scripted launch behavior.
+- Does the client or child command line show recognized deployment behavior or covert control intent?
+  - Focus: `process.command_line`, `process.working_directory`, and `process.parent.command_line`, with attention to connection targets, relay parameters, and hidden or scripted launch behavior.
   - Hint: if the alert fired on a child process and the parent command line is absent or truncated, recover the NetSupport client start event on the same `host.id` before judging deployment or relay intent.
-  - Implication: escalate when the relevant command line reveals external control targets, stealthy launch parameters, or deployment behavior that does not fit expected support tooling; lower suspicion when the arguments match documented support or managed rollout procedures.
+  - Implication: escalate when the command line reveals external control targets, stealthy launch parameters, or deployment behavior that does not fit expected support tooling; lower suspicion when the arguments match a recognized support or managed rollout workflow.
 
-- Do network events show expected support infrastructure or suspicious controller or relay traffic?
-  - Focus: process-scoped DNS and connection events for the alert's `process.entity_id`, using `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_2
-  - Implication: escalate when the process reaches rare public destinations, unexpected relay infrastructure, or control traffic that does not fit expected support; lower suspicion when the destinations align with known internal support infrastructure. Missing network telemetry is unresolved, not benign.
+- Do network events show expected support infrastructure or suspicious relay traffic?
+  - Focus: process-scoped DNS and connection events for `process.entity_id`, checking `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_2
+  - Implication: escalate when the process reaches rare public destinations or unexpected relay infrastructure; lower suspicion when destinations align with known internal support infrastructure. Missing network telemetry is unresolved, not benign.
 
 - Do file events show staged components, renamed NetSupport files, or persistence artifacts?
-  - Focus: file telemetry scoped to the alert's `process.entity_id`, emphasizing `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, `file.Ext.header_bytes`, and adjacent NetSupport files such as "client32u.ini", "client32.ini", "NSM.lic", "NSM.ini", or "CKSINI.EXE".
-  - Implication: escalate when the process writes portable support components, renamed files, bundled config or license files, or artifacts that later appear in persistence or execution telemetry; lower suspicion when file activity stays inside an approved installation or update path with no suspicious reuse.
+  - Focus: file events scoped to `process.entity_id`: `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, `file.Ext.header_bytes`, and adjacent NetSupport files ("client32u.ini", "NSM.lic", "NSM.ini", "CKSINI.EXE").
+  - Implication: escalate when the process writes portable components, renamed files, or bundled config/license files, or when artifacts later appear in persistence or execution telemetry; lower suspicion when file activity stays in a recognized installation path with no suspicious reuse.
 
 - Do child processes launched from NetSupport show interactive abuse beyond normal support?
-  - Focus: process start events where `process.parent.entity_id` matches the alert's `process.entity_id`, with attention to child `process.executable` and `process.command_line`. $investigate_3
+  - Focus: child process events from `process.entity_id`, checking `process.executable` and `process.command_line`. $investigate_3
   - Implication: escalate when NetSupport spawns shells, scripting engines, archivers, credential tools, or other hands-on-keyboard tooling; lower suspicion when child activity stays limited to expected helper processes or no secondary execution follows.
 
 - If the local evidence stays suspicious, does this host or user show related alerts or a recurring deployment pattern?
-  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours, looking for adjacent delivery, persistence, remote-access, or credential activity. Also check whether the same client path, signer, and destination pattern recur for this user-host pair across prior alerts from this rule.
+  - Focus: related alerts for `host.id` and `user.id` in the last 48 hours, checking for delivery, persistence, remote-access, or credential activity, and whether the same client path, signer, and destination pattern recur across prior alerts.
     - $investigate_0
     - $investigate_1
   - Hint: if workflow documentation is unavailable, recurrence of the same client path, signer, and destination pattern across prior alerts is the strongest telemetry-based benign signal.
-  - Implication: broaden when the host or user shows suspicious precursor, follow-on, or cross-host activity; lower suspicion when the same deployment pattern recurs for this user-host pair with no contradictory alerts.
+  - Implication: broaden when the host or user shows suspicious precursor, follow-on, or cross-host activity; lower suspicion when the same deployment pattern recurs with no contradictory alerts.
 
-- Based on the binary identity, launch chain, command-line intent, network activity, staged artifacts, child-process behavior, and broader scope, what disposition is supported?
-  - Focus: combine the evidence categories from binary identity, launch chain, command-line intent, network activity, staged artifacts, child-process behavior, and broader scoping evidence.
-  - Implication: escalate when the combined findings show unauthorized NetSupport staging, suspicious destinations, or interactive abuse; close only when the binary, path, destinations, and deployment pattern all align with a documented benign support deployment; if answers remain mixed or visibility is incomplete, preserve artifacts and escalate rather than closing.
+- Escalate when binary identity, launch chain, network destinations, staged artifacts, or child-process behavior point to unauthorized NetSupport deployment or interactive abuse; close only when all evidence aligns with a recognized support deployment; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 

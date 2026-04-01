@@ -57,46 +57,44 @@ note = """## Triage and analysis
 
 ### Investigating Newly Observed ScreenConnect Host Server
 
-This alert fires when a ScreenConnect client connects to a non-standard relay host for the first time. The query uses a wide lookback to establish that the relay has not been seen before, but a narrow recency filter aligned with the execution interval to keep alerts timely. Treat it as a cue that the relay may be unauthorized, not proof. The alert preserves the parsed relay in `Esql.screenconnect_server`, the client's `process.entity_id`, user context in `Esql.user_name_values`, the first-seen time in `Esql.first_time_seen`, and one representative `process.command_line`. Process identity (`process.executable`, `process.code_signature.*`) and lineage (`process.parent.*`) must still be recovered from source events using the preserved `process.entity_id`. Prioritize decoding the alert-preserved fields, then use `process.entity_id` to recover client identity and launch context before deciding whether the relay and host fit approved remote-access use.
+This alert fires when a ScreenConnect client connects to a non-standard relay host for the first time. Treat it as a cue that the relay may be unauthorized, not proof. The alert preserves `Esql.screenconnect_server`, `Esql.user_name_values`, `Esql.first_time_seen`, `process.entity_id`, and one `process.command_line`. Process identity and lineage must be recovered from source events via `process.entity_id`. Prioritize alert-preserved fields, then recover client identity and launch context before assessing the relay.
 
 #### Possible investigation steps
 
 - What do the alert-preserved fields tell you about this new ScreenConnect relay?
-  - Focus: the parsed relay in `Esql.screenconnect_server`, the user context in `Esql.user_name_values`, the first-seen time in `Esql.first_time_seen`, plus `host.id`, `host.name`, and the representative `process.command_line`, treating `Esql.*` fields as alert-local values rather than source-event records.
-  - Implication: supports concern when the preserved relay is an IP literal, an unknown external domain, or not approved infrastructure; weaker evidence when the relay already points to a documented internal relay or managed service provider host.
+  - Focus: `Esql.screenconnect_server`, `Esql.user_name_values`, `Esql.first_time_seen`, `host.id`, `host.name`, and `process.command_line`; note `Esql.*` fields are alert-local, not source-event records.
+  - Implication: supports concern when the relay is an IP literal or unknown domain; weaker when it points to a recognized internal relay or managed service provider host.
 
-- Does the ScreenConnect client binary and install path match approved software on this host?
-  - Focus: use the alert's `process.entity_id` and `host.id` to look up the source process event and recover `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_0
-  - Implication: treat the client as suspicious when it is unsigned, portable, user-writable, mismatched to its original file name, or inconsistent with approved ScreenConnect deployment paths; treat identity as consistent only when the signer and path match the expected client installation layout.
+- Does the ScreenConnect client binary and install path match recognized software on this host?
+  - Focus: recover from source events via `process.entity_id`: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_0
+  - Implication: suspicious when unsigned, portable, user-writable, or mismatched to its original file name; consistent only when signer and path match the expected ScreenConnect installation.
 
 - Does the parent and ancestry explain why this host initiated a new relay connection now?
-  - Focus: from the source event recovered via the alert's `process.entity_id`, check `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`.
-  - Implication: the launch path is harder to justify when a script host, Office application, installer, or unexpected interactive session starts the client; it is easier to explain when the lineage resolves to an approved service deployment, support workflow, or management tooling chain.
+  - Focus: from the recovered source event: `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`.
+  - Implication: harder to justify when a script host, Office application, installer, or unexpected interactive session starts the client; easier to explain when the lineage resolves to a recognized service deployment or management tooling chain.
 
-- Do network events show the same host or recovered process contacting infrastructure consistent with the parsed ScreenConnect relay?
-  - Why: the parsed relay in `Esql.screenconnect_server` is an alert-level field, so you still need source DNS and connection events to confirm what the host actually contacted.
-  - Focus: DNS "lookup_result" events for the parsed `Esql.screenconnect_server` and related connection events scoped to the alert's `process.entity_id` and `host.id`, with attention to `dns.question.name`, `dns.resolved_ip`, `destination.ip`, and `destination.as.organization.name`. $investigate_1
-  - Implication: supports concern when the host or process reaches public infrastructure with no recognizable ownership, or when multiple suspicious destinations cluster around the same ScreenConnect activity; less concerning when the resolved infrastructure matches the relay domain and belongs to a known vendor or hosting provider. Missing network telemetry is unresolved, not benign.
+- Do network events show the host contacting infrastructure consistent with the parsed relay?
+  - Why: `Esql.screenconnect_server` is an alert-level field, so source DNS and connection events are needed to confirm what the host actually contacted.
+  - Focus: DNS "lookup_result" events for `Esql.screenconnect_server` and connection events scoped to `process.entity_id` and `host.id`, checking `dns.question.name`, `dns.resolved_ip`, `destination.ip`, and `destination.as.organization.name`. $investigate_1
+  - Implication: supports concern when the process reaches public infrastructure with unknown ownership, or when multiple destinations cluster around the same relay; less concerning when the infrastructure matches the relay and belongs to a known hosting provider. Missing network telemetry is unresolved, not benign.
 
 - Does the host context fit managed service provider or internal ScreenConnect use?
-  - Focus: the `host.id` and `Esql.user_name_values` pairing from the alert, whether the same `Esql.screenconnect_server`, client signer, and parent workflow recur across a known admin or helpdesk host group.
-  - Implication: more concerning if ScreenConnect appears on end-user or sensitive hosts that are not typically managed remotely, or if the user and host evidence do not fit the claimed workflow; more explainable when the same group of managed hosts, operator identity, and deployment pattern recur together.
+  - Focus: `host.id` and `Esql.user_name_values` pairing, and whether the same `Esql.screenconnect_server`, signer, and parent workflow recur across a known admin host group.
+  - Implication: more concerning if ScreenConnect appears on end-user or sensitive hosts not typically managed remotely, or if the user and host evidence do not fit the expected workflow; more explainable when the same managed host group, operator identity, and deployment pattern recur together.
 
 - Have other hosts in the environment resolved the same ScreenConnect relay domain?
   - Focus: DNS events across all hosts where `dns.question.name` matches the relay from `Esql.screenconnect_server` over the last 30 days. $investigate_2
-  - Implication: multiple unrelated hosts resolving the same relay suggests either a coordinated campaign or a broad rollout; a single host resolving it stays locally bounded.
+  - Implication: multiple unrelated hosts resolving the same relay suggests a campaign or broad rollout; a single host stays locally bounded.
 
 - Does this host show related alerts or adjacent remote-access tooling that suggest broader compromise?
   - Focus: related alerts for the same `host.id` in the last 48 hours, plus adjacent remote-access, persistence, credential-access, or delivery activity, especially renamed or portable ConnectWise or ScreenConnect binaries tied to the same relay. $investigate_3
-  - Implication: suggests broader host compromise when the asset also shows suspicious precursor delivery, persistence, credential theft, or additional remote-access tooling; stays locally bounded when the surrounding alert history is limited to expected admin activity or unrelated benign maintenance on the same host.
+  - Implication: suggests broader host compromise when the asset also shows suspicious precursor delivery, persistence, credential theft, or additional remote-access tooling; stays locally bounded when the surrounding alert history is limited to expected admin activity or unrelated benign activity.
 
-- What disposition is supported by the relay, source-event, identity, lineage, network, host-role, and scope evidence?
-  - Focus: weigh the parsed relay, source-event context, client identity, launch lineage, contacted infrastructure, host role, and any relay or host spread seen in related alerts.
-  - Implication: escalate when those evidence categories point to an unauthorized relay, unexpected client deployment, suspicious network activity, or broader compromise; close only when the relay, client identity, infrastructure, and host role all align with a documented ScreenConnect workflow and no contradictory evidence remains; if answers stay mixed or visibility is incomplete, preserve artifacts and escalate.
+- Escalate when the relay, client identity, launch lineage, contacted infrastructure, or host spread point to unauthorized remote access; close only when all evidence aligns with a recognized ScreenConnect workflow; if mixed or incomplete, preserve and escalate.
 
 ### False positive analysis
 
-- Legitimate self-hosted ScreenConnect or managed service provider-operated ConnectWise Control can trigger this rule. Confirm it only when the same `Esql.screenconnect_server`, recovered `process.executable`, signer, parent workflow, and DNS or connection evidence all align with one approved and authorized operator or service provider. If change records are unavailable, require that the same relay, client identity, and admin host group recur across prior alerts before closing as benign.
+- Legitimate self-hosted ScreenConnect or managed service provider ConnectWise Control can trigger this rule. Confirm when the same `Esql.screenconnect_server`, recovered `process.executable`, signer, parent workflow, and DNS evidence all align with one recognized operator. If change records are unavailable, require the same client identity and admin host group to show prior new-relay alerts from this rule.
 - Before creating an exception, confirm the relay is authorized through organizational records, then build the exception on the relay domain in `process.command_line`. Avoid exceptions on `host.name` or `host.id` alone, since the rule fires per host and those would suppress only one endpoint.
 
 ### Response and remediation
