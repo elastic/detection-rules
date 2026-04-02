@@ -1,90 +1,48 @@
 [metadata]
-creation_date = "2020/03/25"
+creation_date = "2026/03/27"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2026/04/01"
 min_stack_version = "9.4.0"
 min_stack_comments = "Use EA (Entity Analytics) fields"
-updated_date = "2026/04/01"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Retrieve Service Unisgned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
 
 [rule]
 anomaly_threshold = 50
 author = ["Elastic"]
 description = """
-Identifies rare processes that do not usually run on individual hosts, which can indicate execution of unauthorized
-services, malware, or persistence mechanisms. Processes are considered rare when they only run occasionally as compared
-with other processes running on the host.
+A machine learning job detected a rare PowerShell script, identified by its script block hash, that may indicate
+execution of malware, or persistence mechanisms. Unlike anomaly detection based on content entropy, this rule
+identifies scripts that have rarely or never been seen in the environment.
 """
 false_positives = [
     """
     A newly installed program or one that runs rarely as part of a monthly or quarterly workflow could trigger this
-    alert.
+    alert. PowerShell scripts that are new to the environment or run infrequently may trigger this alert.
     """,
 ]
-from = "now-6h"
+from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = ["v3_rare_process_by_host_windows_ea"]
-name = "Unusual Process For a Windows Host"
+machine_learning_job_id = ["v3_windows_rare_script_ea"]
+name = "Rare Powershell Script"
 note = """## Triage and analysis
 
-###  Investigating Unusual Process For a Windows Host
+###  Investigating Rare Powershell Script
 
-Searching for abnormal Windows processes is a good methodology to find potentially malicious activity within a network. Understanding what is commonly run within an environment and developing baselines for legitimate activity can help uncover potential malware and suspicious behaviors.
+Searching for abnormal PowerShell scripts is a good methodology to find potentially malicious activity within a network. Understanding what is commonly run within an environment and developing baselines for legitimate activity can help uncover potential malware and suspicious behaviors.
 
-This rule uses a machine learning job to detect a Windows process that is rare and unusual for an individual Windows host in your environment.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+This rule uses a machine learning job to detect a PowerShell script that is rare and unusual for an individual Windows host in your environment, based on the script block hash.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the PowerShell script block that triggered the detection. Retrieve the full script content associated with the hash and examine it for malicious indicators such as encoded commands, suspicious URLs, or unusual system calls.
+  - Investigate the process execution chain (parent process tree) for the PowerShell process. Examine the parent process for prevalence, whether it is located in an expected location, and if it is signed with a valid digital signature.
   - If the parent process is a legitimate system utility or service, this could be related to software updates or system management. If the parent process is something user-facing like an Office application, this process could be more suspicious.
-  - Investigate the process metadata — such as the digital signature, directory, etc. — to obtain more context that can indicate whether the executable is associated with an expected software vendor or package.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Consider the user as identified by the `user.name` field. Is this program part of an expected workflow for the user who ran this program on this host?
+- Consider the user as identified by the `user.name` field. Is this script part of an expected workflow for the user who ran it on this host?
 - Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Validate if the activity has a consistent cadence (for example, if it runs monthly or quarterly), as it could be part of a monthly or quarterly business process.
-- Examine the arguments and working directory of the process. These may provide indications as to the source of the program or the nature of the tasks it is performing.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Retrieve the script block hash value and search for its existence and reputation in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False Positive Analysis
 
@@ -93,9 +51,7 @@ This rule uses a machine learning job to detect a Windows process that is rare a
 
 ### Related Rules
 
-- Unusual Process For a Windows Host - 6d448b96-c922-4adb-b51c-b767f1ea5b76
-- Unusual Windows Path Activity - 445a342e-03fb-42d0-8656-0367eb2dead5
-- Unusual Windows Process Calling the Metadata Service - abae61a8-c560-4dbd-acca-1e1438bff36b
+- Suspicious Powershell Script - 1781d055-5c66-4adf-9d60-fc0fa58337b6
 
 ### Response and Remediation
 
@@ -112,9 +68,12 @@ This rule uses a machine learning job to detect a Windows process that is rare a
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://www.elastic.co/security-labs/detecting-living-off-the-land-attacks-with-new-elastic-integration",
+]
 risk_score = 21
-rule_id = "6d448b96-c922-4adb-b51c-b767f1ea5b76"
+rule_id = "4577d441-0c05-4bfb-9068-39a0cb855269"
 setup = """## Setup
 
 This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
@@ -150,13 +109,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 The Windows integration allows you to monitor the Windows OS, services, applications, and more.
 
 #### The following steps should be executed in order to add the Elastic Agent System integration "windows" to your system:
-- Go to the Kibana home page and click “Add integrations”.
-- In the query bar, search for “Windows” and select the integration to see more details about it.
-- Click “Add Windows”.
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Windows" and select the integration to see more details about it.
+- Click "Add Windows".
 - Configure the integration name and optionally add a description.
 - Review optional and advanced settings accordingly.
-- Add the newly installed “windows” to an existing or a new agent policy, and deploy the agent on your system from which windows log files are desirable.
-- Click “Save and Continue”.
+- Add the newly installed "windows" to an existing or a new agent policy, and deploy the agent on your system from which windows log files are desirable.
+- Click "Save and Continue".
 - For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/windows).
 """
 severity = "low"
@@ -166,40 +125,22 @@ tags = [
     "Use Case: Threat Detection",
     "Rule Type: ML",
     "Rule Type: Machine Learning",
-    "Tactic: Persistence",
+    "Tactic: Execution",
     "Resources: Investigation Guide",
 ]
 type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1543"
-name = "Create or Modify System Process"
-reference = "https://attack.mitre.org/techniques/T1543/"
-
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 [[rule.threat.technique.subtechnique]]
-id = "T1543.003"
-name = "Windows Service"
-reference = "https://attack.mitre.org/techniques/T1543/003/"
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1569"
-name = "System Services"
-reference = "https://attack.mitre.org/techniques/T1569/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1569.002"
-name = "Service Execution"
-reference = "https://attack.mitre.org/techniques/T1569/002/"
 
 [rule.threat.tactic]
 id = "TA0002"
