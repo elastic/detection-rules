@@ -401,66 +401,6 @@ class TestRuleTags(BaseRuleTest):
                     error_msg += f"Expected tags: {', '.join(invalid_tags.values())}"
                     self.fail(error_msg)
 
-    def test_required_tags(self):
-        """Test that expected tags are present within rules."""
-
-        required_tags_map = {
-            "logs-endpoint.events.*": {"all": ["Domain: Endpoint", "Data Source: Elastic Defend"]},
-            "endgame-*": {"all": ["Data Source: Elastic Endgame"]},
-            "logs-aws*": {"all": ["Data Source: AWS", "Data Source: Amazon Web Services", "Domain: Cloud"]},
-            "logs-azure*": {"all": ["Data Source: Azure", "Domain: Cloud"]},
-            "logs-o365*": {"all": ["Data Source: Microsoft 365", "Domain: Cloud"]},
-            "logs-okta*": {"all": ["Data Source: Okta"]},
-            "logs-gcp*": {"all": ["Data Source: Google Cloud Platform", "Data Source: GCP", "Domain: Cloud"]},
-            "logs-google_workspace*": {"all": ["Data Source: Google Workspace", "Domain: Cloud"]},
-            "logs-cloud_defend.alerts-*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Container"]},
-            "logs-cloud_defend*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Container"]},
-            "logs-kubernetes.*": {"all": ["Data Source: Kubernetes"]},
-            "apm-*-transaction*": {"all": ["Data Source: APM"]},
-            "traces-apm*": {"all": ["Data Source: APM"]},
-            ".alerts-security.*": {"all": ["Rule Type: Higher-Order Rule"]},
-            "logs-cyberarkpas.audit*": {"all": ["Data Source: CyberArk PAS"]},
-            "logs-endpoint.alerts-*": {"all": ["Data Source: Elastic Defend"]},
-            "logs-windows.sysmon_operational-*": {"all": ["Data Source: Sysmon"]},
-            "logs-windows.powershell*": {"all": ["Data Source: PowerShell Logs"]},
-            "logs-system.security*": {"all": ["Data Source: Windows Security Event Logs"]},
-            "logs-system.forwarded*": {"all": ["Data Source: Windows Security Event Logs"]},
-            "logs-system.system*": {"all": ["Data Source: Windows System Event Logs"]},
-            "logs-sentinel_one_cloud_funnel.*": {"all": ["Data Source: SentinelOne"]},
-            "logs-fim.event-*": {"all": ["Data Source: File Integrity Monitoring"]},
-            "logs-m365_defender.event-*": {"all": ["Data Source: Microsoft Defender for Endpoint"]},
-            "logs-crowdstrike.fdr*": {"all": ["Data Source: Crowdstrike"]},
-        }
-
-        for rule in self.all_rules:
-            rule_tags = rule.contents.data.tags
-            error_msg = f"{self.rule_str(rule)} Missing tags:\nActual tags: {', '.join(rule_tags)}"
-
-            consolidated_optional_tags = []
-            is_missing_any_tags = False
-            missing_required_tags = set()
-
-            if isinstance(rule.contents.data, QueryRuleData):
-                for index in rule.contents.data.get("index") or []:
-                    expected_tags = required_tags_map.get(index, {})
-                    expected_all = expected_tags.get("all", [])
-                    expected_any = expected_tags.get("any", [])
-
-                    existing_any_tags = [t for t in rule_tags if t in expected_any]
-                    if expected_any:
-                        # consolidate optional any tags which are not in use
-                        consolidated_optional_tags.extend(t for t in expected_any if t not in existing_any_tags)
-
-                    missing_required_tags.update(set(expected_all).difference(set(rule_tags)))
-                    is_missing_any_tags = expected_any and not set(expected_any) & set(existing_any_tags)
-
-            consolidated_optional_tags = [t for t in consolidated_optional_tags if t not in missing_required_tags]
-            error_msg += f"\nMissing all of: {', '.join(missing_required_tags)}" if missing_required_tags else ""
-            error_msg += f"\nMissing any of: {', '.join(consolidated_optional_tags)}" if is_missing_any_tags else ""
-
-            if missing_required_tags or is_missing_any_tags:
-                self.fail(error_msg)
-
     def test_bbr_tags(self):
         """Test that "Rule Type: BBR" tag is present for all BBR rules."""
         invalid_bbr_rules = [
@@ -538,10 +478,6 @@ class TestRuleTags(BaseRuleTest):
                     err_msg = self.rule_str(rule)
                     err_msg += "\n    expected: Rule Type: Machine Learning"
                     invalid.append(err_msg)
-                if "Rule Type: ML" not in rule_tags:
-                    err_msg = self.rule_str(rule)
-                    err_msg += "\n    expected: Rule Type: ML"
-                    invalid.append(err_msg)
 
         if invalid:
             err_msg = "\n".join(invalid)
@@ -591,6 +527,103 @@ class TestRuleTags(BaseRuleTest):
 
         if invalid:
             self.fail(f"Rules with duplicate tags:\n{invalid}")
+
+
+@unittest.skipIf(
+    PACKAGE_STACK_VERSION < Version.parse("9.3.0"),
+    "Tag taxonomy validation requires 9.3+"
+)
+@unittest.skipIf(os.environ.get("DR_BYPASS_TAGS_VALIDATION") is not None, "Skipping tag validation")
+class TestTagTaxonomy(BaseRuleTest):
+    """Validate that rules comply with the tag taxonomy (9.3+ only)."""
+
+    def test_no_legacy_tags(self):
+        """Ensure no rules use legacy tag values that were replaced in the taxonomy."""
+        invalid = []
+        for rule in self.all_rules:
+            found_legacy = set(rule.contents.data.tags) & definitions.LEGACY_TAGS
+            if found_legacy:
+                invalid.append(f"{self.rule_str(rule)} legacy tags: {sorted(found_legacy)}")
+        if invalid:
+            self.fail(f"Rules with legacy tags:\n" + "\n".join(invalid))
+
+    def test_no_use_case_tags(self):
+        """Ensure no rules use deprecated Use Case: tags."""
+        invalid = []
+        for rule in self.all_rules:
+            use_case_tags = [t for t in rule.contents.data.tags if t.startswith("Use Case:")]
+            if use_case_tags:
+                invalid.append(f"{self.rule_str(rule)} {use_case_tags}")
+        if invalid:
+            self.fail(f"Rules with Use Case tags:\n" + "\n".join(invalid))
+
+    def test_valid_domain_tags(self):
+        """Ensure all Domain tags use valid taxonomy values."""
+        invalid = []
+        for rule in self.all_rules:
+            domain_tags = {t for t in rule.contents.data.tags if t.startswith("Domain:")}
+            bad_domains = domain_tags - definitions.VALID_DOMAINS
+            if bad_domains:
+                invalid.append(f"{self.rule_str(rule)} invalid domains: {sorted(bad_domains)}")
+        if invalid:
+            self.fail(f"Rules with invalid Domain tags:\n" + "\n".join(invalid))
+
+    def test_has_domain_tag(self):
+        """Ensure all rules have at least one Domain tag."""
+        invalid = []
+        for rule in self.all_rules:
+            if not any(t.startswith("Domain:") for t in rule.contents.data.tags):
+                invalid.append(self.rule_str(rule))
+        if invalid:
+            self.fail(f"Rules missing Domain tag:\n" + "\n".join(invalid))
+
+    def test_has_rule_type_tag(self):
+        """Ensure all rules have a Rule Type tag."""
+        invalid = []
+        for rule in self.all_rules:
+            if not any(t.startswith("Rule Type:") for t in rule.contents.data.tags):
+                invalid.append(self.rule_str(rule))
+        if invalid:
+            self.fail(f"Rules missing Rule Type tag:\n" + "\n".join(invalid))
+
+    def test_valid_rule_type_tags(self):
+        """Ensure all Rule Type tags use valid taxonomy values."""
+        invalid = []
+        for rule in self.all_rules:
+            rule_type_tags = {t for t in rule.contents.data.tags if t.startswith("Rule Type:")}
+            bad_types = rule_type_tags - definitions.VALID_RULE_TYPES
+            if bad_types:
+                invalid.append(f"{self.rule_str(rule)} invalid rule types: {sorted(bad_types)}")
+        if invalid:
+            self.fail(f"Rules with invalid Rule Type tags:\n" + "\n".join(invalid))
+
+    def test_no_unprefixed_tags(self):
+        """Ensure all tags have a recognized prefix."""
+        invalid = []
+        for rule in self.all_rules:
+            for tag in rule.contents.data.tags:
+                if not any(tag.startswith(p) for p in definitions.VALID_TAG_PREFIXES):
+                    invalid.append(f"{self.rule_str(rule)} invalid tag: {tag}")
+        if invalid:
+            self.fail(f"Rules with unprefixed or invalid tags:\n" + "\n".join(invalid))
+
+    def test_required_tags(self):
+        """Test that expected tags are present based on index patterns."""
+        for rule in self.all_rules:
+            rule_tags = set(rule.contents.data.tags)
+            missing = set()
+
+            if isinstance(rule.contents.data, QueryRuleData):
+                for index in rule.contents.data.get("index") or []:
+                    expected = definitions.REQUIRED_TAGS_BY_INDEX.get(index, [])
+                    missing.update(set(expected) - rule_tags)
+
+            if missing:
+                self.fail(
+                    f"{self.rule_str(rule)} Missing tags:\n"
+                    f"Actual tags: {', '.join(rule.contents.data.tags)}\n"
+                    f"Missing: {', '.join(sorted(missing))}"
+                )
 
 
 class TestRuleTimelines(BaseRuleTest):

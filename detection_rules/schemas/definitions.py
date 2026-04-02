@@ -139,38 +139,105 @@ TIMELINE_TEMPLATES: Final[dict[str, str]] = {
 }
 
 EXPECTED_RULE_TAGS = [
-    "Data Source: Active Directory",
-    "Data Source: Amazon Web Services",
-    "Data Source: Auditd Manager",
-    "Data Source: AWS",
+    # Data Sources
     "Data Source: APM",
-    "Data Source: Azure",
-    "Data Source: CyberArk PAS",
+    "Data Source: AWS Bedrock Invocation Logs",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Active Directory Logs",
+    "Data Source: Azure Activity Logs",
+    "Data Source: Azure OpenAI Logs",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Check Point Harmony Email Logs",
+    "Data Source: Cisco FTD Logs",
+    "Data Source: CrowdStrike Falcon Logs",
+    "Data Source: CyberArk PAS Logs",
+    "Data Source: Elastic APM Logs",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Defend for Containers",
     "Data Source: Elastic Endgame",
-    "Data Source: GCP",
-    "Data Source: Google Cloud Platform",
-    "Data Source: Google Workspace",
-    "Data Source: Kubernetes",
-    "Data Source: Microsoft 365",
-    "Data Source: Okta",
+    "Data Source: Entra ID Audit Logs",
+    "Data Source: Entra ID Protection Logs",
+    "Data Source: Entra ID Sign-In Logs",
+    "Data Source: File Integrity Monitoring",
+    "Data Source: Fortinet FortiGate Logs",
+    "Data Source: GCP Audit Logs",
+    "Data Source: GitHub Audit Logs",
+    "Data Source: Google SecOps Forwarded Events",
+    "Data Source: Google Workspace Audit Logs",
+    "Data Source: IBM QRadar Forwarded Events",
+    "Data Source: Jamf Protect Event Logs",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Data Source: Linux Auditd Logs",
+    "Data Source: M365 Audit Logs",
+    "Data Source: Microsoft Defender for Cloud Alerts",
+    "Data Source: Microsoft Defender for Endpoint Logs",
+    "Data Source: Microsoft Defender for Identity Alerts",
+    "Data Source: Microsoft Defender for Office 365 Logs",
+    "Data Source: Microsoft Graph Activity Logs",
+    "Data Source: Microsoft Purview Logs",
+    "Data Source: Microsoft Sentinel Forwarded Events",
+    "Data Source: Network Packet Capture",
+    "Data Source: Okta System Logs",
+    "Data Source: PAN-OS Logs",
     "Data Source: PowerShell Logs",
-    "Data Source: Sysmon Only",
-    "Data Source: Zoom",
+    "Data Source: Rapid7 Threat Command Feeds",
+    "Data Source: SentinelOne Logs",
+    "Data Source: SonicWall Firewall Logs",
+    "Data Source: Splunk Forwarded Events",
+    "Data Source: Suricata Logs",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Windows Sysmon Logs",
+    "Data Source: Windows System Event Logs",
+    "Data Source: Wiz Findings",
+    "Data Source: Zoom Webhook Events",
+    # Domains
     "Domain: Cloud",
-    "Domain: Container",
+    "Domain: Containers",
+    "Domain: Email",
     "Domain: Endpoint",
+    "Domain: GenAI",
+    "Domain: Identity",
+    "Domain: Network",
+    "Domain: SaaS",
+    # Mitre Atlas (prefix-matched, open-ended)
     "Mitre Atlas: *",
+    # OS
     "OS: Linux",
-    "OS: macOS",
     "OS: Windows",
-    "Promotion: External Alerts",
-    "Rule Type: BBR",
+    "OS: macOS",
+    # Platforms
+    "Platform: AWS",
+    "Platform: Azure",
+    "Platform: Cisco",
+    "Platform: CyberArk",
+    "Platform: Entra ID",
+    "Platform: Fortinet FortiGate",
+    "Platform: GCP",
+    "Platform: GitHub",
+    "Platform: Google Workspace",
+    "Platform: Kubernetes",
+    "Platform: Linux",
+    "Platform: Microsoft 365",
+    "Platform: Okta",
+    "Platform: PAN-OS",
+    "Platform: Suricata",
+    "Platform: Windows",
+    "Platform: macOS",
+    # Resources
     "Resources: Investigation Guide",
-    "Rule Type: Higher-Order Rule",
+    # Rule Types
+    "Rule Type: BBR",
+    "Rule Type: Custom Query (KQL)",
+    "Rule Type: ESQL",
+    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: Higher-Order",
+    "Rule Type: Indicator Match",
     "Rule Type: Machine Learning",
-    "Rule Type: ML",
+    "Rule Type: New Terms",
+    "Rule Type: Threshold",
+    # Services (prefix-matched, open-ended)
+    "Service: *",
+    # Tactics
     "Tactic: Collection",
     "Tactic: Command and Control",
     "Tactic: Credential Access",
@@ -185,23 +252,30 @@ EXPECTED_RULE_TAGS = [
     "Tactic: Privilege Escalation",
     "Tactic: Reconnaissance",
     "Tactic: Resource Development",
-    "Threat: BPFDoor",
-    "Threat: Cobalt Strike",
-    "Threat: Lightning Framework",
-    "Threat: Orbit",
-    "Threat: Rootkit",
-    "Threat: TripleCross",
-    "Use Case: Active Directory Monitoring",
-    "Use Case: Asset Visibility",
-    "Use Case: Configuration Audit",
-    "Use Case: Guided Onboarding",
-    "Use Case: Identity and Access Audit",
-    "Use Case: Log Auditing",
-    "Use Case: Network Security Monitoring",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Use Case: Vulnerability",
+    # Threats (prefix-matched, open-ended)
+    "Threat: *",
+    # Vulnerabilities (prefix-matched, open-ended)
+    "Vuln: *",
 ]
+
+def _load_tag_taxonomy() -> dict:
+    """Load tag taxonomy definitions from YAML config."""
+    import yaml
+
+    from detection_rules.utils import get_etc_path
+
+    taxonomy_path = get_etc_path(["tag-taxonomy.yaml"])
+    with taxonomy_path.open() as f:
+        return yaml.safe_load(f)
+
+
+_TAG_TAXONOMY = _load_tag_taxonomy()
+
+VALID_TAG_PREFIXES: set[str] = set(_TAG_TAXONOMY["valid_prefixes"])
+VALID_DOMAINS: set[str] = set(_TAG_TAXONOMY["valid_domains"])
+VALID_RULE_TYPES: set[str] = set(_TAG_TAXONOMY["valid_rule_types"])
+LEGACY_TAGS: set[str] = set(_TAG_TAXONOMY["legacy_tags"])
+REQUIRED_TAGS_BY_INDEX: dict[str, list[str]] = _TAG_TAXONOMY["required_tags_by_index"]
 
 MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
 

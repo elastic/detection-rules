@@ -1,0 +1,199 @@
+# Tag taxonomy definitions for detection rules.
+# All tag validation constants are defined here and loaded by definitions.py.
+# Update this file when adding new integrations, data sources, platforms, etc.
+
+# Valid tag prefixes - all tags must start with one of these
+valid_prefixes:
+  - "Data Source:"
+  - "Domain:"
+  - "Mitre Atlas:"
+  - "OS:"
+  - "Platform:"
+  - "Resources:"
+  - "Rule Type:"
+  - "Service:"
+  - "Tactic:"
+  - "Threat:"
+  - "Vuln:"
+
+# Valid domain values
+valid_domains:
+  - "Domain: Cloud"
+  - "Domain: Containers"
+  - "Domain: Email"
+  - "Domain: Endpoint"
+  - "Domain: GenAI"
+  - "Domain: Identity"
+  - "Domain: Network"
+  - "Domain: SaaS"
+
+# Valid rule type values
+valid_rule_types:
+  - "Rule Type: BBR"
+  - "Rule Type: Custom Query (KQL)"
+  - "Rule Type: ESQL"
+  - "Rule Type: Event Correlation (EQL)"
+  - "Rule Type: Higher-Order"
+  - "Rule Type: Indicator Match"
+  - "Rule Type: Machine Learning"
+  - "Rule Type: New Terms"
+  - "Rule Type: Threshold"
+
+# Legacy tags that should no longer appear in production rules
+legacy_tags:
+  - "Data Source: Active Directory"
+  - "Data Source: Amazon Web Services"
+  - "Data Source: APM"
+  - "Data Source: Auditd Manager"
+  - "Data Source: AWS"
+  - "Data Source: Azure"
+  - "Data Source: Crowdstrike"
+  - "Data Source: CyberArk PAS"
+  - "Data Source: GCP"
+  - "Data Source: Google Cloud Platform"
+  - "Data Source: Google Workspace"
+  - "Data Source: Kubernetes"
+  - "Data Source: Microsoft 365"
+  - "Data Source: Microsoft Defender for Endpoint"
+  - "Data Source: Okta"
+  - "Data Source: SentinelOne"
+  - "Data Source: Sysmon"
+  - "Data Source: Sysmon Only"
+  - "Data Source: Zoom"
+  - "Domain: Container"
+  - "Rule Type: Higher-Order Rule"
+  - "Rule Type: ML"
+
+# Required tags by index pattern.
+# When a rule uses a given index pattern, it must include all listed tags.
+# Format: index_pattern -> list of required tags
+required_tags_by_index:
+  # Elastic Defend / Endgame
+  "logs-endpoint.events.*":
+    - "Domain: Endpoint"
+    - "Data Source: Elastic Defend"
+  "logs-endpoint.alerts-*":
+    - "Data Source: Elastic Defend"
+  "endgame-*":
+    - "Data Source: Elastic Endgame"
+
+  # AWS (all rules use logs-aws.cloudtrail[-*])
+  "logs-aws.cloudtrail-*":
+    - "Data Source: AWS CloudTrail"
+    - "Platform: AWS"
+    - "Domain: Cloud"
+  "logs-aws.cloudtrail*":
+    - "Data Source: AWS CloudTrail"
+    - "Platform: AWS"
+    - "Domain: Cloud"
+
+  # Azure - per data stream (logs-azure.[data_stream]-*)
+  "logs-azure.activitylogs-*":
+    - "Data Source: Azure Activity Logs"
+    - "Platform: Azure"
+    - "Domain: Cloud"
+  "logs-azure.auditlogs-*":
+    - "Data Source: Entra ID Audit Logs"
+    - "Platform: Entra ID"
+  "logs-azure.signinlogs-*":
+    - "Data Source: Entra ID Sign-In Logs"
+    - "Platform: Entra ID"
+  "logs-azure.identity_protection-*":
+    - "Data Source: Entra ID Protection Logs"
+    - "Platform: Entra ID"
+  "logs-azure.graphactivitylogs-*":
+    - "Data Source: Microsoft Graph Activity Logs"
+    - "Platform: Entra ID"
+  "logs-azure.platformlogs-*":
+    - "Data Source: Azure Platform Logs"
+    - "Platform: Azure"
+    - "Domain: Cloud"
+
+  # GCP
+  "logs-gcp*":
+    - "Platform: GCP"
+    - "Domain: Cloud"
+
+  # Okta
+  "logs-okta*":
+    - "Data Source: Okta System Logs"
+    - "Platform: Okta"
+
+  # Microsoft 365
+  "logs-o365.audit-*":
+    - "Data Source: M365 Audit Logs"
+    - "Platform: Microsoft 365"
+
+  # Google Workspace
+  "logs-google_workspace*":
+    - "Data Source: Google Workspace Audit Logs"
+    - "Platform: Google Workspace"
+
+  # GitHub
+  "logs-github.audit-*":
+    - "Data Source: GitHub Audit Logs"
+    - "Platform: GitHub"
+
+  # Kubernetes
+  "logs-kubernetes.*":
+    - "Data Source: Kubernetes API Server Audit Logs"
+  "logs-kubernetes.audit_logs-*":
+    - "Data Source: Kubernetes API Server Audit Logs"
+
+  # Cloud Defend (containers)
+  "logs-cloud_defend.alerts-*":
+    - "Data Source: Elastic Defend for Containers"
+  "logs-cloud_defend.process*":
+    - "Data Source: Elastic Defend for Containers"
+  "logs-cloud_defend.file*":
+    - "Data Source: Elastic Defend for Containers"
+
+  # Windows data streams
+  "logs-windows.sysmon_operational-*":
+    - "Data Source: Windows Sysmon Logs"
+  "logs-windows.powershell*":
+    - "Data Source: PowerShell Logs"
+  "logs-system.security*":
+    - "Data Source: Windows Security Event Logs"
+  "logs-system.forwarded*":
+    - "Data Source: Windows Security Event Logs"
+  "logs-system.system*":
+    - "Data Source: Windows System Event Logs"
+
+  # Linux
+  "logs-auditd_manager.auditd-*":
+    - "Data Source: Linux Auditd Logs"
+
+  # Third-party EDR
+  "logs-sentinel_one_cloud_funnel.*":
+    - "Data Source: SentinelOne Logs"
+  "logs-m365_defender.event-*":
+    - "Data Source: Microsoft Defender for Endpoint Logs"
+  "logs-crowdstrike.fdr*":
+    - "Data Source: CrowdStrike Falcon Logs"
+
+  # Network / Firewall (data source only - often combined as secondary sources)
+  "logs-panw.panos*":
+    - "Data Source: PAN-OS Logs"
+  "logs-fortinet_fortigate.*":
+    - "Data Source: Fortinet FortiGate Logs"
+  "logs-fortinet_fortigate.log-*":
+    - "Data Source: Fortinet FortiGate Logs"
+  "logs-suricata.*":
+    - "Data Source: Suricata Logs"
+
+  # Other integrations
+  "logs-cyberarkpas.audit*":
+    - "Data Source: CyberArk PAS Logs"
+  "logs-jamf_protect*":
+    - "Data Source: Jamf Protect Event Logs"
+  "logs-fim.event-*":
+    - "Data Source: File Integrity Monitoring"
+  "apm-*-transaction*":
+    - "Data Source: Elastic APM Logs"
+  "traces-apm*":
+    - "Data Source: Elastic APM Logs"
+
+  # Higher-order rules (alert correlation)
+  ".alerts-security.*":
+    - "Rule Type: Higher-Order"
