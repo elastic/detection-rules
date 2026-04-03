@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unifiedlogs"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a denied Screen Capture request via macOS Unified Logs TCC telemetry. The `com.apple.TCC` subsystem logs
+access decisions for protected resources. When the `kTCCServiceScreenCapture` service appears with `auth_value=0`,
+it indicates an application was denied permission to capture the screen. macOS stealers and spyware commonly attempt
+screen capture to exfiltrate sensitive information displayed on screen. While legitimate screen sharing and
+conferencing applications may also trigger denials during initial setup, this event should be investigated in
+combination with other suspicious activity. This detection leverages the `com.apple.TCC` subsystem with category
+`access` and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Video conferencing tools (Zoom, Teams, Slack), screen recording software, and remote desktop applications will
+    trigger denied events before the user grants screen capture access. Accessibility and assistive technology tools
+    may also generate these events during normal operation.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Screen Capture Access Denied via TCC"
+note = """## Triage and analysis
+
+### Investigating Screen Capture Access Denied via TCC
+
+This rule detects when an application is denied Screen Capture permission by macOS TCC. The `kTCCServiceScreenCapture` service controls which applications can capture the contents of the screen.
+
+### Possible investigation steps
+
+- Review the `message` field to extract the process identity (bundle ID, binary path, PID) of the denied application.
+- Correlate the denied process with Elastic Defend telemetry to determine how the process was launched and its parent chain.
+- Check if the application is a known screen sharing or conferencing tool, or if it is unexpected on the host.
+- Look for related TCC denials (e.g., camera, microphone) from the same process, which may indicate spyware behavior.
+- Check for preceding Apple Event activity such as `syso,exec` or `syso,dlog` that may indicate the screen capture attempt was part of a stealer payload.
+
+### False positive analysis
+
+- Zoom, Microsoft Teams, Slack, Google Meet, and other conferencing tools commonly trigger screen capture denials before being granted access.
+- Screen recording and screenshot utilities will trigger these events.
+- Remote desktop and IT support tools may generate denials during initial deployment.
+
+### Response and remediation
+
+- If the denied application is unknown or suspicious, isolate the host and investigate the process.
+- Review whether the application has other suspicious behaviors (network connections, file access, clipboard access).
+- Check for data exfiltration indicators if the application was recently granted screen capture access.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 21
+rule_id = "bd1a7412-cfbe-4d32-af9d-e969482a1400"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
+  AND unified_log.category == "access"
+  AND message LIKE "*kTCCServiceScreenCapture*"
+  AND message LIKE "*Handling access request*"
+  AND NOT message LIKE "*Allowed*"
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1113"
+name = "Screen Capture"
+reference = "https://attack.mitre.org/techniques/T1113/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "unified_log.subsystem",
+    "unified_log.category",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]

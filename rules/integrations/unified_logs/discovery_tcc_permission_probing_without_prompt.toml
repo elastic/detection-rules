@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unifiedlogs"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects applications probing for TCC permissions they cannot prompt for via macOS Unified Logs TCC telemetry. The
+`com.apple.TCC` subsystem logs when a service "does not allow prompting" and the access request is automatically
+denied. This pattern indicates an application is attempting to access a protected resource (such as Accessibility,
+Full Disk Access, or Screen Capture) for which it has no entitlement to trigger the user consent prompt. Malware
+may probe TCC services to discover what permissions are available or to attempt access without user interaction.
+This detection leverages the `com.apple.TCC` subsystem with category `access` and does not require private data
+enablement.
+"""
+false_positives = [
+    """
+    Some legitimate applications may probe TCC services during initialization to determine available capabilities.
+    Security tools and endpoint agents commonly check for accessibility or full disk access permissions on startup.
+    Review the source process and frequency of probing events to determine if the activity is expected.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "TCC Permission Probing Without Prompt Entitlement"
+note = """## Triage and analysis
+
+### Investigating TCC Permission Probing Without Prompt Entitlement
+
+This rule detects the "does not allow prompting" TCC pattern, which indicates an application attempted to access a protected service but lacks the entitlement to trigger the user consent dialog. The request is automatically denied. This is distinct from a user-denied request and often indicates unauthorized permission probing.
+
+### Possible investigation steps
+
+- Review the `message` field to identify which TCC service was probed and the process identity (bundle ID, binary path, PID).
+- Check if the application is known and whether it legitimately requires the probed permission.
+- Look for multiple distinct TCC services being probed by the same process, which may indicate systematic permission enumeration.
+- Correlate with Elastic Defend telemetry to understand how the process was launched and its parent chain.
+- Check if the probing process was recently installed, downloaded, or executed from a suspicious location (e.g., `/tmp/`, `/Users/Shared/`).
+- Review other TCC events and Apple Event activity on the same host for related attack chain indicators.
+
+### False positive analysis
+
+- Endpoint security agents and IT management tools commonly probe for Accessibility and Full Disk Access permissions on startup.
+- Applications performing feature discovery may check which permissions are available before offering functionality.
+- Development tools and scripts may trigger this pattern during testing.
+
+### Response and remediation
+
+- If the probing application is unknown or suspicious, investigate its origin and purpose.
+- Systematic probing across multiple TCC services from a single process is a strong indicator of malicious reconnaissance.
+- Isolate the host if additional indicators of compromise are identified.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 47
+rule_id = "f08230a3-4bf1-488c-953d-6f4853f1bbfc"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
+  AND unified_log.category == "access"
+  AND message LIKE "*does not allow prompting*"
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1518"
+name = "Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/"
+[[rule.threat.technique.subtechnique]]
+id = "T1518.001"
+name = "Security Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/001/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "unified_log.subsystem",
+    "unified_log.category",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]

@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unifiedlogs"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a denied Full Disk Access (FDA) request via macOS Unified Logs TCC telemetry. The `com.apple.TCC` subsystem
+logs access decisions for protected resources. When the `kTCCServiceSystemPolicyAllFiles` service appears with
+`auth_value=0`, it indicates an application was denied Full Disk Access. Malware commonly attempts to access files
+protected by FDA (e.g., Mail.app databases, Safari data, Time Machine backups) and gets denied when it lacks the
+required TCC entitlement. While legitimate applications may also be denied during normal operation, this event is
+worth investigating in the context of other suspicious activity on the host. This detection leverages the
+`com.apple.TCC` subsystem with category `access` and does not require private data enablement.
+"""
+false_positives = [
+    """
+    Legitimate applications that have not been granted Full Disk Access will generate denied events during normal
+    operation. Common examples include backup utilities, antivirus software, and file management tools that attempt
+    to access protected directories. Review the source process and determine if the application is expected on the host.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Full Disk Access Denied via TCC"
+note = """## Triage and analysis
+
+### Investigating Full Disk Access Denied via TCC
+
+This rule detects when an application is denied Full Disk Access by macOS TCC (Transparency, Consent, and Control). The `kTCCServiceSystemPolicyAllFiles` service controls access to all files on disk, including protected directories like Mail, Safari, and Time Machine data.
+
+### Possible investigation steps
+
+- Review the `message` field to extract the process identity (bundle ID, binary path, PID) of the application that was denied.
+- Correlate the denied process with Elastic Defend telemetry to understand what the process is and how it was launched.
+- Check if the application is known/expected on the host or if it was recently installed.
+- Look for repeated FDA denial events from the same process, which may indicate persistent attempts to access protected data.
+- Check for other TCC denials or Apple Event activity on the same host that may indicate a broader attack chain (e.g., credential harvesting followed by data collection attempts).
+
+### False positive analysis
+
+- Security tools, backup utilities, and IT management software commonly trigger FDA denials before being explicitly granted access by an administrator.
+- Applications launched for the first time may trigger denials before the user grants access via System Settings > Privacy & Security.
+- Development tools and terminal emulators may trigger denials when accessing protected directories.
+
+### Response and remediation
+
+- If the denied application is unknown or suspicious, isolate the host and investigate the process origin.
+- Check whether the application attempted to access sensitive data directories (Mail, Safari, SSH keys, etc.).
+- Review the host for additional indicators of compromise or stealer malware activity.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 21
+rule_id = "543e1a79-acec-4389-8e76-58d69f502c26"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
+  AND unified_log.category == "access"
+  AND message LIKE "*kTCCServiceSystemPolicyAllFiles*"
+  AND message LIKE "*Handling access request*"
+  AND NOT message LIKE "*Allowed*"
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "unified_log.subsystem",
+    "unified_log.category",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]
