@@ -110,9 +110,8 @@ type = "new_terms"
 query = '''
 event.dataset: "aws.cloudtrail"
     and event.outcome: "success"
-    and aws.cloudtrail.user_identity.arn: *
+    and aws.cloudtrail.user_identity.arn:(* and not *AWSServiceRoleForConfig*)
     and not aws.cloudtrail.user_identity.type: "AWSService"
-    and not aws.cloudtrail.user_identity.arn: *AWSServiceRoleForConfig*
     and event.provider: (
         "sts.amazonaws.com" or
         "iam.amazonaws.com" or
