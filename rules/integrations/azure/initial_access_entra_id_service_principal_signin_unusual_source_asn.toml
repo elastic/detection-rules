@@ -89,19 +89,13 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "azure.signinlogs"
-    and azure.signinlogs.category: "ServicePrincipalSignInLogs"
-    and azure.signinlogs.properties.status.error_code: 0
-    and azure.signinlogs.properties.service_principal_id: *
-    and source.as.number: *
-    and not (
-        source.as.organization.name: *MICROSOFT* or
-        source.as.organization.name: *Microsoft*
-    )
-    and not azure.signinlogs.properties.app_owner_tenant_id: (
-        "f8cdef31-a31e-4b4a-93e4-5f571e91255a" or
-        "72f988bf-86f1-41af-91ab-2d7cd011db47"
-    )
+event.dataset:azure.signinlogs
+    and azure.signinlogs.category:ServicePrincipalSignInLogs
+    and azure.signinlogs.properties.status.error_code:0
+    and azure.signinlogs.properties.service_principal_id:*
+    and source.as.number:*
+    and not source.as.organization.name:(*MICROSOFT* or *Microsoft*)
+    and not azure.signinlogs.properties.app_owner_tenant_id:(72f988bf-86f1-41af-91ab-2d7cd011db47 or f8cdef31-a31e-4b4a-93e4-5f571e91255a)
 '''
 
 
