@@ -120,11 +120,15 @@ query = '''
 any where event.dataset == "aws.cloudtrail"
   and event.outcome == "success"
   and (
-      (
-        user_agent.name: ("aws-cli", "Boto3")
-        and stringContains(user_agent.original, "distrib#kali")
-      )
-      or stringContains(user_agent.original, "TruffleHog")
+    (
+      stringContains(user_agent.original, "distrib#kali")
+      or stringContains(user_agent.original, "+kali")
+      or stringContains(user_agent.original, "kali-amd64")
+      or stringContains(user_agent.original, "kali-arm64")
+    ) or (
+      stringContains(user_agent.original, "TruffleHog")
+      or stringContains(user_agent.original, "trufflehog")
+    )
   )
 '''
 
