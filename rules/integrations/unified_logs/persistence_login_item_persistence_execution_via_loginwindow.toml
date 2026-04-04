@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["unifiedlogs"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects login item persistence execution via the macOS Unified Logs `com.apple.loginwindow.logging` subsystem. The
+`LoginItemsLauncher` message indicates that login items were launched during user login. Login items are a common
+persistence mechanism used by macOS malware to ensure execution after system reboot. While many legitimate
+applications register login items for auto-start behavior, unexpected or recently added login items warrant
+investigation. This subsystem produces very low event volume with high signal fidelity, making it an effective
+detection source. This rule operates at default log level and does not require debug or private data enablement.
+"""
+false_positives = [
+    """
+    Many legitimate applications register login items for auto-start behavior, including cloud storage clients
+    (Dropbox, Google Drive), communication tools (Slack, Teams), security software, and system utilities. Review
+    the launched application identity in the message field to determine if the login item is expected.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Login Item Persistence Execution via Unified Logs"
+note = """## Triage and analysis
+
+### Investigating Login Item Persistence Execution via Unified Logs
+
+This rule detects the `LoginItemsLauncher` pattern from the `com.apple.loginwindow.logging` subsystem, which fires when login items are launched during user login. Login items persist across reboots and are a favored persistence mechanism for macOS malware.
+
+### Possible investigation steps
+
+- Review the `message` field to identify the application or script that was auto-launched at login.
+- Correlate with Elastic Defend telemetry to determine the full process chain and binary details (code signature, path, hash).
+- Check whether the login item was recently added by reviewing Login Items in System Settings or via `sfltool dumpbtm`.
+- Look for other persistence mechanisms on the same host (LaunchAgents, LaunchDaemons, cron jobs) that may be part of the same attack chain.
+- Check if the auto-launched application performs suspicious post-login activity (network connections, credential access, data collection).
+- Review the host for recent software installations or modifications that could explain the new login item.
+
+### False positive analysis
+
+- Cloud storage sync clients (Dropbox, iCloud Drive, Google Drive) commonly register login items.
+- Communication tools (Slack, Microsoft Teams, Discord) use login items for auto-start.
+- Security and IT management software (antivirus, MDM agents) register login items.
+- macOS system services and Apple applications may trigger this pattern during updates.
+
+### Response and remediation
+
+- If the login item is unrecognized, investigate its origin and remove it via System Settings > General > Login Items.
+- Check for associated persistence files in `~/Library/LaunchAgents/`, `/Library/LaunchAgents/`, or the BackgroundTaskManagement database.
+- If the login item is confirmed malicious, remove all associated files and persistence mechanisms.
+- Review the host for additional indicators of compromise.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+    "https://developer.apple.com/documentation/servicemanagement/smappservice",
+]
+risk_score = 21
+rule_id = "e360db98-825c-4674-9dbc-0b3d42cc706f"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Data Source: macOS Unified Logs",
+    "Data Source: Unified Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.loginwindow.logging"
+  AND message LIKE "*LoginItemsLauncher*"
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.015"
+name = "Login Items"
+reference = "https://attack.mitre.org/techniques/T1547/015/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "message",
+    "unified_log.subsystem",
+    "event.dataset",
+    "process.name",
+    "process.executable",
+    "user.name",
+]
