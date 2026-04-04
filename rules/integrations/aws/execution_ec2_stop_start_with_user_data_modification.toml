@@ -116,6 +116,7 @@ FROM logs-aws.cloudtrail-*
 | STATS Esql.event_action_unique_count = COUNT_DISTINCT(event.action), 
         Esql.event_action_values = VALUES(event.action) by Esql.instance_id, user.name, cloud.account.id, Esql.time_bucket = DATE_TRUNC(5 minute, @timestamp) , user_agent.original, source.ip
 | where Esql.event_action_unique_count == 3
+| Keep Esql.*, user.name, cloud.account.id, user_agent.original, source.ip
 '''
 
 
