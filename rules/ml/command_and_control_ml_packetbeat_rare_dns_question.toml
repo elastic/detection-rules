@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/15"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+updated_date = "2026/04/01"
 
 [rule]
 anomaly_threshold = 50
@@ -25,7 +27,7 @@ false_positives = [
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = "packetbeat_rare_dns_question"
+machine_learning_job_id = "packetbeat_rare_dns_question_ea"
 name = "Unusual DNS Activity"
 setup = """## Setup
 
@@ -119,19 +121,49 @@ DNS is crucial for translating domain names into IP addresses, enabling network 
 - Update and enhance DNS monitoring rules to detect similar unusual DNS activity in the future, ensuring rapid identification and response to potential threats."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1071.004"
 name = "DNS"
 reference = "https://attack.mitre.org/techniques/T1071/004/"
 
-
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
