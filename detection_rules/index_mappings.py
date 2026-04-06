@@ -17,7 +17,6 @@ from elasticsearch.exceptions import BadRequestError
 from semver import Version
 
 from . import ecs, integrations, misc, utils
-from .config import load_current_package_version
 from .esql import EventDataset
 from .esql_errors import (
     EsqlKibanaBaseError,
