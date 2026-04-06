@@ -2,7 +2,7 @@
 creation_date = "2026/01/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -128,8 +128,11 @@ type = "query"
 
 query = '''
 event.category:process and host.os.type:windows and powershell.file.script_block_length > 1000 and
-  powershell.file.script_block_entropy_bits >= 5.3 and powershell.file.script_block_surprisal_stdev > 0.7 and
-  not file.directory: "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts"
+  powershell.file.script_block_entropy_bits >= 5.5 and powershell.file.script_block_surprisal_stdev > 0.7 and
+  not file.directory: (
+        "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts" or
+        "C:\Program Files\Microsoft Azure AD Connect Health Agent\Products\AdFederationService\AdfsDiagnostics\AdfsToolbox\diagnosticsModule\Private"
+  )
 '''
 
 
@@ -138,7 +141,7 @@ event.category:process and host.os.type:windows and powershell.file.script_block
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
-value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -180,6 +183,7 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
