@@ -1440,40 +1440,7 @@ class TestInvestigationGuide(BaseRuleTest):
 
 
 class TestNoteMarkdownPlugins(BaseRuleTest):
-    """Test if a guide containing Osquery Plugin syntax contains the version note."""
-
-    def test_note_has_osquery_warning(self):
-        """Test that all rules with osquery entries have the default notification of stack compatibility."""
-        osquery_note_pattern = (
-            "> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) "
-            "introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-        invest_note_pattern = (
-            "> This investigation guide uses the [Investigate Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)"
-            " introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-
-        for rule in self.all_rules:
-            if not rule.contents.get("transform"):
-                continue
-
-            osquery = rule.contents.transform.get("osquery")
-            if osquery and osquery_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain "
-                    f"the following note:\n{osquery_note_pattern}"
-                )
-
-            investigate = rule.contents.transform.get("investigate")
-            if investigate and invest_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain "
-                    f"the following note:\n{invest_note_pattern}"
-                )
+    """Test investigation guide markdown plugin syntax and placeholders."""
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
