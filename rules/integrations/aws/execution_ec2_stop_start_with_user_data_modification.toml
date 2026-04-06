@@ -112,11 +112,10 @@ FROM logs-aws.cloudtrail-*
    (event.action == "ModifyInstanceAttribute" and aws.cloudtrail.request_parameters like "*userData=*")
    )
 | grok aws.cloudtrail.request_parameters """instanceId=(?<Esql.instance_id>[^,}\]]+)"""
-| keep @timestamp, event.action, Esql.instance_id, aws.cloudtrail.request_parameters, user.name, cloud.account.id, user_agent.original, source.ip
 | STATS Esql.event_action_unique_count = COUNT_DISTINCT(event.action), 
-        Esql.event_action_values = VALUES(event.action) by Esql.instance_id, user.name, cloud.account.id, Esql.time_bucket = DATE_TRUNC(5 minute, @timestamp) , user_agent.original, source.ip
+        Esql.event_action_values = VALUES(event.action) by Esql.instance_id, user.name, cloud.account.id, Esql.time_bucket = DATE_TRUNC(5 minute, @timestamp) , user_agent.original, source.ip, source.as.organization.name, source.geo.country_name
 | where Esql.event_action_unique_count == 3
-| Keep Esql.*, user.name, cloud.account.id, user_agent.original, source.ip
+| Keep Esql.*, user.name, cloud.account.id, user_agent.original, source.ip, source.as.organization.name, source.geo.country_name
 '''
 
 
