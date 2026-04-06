@@ -511,7 +511,7 @@ def prepare_mappings(  # noqa: PLR0913
         custom_mapping.update({index: index_mapping})
 
     # Load ECS in an index mapping format (nested schema)
-    current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    current_version = Version.parse(stack_version, optional_minor_and_patch=True)
     ecs_schema = get_ecs_schema_mappings(current_version)
 
     # Filter combined mappings based on the provided indices
