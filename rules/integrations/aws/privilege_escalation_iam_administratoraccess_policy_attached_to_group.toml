@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/13"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,6 @@ language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM AdministratorAccess Policy Attached to Group"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS IAM AdministratorAccess Policy Attached to Group
 
@@ -66,22 +63,22 @@ Adversaries can exploit `iam:AttachGroupPolicy` permissions to escalate privileg
 
 ### Response and remediation
 
-**1. Immediate containment**
+**Immediate containment**
 - Detach the policy from the affected group (`aws iam detach-group-policy`).  
 - Review and limit group membership. Temporarily remove non-essential users or disable access for impacted accounts.  
 - Rotate credentials for users who inherited admin privileges from the attachment.  
 - Enable MFA on all impacted accounts.  
 
-**2. Evidence preservation**
+**Evidence preservation**
 - Export the triggering `AttachGroupPolicy` event and related CloudTrail entries ±30 minutes from the alert.  
 - Preserve AWS Config and GuardDuty records to support forensic analysis.  
 
-**3. Scoping and investigation**
+**Scoping and investigation**
 - Review additional IAM operations from the same caller (`CreateAccessKey`, `AttachRolePolicy`, `UpdateAssumeRolePolicy`).  
 - Identify whether new groups or roles were created shortly before or after the event.  
 - Check for subsequent API activity by newly privileged users (for example, S3, EC2, or IAM modifications).  
 
-**4. Recovery and hardening**
+**Recovery and hardening**
 - Reinforce least privilege, avoid assigning `AdministratorAccess` to groups.  
 - Use role-based access control with scoped permissions.   
 - Enable CloudTrail, GuardDuty, and Security Hub across all regions.  

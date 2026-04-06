@@ -23,7 +23,7 @@ from .action_connector import (
 from .cli_utils import multi_collection
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
-from .generic_loader import GenericCollection, GenericCollectionTypes
+from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
@@ -109,7 +109,7 @@ def kibana_import_rules(  # noqa: PLR0915
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
 ) -> tuple[dict[str, Any], list[RuleResource]]:
-    """Import custom rules into Kibana."""
+    """Import rules into Kibana."""
 
     def _handle_response_errors(response: dict[str, Any]) -> None:
         """Handle errors from the import response."""
@@ -123,8 +123,8 @@ def kibana_import_rules(  # noqa: PLR0915
         workaround_errors: list[str] = []
         workaround_error_types: set[str] = set()
 
-        flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
-        all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
+        flattened_exceptions: list[dict[str, Any]] = [e for sublist in exception_dicts for e in sublist]
+        all_exception_list_ids: set[str] = {exception["list_id"] for exception in flattened_exceptions}
 
         click.echo(f"{len(response['errors'])} rule(s) failed to import!")
 
@@ -160,10 +160,6 @@ def kibana_import_rules(  # noqa: PLR0915
                 )
                 click.echo()
 
-    def _matches_rule_ids(item: GenericCollectionTypes, rule_ids: set[str]) -> bool:
-        """Check if the item matches any of the rule IDs in the provided set."""
-        return any(rule_id in rule_ids for rule_id in item.contents.metadata.get("rule_ids", []))
-
     def _process_imported_items(
         imported_items_list: list[list[dict[str, Any]]],
         item_type_description: str,
@@ -181,15 +177,13 @@ def kibana_import_rules(  # noqa: PLR0915
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
     with kibana:
         cl = GenericCollection.default()
-        exception_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLExceptionContents) and _matches_rule_ids(d, rule_ids)
+        exception_dicts: list[list[dict[str, Any]]] = [
+            d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+            for d in cl.items_matching(TOMLExceptionContents, rule_ids)
         ]
-        action_connectors_dicts = [
-            d.contents.to_api_format()
-            for d in cl.items
-            if isinstance(d.contents, TOMLActionConnectorContents) and _matches_rule_ids(d, rule_ids)
+        action_connectors_dicts: list[list[dict[str, Any]]] = [
+            d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+            for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
         ]
         response, successful_rule_ids, results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
             rule_dicts,
@@ -207,8 +201,8 @@ def kibana_import_rules(  # noqa: PLR0915
     if response["errors"]:
         _handle_response_errors(response)  # type: ignore[reportUnknownArgumentType]
     else:
-        _process_imported_items(exception_dicts, "exception list(s)", "list_id")
-        _process_imported_items(action_connectors_dicts, "action connector(s)", "id")
+        _process_imported_items(exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
+        _process_imported_items(action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
 
     return response, results  # type: ignore[reportUnknownVariableType]
 
@@ -277,7 +271,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     export_query: str | None = None,
     load_rule_loading: bool = False,
 ) -> list[TOMLRule]:
-    """Export custom rules from Kibana."""
+    """Export rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors or custom_rules_only or export_query
 

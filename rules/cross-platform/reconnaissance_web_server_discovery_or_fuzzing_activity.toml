@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/11/19"
-integration = ["nginx", "apache", "apache_tomcat", "iis"]
+integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik"]
 maturity = "production"
-updated_date = "2025/12/05"
+updated_date = "2026/03/19"
 
 [rule]
 author = ["Elastic"]
@@ -58,12 +58,13 @@ tags = [
     "Data Source: Apache",
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
+    "Data Source: Traefik",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
-from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*
+from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*, logs-traefik.access-*
 | where
     http.request.method == "GET" and 
     http.response.status_code in (404, 403)
@@ -77,14 +78,14 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
     http.response.status_code,
     source.ip,
     agent.id,
-    host.name,
+    agent.name,
     Esql.url_original_to_lower,
     data_stream.namespace
 
 | stats
     Esql.event_count = count(),
     Esql.url_original_count_distinct = count_distinct(Esql.url_original_to_lower),
-    Esql.host_name_values = values(host.name),
+    Esql.agent_name_values = values(agent.name),
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),

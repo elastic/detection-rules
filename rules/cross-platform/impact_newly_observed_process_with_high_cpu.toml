@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/01/27"
+maturity = "production"
+updated_date = "2026/01/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule alerts on processes exhibiting high CPU usage and that are observed for the first time in the previous 5 days.
+A previously unseen process consuming sustained CPU resources may indicate suspicious activity such as cryptomining,
+exploit payload execution, or other forms of resource abuse following host compromise. In some cases, this may also
+surface legitimate but unexpected software causing performance degradation.
+"""
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Newly Observed Process Exhibiting High CPU Usage"
+setup = """## Setup
+
+This rule requires host CPU metrics collected via the Elastic Agent **System** integration.
+
+### System Metrics Integration Setup
+The System integration collects host-level metrics such as CPU usage, load, memory, and process statistics and sends them to Elasticsearch using Elastic Agent.
+
+#### Prerequisite Requirements:
+- Elastic Agent managed by Fleet
+- A Fleet Server configured and reachable
+  Refer to the Fleet Server setup guide:
+  https://www.elastic.co/guide/en/fleet/current/fleet-server.html
+
+#### The following steps should be executed in order to enable CPU metrics collection:
+- Go to the Kibana home page and click **Add integrations**.
+- In the search bar, enter **System** and select the **System** integration.
+- Click **Add System**.
+- Configure an integration name and optionally add a description.
+- Under **Metrics**, ensure the following datasets are enabled:
+  - `system.cpu`
+  - `system.load` (optional but recommended)
+  - `system.process` (optional, if process-level CPU is required)
+- Review optional and advanced settings as needed.
+- Add the integration to an existing agent policy or create a new agent policy.
+- Deploy the Elastic Agent to the hosts from which CPU metrics should be collected.
+- Click **Save and Continue** to finalize the setup.
+
+#### Validation
+After deployment, verify CPU metrics ingestion by confirming the presence of documents in:
+- `metrics-system.cpu-*`
+- `metrics-system.load-*` (if enabled)
+
+For more details on the System integration and available metrics, refer to the documentation:
+https://docs.elastic.co/integrations/system
+"""
+risk_score = 73
+rule_id = "f9de0949-94d8-441d-ae9a-8eb1e040acf2"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Use Case: Observavility",
+    "Resources: Investigation Guide",
+    "Domain: Endpoint",
+    "Tactic: Impact"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM metrics-*
+// more than 90% CPU use
+| WHERE system.process.cpu.total.norm.pct >= 0.9 and process.name is not null
+| STATS Esql.total_count = count(*),
+        Esql.first_time_seen = MIN(@timestamp),
+        Esql.agent_id_values = COUNT_DISTINCT(agent.id),
+        Esql.system_process_cpu_total_norm_pct_values = MAX(system.process.cpu.total.norm.pct),
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.host_id_values = values(host.id), 
+        Esql.user_name_values = VALUES(user.name) by process.name
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+// first time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule and limited to 1 unique hostg
+| where Esql.recent <= 6 and Esql.agent_id_values == 1
+// populate fields for rule exception
+| eval host.id = MV_FIRST(Esql.host_id_values), 
+       process.command_line = MV_FIRST(Esql.process_command_line_values)
+| keep host.id, process.name, process.command_line, Esql.*
+'''
+note = """## Triage and analysis
+
+### Investigating Newly Observed Process Exhibiting High CPU Usage
+
+This rule alerts on processes exhibiting high CPU usage and that are observed for the first time in the previous 5 days.
+
+### Possible investigation steps
+- Examine the process name, command line, and SHA-256 hash to determine whether the process is expected or known to be malicious.
+- Validate the observed CPU usage and duration to determine whether the spike is abnormal for this process and host.
+- Check for related process activity such as parent/child processes, suspicious process spawning, or privilege escalation attempts.
+- Review additional host telemetry including:
+  - Network connections initiated by the process
+  - File creation or modification events
+  - Persistence mechanisms (services, scheduled tasks, registry keys)
+- Determine whether similar activity is observed on other hosts, which may indicate a broader compromise.
+
+### False positive analysis
+- Legitimate high-CPU processes such as software updates, backup agents, security scans, or system maintenance tasks.
+- Resource-intensive but benign applications (e.g., compilers, video encoding, data processing jobs).
+- Security tools or monitoring agents temporarily consuming high CPU.
+
+### Related Rules
+
+- Detection Alert on a Process Exhibiting CPU Spike - df9c0e92-5dee-4f1d-a760-3a5c039e4382
+- Multiple Alerts on a Host Exhibiting CPU Spike - b7f77c3c-1bcb-4afc-9ace-49357007947b
+
+### Response and remediation
+- If malicious activity is confirmed, isolate the affected host to prevent further impact.
+- Terminate the offending process if safe to do so.
+- Remove any identified malicious binaries or artifacts and eliminate persistence mechanisms.
+- Apply relevant patches or configuration changes to remediate the root cause.
+- Monitor the environment for recurrence of similar high-CPU processes combined with security alerts.
+- Escalate the incident if multiple hosts or indicators suggest coordinated or widespread activity."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+[[rule.threat.technique.subtechnique]]
+id = "T1496.001"
+name = "Compute Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/001/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

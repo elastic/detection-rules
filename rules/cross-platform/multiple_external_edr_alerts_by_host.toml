@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/09"
 maturity = "production"
-updated_date = "2026/01/09"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,8 @@ query = '''
 from .alerts-security.*
 | WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "sentinel_one.threat", "m365_defender.alert") and
         host.id is not null and kibana.alert.risk_score > 21 and
-        not (event.module == "crowdstrike" and (kibana.alert.rule.name like "* at *" or kibana.alert.rule.name like "* on *" or kibana.alert.rule.name == "EICARTestFileWrittenWin"))
+        not (event.module == "crowdstrike" and (kibana.alert.rule.name like "* at *" or kibana.alert.rule.name like "* on *" or kibana.alert.rule.name == "EICARTestFileWrittenWin")) and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | stats Esql.alerts_count = COUNT(*),
         Esql.rule_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
         Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),

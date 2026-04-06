@@ -2,14 +2,14 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies the use of Cmdlets and methods related to Windows event log deletion activities. This is often done by
-attackers in an attempt to evade detection or destroy forensic evidence on a system.
+Identifies PowerShell script block content that clears Windows event logs using Clear-EventLog, Remove-EventLog, or
+EventLogSession/EventLog Clear methods. Attackers clear local logs to evade detection and destroy forensic evidence.
 """
 from = "now-119m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -17,6 +17,76 @@ interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Log Clear Capabilities"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
+### Investigating PowerShell Script with Log Clear Capabilities
+
+This alert identifies PowerShell script block content associated with clearing Windows event logs through cmdlets or .NET methods. Clearing local logs can reduce forensic visibility and interrupt security monitoring. Because script block logging records executed content, confirm whether log clearing occurred and identify the broader activity that led to this action.
+
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Analyze `powershell.file.script_block_text` to determine intent and scope:
+  - Identify the clearing technique used (for example, `Clear-EventLog`, `Remove-EventLog`, `EventLogSession.ClearLog`, or `Diagnostics.EventLog.Clear`).
+  - Extract referenced log names/channels and any values that indicate breadth (single log vs multiple logs, loops, or log enumeration).
+  - Note any remote targets, session objects, or hostnames that suggest log clearing on other systems.
+  - If `Remove-EventLog` is used, treat it as higher impact and determine whether it targets built-in logs or custom logs/event sources.
+
+- Reconstruct full content when the script block is split:
+  - Pivot on `powershell.file.script_block_id` to collect all fragments.
+  - Order by `powershell.sequence` and confirm completeness using `powershell.total`.
+  - Use `powershell.file.script_block_length` to identify unusually large content that may include additional actions beyond log clearing.
+
+- Establish execution context and likely origin:
+  - Review `user.name`, `user.domain`, and `user.id` to determine whether the account is expected to perform log maintenance and whether the timing is consistent with approved activity.
+  - Review `host.name` and `host.id` to determine whether the affected system is high value (for example, servers or shared systems) and to scope other alerts on the same host.
+  - If `file.path`, `file.directory`, or `file.name` are present, capture the script location/name and evaluate whether it aligns with known administrative scripts or automation.
+  - If file context is absent, treat the activity as inline or dynamically generated and prioritize identifying how PowerShell was launched (interactive session, scheduled execution, service, or parent process) using adjacent endpoint telemetry.
+
+- Confirm whether logs were actually cleared and identify what was impacted:
+  - Review available Windows logging for records indicating event logs were cleared around `@timestamp`, and document which logs were affected.
+  - Look for gaps in event coverage or abrupt changes in event volume beginning at or shortly after the alert time on the same `host.id`.
+
+- Correlate with adjacent activity around `@timestamp` (as available in your environment):
+  - Process execution: identify the PowerShell host process, its parent process, and any related automation that triggered the script.
+  - Authentication and remote access: identify new or unusual logons, session establishment, or privilege changes leading up to the event.
+  - Network activity: review connections consistent with remote administration or lateral movement preceding the log clearing.
+  - Additional PowerShell activity: review other script block events for the same `host.id` and `user.id` before and after the alert to identify precursor actions and follow-on cleanup.
+
+- Scope across the environment:
+  - Search for the same or similar `powershell.file.script_block_text` patterns on other hosts to determine whether this is isolated behavior, shared tooling, or coordinated activity.
+  - Pivot on `user.id` to identify whether the same account performed similar activity on multiple hosts within a short time window.
+
+### False positive analysis
+
+- Authorized administrators may clear logs during troubleshooting, controlled testing, or specific maintenance procedures. Validate against change records, maintenance windows, and documented responsibilities for the account in `user.name`.
+- Endpoint provisioning, imaging, or environment resets (for example, labs or short-lived systems) can include log clearing as part of baseline preparation. Validate whether `host.name` is part of an expected rebuild or reset workflow.
+- Operational scripts may clear specific logs to address performance or retention constraints. Benign activity is more likely when `file.path` and `file.name` are from a controlled script repository and no additional suspicious activity is present for the same `user.id` and `host.id`.
+
+### Response and remediation
+
+- If activity is unauthorized or suspicious:
+  - Treat this as potential evidence destruction. Preserve remaining forensic data and collect relevant telemetry from the affected host.
+  - Preserve the full script content by capturing all fragments linked by `powershell.file.script_block_id` (use `powershell.sequence` and `powershell.total` for ordering) and retain it with the case record.
+  - Contain the involved account and host according to incident response procedures (for example, restrict access, reset credentials, and isolate the endpoint if required).
+  - Investigate for additional post-compromise activity on the same `host.id` and by the same `user.id`, prioritizing persistence, credential access, and lateral movement around the alert time.
+  - Assess logging resilience: verify critical logs are centrally forwarded and retained, and review access controls that allow event log clearing to ensure they are limited to necessary administrative roles.
+
+- If activity is confirmed benign:
+  - Document the authorized workflow (who, what, where, and when), including expected `host.name`, `user.name`, and any associated script identifiers (`file.name`/`file.path`).
+  - Maintain monitoring for deviations from the approved pattern (unexpected accounts, hosts, timing, or expanded targeting) to reduce noise without losing coverage.
+"""
 references = [
     "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventlog.clear",
     "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventlogsession.clearlog",
@@ -25,21 +95,8 @@ risk_score = 21
 rule_id = "3d3aa8f9-12af-441f-9344-9f31053e316d"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "low"
 tags = [
@@ -49,6 +106,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: PowerShell Logs",
     "Rule Type: BBR",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -69,19 +127,20 @@ event.category:process and host.os.type:windows and
 
 
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Windows\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\Microsoft.PowerShell.Management\\\\*.psd1"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Resources\\\\*\\\\M365Library.ps1"
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -116,4 +175,23 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

@@ -169,6 +169,7 @@ def generate_rules_index(
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
+@click.option("--dates-import", "-di", is_flag=True, help="Parse created_at and updated_at from the rule content")
 @click.option(
     "--load-rule-loading",
     "-lr",
@@ -189,10 +190,15 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     strip_none_values: bool,
     local_creation_date: bool,
     local_updated_date: bool,
+    dates_import: bool,
     load_rule_loading: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors: list[str] = []
+
+    if dates_import and (local_creation_date or local_updated_date):
+        click.echo("Error: --dates-import cannot be used with --local-creation-date or --local-updated-date.")
+        return
 
     rule_files: list[Path] = []
     if directory:
@@ -252,6 +258,20 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
 
+        # Parse created_at and updated_at to creation_date and updated_date if they exist in contents
+        if dates_import:
+            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            contents["creation_date"] = (
+                datetime.strptime(contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .strftime("%Y/%m/%d")
+            )
+            contents["updated_date"] = (
+                datetime.strptime(contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .strftime("%Y/%m/%d")
+            )
+
         contents.update(
             update_metadata_from_file(
                 rule_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
@@ -280,7 +300,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 exception_id = exception["list_id"]
                 if exception_id not in exception_list_rule_table:
                     exception_list_rule_table[exception_id] = []
-                exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
+                exception_list_rule_table[exception_id].append(
+                    {
+                        "id": contents.get("rule_id"),
+                        "name": contents["name"],
+                    }
+                )
 
         if contents.get("actions"):
             # If rule has actions with connectors, add them to the action_connector_rule_table under the action_id
@@ -288,7 +313,12 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
                 action_id = action["id"]
                 if action_id not in action_connector_rule_table:
                     action_connector_rule_table[action_id] = []
-                action_connector_rule_table[action_id].append({"id": contents["id"], "name": contents["name"]})
+                action_connector_rule_table[action_id].append(
+                    {
+                        "id": contents.get("rule_id"),
+                        "name": contents["name"],
+                    }
+                )
 
     # Build TOMLException Objects
     if exceptions_import:
@@ -521,16 +551,21 @@ def _export_rules(  # noqa: PLR0913
     # Add exceptions to api format here and add to output_lines
     if include_exceptions or include_action_connectors:
         cl = GenericCollection.default()
-        # Get exceptions in API format
+        rule_ids = {r.id for r in rules}
+        # Get exceptions in API format (only those linked to the exported rules)
         if include_exceptions:
-            exceptions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)]
-            exceptions = [e for sublist in exceptions for e in sublist]
+            exceptions_raw: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLExceptionContents, rule_ids)
+            ]
+            exceptions: list[dict[str, Any]] = [e for sublist in exceptions_raw for e in sublist]
             output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
         if include_action_connectors:
-            action_connectors = [
-                d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            action_connectors: list[list[dict[str, Any]]] = [
+                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
             ]
-            actions = [a for sublist in action_connectors for a in sublist]
+            actions: list[dict[str, Any]] = [a for sublist in action_connectors for a in sublist]
             output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)
 
     _ = outfile.write_text("\n".join(output_lines) + "\n")

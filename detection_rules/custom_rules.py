@@ -125,7 +125,7 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_p
 
     # Create the stack-schema-map.yaml file
     stack_schema_map_content = load_etc_dump(["stack-schema-map.yaml"])
-    latest_version = max(stack_schema_map_content.keys(), key=lambda v: Version.parse(v))
+    latest_version = max(stack_schema_map_content.keys(), key=Version.parse)
     latest_entry = {latest_version: stack_schema_map_content[latest_version]}
     _ = stack_schema_map_config.write_text(yaml.safe_dump(latest_entry, default_flow_style=False))
 

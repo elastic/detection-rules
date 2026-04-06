@@ -2,7 +2,7 @@
 creation_date = "2025/07/24"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/18"
+updated_date = "2026/01/19"
 
 [rule]
 author = ["Elastic"]
@@ -63,9 +63,9 @@ references = [
     "https://www.sentinelone.com/blog/sharepoint-toolshell-zero-day-exploited-in-the-wild-targets-enterprise-servers/",
     "https://www.rapid7.com/blog/post/2024/10/30/investigating-a-sharepoint-compromise-ir-tales-from-the-field/",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "32144184-7bfa-4541-9c3f-b65f16d24df9"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -86,7 +86,10 @@ query = '''
 file where host.os.type == "windows" and event.type != "deletion" and
   file.extension : "aspx" and
   file.path : "?:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\*" and
-  not process.executable: "?:\\Windows\\System32\\msiexec.exe"
+  not process.executable: (
+        "?:\\Windows\\System32\\msiexec.exe",
+        "?:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\16\\BIN\\psconfigui.exe"
+  )
 '''
 
 [[rule.threat]]

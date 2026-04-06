@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2025/11/19"
 maturity = "production"
-updated_date = "2025/11/19"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -30,8 +30,10 @@ from .alerts-security.*  metadata _id
         kibana.alert.rule.name IS NOT NULL and
         host.id is not null and event.dataset is not null and
         kibana.alert.rule.type != "threat_match" and
-        not kibana.alert.rule.name in ("Agent Spoofing - Mismatched Agent ID") and
-        not kibana.alert.rule.name like "Deprecated - *"
+        // Top noisy influencing rules
+        not kibana.alert.rule.name in ("Agent Spoofing - Mismatched Agent ID", "Compression DLL Loaded by Unusual Process", "Process Termination followed by Deletion", "Suspicious PrintSpooler Service Executable File Creation", "Potential PrintNightmare File Modification") and
+        not kibana.alert.rule.name like "Deprecated - *" and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // extract unique counts and values by host.id
 | stats Esql.alerts_count = COUNT(*),

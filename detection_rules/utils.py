@@ -136,12 +136,21 @@ def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = T
         eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
 
 
+# Top-level _config.yaml key -> DR_BYPASS_* env var set when true at load time
+OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV: dict[str, str] = {
+    "bypass_note_validation_and_parse": "DR_BYPASS_NOTE_VALIDATION_AND_PARSE",
+    "bypass_bbr_lookback_validation": "DR_BYPASS_BBR_LOOKBACK_VALIDATION",
+    "bypass_tags_validation": "DR_BYPASS_TAGS_VALIDATION",
+    "bypass_timeline_template_validation": "DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION",
+    "bypass_esql_keep_validation": "DR_BYPASS_ESQL_KEEP_VALIDATION",
+    "bypass_esql_metadata_validation": "DR_BYPASS_ESQL_METADATA_VALIDATION",
+}
+
+
 def set_all_validation_bypass(env_value: bool = False) -> None:
     """Set all validation bypass environment variables."""
-    os.environ["DR_BYPASS_NOTE_VALIDATION_AND_PARSE"] = str(env_value)
-    os.environ["DR_BYPASS_BBR_LOOKBACK_VALIDATION"] = str(env_value)
-    os.environ["DR_BYPASS_TAGS_VALIDATION"] = str(env_value)
-    os.environ["DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION"] = str(env_value)
+    for env_var in OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV.values():
+        os.environ[env_var] = str(env_value)
 
 
 def set_nested_value(obj: dict[str, Any], compound_key: str, value: Any) -> None:
@@ -338,7 +347,7 @@ def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = "
 def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
     """Load a rule file from multiple formats."""
     extension = rule_file.suffix
-    raw_text = rule_file.read_text()
+    raw_text = rule_file.read_text(encoding="utf-8")
 
     if extension in (".ndjson", ".jsonl"):
         # kibana exported rule object is ndjson with the export metadata on the last line
