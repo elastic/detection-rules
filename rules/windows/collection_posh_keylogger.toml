@@ -2,7 +2,7 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/01/26"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -11,98 +11,16 @@ Detects PowerShell script block content that references Win32 keylogging primiti
 low-level input hooks. Adversaries use keylogging to capture credentials and other sensitive user input.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Keylogging Script"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Keylogging Script
-
-This alert indicates that PowerShell Script Block Logging recorded code referencing Win32 API functions commonly used to capture keystrokes or register low-level keyboard or mouse hooks. These primitives are frequently used by offensive tooling and custom implants to collect credentials and other sensitive input.
-
-#### Key alert fields to review
-
-- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
-- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
-- `powershell.file.script_block_text`: Script block content that matched the detection logic.
-- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
-- `powershell.file.script_block_length`: Script block length (size) context.
-
-#### Possible investigation steps
-
-- Identify the execution scope and prioritize response:
-  - Review `host.name` and `host.id` to understand where the activity occurred and whether the asset is high value.
-  - Review `user.name`, `user.domain`, and `user.id` to determine the executing account and whether the activity is expected for that user.
-  - Use `@timestamp` to establish when the script block executed and to anchor a timeline for related activity on the same host.
-
-- Analyze the script block content for intent and capability:
-  - Review `powershell.file.script_block_text` and note which capability is present:
-    - Key state polling: `GetAsyncKeyState`, `NtUserGetAsyncKeyState`, `GetKeyboardState`.
-    - Input hooking: `SetWindowsHookEx`, `SetWindowsHookExA`, `SetWindowsHookExW`, or `NtUserSetWindowsHookEx` with hook constants like `WM_KEYBOARD_LL`, `WH_KEYBOARD_LL`, or `WH_MOUSE_LL`, and hook flow indicators such as `LowLevelKeyboardProc` or `CallNextHookEx`.
-    - Foreground window context capture often used to label keystrokes: `GetForegroundWindow`, `GetWindowTextA`, `GetWindowTextW`.
-    - Commodity keylogging functions or modules: `Get-Keystrokes`.
-  - Determine whether the script block only defines helper functions or actively invokes hook registration or polling loops (higher confidence of active collection).
-  - Look for common interop patterns used to call Win32 APIs from PowerShell (for example, `Add-Type`, `DllImport`, or embedded C#) and for logic that maps virtual key codes to readable output.
-  - Identify any referenced output handling within the script text (for example, file writes, buffering, encoding, or remote transmission routines) and capture those strings for scoping.
-
-- Reconstruct the full script when content is split across multiple events:
-  - If `powershell.total` is greater than 1 or the content appears truncated, collect all events that share the same `powershell.file.script_block_id`.
-  - Rebuild the script by ordering fragments using `powershell.sequence` until the expected `powershell.total` is reached.
-  - If expected sequences are missing, widen the time range around `@timestamp` to account for ingestion delays or gaps before concluding reconstruction.
-  - Preserve the fully reconstructed script text as evidence and for further scoping.
-
-- Determine the source of the script and how it was introduced:
-  - If `file.path` and `file.name` are present, treat the script as file-backed and assess whether the location and name are consistent with approved tooling and change control.
-  - Prioritize review when `file.path` suggests a user-writable or transient location, or when `file.name` is unusual for your environment.
-  - If file origin fields are not present, treat the execution as inline or dynamically generated and focus on surrounding PowerShell activity from the same `user.id` and `host.id` around `@timestamp`.
-  - Correlate the alert time on the same host with available process telemetry to identify the PowerShell host process and its parent process, then evaluate whether the execution chain aligns with expected administrative behavior.
-
-- Check for evidence of collection, staging, or downstream actions:
-  - Within `powershell.file.script_block_text`, identify any referenced output locations, file names, or remote destinations that could indicate where captured input is stored or transmitted.
-  - Review nearby endpoint file and network telemetry (if available) for unexpected file creation/modification in user-writable locations and unusual outbound connections following the alert time.
-  - Review authentication telemetry around the alert time to understand which accounts may have been exposed on the affected host during the suspected collection window.
-  - Look for repeated executions from the same `host.id` and `user.id` over time, which can indicate persistence or scheduled collection.
-
-- Scope for additional executions and impacted hosts:
-  - Search for other alerts or script block events that match the same `powershell.file.script_block_id`, the same `file.name`, or distinctive substrings from `powershell.file.script_block_text` across the environment.
-  - Identify whether the same `user.id` executed similar script blocks on multiple hosts or whether multiple users are affected on the same host, which may indicate broader compromise.
-  - If multiple hosts show the same file-backed script (`file.name` and `file.path`), determine whether it is a legitimate deployment versus unauthorized propagation.
-
-### False positive analysis
-
-- Some legitimate PowerShell automation may reference low-level input or window APIs for specialized use cases such as accessibility utilities, kiosk or lab automation, macro/hotkey tooling, or authorized security testing.
-- False positives are more likely when the script is part of a known internal toolkit with a documented business purpose, runs on a limited and expected host scope, and lacks evidence of sustained collection loops or output handling.
-- Treat as higher risk when the script content includes continuous polling or hook registration combined with logic that records, formats, stores, or prepares data for transmission, or when the activity occurs on user workstations outside of expected maintenance windows.
-
-### Response and remediation
-
-- If the activity is unauthorized or suspicious:
-  - Contain the host to prevent further input collection and limit follow-on actions.
-  - Preserve evidence from the alert, including the complete `powershell.file.script_block_text` reconstructed via `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total`, and any associated `file.path` and `file.name` values.
-  - Use the script content to extract any indicators (for example, output file names, remote destinations, or unique strings) and scope for related activity on other hosts.
-  - Assume potential credential exposure on the affected host and follow incident response procedures for credential reset, session revocation, and review of privileged access activity during the suspected collection window.
-  - Remediate the initial access path and remove any persistence or secondary payloads identified during correlation, including removing unauthorized scripts referenced by `file.path`.
-
-- If the activity is confirmed benign:
-  - Document the legitimate script or tool, expected operators (`user.id`), and expected host scope (`host.id`).
-  - Apply narrowly scoped tuning based on stable, repeatable identifiers (for example, specific `file.path` and expected accounts) to reduce recurring noise while maintaining coverage for unauthorized keylogging behavior.
-"""
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-Keystrokes.ps1",
     "https://github.com/MojtabaTajik/FunnyKeylogger/blob/master/FunnyLogger.ps1",
 ]
 risk_score = 73
 rule_id = "bd2c86a0-8b61-4457-ab38-96943984e889"
-setup = """## Setup
-
-PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
-Setup instructions: https://ela.st/powershell-logging-setup
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -132,46 +50,72 @@ event.category:process and host.os.type:windows and
   )
 '''
 
+note = """## Triage and analysis
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1056"
-name = "Input Capture"
-reference = "https://attack.mitre.org/techniques/T1056/"
-[[rule.threat.technique.subtechnique]]
-id = "T1056.001"
-name = "Keylogging"
-reference = "https://attack.mitre.org/techniques/T1056/001/"
+### Investigating PowerShell Keylogging Script
 
+#### Possible investigation steps
 
+- Does the preserved script content show active keylogging intent rather than inert reference text?
+  - Focus: the preserved script text on the alert and any associated `file.path`.
+  - Implication: supports concern when the content invokes polling loops, hook registration, window-labeling routines, output formatting, or commodity functions such as "Get-Keystrokes"; carries less weight when the text is clearly documentation, training content, or inert reference with no adjacent execution evidence.
 
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.001"
-name = "PowerShell"
-reference = "https://attack.mitre.org/techniques/T1059/001/"
+- Does reconstructing the full script reveal logging, labeling, staging, or transmission behavior that changes urgency?
+  - Why: script block logging can split one script across multiple records; later fragments often reveal output paths, timer loops, or exfiltration.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` to rebuild adjacent fragments, then the reconstructed content for foreground-window labeling, output files, archives, remote destinations, or cleanup logic. $investigate_0
+  - Implication: supports active collection when reconstruction shows continuous polling, registered hooks, keystroke formatting, saved logs, compression, upload logic, or cleanup after collection.
 
+- Does the user-host pairing fit recognized accessibility tooling, kiosk automation, or security assessment?
+  - Focus: the `user.id` and `host.id` pairing, whether the host role supports input-capture tooling, and any prior alert recurrence for the same pairing and launcher.
+  - Hint: if workflow documentation is unavailable, require the same pairing and launcher to recur across prior alerts.
+  - Implication: escalate when the user has no recurring pattern of input capture, the host handles privileged workflows, or the timing falls outside scheduled testing.
 
-[[rule.threat.technique]]
-id = "T1106"
-name = "Native API"
-reference = "https://attack.mitre.org/techniques/T1106/"
+- Can you recover the PowerShell process and explain how it was launched?
+  - Focus: the matching process start event via `process.pid` and `host.id`, recovering `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`. $investigate_1
+  - Hint: if the process event cannot be found, keep later file, network, and authentication review bounded to the same host and alert time.
+  - Implication: supports unauthorized use when the recovered process is launched by a document, browser, chat client, scheduled task, remote session, or user-writable script path.
 
+- Do file events show keystroke logs, staged archives, or renamed artifacts?
+  - Focus: file events for the same `process.entity_id`, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, and `file.Ext.original.path` when logs or archives are renamed for staging.
+  - Implication: supports active collection when log files, archives, or renamed artifacts appear in user-writable or hidden paths, or when header bytes do not match the visible extension.
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+- Do network events show credential exfiltration, webhook delivery, or remote staging?
+  - Focus: network events for the same `process.entity_id`, separating DNS `lookup_result` events (`dns.question.name`, `dns.resolved_ip`) from connection events (`destination.ip`, `destination.port`).
+  - Implication: suggests exfiltration when the process reaches rare public destinations, messaging or webhook services, or cloud storage. Missing network telemetry is unresolved, not benign.
+
+- Do authentication events show the session came from an unusual origin or that captured credentials were reused?
+  - Why: keylogging becomes higher priority when post-capture authentication shows new logons or explicit-credential use that could reflect captured input being used.
+  - Focus: if `process.Ext.authentication_id` was recovered, bridge to `winlog.event_data.TargetLogonId` for session origin (`source.ip`, `winlog.event_data.AuthenticationPackageName`). Also check post-alert 4624 or 4648 events on the same `host.id` for accounts that do not match the alert user.
+  - Hint: "4648" explicit-credential events do not use `winlog.event_data.TargetLogonId`; search `winlog.event_data.SubjectLogonId` instead.
+  - Implication: suggests captured-input abuse when the session has an unexpected origin or when later logons show new remote, privileged, or explicit-credential activity.
+
+- If the local evidence stays suspicious, do related alerts suggest broader compromise?
+  - Focus: related alerts for the same `user.id` to find repeated collection or defense-evasion activity. $investigate_2
+  - Hint: compare related alerts for the same `host.id` for persistence, repeated collection, or renamed input-capture variants. $investigate_3
+  - Implication: broaden when either view shows collection, defense-evasion, persistence, or transfer activity outside the expected workflow; keep the case local when surrounding alerts stay confined to one recognized workflow.
+
+- Escalate when script intent, launch context, artifacts, network, or authentication evidence align on unauthorized input capture; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Accessibility, kiosk, security-testing, or malware-analysis workflows can legitimately trigger this rule. Confirm by matching the same `process.executable`, signer, and `host.id` pattern across prior alerts or against workflow records.
+- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts. Avoid exceptions on hook-function strings alone, `user.name` alone, or the host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the script content, recovered launch chain, user-host scope, and any benign artifact or destination pattern that proved the confirmed workflow. Create an exception only if the same workflow recurs consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the reconstructed script content, recovered `process.entity_id`, related `file.path` artifacts, any `dns.question.name` or `destination.ip` values linked to transfer, and authentication events around the alert. Apply reversible containment such as session restrictions or temporary destination blocking. Escalate to host isolation only when active collection, credential reuse, or transfer evidence is strong and the host role can tolerate it. Avoid destructive cleanup until scope is clearer.
+- If confirmed malicious, document the recovered `process.entity_id`, `process.command_line`, `process.parent.executable`, written `file.path` artifacts, any confirmed `dns.question.name` or `destination.ip` values, and logon session details before initiating response actions. Prefer host isolation over process termination for initial containment when the asset can tolerate it, then contain affected accounts, block malicious destinations and scripts, and terminate recovered processes only after evidence capture.
+- If keystroke logs, archives, or staging artifacts are identified, preserve them as sensitive evidence. Review related users and hosts for the same `powershell.file.script_block_text` content, `file.path` pattern, or `dns.question.name` destinations before eradicating. Then remove the artifacts and any persistence or automation identified during reconstruction or host-scoping.
+- If follow-on authentication review suggests captured credentials were used, prioritize credential resets for the affected user and any additional accounts identified during the post-alert authentication timeline, then hunt for related sessions or privilege changes on the same host and other assets.
+- After containment, restrict the execution path that allowed the script to run, such as tightening PowerShell execution policies or script-path allowlists. Retain PowerShell script block logging and related endpoint telemetry.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 
 [rule.investigation_fields]
 field_names = [
@@ -192,3 +136,87 @@ field_names = [
     "powershell.file.script_block_length"
 ]
 
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1056"
+name = "Input Capture"
+reference = "https://attack.mitre.org/techniques/T1056/"
+[[rule.threat.technique.subtechnique]]
+id = "T1056.001"
+name = "Keylogging"
+reference = "https://attack.mitre.org/techniques/T1056/001/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
