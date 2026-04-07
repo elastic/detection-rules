@@ -92,16 +92,39 @@ type = "query"
 
 query = '''
 event.category: "process" and event.action : ("exec" or "exec_event" or "start" or "ProcessRollup2" or "executed" or "process_started") and
-process.parent.name:("ssm-session-worker.exe" or "ssm-session-worker") and not process.name: "id"
+(
+ process.parent.name:("ssm-session-worker.exe" or "ssm-session-worker" or "ssm-document-worker.exe" or "ssm-document-worker") or 
+ (process.name : "powershell.exe" and process.args : *awsrunPowerShellScript*) or
+ (process.name : ("dash" or "sh" or "bash") and process.args : *awsrunShellScript*) or 
+ (process.parent.name : "powershell.exe" and process.parent.args : *awsrunPowerShellScript*) or
+ (process.parent.name : ("dash" or "sh" or "bash") and process.parent.args : *awsrunShellScript*)
+ ) and 
+ not process.executable : ("/usr/bin/lscpu" or "/usr/bin/snap" or "/usr/bin/rpm" or "/usr/bin/dpkg-query" or /snap/snapd/*/usr/bin/snap)
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+    
+    [[rule.threat.technique.subtechnique]]
+    id = "T1059.001"
+    name = "PowerShell"
+    reference = "https://attack.mitre.org/techniques/T1059/001/"
+    
 
 [[rule.threat.technique]]
 id = "T1651"
