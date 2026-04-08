@@ -16,9 +16,9 @@ A detection is more than a query that fires. Quality encompasses purposeful rule
 
 A single rule mapped to a technique does not mean that technique is "covered." True coverage means understanding the technique's variants, the telemetry required to observe them, the evasion paths available to attackers, and the gaps that remain.
 
-### If you can detect it, you can test it
+### Trusted and tested
 
-A detection that cannot be validated is a detection you cannot trust. Every rule should be accompanied by evidence that it fires correctly, whether through emulation, simulation, or representative log samples.
+A detection that does not function correctly is a liability. Every rule should be accompanied by evidence that it fires correctly, whether through emulation, simulation, or representative log samples.
 
 ### Known gaps are better than unknown gaps
 
