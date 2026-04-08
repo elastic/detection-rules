@@ -14,11 +14,11 @@ A detection is more than a query that fires. Quality encompasses purposeful rule
 
 ### Coverage is about depth, not count
 
-A single rule mapped to a technique does not mean that technique is "covered." True coverage means understanding the technique's variants, the telemetry required to observe them, the evasion paths available to attackers, and the gaps that remain.
+A single rule mapped to a technique does not mean that technique is "covered." True coverage means understanding the technique's variants, the telemetry required to observe them, surrounding security controls and infrastructure, the evasion paths available to attackers, and the gaps that remain.
 
 ### Trusted and tested
 
-A detection that does not function correctly is a liability. Every rule should be accompanied by evidence that it fires correctly, whether through emulation, simulation, or representative log samples.
+A detection that does not function correctly is a liability. Every rule should be accompanied by evidence that it fires correctly and models scoped threat behavior, whether through emulation, simulation, or representative log samples.
 
 ### Known gaps are better than unknown gaps
 
@@ -26,7 +26,7 @@ No detection is perfect. Rules should document their known limitations and accep
 
 ### Engineered for production
 
-Detection rules are software that runs in production. They must be performant, maintainable, and effective, not just technically correct. That means lean queries with acceptable execution time, clear logic, documented assumptions, adequate lookback windows and schedules, and active maintenance as schemas and data sources evolve.
+Detection rules are software that run in production. They must be performant, maintainable, and effective, not just technically correct. That means lean queries with acceptable execution time, clear logic, documented assumptions, adequate lookback windows and schedules, and active maintenance as schemas and data sources evolve.
 
 ### Threat-informed defense drives prioritization
 
@@ -38,7 +38,7 @@ For endpoint protections, the goal is not only to detect a threat but to block i
 
 ### The right language for the right job
 
-Elastic Security supports multiple query languages and rule types, each suited for different detection patterns. New Terms rules surface rare behavior, threshold rules detect frequency-based anomalies, EQL enables event correlation and sequencing, KQL provides flat search across fields, and ES|QL supports advanced analytics. Choosing the right language and rule type for a given technique is as important as writing correct logic.
+Elastic Security supports multiple query languages and detection mechanisms, each capable of expressing different analytical patterns. Some detections identify rare or novel behavior, others focus on frequency and threshold-based anomalies, while others rely on event sequencing, correlation, or broad field matching. Advanced analytics enable aggregation, enrichment, and cross-domain reasoning.
 
 ## Approach
 
