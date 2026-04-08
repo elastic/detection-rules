@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the first observed successful login of a user with the Administrator role to the FortiGate management
+interface within the last 5 days. First-time administrator logins can indicate newly provisioned accounts,
+misconfigurations, or unauthorized access using valid credentials and should be reviewed promptly.
+"""
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "First-Time FortiGate Administrator Login"
+note = """## Triage and Analysis
+
+### Investigating First-Time FortiGate Administrator Login
+
+This alert indicates that a user with the **Administrator** role has successfully logged in to the FortiGate management interface for the first time within the last 5 days of observed data.
+
+Because administrator access provides full control over network security devices, any newly observed admin login should be validated to confirm it is expected and authorized.
+
+### Investigation Steps
+
+- **Identify the account**
+  - Review `source.user.name` and confirm whether the account is known and officially provisioned.
+  - Determine whether this is a newly created administrator or an existing account logging in for the first time.
+
+- **Validate the source**
+  - Review `source.ip` and confirm whether it originates from a trusted management network, VPN, or jump host.
+  - Investigate geolocation or ASN if the source IP is external or unusual.
+
+- **Review login context**
+  - Examine associated FortiGate log messages for details such as login method, interface, or authentication source.
+  - Check for additional administrative actions following the login (policy changes, user creation, configuration exports).
+
+- **Correlate with recent changes**
+  - Verify whether there were recent change requests, onboarding activities, or maintenance windows that explain the login.
+  - Look for other authentication attempts (failed or successful) from the same source or user.
+
+### False Positive Considerations
+
+- Newly onboarded administrators or service accounts.
+- First-time logins after log retention changes or data source onboarding.
+- Automation, backup, or monitoring tools introduced recently.
+- Lab, development, or test FortiGate devices.
+
+### Response and Remediation
+
+- **If authorized**
+  - Document the activity and consider adding an exception if the behavior is expected.
+  - Ensure the account follows least-privilege and MFA best practices.
+
+- **If suspicious or unauthorized**
+  - Disable or restrict the administrator account immediately.
+  - Rotate credentials and review authentication sources.
+  - Audit recent FortiGate configuration changes.
+  - Review surrounding network activity for lateral movement or persistence attempts."""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
+]
+risk_score = 73
+rule_id = "55a372b9-f5b6-4069-a089-8637c00609a2"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.category == "authentication" and event.action == "login" and
+        event.outcome == "success" and source.user.roles == "Administrator" and source.user.name is not null
+| stats Esql.logon_count = count(*),
+        Esql.first_time_seen = MIN(@timestamp),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.message_values = VALUES(message) by source.user.name
+
+// first time seen is within 6m of the rule execution time and for the last 5d of events history
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+| where Esql.recent <= 6 and Esql.logon_count == 1
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| eval source.ip = MV_FIRST(Esql.source_ip_values)
+
+| keep source.ip, source.user.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

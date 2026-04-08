@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2020/05/20"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a new Amazon Relational Database Service (RDS) Aurora DB cluster or global database spread
+across multiple regions.
+"""
+false_positives = [
+    """
+    Valid clusters may be created by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Cluster creations by unfamiliar users or hosts should
+    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS RDS Cluster Creation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS RDS Cluster Creation
+
+Amazon RDS facilitates database management by automating tasks like hardware provisioning and backups. Adversaries may exploit RDS by creating unauthorized clusters to exfiltrate data or establish persistence. The detection rule monitors successful creation events of RDS clusters, flagging potential misuse by correlating specific actions and outcomes, thus aiding in identifying unauthorized activities.
+
+### Possible investigation steps
+
+- Review the event details in AWS CloudTrail to confirm the event.dataset is 'aws.cloudtrail' and the event.provider is 'rds.amazonaws.com', ensuring the alert is based on the correct data source.
+- Verify the identity of the user or service account that initiated the CreateDBCluster or CreateGlobalCluster action by examining the user identity information in the event logs.
+- Check the event time and correlate it with any other suspicious activities or alerts in the same timeframe to identify potential patterns or coordinated actions.
+- Investigate the source IP address and geolocation associated with the event to determine if it aligns with expected access patterns or if it indicates unauthorized access.
+- Assess the configuration and settings of the newly created RDS cluster, including security groups, network settings, and any associated IAM roles, to identify potential security misconfigurations or vulnerabilities.
+- Review the AWS account's recent activity for any other unusual or unauthorized actions that might indicate broader compromise or misuse.
+
+### False positive analysis
+
+- Routine maintenance or testing activities by authorized personnel can trigger alerts. To manage this, create exceptions for specific user accounts or roles known to perform these tasks regularly.
+- Automated scripts or tools used for infrastructure management might create RDS clusters as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific tags or identifiers.
+- Scheduled deployments or updates that involve creating new RDS clusters can be mistaken for unauthorized activity. Document these schedules and configure the detection rule to ignore events during these timeframes.
+- Development or staging environments often involve frequent creation and deletion of RDS clusters. Exclude these environments from monitoring by filtering based on environment-specific tags or naming conventions.
+- Partner or third-party integrations that require creating RDS clusters should be reviewed and whitelisted if deemed non-threatening, ensuring that their actions do not generate false positives.
+
+### Response and remediation
+
+- Immediately isolate the newly created RDS cluster to prevent any unauthorized access or data exfiltration. This can be done by modifying the security group rules to restrict inbound and outbound traffic.
+- Review CloudTrail logs to identify the IAM user or role responsible for the creation of the RDS cluster. Verify if the action was authorized and if the credentials have been compromised.
+- Revoke any suspicious or unauthorized IAM credentials and rotate keys for affected users or roles to prevent further unauthorized actions.
+- Conduct a thorough audit of the RDS cluster configuration and data to assess any potential data exposure or integrity issues. If sensitive data is involved, consider notifying relevant stakeholders and following data breach protocols.
+- Implement additional monitoring and alerting for RDS-related activities, focusing on unusual patterns or actions that align with persistence tactics, to enhance detection capabilities.
+- Escalate the incident to the security operations team for further investigation and to determine if additional containment or remediation actions are necessary.
+- Review and update IAM policies and permissions to ensure the principle of least privilege is enforced, reducing the risk of unauthorized RDS cluster creation in the future.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/create-db-cluster.html",
+    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBCluster.html",
+    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/create-global-cluster.html",
+    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateGlobalCluster.html",
+]
+risk_score = 21
+rule_id = "e14c5fd7-fdd7-49c2-9e5b-ec49d817bc8d"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS RDS",
+    "Use Case: Asset Visibility",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(CreateDBCluster or CreateGlobalCluster) and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

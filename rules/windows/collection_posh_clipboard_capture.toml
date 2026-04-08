@@ -2,13 +2,13 @@
 creation_date = "2023/01/12"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/09/03"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell scripts that can get the contents of the clipboard, which attackers can abuse to retrieve sensitive
-information like credentials, messages, etc.
+Detects PowerShell script block content that retrieves clipboard data using Get-Clipboard or Windows clipboard APIs.
+Adversaries can collect copied credentials, tokens, or other sensitive data from the clipboard.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -17,41 +17,63 @@ license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Clipboard Retrieval Capabilities"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating PowerShell Suspicious Script with Clipboard Retrieval Capabilities
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This alert indicates PowerShell script block content associated with clipboard access. The matched script may use the Get-Clipboard cmdlet or Windows clipboard APIs (for example, Windows.Forms.Clipboard or related UI components) to retrieve user-copied data. Clipboard collection is often opportunistic and may be used to capture credentials, tokens, and other sensitive information copied during normal workflows.
 
-Attackers can abuse PowerShell capabilities to get the contents of the clipboard with the goal of stealing credentials and other valuable information, such as credit card data and confidential conversations.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine file or network events from the involved PowerShell process for suspicious behavior.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Determine whether the script stores the captured data locally.
-- Investigate whether the script contains exfiltration capabilities and identify the exfiltration server.
-- Assess network data to determine if the host communicated with the exfiltration server.
+- Review `powershell.file.script_block_text` to understand the clipboard access technique and usage pattern:
+  - Get-Clipboard usage versus .NET/UI based access (for example, Windows.Forms.Clipboard, Windows.Clipboard, TextBox.Paste, or methods such as GetText).
+  - Whether clipboard access appears to be a one-time action or part of repeated/polled collection logic (for example, loops, timers, or repeated calls in the same script).
+- Reconstruct the complete script when content is split across multiple events:
+  - Pivot on `powershell.file.script_block_id` and order related events by `powershell.sequence` to rebuild the full script up to `powershell.total`.
+  - Use `powershell.file.script_block_length` as context for unusually large scripts, which may indicate additional functionality beyond clipboard retrieval.
+- Evaluate intent by reviewing surrounding logic in `powershell.file.script_block_text`:
+  - Where clipboard contents are stored (variables, arrays, buffers) and whether the script transforms data after retrieval (for example, encoding, compression, string manipulation, or obfuscation).
+  - Any indications of staging or transfer behavior following clipboard access (for example, writing data to disk or preparing network requests).
+- Validate provenance and expected use:
+  - Use `user.name`, `user.domain`, and `user.id` to determine whether the execution context is expected to run PowerShell that interacts with the clipboard.
+  - Use `host.name` and `host.id` to determine whether the affected host is a typical endpoint for interactive clipboard use or an unusual target for clipboard collection.
+  - If `file.path`, `file.directory`, or `file.name` are present, assess whether the script source is expected for the user and host, and whether it is located in a user-writable or temporary location.
+- Determine execution context and whether the activity is user-driven or automated:
+  - Correlate activity for the same `host.id` and `user.id` with process execution telemetry (if available) to identify the PowerShell host and its parent process, and whether execution was interactive or automated.
+  - If authentication telemetry is available, correlate nearby logon activity for the same user and host to identify newly established sessions or unusual remote access preceding the alert.
+- Scope and prevalence:
+  - Search for other script block events with similar clipboard-related strings in `powershell.file.script_block_text` for the same `user.id` and `host.id`, and then across other hosts to identify reuse.
+  - Look for reuse of the same `file.name` or `file.path` across hosts, which can indicate shared tooling or broader distribution.
+- Assess impact and potential exposure:
+  - If the script suggests repeated clipboard reads or immediate staging/transfer behavior, treat clipboard contents handled by the affected user on the host during the timeframe as potentially exposed and prioritize investigation accordingly.
 
 ### False positive analysis
 
-- Regular users are unlikely to use scripting utilities to capture contents of the clipboard, making false positives unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
-
-### Related rules
-
-- PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
+- Clipboard retrieval can be legitimate in user productivity scripts, developer/test utilities, and administrative automation that transforms or inserts copied content into other workflows.
+- Benign activity is more likely when the script source (`file.path`/`file.name`) aligns with known internal tooling, the user context is expected, and the script block text shows clear user-facing intent without follow-on staging or transfer behavior.
+- False positives are less likely when clipboard access is repeated or automated, appears on atypical hosts for interactive use, or is coupled with suspicious handling of the retrieved data (for example, encoding, buffering, or writing to unexpected locations).
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Prioritize the response if this alert involves key executives or potentially valuable targets for espionage.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is confirmed benign, document the script, expected users/hosts, and the business justification. Ensure the script source is maintained under change control to detect unauthorized modifications.
+- If suspicious or malicious activity is suspected:
+  - Contain the affected host to prevent further collection and preserve evidence.
+  - Preserve relevant artifacts, including all related script block events for the `powershell.file.script_block_id` and any referenced script file from `file.path` (if present).
+  - Investigate for downstream handling of clipboard data (staging or transfer) using available endpoint, file, network, and authentication telemetry scoped to `host.id` and `user.id`.
+  - Assess potential credential or token exposure for the affected user and initiate credential hygiene actions appropriate to your environment.
+  - Remove or remediate the execution source (malicious scripts or unauthorized automation) and investigate for persistence mechanisms that could re-run the clipboard collection.
+  - Expand scoping by hunting for the same clipboard retrieval patterns in `powershell.file.script_block_text`, and for reuse of the same `file.name`/`file.path` across other hosts.
+  - Capture lessons learned and update monitoring and access controls to reduce future abuse of PowerShell-based collection techniques while preserving required operational use cases.
 """
 references = [
     "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/get-clipboard",
@@ -61,21 +83,8 @@ risk_score = 47
 rule_id = "92984446-aefb-4d5e-ad12-598042ca80ba"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "medium"
 tags = [
@@ -91,15 +100,20 @@ type = "query"
 
 query = '''
 event.category:process and host.os.type:windows and
-  (powershell.file.script_block_text : (
-    "Windows.Clipboard" or
-    "Windows.Forms.Clipboard" or
-    "Windows.Forms.TextBox"
-   ) and
-   powershell.file.script_block_text : (
-    "]::GetText" or
-    ".Paste()"
-  )) or powershell.file.script_block_text : "Get-Clipboard" and
+(
+  (
+    powershell.file.script_block_text : (
+      "Windows.Clipboard" or
+      "Windows.Forms.Clipboard" or
+      "Windows.Forms.TextBox"
+    ) and
+    powershell.file.script_block_text : (
+      "]::GetText" or
+      ".Paste()"
+    )
+  ) or
+  powershell.file.script_block_text : "Get-Clipboard"
+) and
   not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
   ) and
@@ -107,6 +121,11 @@ event.category:process and host.os.type:windows and
   not (
     file.path : *WindowsPowerShell\\Modules\\*.ps1 and
     file.name : ("Convert-ExcelRangeToImage.ps1" or "Read-Clipboard.ps1")
+  ) and
+  not powershell.file.script_block_text : (
+    "Set-Alias -Name \"gcb\" -Value \"Get-Clipboard\"" or
+    "[Windows.Clipboard]::SetText($colorizedText" or
+    "EEFCB906-B326-4E99-9F54-8B4BB6EF3C6D"
   )
 '''
 
@@ -161,4 +180,23 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

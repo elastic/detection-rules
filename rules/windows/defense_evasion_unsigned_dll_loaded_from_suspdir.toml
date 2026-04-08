@@ -2,7 +2,7 @@
 creation_date = "2022/11/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2026/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -90,6 +90,7 @@ library where host.os.type == "windows" and
                   "?:\\Users\\*\\Music\\*.dll",
                   "?:\\Users\\Public\\*.dll",
                   "?:\\Users\\*\\Documents\\*.dll",
+				  "?:\\Users\\*\\Downloads\\*.dll",
                   "?:\\Windows\\Tasks\\*.dll",
                   "?:\\Windows\\System32\\Tasks\\*.dll",
                   "?:\\Intel\\*.dll",
@@ -158,7 +159,7 @@ library where host.os.type == "windows" and
                   "?:\\$Recycle.Bin\\*.dll") and
 
 	 /* DLL loaded from the process.executable current directory */
-	 endswith~(substring(dll.path, 0, length(dll.path) - (length(dll.name) + 1)), substring(process.executable, 0, length(process.executable) - (length(process.name) + 1)))
+	 (endswith~(substring(dll.path, 0, length(dll.path) - (length(dll.name) + 1)), substring(process.executable, 0, length(process.executable) - (length(process.name) + 1))) or dll.name : "chrome_elf.dll")
 '''
 
 

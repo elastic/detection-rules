@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2021/07/19"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when an ElastiCache security group has been modified or deleted. Amazon EC2-Classic and ElastiCache
+CacheSecurityGroups have been retired. Modern ElastiCache deployments run in a VPC and use standard EC2 security groups
+instead. This rule should be retained only for historical log analysis on legacy CloudTrail data. We recommend relying
+on "AWS EC2 Security Group Configuration Change" rule for network-control changes impacting ElastiCache in VPC-based
+deployments.
+"""
+false_positives = [
+    """
+    A ElastiCache security group deletion may be done by a system or network administrator. Verify whether the user
+    identity, user agent, and/or hostname should be making changes in your environment. Security Group deletions by
+    unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted
+    from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS ElastiCache Security Group Modified or Deleted"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS ElastiCache Security Group Modified or Deleted
+
+AWS ElastiCache security groups control inbound and outbound traffic to cache clusters, ensuring only authorized access. Adversaries may modify or delete these groups to bypass security controls, facilitating unauthorized data access or exfiltration. The detection rule monitors specific API actions related to security group changes, flagging successful modifications or deletions as potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.provider: elasticache.amazonaws.com to identify the user or role that initiated the security group modification or deletion.
+- Examine the event.action field to determine the exact action taken, such as "Delete Cache Security Group" or "Authorize Cache Security Group Ingress", and assess the potential impact on security posture.
+- Check the event.outcome field to confirm the success of the action and correlate it with any other suspicious activities in the same timeframe.
+- Investigate the source IP address and location associated with the event to determine if it aligns with expected administrative activity.
+- Review the AWS IAM policies and permissions associated with the user or role to ensure they are appropriate and have not been overly permissive.
+- Assess the affected ElastiCache clusters to determine if any unauthorized access or data exfiltration attempts have occurred following the security group change.
+
+### False positive analysis
+
+- Routine maintenance activities by authorized personnel can trigger alerts when they modify security groups for legitimate reasons. To manage this, create exceptions for known maintenance windows or specific user actions.
+- Automated scripts or tools used for infrastructure management might modify security groups as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific user or role identifiers.
+- Changes made by cloud management platforms or third-party services that integrate with AWS may also result in false positives. Review and whitelist these services if they are verified as non-threatening.
+- Regular updates or deployments that require temporary security group modifications can be mistaken for suspicious activity. Document these processes and adjust the detection rule to account for these expected changes.
+- Ensure that any changes made by trusted IP addresses or within a specific network range are reviewed and potentially excluded from alerting, as they may represent internal, authorized activities.
+
+### Response and remediation
+
+- Immediately isolate the affected ElastiCache instance by applying restrictive security group rules to prevent further unauthorized access.
+- Review CloudTrail logs to identify any unauthorized API calls related to the security group modifications and determine the source of the changes.
+- Revert any unauthorized changes to the ElastiCache security groups by restoring them to their previous state using backups or documented configurations.
+- Conduct a thorough investigation to identify any data exfiltration or unauthorized access that may have occurred due to the security group changes.
+- Escalate the incident to the security operations team for further analysis and to determine if additional security measures are required.
+- Implement additional monitoring and alerting for changes to ElastiCache security groups to ensure rapid detection of similar threats in the future.
+- Review and update IAM policies to ensure that only authorized personnel have permissions to modify ElastiCache security groups, reducing the risk of future unauthorized changes.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/Welcome.html"]
+risk_score = 21
+rule_id = "1ba5160d-f5a2-4624-b0ff-6a1dc55d2516"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and event.action:("Delete Cache Security Group" or
+"Authorize Cache Security Group Ingress" or  "Revoke Cache Security Group Ingress" or "AuthorizeCacheSecurityGroupEgress" or
+"RevokeCacheSecurityGroupEgress") and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

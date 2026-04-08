@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2025/12/15"
 maturity = "production"
-updated_date = "2025/12/15"
+updated_date = "2026/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,8 @@ query = '''
 from .alerts-security.*
 
 // any alerts excluding low severity, threat_match and machine_learning rules 
-| where kibana.alert.rule.name is not null and destination.ip is not null and kibana.alert.risk_score > 21 and not kibana.alert.rule.type in ("threat_match", "machine_learning")
+| where kibana.alert.rule.name is not null and destination.ip is not null and kibana.alert.risk_score > 21 and not kibana.alert.rule.type in ("threat_match", "machine_learning") and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // group alerts by destination.ip and extract values of interest for alert triage
 | stats Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),

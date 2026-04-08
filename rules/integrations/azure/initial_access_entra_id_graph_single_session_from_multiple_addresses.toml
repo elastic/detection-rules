@@ -2,7 +2,7 @@
 creation_date = "2025/05/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -111,7 +111,9 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
         event.dataset == "azure.signinlogs", "signin",
         event.dataset == "azure.graphactivitylogs", "graph",
         "other"
-    )
+    ),
+    Esql.signin_source_asn = case(event.dataset == "azure.signinlogs", source.`as`.organization.name, null),
+    Esql.graph_source_asn = case(event.dataset == "azure.graphactivitylogs", source.`as`.organization.name, null)
 
 | where Esql.azure_signinlogs_properties_app_id_coalesce not in (
     "4354e225-50c9-4423-9ece-2d5afd904870",  // Augmentation Loop
@@ -128,15 +130,13 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     "27922004-5251-4030-b22d-91ecd9a37ea4",  // Outlook Mobile
     "bb893c22-978d-4cd4-a6f7-bb6cc0d6e6ce",  // Olympus [Community Contributed]
     "26a7ee05-5602-4d76-a7ba-eae8b7b67941",  // Windows Search
-    "66a88757-258c-4c72-893c-3e8bed4d6899",  // Office 365 Search Service
-    "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7",  // Bing
-    "d7b530a4-7680-4c23-a8bf-c52c121d2e87",  // Microsoft Edge Enterprise New Tab Page [Community Contributed]
     "00000007-0000-0000-c000-000000000000",  // Dataverse
     "6bc3b958-689b-49f5-9006-36d165f30e00",  // Teams CMD Services Artifacts
     "0ec893e0-5785-4de6-99da-4ed124e5296c",  // Office UWP PWA [Community Contributed]
     "fc108d3f-543d-4374-bbff-c7c51f651fe5",  // Zoom
-    "01fc33a7-78ba-4d2f-a4b7-768e336e890e"   // MS PIM
-    )
+    "01fc33a7-78ba-4d2f-a4b7-768e336e890e",  // MS PIM
+    "7ab7862c-4c57-491e-8a45-d52a7e023983"   // Power Automate / Logic Apps Graph Connector
+    ) and Esql.signin_source_asn IS NOT NULL and Esql.graph_source_asn IS NOT NULL
 
 | keep
     Esql.azure_signinlogs_properties_session_id_coalesce,
@@ -145,6 +145,8 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.event_type_case,
     Esql.azure_signinlogs_properties_user_id_coalesce,
     Esql.azure_signinlogs_properties_app_id_coalesce,
+    Esql.signin_source_asn,
+    Esql.graph_source_asn,
     source.`as`.organization.name,
     user_agent.original,
     url.original,
@@ -158,6 +160,11 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.source_ip_values = values(Esql.source_ip),
     Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
     Esql.source_as_organization_name_values = values(source.`as`.organization.name),
+    Esql.source_as_organization_name_count_distinct = count_distinct(source.`as`.organization.name),
+    Esql.signin_source_asn_values = values(Esql.signin_source_asn),
+    Esql.signin_source_asn_count_distinct = count_distinct(Esql.signin_source_asn),
+    Esql.graph_source_asn_values = values(Esql.graph_source_asn),
+    Esql.graph_source_asn_count_distinct = count_distinct(Esql.graph_source_asn),
     Esql.user_agent_original_values = values(user_agent.original),
     Esql.azure_signinlogs_properties_app_id_coalesce_values = values(Esql.azure_signinlogs_properties_app_id_coalesce),
     Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct = count_distinct(Esql.azure_signinlogs_properties_app_id_coalesce),
@@ -180,46 +187,53 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
 | where
     Esql.event_type_case_count_distinct > 1 and
     Esql.source_ip_count_distinct > 1 and
+    Esql.source_as_organization_name_count_distinct > 1 and
     Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct == 1 and
     Esql.signin_time_min is not null and
     Esql.graph_time_min is not null and
-    Esql.event_signin_to_graph_delay_minutes_date_diff >= 0 and
-    Esql.event_signin_to_graph_delay_days_date_diff == 0
+    Esql.event_signin_to_graph_delay_minutes_date_diff > 0 and
+    Esql.event_signin_to_graph_delay_days_date_diff == 0 and
+    (Esql.signin_source_asn_count_distinct + Esql.graph_source_asn_count_distinct) == Esql.source_as_organization_name_count_distinct
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
-
+[[rule.threat.technique.subtechnique]]
+id = "T1550.004"
+name = "Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1550/004/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects successful logins to the FortiGate management interface using the same Administrator account from
+multiple distinct source IP addresses within an 24-hour period. Administrator logins from multiple locations in a short
+time window may indicate credential sharing, compromised credentials, or unauthorized access and should be investigated.
+"""
+from = "now-24h"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FortiGate Administrator Login from Multiple IP Addresses"
+note = """## ## Triage and Analysis
+
+### Investigating FortiGate Administrator Login from Multiple IP Addresses
+
+This alert indicates that the same **Administrator** account successfully logged in to the FortiGate management interface from **multiple distinct source IP addresses** within an 24-hour period.
+
+Because FortiGate administrator credentials grant full control over network security infrastructure, this behavior may indicate credential compromise, account sharing, or misuse of administrative access.
+
+### Investigation Steps
+
+- **Review the affected account**
+  - Identify the administrator account in `source.user.name`.
+  - Confirm whether the account is shared, personal, or service-related.
+  - Validate whether concurrent or near-concurrent access is expected.
+
+- **Analyze source IP addresses**
+  - Review the list of `source.ip` values associated with the logins.
+  - Determine whether the IPs belong to trusted management networks, VPN pools, or jump hosts.
+  - Investigate geolocation differences using `source.geo.country_name`.
+
+- **Assess timing and session behavior**
+  - Check whether logins occurred close together in time or overlapped.
+  - Identify whether access patterns suggest session hopping or credential reuse.
+
+- **Review post-authentication activity**
+  - Examine FortiGate logs for configuration changes, policy updates, or administrative actions following the logins.
+  - Look for additional authentication attempts (successful or failed) from the same IPs or user.
+
+- **Correlate with environment context**
+  - Verify maintenance windows, incident response activity, or operational tasks that could explain the behavior.
+  - Confirm whether administrators commonly access FortiGate via multiple networks or devices.
+
+### False Positive Considerations
+
+- Administrators connecting through VPNs with dynamic or rotating IP addresses.
+- Access via bastion hosts, load-balanced management interfaces, or cloud-based management tools.
+- Automation or orchestration systems using shared administrator credentials.
+- Incident response or troubleshooting activity involving multiple access points.
+
+### Response and Remediation
+
+- **If the activity is expected**
+  - Document the behavior and consider tuning the rule or adding exceptions for known IP ranges or accounts.
+  - Encourage use of named accounts and centralized access paths.
+
+- **If the activity is suspicious**
+  - Reset or rotate credentials for the affected administrator account.
+  - Review FortiGate configuration changes made during the session(s).
+  - Restrict administrative access to trusted IP ranges.
+  - Enforce MFA for administrative logins if not already enabled.
+  - Monitor for additional signs of lateral movement or persistence."""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
+]
+risk_score = 73
+rule_id = "8a556117-3f05-430e-b2eb-7df0100b4e3b"
+severity = "high"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
+
+| WHERE event.dataset == "fortinet_fortigate.log" and
+        event.category == "authentication" and event.action == "login" and
+        event.outcome == "success" and source.user.roles == "Administrator" and
+        source.user.name is not null and source.ip is not null
+| stats Esql.logon_count = count(*),
+        Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
+        Esql.max_timestamp = MAX(@timestamp),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.message_values = VALUES(message),
+        Esql.source_geo_country_name_values = VALUES(source.geo.country_name) by source.user.name
+
+// last logon event timestamp is within 6m of the rule execution time to avoid duplicates
+| eval Esql.recent = DATE_DIFF("minute", Esql.max_timestamp, now())
+| where Esql.recent <= 6 and Esql.logon_count >= 2 and Esql.source_ip_count_distinct >= 2
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| eval source.ip = MV_FIRST(Esql.source_ip_values)
+
+| keep source.ip, source.user.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

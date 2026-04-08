@@ -24,6 +24,12 @@ DQ = '"'
 TRIPLE_SQ = SQ * 3
 TRIPLE_DQ = DQ * 3
 
+# Fields from nested objects (not BaseRuleData fields) that need to be perserved.
+# NOTE: we treat these as globally unique which might not be true in all cases
+# Excluded fields:
+# - actions[].params.message
+NESTED_PRESERVED_FIELD_NAMES: set[str] = {"message"}
+
 
 @cached
 def get_preserved_fmt_fields() -> set[str]:
@@ -34,6 +40,9 @@ def get_preserved_fmt_fields() -> set[str]:
     for field in dataclasses.fields(BaseRuleData):
         if field.type in (definitions.Markdown, definitions.Markdown | None):
             preserved_keys.add(field.metadata.get("data_key", field.name))
+
+    preserved_keys.update(NESTED_PRESERVED_FIELD_NAMES)
+
     return preserved_keys
 
 
@@ -204,7 +213,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             for i, v in enumerate(obj):  # type: ignore[reportUnknownMemberType]
                 if isinstance(v, dict | list):
                     obj[i] = order_rule(v)
-            obj = sorted(obj, key=lambda x: json.dumps(x))  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+            obj = sorted(obj, key=json.dumps)  # type: ignore[reportUnknownArgumentType, reportUnknownVariableType]
 
         return obj
 
@@ -299,7 +308,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
     f = None
     if out_file_path:
-        f = out_file_path.open("w")
+        f = out_file_path.open("w", encoding="utf-8")
 
     try:
         for data in ("metadata", "transform", "rule"):

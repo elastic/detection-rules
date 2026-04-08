@@ -2,7 +2,7 @@
 creation_date = "2024/05/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/10/13"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +24,6 @@ language = "eql"
 license = "Elastic License v2"
 name = "AWS IAM AdministratorAccess Policy Attached to User"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS IAM AdministratorAccess Policy Attached to User
 
@@ -66,24 +63,22 @@ This rule detects `AttachUserPolicy` events where the attached policy name is `A
 
 ### Response and remediation
 
-> Per AWS IR Playbooks, unauthorized administrative policy attachment represents a Privilege Escalation event.
-
-**1. Immediate containment**
+**Immediate containment**
 - Detach the policy. Remove the `AdministratorAccess` policy from the affected IAM user immediately (`aws iam detach-user-policy`).  
 - Rotate credentials. Rotate passwords and access keys for both the caller and target users.  
 - Restrict IAM permissions. Temporarily remove `iam:AttachUserPolicy` privileges from non-administrative roles during scoping.  
 - Enable or confirm MFA for affected accounts.  
 
-**2. Evidence preservation**
+**Evidence preservation**
 - Export related `AttachUserPolicy` CloudTrail events ±30 minutes from the alert to a secure evidence bucket.  
 - Preserve GuardDuty findings and AWS Config snapshots for correlation.  
 
-**3. Scoping and investigation**
+**Scoping and investigation**
 - Search CloudTrail for subsequent use of the affected user’s credentials.  
   Look for newly created keys, S3 access, or changes to IAM trust policies.  
 - Review other accounts for similar policy attachment attempts from the same user or IP.  
 
-**4. Recovery and hardening**
+**Recovery and hardening**
 - Reinforce least privilege by granting only role-based admin access instead of direct user-level AdministratorAccess.  
 - Implement IAM service control policies (SCPs) to prevent attachment of `AdministratorAccess` except for trusted roles.  
 - Enable CloudTrail, GuardDuty, and Security Hub across all regions.  

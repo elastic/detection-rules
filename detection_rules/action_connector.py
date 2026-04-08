@@ -105,7 +105,7 @@ class TOMLActionConnector:
         if path.suffix != ".toml":
             # If it doesn't, add one
             path = path.with_suffix(".toml")
-        with path.open("w") as f:
+        with path.open("w", encoding="utf-8") as f:
             contents_dict = self.contents.to_dict()
             # Sort the dictionary so that 'metadata' is at the top
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))

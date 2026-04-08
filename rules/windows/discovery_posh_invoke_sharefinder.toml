@@ -2,14 +2,14 @@
 creation_date = "2022/08/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/09/03"
+updated_date = "2026/02/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects scripts that contain PowerShell functions, structures, or Windows API functions related to windows share
-enumeration activities. Attackers, mainly ransomware groups, commonly identify and inspect network shares, looking for
-critical information for encryption and/or exfiltration.
+Detects PowerShell scripts that uses ShareFinder functions (Invoke-ShareFinder/Invoke-ShareFinderThreaded) or Windows
+share enumeration APIs (shi1_netname/shi1_remark with NetShareEnum/NetApiBufferFree). Attackers use share enumeration to
+map accessible network shares for collection, lateral movement, or ransomware targeting.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -18,35 +18,88 @@ license = "Elastic License v2"
 name = "PowerShell Share Enumeration Script"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
+
 ### Investigating PowerShell Share Enumeration Script
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+This alert indicates PowerShell script block content consistent with Windows network share enumeration. The matched text includes ShareFinder functions (for example, `Invoke-ShareFinder` or `Invoke-ShareFinderThreaded`) and/or native share enumeration API references (for example, `NetShareEnum` / `NetApiBufferFree` and `shi1_netname` / `shi1_remark`). Share discovery can be a normal administrative activity, but in attacks it is frequently used to map accessible shares prior to data collection, lateral movement, or impact activity.
 
-Attackers can use PowerShell to enumerate shares to search for sensitive data like documents, scripts, and other kinds of valuable data for encryption, exfiltration, and lateral movement.
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Contact the account owner and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Check for additional PowerShell and command line logs that indicate that imported functions were run.
-  - Evaluate which information was potentially mapped and accessed by the attacker.
+- Establish context and triage priority:
+  - Use `@timestamp` as the activity anchor and note the executing `user.name` / `user.domain` / `user.id` and affected `host.name` / `host.id`.
+  - Determine whether the account and host are expected to perform share inventory (for example, administrative workstation or management server vs. a standard user endpoint).
+  - Check whether similar share enumeration activity has occurred recently for the same `user.id` or on the same `host.id` to identify repeated scanning or automation.
+
+- Review the script block content and classify the activity:
+  - Inspect `powershell.file.script_block_text` and capture relevant excerpts for the case record (function names, API calls, and any referenced hosts/shares).
+  - Differentiate between a function definition/import and an actual invocation:
+    - Function definition or module load (lower confidence): the text contains the function name as part of a definition or import logic.
+    - Function invocation (higher confidence): the text shows parameters, target lists, or loops that initiate enumeration.
+  - Identify which pattern is present and what it implies about scope:
+    - `Invoke-ShareFinder`: share discovery logic implemented in PowerShell.
+    - `Invoke-ShareFinderThreaded`: broader or faster discovery due to concurrent enumeration.
+    - `NetShareEnum` / `NetApiBufferFree` with `shi1_netname` / `shi1_remark`: direct use of Windows share enumeration APIs and may reflect customized scripting.
+  - Extract scoping and intent details from the text when available:
+    - Target hostnames/IPs, server lists, domain-related identifiers, or UNC paths.
+    - Filters for share names and remarks, or include/exclude logic that focuses discovery on specific systems or shares.
+    - Use of alternate credentials or explicit authentication material embedded in the script (if present).
+    - Any output handling (formatting, writing results to disk, or staging).
+
+- Reconstruct full content when script blocks are split:
+  - Pivot on `powershell.file.script_block_id` to collect all related fragments for the same execution context.
+  - Use `powershell.sequence` and `powershell.total` to order fragments and identify missing pieces (if populated).
+  - Review adjacent script blocks for the same `host.id` and `user.id` near `@timestamp` to capture supporting functions or follow-on actions that may not appear in the triggering fragment.
+
+- Determine whether the activity originated from an on-disk script:
+  - If present, use `file.path` / `file.directory` / `file.name` to identify the script source.
+  - Assess whether the script location and name align with approved administrative tooling. Scripts originating from user-writable or temporary locations are higher risk than centrally managed locations.
+  - If an on-disk script is involved, preserve the file for further analysis and determine whether it appears on additional hosts (pivot on `file.name` where applicable).
+
+- Scope across users and hosts:
+  - Look for additional events containing the same discovery keywords in `powershell.file.script_block_text` to identify other affected endpoints.
+  - Check whether the same `user.id` performed similar activity from multiple `host.id` values in a short period, which can indicate automation or credential misuse.
+  - Identify whether multiple users are performing similar enumeration from the same host, which can indicate a shared jump box or a compromised administrative endpoint.
+
+- Correlate with adjacent telemetry (as available) to confirm intent and detect follow-on behavior:
+  - Process execution telemetry on the same `host.id` around `@timestamp` to determine how PowerShell was launched and whether the initiating process and execution pattern are consistent with expected activity for `user.id`.
+  - Network telemetry around `@timestamp` for access to multiple remote hosts consistent with share enumeration and subsequent SMB activity.
+  - Authentication telemetry for `user.id` around `@timestamp` for unusual access to file servers or multiple servers, especially if the behavior is new for the account.
+  - File activity telemetry (endpoint and/or file server) for unusual access patterns to shared locations following the enumeration (for example, rapid directory traversal or access to sensitive paths).
+
+- Assess risk and impact:
+  - Prioritize investigation if the script targets high-value systems (for example, file servers) or if the discovery appears broad (large target lists, threading, repeated runs).
+  - If the executing `user.id` is privileged or the host is sensitive, treat the alert as higher risk and expand scoping to additional related activity.
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+- Legitimate administrative share inventory, auditing, or documentation activity performed by IT or infrastructure teams.
+- Approved operational scripts used for backup validation, migration planning, access reviews, or troubleshooting that enumerate shares across servers.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- If the activity is unauthorized or suspicious:
+  - Contain the affected endpoint (`host.id`) following your incident response procedures to reduce the risk of further discovery and lateral movement.
+  - Preserve evidence by retaining the complete `powershell.file.script_block_text` content and all fragments linked by `powershell.file.script_block_id` (including ordered reconstruction using `powershell.sequence` / `powershell.total` when available).
+  - Identify and prioritize potential targets referenced in the script content (servers and shares) and coordinate review of access patterns to those resources.
+  - Investigate the executing account (`user.name` / `user.id`) for compromise, including recent authentication activity and unexpected resource access, and take appropriate containment actions (credential reset, privilege review, and session invalidation where applicable).
+  - Expand hunting for additional share enumeration and subsequent access attempts associated with the same `user.id` or originating from the same `host.id`.
+  - If an on-disk script was used (`file.path` / `file.name` present), remove or quarantine the artifact per your response process and check for the same file on other systems.
+
+- If the activity is confirmed benign:
+  - Document the owner, purpose, expected timing, and expected scope (accounts and endpoints) of the share enumeration.
+  - If tuning is required, scope it narrowly to stable identifiers present in the alert (for example, specific `user.id` values and known management `host.id` endpoints) and continue to monitor for deviations from the expected pattern.
+  - Consider establishing a documented allowlist of approved share inventory scripts and their expected execution locations to reduce future triage time.
 """
 references = [
     "https://www.advintel.io/post/hunting-for-corporate-insurance-policies-indicators-of-ransom-exfiltrations",
@@ -57,22 +110,8 @@ risk_score = 73
 rule_id = "4c59cff1-b78a-41b8-a9f1-4231984d1fb6"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be configured (Enable).
-
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "high"
 tags = [
@@ -151,4 +190,23 @@ reference = "https://attack.mitre.org/techniques/T1039/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
 

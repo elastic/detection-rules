@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2025/12/02"
-integration = ["nginx", "apache", "apache_tomcat", "iis"]
+integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik"]
 maturity = "production"
 min_stack_version = "9.2.0"
 min_stack_comments = "The esql url_decode() operator was introduced in version 9.2.0"
-updated_date = "2025/12/08"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,7 @@ tags = [
     "Data Source: Apache",
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
+    "Data Source: Traefik",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -71,7 +72,8 @@ from
   logs-nginx.access-*,
   logs-apache.access-*,
   logs-apache_tomcat.access-*,
-  logs-iis.access-*
+  logs-iis.access-*,
+  logs-traefik.access-*
 | where
     http.request.method == "GET" and
     http.response.status_code == 200 and
@@ -92,7 +94,7 @@ from
     Esql.url_original_url_decoded_to_lower,
     source.ip,
     agent.id,
-    host.name,
+    agent.name,
     http.request.method,
     http.response.status_code,
     event.dataset,
@@ -101,7 +103,7 @@ from
 | stats
     Esql.event_count = count(),
     Esql.url_original_url_decoded_to_lower_count_distinct = count_distinct(Esql.url_original_url_decoded_to_lower),
-    Esql.host_name_values = values(host.name),
+    Esql.agent_name_values = values(agent.name),
     Esql.agent_id_values = values(agent.id),
     Esql.http_request_method_values = values(http.request.method),
     Esql.http_response_status_code_values = values(http.response.status_code),
@@ -131,3 +133,16 @@ framework = "MITRE ATT&CK"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
