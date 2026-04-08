@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/04/04"
+creation_date = "2026/04/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/04"
+updated_date = "2026/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -26,10 +26,10 @@ from = "now-6m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS EC2 User Data Read by New Principal in Unusual Client Context"
+name = "AWS EC2 User Data Read by New Principal"
 note = """## Triage and analysis
 
-### Investigating AWS EC2 User Data Read by New Principal in Unusual Client Context
+### Investigating AWS EC2 User Data Read by New Principal
 
 `DescribeInstanceAttribute` with `attribute=userData` returns base64 user data that may include bootstrap scripts,
 embedded credentials, or environment hints. Attack frameworks such as [Pacu ec2__download_userdata](https://github.com/RhinoSecurityLabs/pacu/blob/master/pacu/modules/ec2__download_userdata/main.py) automate this across instances.
@@ -153,7 +153,7 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "aws.cloudtrail.flattened.request_parameters.instanceId", "cloud.account.id"]
+value = ["user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
