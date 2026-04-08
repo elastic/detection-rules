@@ -76,7 +76,8 @@ Some notes:
 * To manage action-connectors tied to rules one can set an action-connectors directory using the optional `action_connector_dir` value (included above) set to be the desired path. If an actions_connector directory is explicitly specified in a CLI command, the config value will be ignored.
 * To turn on automatic schema generation for non-ecs fields via custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. This will generate a schema file in the specified location that will be used to add entries for each field and index combination that is not already in a known schema. This will also automatically add it to your stack-schema-map.yaml file when using a custom rules directory and config.
 * For Kibana action items, currently these are included in the rule toml files themselves. At a later date, we may allow for bulk editing of rule action items through separate action toml files. The action_dir config key is left available for this later implementation. For now to bulk update, use the bulk actions add rule actions UI in Kibana.
-* To on bulk disable elastic validation for optional fields, use the following line `bypass_optional_elastic_validation: True`.
+* To disable optional Elastic validation in bulk, set `bypass_optional_elastic_validation: true` in `_config.yaml`. That sets every `DR_BYPASS_*` environment variable that `set_all_validation_bypass()` controls (note parsing, BBR lookback, tags unit tests, timeline template, ES|QL `keep`, ES|QL `FROM` metadata).
+* To enable only some of those bypasses, set the matching top-level booleans in `_config.yaml` (omit `bypass_optional_elastic_validation` or set it to `false`): `bypass_note_validation_and_parse`, `bypass_bbr_lookback_validation`, `bypass_tags_validation`, `bypass_timeline_template_validation`, `bypass_esql_keep_validation`, `bypass_esql_metadata_validation`. Each `true` sets the corresponding `DR_BYPASS_*` variable when the config is loaded. If `bypass_optional_elastic_validation` is `true`, those individual flags are all treated as enabled (the bulk flag wins).
 
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
@@ -132,6 +133,12 @@ class RulesConfig:
     exception_dir: Optional[Path] = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
+    bypass_note_validation_and_parse: bool = False
+    bypass_bbr_lookback_validation: bool = False
+    bypass_tags_validation: bool = False
+    bypass_timeline_template_validation: bool = False
+    bypass_esql_keep_validation: bool = False
+    bypass_esql_metadata_validation: bool = False
 
 # using the stack_schema_map
 RULES_CONFIG.stack_schema_map

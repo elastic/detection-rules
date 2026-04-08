@@ -2,7 +2,7 @@
 creation_date = "2026/02/24"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/02/24"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 event.dataset: "o365.audit" and
@@ -86,26 +86,27 @@ event.dataset: "o365.audit" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1213"
 name = "Data from Information Repositories"
 reference = "https://attack.mitre.org/techniques/T1213/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1213.002"
 name = "Sharepoint"
 reference = "https://attack.mitre.org/techniques/T1213/002/"
-
 
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -113,4 +114,44 @@ framework = "MITRE ATT&CK"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "user_agent.original",
+    "event.action",
+    "event.provider",
+    "source.ip",
+    "source.geo.country_name",
+    "o365.audit.ApplicationId",
+    "o365.audit.SiteUrl",
+    "file.name",
+    "file.directory",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id", "user_agent.original"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 

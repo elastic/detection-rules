@@ -2,7 +2,7 @@
 creation_date = "2026/02/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/02/16"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -74,17 +74,28 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "notepad.exe" and process.parent.args : "*.md"
+  process.parent.name : "notepad.exe" and process.parent.args : "*.md" and
+  not process.executable : "C:\\Program Files\\WindowsApps\\Microsoft.WindowsNotepad_*\\Notepad\\Notepad.exe"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1203"
 name = "Exploitation for Client Execution"
 reference = "https://attack.mitre.org/techniques/T1203/"
 
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
 [rule.threat.tactic]
 id = "TA0002"

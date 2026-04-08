@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/03/18"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies abuse of rclone (or a renamed copy, e.g. disguised as a security or backup utility) to exfiltrate data to
+cloud storage or remote endpoints. Rclone is a legitimate file sync tool; threat actors rename it to blend with
+administrative traffic and use copy/sync with cloud backends (e.g. :s3:) and include filters to exfiltrate specific
+file types.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Data Exfiltration via Rclone"
+note = """## Triage and analysis
+
+### Investigating Potential Data Exfiltration via Rclone
+
+Rclone is a legitimate file synchronization tool. Threat actors abuse it (often renamed, e.g. to TrendFileSecurityCheck.exe) to exfiltrate data to S3, HTTP endpoints, or other cloud backends, using `copy`/`sync` with `--include` filters and high `--transfers` to move specific file types at scale.
+
+### Possible investigation steps
+
+- Confirm the command line for `copy`/`sync`, cloud backend (e.g. `:s3:`, `:http`), and options like `--include`, `--transfers`, `-P`.
+- If the process name is not `rclone.exe`, compare with `process.pe.original_file_name`; a mismatch indicates a renamed copy used to evade name-based detection.
+- From the command line, identify the source path (e.g. UNC or local) and the remote backend (S3 bucket, HTTP endpoint) as the exfil destination.
+- Review `--include`/`--exclude` and `--max-age`/`--max-size` to understand what data was targeted (documents, CAD, archives, etc.).
+- Correlate with the process executable path (recently dropped?), parent process, and user; look for outbound network to the same backend.
+
+### False positive analysis
+
+- Legitimate backup or sync jobs using rclone from a known path and config may trigger; allowlist by process path or `--config` path for approved rclone usage.
+
+### Response and remediation
+
+- Terminate the rclone process and isolate the host if exfiltration is confirmed.
+- Identify and revoke access to the destination (S3 bucket, API keys, etc.); preserve logs for the exfil session.
+- Determine scope of data exposed and notify stakeholders; rotate credentials and secrets that may have been in exfiltrated paths.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1048/",
+    "https://rclone.org/commands/rclone_copy/",
+]
+risk_score = 47
+rule_id = "3f4c2b18-9d2e-4b7a-a3c1-8e6d9f2b5c7e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame", 
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (process.name : "rclone.exe" or ?process.pe.original_file_name == "rclone.exe") and process.args : ("copy", "sync") and
+  not process.args : ("--config=?:\\Program Files\\rclone\\config\\rclone\\rclone.conf", "--config=?:\\Program Files (x86)\\rclone\\config\\rclone\\rclone.conf") and 
+  not process.executable : ("?:\\Program Files*", "\\Device\\HarddiskVolume*\\Program Files*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.003"
+name = "Rename Legitimate Utilities"
+reference = "https://attack.mitre.org/techniques/T1036/003/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

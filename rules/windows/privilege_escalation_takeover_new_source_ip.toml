@@ -2,7 +2,7 @@
 creation_date = "2026/02/25"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/02/25"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -11,8 +11,8 @@ Identifies a user account that normally logs in with high volume from one source
 source IP. This pattern (one IP with many successful logons, another IP with very few) may indicate account takeover
 or use of stolen credentials from a new location.
 """
-from = "now-30m"
-interval = "15m"
+from = "now-15m"
+interval = "14m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Account Takeover - Logon from New Source IP"
@@ -59,17 +59,19 @@ from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, 
 | where event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and 
         event.outcome == "success" and winlog.logon.type in ("Network", "RemoteInteractive") and 
 		source.ip is not null and source.ip != "127.0.0.1" and not to_string(source.ip) like "*::*" and not user.name like "*$"
-| stats logon_count = COUNT(*) by user.name, source.ip
+| stats logon_count = COUNT(*), host_names = VALUES(host.name) by user.name, user.id, source.ip
 | stats 
     Esql.max_logon = MAX(logon_count),
     Esql.min_logon = MIN(logon_count),
+    Esql.unique_host_count = COUNT_DISTINCT(host_names),
+    Esql.host_name_values = VALUES(host_names),
     Esql.source_ip_values = VALUES(source.ip),
-    Esql.count_distinct = COUNT_DISTINCT(source.ip) by user.name
+    Esql.count_distinct_source_ip = COUNT_DISTINCT(source.ip) by user.name, user.id
 
 // high count of logons is often associated with service account tied to a specific source.ip, if observed in use from a new source.ip it's suspicious
-| where Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 5) and Esql.count_distinct == 2
-| eval source.ip = mv_first(Esql.source_ip_values)
-| KEEP user.name, source.ip, Esql.*
+| where Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 5) and Esql.count_distinct_source_ip == 2 and Esql.unique_host_count >= 2
+| eval source.ip = MV_FIRST(Esql.source_ip_values), host.name = MV_FIRST(Esql.host_name_values)
+| KEEP user.name, user.id, host.name, source.ip, Esql.*
 '''
 
 [[rule.threat]]

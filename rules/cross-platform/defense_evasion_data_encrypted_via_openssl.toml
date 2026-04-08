@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/03/26"
+integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager", "windows", "system"]
+maturity = "production"
+updated_date = "2026/04/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the OpenSSL utility to encrypt data. Adversaries may use OpenSSL to encrypt data to
+disrupt the availability of their target's data and may attempt to hold the organization's data to ransom for the
+purposes of extortion.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*", 
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Data Encrypted via OpenSSL Utility"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Data Encrypted via OpenSSL Utility
+
+This rule flags the OpenSSL command-line tool when it starts encrypting a file with explicit input and output paths, a pattern that can indicate an attempt to hide or lock data. An attacker on Linux or macOS might run `openssl enc -aes-256-cbc -in /home/shared/payroll.csv -out /tmp/payroll.csv.enc` to encrypt collected documents before staging them for exfiltration or to prepare data for a ransomware-style extortion event.
+
+### Possible investigation steps
+
+- Review the full OpenSSL invocation to identify the cipher used, the source and destination file paths, whether a password or key was supplied inline or via script, and whether the targeted data is business-critical or user-owned.
+- Trace the parent and ancestor execution chain to determine whether the activity originated from an approved administrative workflow or from unusual launch points such as interactive shells, remote access tools, scheduled tasks, temporary folders, or user download locations.
+- Scope adjacent file activity on the host to see whether this was a single expected encryption task or part of a wider pattern of mass file reads, encrypted output creation, original file deletion, or access to shared drives and sensitive repositories.
+- Investigate the initiating account and system for precursor signs of compromise, including recent suspicious logons, privilege escalation, script execution, tool transfer, or other activity that is inconsistent with the user’s normal administrative behavior.
+- Search for follow-on actions that would raise ransomware or exfiltration concern, such as archive creation, outbound network transfers, ransom note drops, service stoppage, shadow copy removal, or attempts to disable security controls.
+
+### False positive analysis
+
+- Administrators may use `openssl enc -in ... -out ...` in backup or file-transfer scripts to protect exports, archives, or configuration bundles; verify the parent script or scheduled task, the service account, and the source and destination paths align with a documented maintenance workflow.
+- Developers or support personnel may encrypt test data sets or collected logs before sharing them internally for troubleshooting; verify the initiating user’s role, confirm the files are expected non-production artifacts, and check for a related change or support activity during the same time window.
+
+### Response and remediation
+
+- Isolate the affected endpoint from the network and disconnect mapped drives or mounted shares to stop further encryption while preserving the OpenSSL binary, shell history, encrypted output files, and any wrapper scripts as evidence.
+- Remove attacker persistence by deleting malicious Scheduled Tasks, cron jobs, systemd services, launch agents, startup items, and scripts that invoked `openssl enc`, and quarantine any copied tools or payloads found in temporary or user-writable directories.
+- Reset passwords, revoke active sessions and tokens, and rotate SSH keys or service-account secrets associated with the compromised host or user if the encryption activity was launched from an interactive shell, remote access session, or automation account.
+- Restore impacted files from known-good offline or immutable backups and rebuild or reimage the system if core binaries, startup locations, or security tools were modified, validating restored data before returning the host to production.
+- Escalate immediately to incident response if encrypted files were written to shared storage, similar OpenSSL commands appear on multiple hosts, ransom notes or extortion messages are present, or backup repositories and domain-admin accounts may be affected.
+- Harden the environment by restricting OpenSSL execution to approved admins and paths, enforcing application allowlisting, limiting write access to sensitive shares, disabling unused remote administration tools, and adding detections for mass file encryption and shadow-copy or backup tampering.
+
+"""
+risk_score = 21
+rule_id = "feba48f6-40ca-4d04-b41f-5dfa327de865"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action in ("start", "exec", "executed", "exec_event", "ProcessRollup2") and
+process.name : "openssl*" and process.args : "enc" and process.args : "-in" and process.args : "-out"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.013"
+name = "Encrypted/Encoded File"
+reference = "https://attack.mitre.org/techniques/T1027/013/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Collection"
+  id = "TA0009"
+  reference = "https://attack.mitre.org/tactics/TA0009/"
+
+  [[rule.threat.technique]]
+  name = "Data Staged"
+  id = "T1074"
+  reference = "https://attack.mitre.org/techniques/T1074/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Local Data Staging"
+    id = "T1074.001"
+    reference = "https://attack.mitre.org/techniques/T1074/001/"
