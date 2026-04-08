@@ -4,32 +4,6 @@ integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funne
 maturity = "production"
 updated_date = "2026/04/08"
 
-[transform]
-
-[[transform.investigate]]
-label = "Alerts associated with the user"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the host"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
 [rule]
 author = ["Elastic"]
 description = """
@@ -206,3 +180,30 @@ reference = "https://attack.mitre.org/techniques/T1137/004/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+

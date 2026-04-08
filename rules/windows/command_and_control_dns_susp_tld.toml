@@ -4,46 +4,6 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"
 maturity = "production"
 updated_date = "2026/04/08"
 
-
-[transform]
-
-[[transform.investigate]]
-label = "Alerts associated with the user"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the host"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Network activity for the alerting process"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
-    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
-
 [rule]
 author = ["Elastic"]
 description = """
@@ -231,3 +191,43 @@ reference = "https://attack.mitre.org/techniques/T1218/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the alerting process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
