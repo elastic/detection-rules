@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["network_traffic", "zeek"]
 maturity = "production"
-updated_date = "2026/04/08"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,8 @@ false_positives = [
     authorized vulnerability scan or compromise assessment.
     """,
 ]
-language = "esql"
+index = ["packetbeat-*", "filebeat-*", "logs-network_traffic.*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
 note = """## Triage and analysis
@@ -69,14 +70,11 @@ tags = [
     "Use Case: Vulnerability",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-zeek.* metadata _id, _index, _version
-| where
-    (event.dataset == "network_traffic.dns" or (event.category in ("network", "network_traffic") and destination.port == 53)) and
-    (event.dataset == "zeek.dns" or `type` == "dns" or event.type == "connection") and
-    network.bytes > 60000
+(event.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
+  (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
 '''
 
 

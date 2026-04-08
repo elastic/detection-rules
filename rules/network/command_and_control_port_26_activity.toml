@@ -33,11 +33,21 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos*, logs-zeek.* metadata _id, _index, _version
+from logs-network_traffic.*, logs-panw.panos*, logs-zeek.* metadata _id, _index, _version
 | where
     network.transport == "tcp" and
     destination.port == 26 and
     (event.dataset in ("network_traffic.flow", "zeek.smtp") or event.category in ("network", "network_traffic"))
+| keep
+    source.ip,
+    destination.ip,
+    network.transport,
+    destination.port,
+    event.dataset,
+    event.category,
+    _id,
+    _version,
+    _index,
 '''
 note = """## Triage and analysis
 
