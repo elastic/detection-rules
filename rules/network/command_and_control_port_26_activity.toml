@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "zeek"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -18,8 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "SMTP on Port 26/TCP"
 references = [
@@ -31,10 +30,14 @@ rule_id = "d7e62693-aab9-4f66-a21a-3d79ecdd603d"
 severity = "low"
 tags = ["Tactic: Command and Control", "Tactic: Exfiltration", "Domain: Endpoint", "Use Case: Threat Detection", "Data Source: PAN-OS", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-(event.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and network.transport:tcp and destination.port:26
+from packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos*, logs-zeek.* metadata _id, _index, _version
+| where
+    network.transport == "tcp" and
+    destination.port == 26 and
+    (event.dataset in ("network_traffic.flow", "zeek.smtp") or event.category in ("network", "network_traffic"))
 '''
 note = """## Triage and analysis
 
