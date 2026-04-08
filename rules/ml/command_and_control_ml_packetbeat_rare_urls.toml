@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/15"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+updated_date = "2026/04/01"
 
 [rule]
 anomaly_threshold = 50
@@ -28,7 +30,7 @@ false_positives = [
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = "packetbeat_rare_urls"
+machine_learning_job_id = "packetbeat_rare_urls_ea"
 name = "Unusual Web Request"
 setup = """## Setup
 
@@ -123,19 +125,36 @@ The 'Unusual Web Request' detection leverages machine learning to identify rare 
 - Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to better detect and block uncommon URLs associated with command-and-control activities."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
 
-
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1189"
+name = "Drive-by Compromise"
+reference = "https://attack.mitre.org/techniques/T1189/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
