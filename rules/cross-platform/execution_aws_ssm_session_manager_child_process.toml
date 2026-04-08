@@ -99,33 +99,28 @@ event.category: "process" and event.action : ("exec" or "exec_event" or "start" 
  (process.parent.name : "powershell.exe" and process.parent.args : *awsrunPowerShellScript*) or
  (process.parent.name : ("dash" or "sh" or "bash") and process.parent.args : *awsrunShellScript*)
  ) and 
- not process.executable : ("/usr/bin/lscpu" or "/usr/bin/snap" or "/usr/bin/rpm" or "/usr/bin/dpkg-query" or /snap/snapd/*/usr/bin/snap)
+ process.command_line:* and 
+ not (process.name : "powershell.exe" and process.args :("$str.Substring($str.length" or *Convert-GuidToCompressedGuid* or get-wmiobject* or $wmi_proc* or *win32_quickfixengineering*)) and 
+ not process.executable : ("/usr/bin/lscpu" or "/usr/bin/snap" or "/usr/bin/rpm" or "/usr/bin/dpkg-query" or /snap/snapd/*/usr/bin/snap or "/usr/bin/id")
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique.subtechnique]]
+name = "Unix Shell"
+id = "T1059.004"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-  [[rule.threat.technique]]
-  id = "T1059"
-  name = "Command and Scripting Interpreter"
-  reference = "https://attack.mitre.org/techniques/T1059/"
-
-    [[rule.threat.technique.subtechnique]]
-    name = "Unix Shell"
-    id = "T1059.004"
-    reference = "https://attack.mitre.org/techniques/T1059/004/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
     
-    [[rule.threat.technique.subtechnique]]
-    id = "T1059.001"
-    name = "PowerShell"
-    reference = "https://attack.mitre.org/techniques/T1059/001/"
-    
-
 [[rule.threat.technique]]
 id = "T1651"
 name = "Cloud Administration Command"
