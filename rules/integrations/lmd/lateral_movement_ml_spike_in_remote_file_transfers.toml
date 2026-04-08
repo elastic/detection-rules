@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/03/24"
 
 [rule]
 anomaly_threshold = 70
@@ -27,6 +27,12 @@ references = [
 risk_score = 21
 rule_id = "e9b0902b-c515-413b-b80b-a8dcebc81a66"
 setup = """## Setup
+
+This rule requires the `host.ip` field to be populated.
+For **Elastic Defend** events on versions **8.18 and above**, this field is **disabled by default**.
+
+If you are using **Elastic Defend**, ensure host IP collection is enabled by following the configuration steps in the
+[helper guide](https://www.elastic.co/docs/solutions/security/configure-elastic-defend/configure-data-volume-for-elastic-endpoint#host-fields).
 
 The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.
 
@@ -91,14 +97,18 @@ Remote file transfer technologies facilitate data sharing across networks, essen
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1210"
 name = "Exploitation of Remote Services"
 reference = "https://attack.mitre.org/techniques/T1210/"
 
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

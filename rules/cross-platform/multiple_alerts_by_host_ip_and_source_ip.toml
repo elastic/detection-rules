@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2025/12/31"
 maturity = "production"
-updated_date = "2025/12/31"
+updated_date = "2026/02/16"
+
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +18,14 @@ license = "Elastic License v2"
 name = "Suspected Lateral Movement from Compromised Host"
 risk_score = 73
 rule_id = "171a4981-9c1a-4a03-9028-21cff4b27b38"
+setup = """## Setup
+
+This rule requires the `host.ip` field to be populated.
+For **Elastic Defend** events on versions **8.18 and above**, this field is **disabled by default**.
+
+If you are using **Elastic Defend**, ensure host IP collection is enabled by following the configuration steps in the
+[helper guide](https://www.elastic.co/docs/solutions/security/configure-elastic-defend/configure-data-volume-for-elastic-endpoint#host-fields).
+"""
 severity = "high"
 tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
@@ -28,7 +37,9 @@ from .alerts-security.*
 // any alerts excluding deprecated, low severity and threat_match rules
 | where kibana.alert.rule.name is not null and kibana.alert.risk_score > 21 and
         kibana.alert.rule.type != "threat_match" and
-        not kibana.alert.rule.name like "Deprecated - *"
+        not kibana.alert.rule.name like "Deprecated - *" and
+        not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """) and
+        not kibana.alert.rule.name in ("Abnormally Large DNS Response", "Web Application Suspicious Activity: No User Agent")
 
 // alerts with existing source.ip or host.ip
 | eval alert_source_ip = CASE(source.ip is not null, source.ip, null),
@@ -60,7 +71,11 @@ from .alerts-security.*
 | eval concat_ip_values = MV_CONCAT(TO_STRING(Esql.host_ip_values), ",")
 | eval host_ip_equal_to_source_ip =LOCATE(concat_ip_values, TO_STRING(Esql.source_ip))
 | where Esql.rule_name_distinct_count >= 2 and Esql.host_id_distinct_count >= 2 and host_ip_equal_to_source_ip > 0 and SRC_IP is not null and Esql.alerts_count <= 100
-| KEEP Esql.*
+
+// Move single values to their corresponding ECS fields for alerts exclusion
+| eval source.ip = mv_min(Esql.source_ip),
+       host.id = mv_min(Esql.host_id_values)
+| KEEP Esql.*, source.ip, host.id
 '''
 note = """## Triage and analysis
 

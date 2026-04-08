@@ -2,7 +2,7 @@
 creation_date = "2021/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/01"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
@@ -26,10 +26,6 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS DB Instance Restored"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. 
-> While every effort has been made to ensure its quality, validate and adapt it to suit your operational needs.
 
 ### Investigating AWS RDS DB Instance Restored
 
@@ -157,10 +153,12 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1578"
 name = "Modify Cloud Compute Infrastructure"
 reference = "https://attack.mitre.org/techniques/T1578/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1578.002"
 name = "Create Cloud Instance"
@@ -171,13 +169,28 @@ id = "T1578.004"
 name = "Revert Cloud Instance"
 reference = "https://attack.mitre.org/techniques/T1578/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1074"
+name = "Data Staged"
+reference = "https://attack.mitre.org/techniques/T1074/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1074.002"
+name = "Remote Data Staging"
+reference = "https://attack.mitre.org/techniques/T1074/002/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -187,7 +200,6 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",

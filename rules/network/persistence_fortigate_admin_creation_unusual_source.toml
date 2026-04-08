@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/01/28"
+integration = ["fortinet_fortigate"]
+maturity = "production"
+updated_date = "2026/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects FortiGate administrator account creation from a source IP address not previously seen performing
+admin operations on the device. Threat actors exploiting CVE-2026-24858 (FG-IR-26-060) authenticate via FortiCloud
+SSO bypass and immediately create local administrator accounts for persistence, typically from infrastructure not
+associated with normal administrative activity.
+"""
+from = "now-9m"
+index = ["logs-fortinet_fortigate.*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "FortiGate Administrator Account Creation from Unusual Source"
+note = """## Triage and analysis
+
+### Investigating FortiGate Administrator Account Creation from Unusual Source
+
+This alert indicates that an administrator account was created on a FortiGate device from a source IP address that has not been observed performing configuration changes in the recent history window. This is a behavioral indicator of compromise, as threat actors exploiting SSO bypass vulnerabilities typically operate from infrastructure not previously associated with the device.
+
+### Possible investigation steps
+
+- Review `source.ip` to determine whether the IP address belongs to a known management network or authorized administrator location. Check against known threat infrastructure from The Constant Company LLC, BL Networks, and Kaopu Cloud HK Limited.
+- Examine `fortinet.firewall.cfgobj` for the name of the newly created account and `fortinet.firewall.cfgattr` for the access profile assigned (especially super_admin).
+- Check `source.user.name` to identify the account that performed the creation and verify whether it was recently created itself or accessed via SSO.
+- Look for other configuration changes from the same source IP, including firewall policy modifications, configuration exports, or VPN user creation.
+- Run `get system admin` on the affected FortiGate to list all current administrator accounts and compare against the authorized list.
+
+### False positive analysis
+
+- Authorized administrators connecting from a new location (VPN, travel, new office).
+- Initial device setup or migration where configuration changes come from temporary infrastructure.
+- Managed service providers performing authorized administration from rotating IP addresses.
+
+### Response and remediation
+
+- If unauthorized, immediately delete the newly created administrator account and audit the source account for compromise.
+- Block the source IP at the perimeter and check other FortiGate devices for activity from the same IP.
+- Restore configuration from a known-clean backup and rotate all credentials including LDAP/AD accounts connected to the device.
+- Upgrade FortiOS to a patched version and disable FortiCloud SSO if not required."""
+references = [
+    "https://www.fortiguard.com/psirt/FG-IR-26-060",
+    "https://www.fortinet.com/blog/psirt-blogs/analysis-of-sso-abuse-on-fortios",
+    "https://www.elastic.co/docs/reference/integrations/fortinet_fortigate",
+    "https://www.cisa.gov/news-events/alerts/2026/01/28/fortinet-releases-guidance-address-ongoing-exploitation-authentication-bypass-vulnerability-cve-2026",
+]
+risk_score = 47
+rule_id = "d08ba1ed-a0a3-4fe0-9c02-e643b9a25a03"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: Fortinet",
+    "Data Source: Fortinet FortiGate",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "fortinet_fortigate.log" and
+    event.code: "0100044547" and
+    fortinet.firewall.cfgpath: "system.admin" and
+    fortinet.firewall.action: "Add" and
+    fortinet.firewall.ui: (* and not "")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["fortinet.firewall.ui"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

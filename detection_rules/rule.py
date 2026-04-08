@@ -981,34 +981,49 @@ class ESQLRuleData(QueryRuleData):
         )
 
         # Ensure that non-aggregate queries have metadata
-        if not combined_pattern.search(query_lower):
-            raise EsqlSemanticError(
-                f"Rule: {data['name']} contains a non-aggregate query without"
-                f" metadata fields '_id', '_version', and '_index' ->"
-                f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None:
+            bypass_metadata_hint = (
+                " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+                "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
             )
+            if not combined_pattern.search(query_lower):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a non-aggregate query without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+                    + bypass_metadata_hint
+                )
 
         # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
-        # Match | followed by optional whitespace/newlines and then 'keep'
-        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-        keep_match = keep_pattern.search(query_lower)
-        if not keep_match:
-            raise EsqlSemanticError(
-                f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+        if os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is None:
+            bypass_keep_hint = (
+                " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
             )
+            # Match | followed by optional whitespace/newlines and then 'keep'
+            keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+            keep_matches = list(keep_pattern.finditer(query_lower))
+            if not keep_matches:
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+                    + bypass_keep_hint
+                )
 
-        # Ensure that keep clause includes metadata fields on non-aggregate queries
-        aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
-        if not aggregate_pattern.search(query_lower):
-            keep_fields = [field.strip() for field in keep_match.group(1).split(",")]
-            if "*" not in keep_fields:
-                required_metadata = {"_id", "_version", "_index"}
-                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
-                    raise EsqlSemanticError(
-                        f"Rule: {data['name']} contains a keep clause without"
-                        f" metadata fields '_id', '_version', and '_index' ->"
-                        f" Add '_id', '_version', '_index' to the keep command."
-                    )
+            # Ensure that keep clause includes metadata fields on non-aggregate queries
+            aggregate_pattern = re.compile(
+                r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL
+            )
+            if not aggregate_pattern.search(query_lower):
+                for keep_match in keep_matches:
+                    raw_keep = re.sub(r"//.*", "", keep_match.group(1))
+                    keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
+                    if "*" not in keep_fields:
+                        required_metadata = {"_id", "_version", "_index"}
+                        if not required_metadata.issubset(set(map(str.strip, keep_fields))):
+                            raise EsqlSemanticError(
+                                f"Rule: {data['name']} contains a keep clause without"
+                                f" metadata fields '_id', '_version', and '_index' ->"
+                                f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
+                            )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1259,6 +1274,22 @@ class BaseRuleContents(ABC):
 
         return obj
 
+    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
+        """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
+        if hashable_dict.get("language") != "esql":
+            return False
+
+        query: str | None = hashable_dict.get("query")
+        if not isinstance(query, str) or not query:
+            return False
+
+        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+        keep_match: re.Match[str] | None = keep_pattern.search(query)
+        if keep_match:
+            keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
+            return any(field == "*" or field.endswith("*") for field in keep_fields)
+        return False
+
     @abstractmethod
     def to_api_format(self, include_version: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
@@ -1272,6 +1303,11 @@ class BaseRuleContents(ABC):
         # drop related integrations if present
         if not include_integrations:
             hashable_dict.pop("related_integrations", None)
+
+        # For ES|QL rules with `| keep *`, exclude required_fields since they're
+        # non-deterministic (depend on integration schemas which vary by stack version)
+        if self._uses_keep_star(hashable_dict):
+            hashable_dict.pop("required_fields", None)
 
         return hashable_dict
 
@@ -1355,7 +1391,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     items_to_update: list[dict[str, Any]] = [
                         item
                         for item in value  # type: ignore[reportUnknownVariableType]
-                        if isinstance(item, dict) and get_nested_value(item, sub_key) is None
+                        if isinstance(item, dict)
+                        and get_nested_value(item, sub_key) is None
+                        and get_nested_value(item, "action_type_id") not in definitions.SYSTEM_ACTION_TYPE_IDS
                     ]
                     for item in items_to_update:
                         set_nested_value(item, sub_key, None)

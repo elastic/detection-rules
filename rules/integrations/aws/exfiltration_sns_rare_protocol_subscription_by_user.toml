@@ -2,12 +2,12 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/16"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a use subscribes to an SNS topic using a new protocol type (ie. email, http, lambda, etc.). SNS allows users to subscribe to recieve topic messages across a broad range of protocols like email, sms, lambda functions, http endpoints, and applications. Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email address, cross-account AWS service or other means. This rule identifies a new protocol subscription method for a particular user. 
+Identifies when a user subscribes to an SNS topic using a new protocol type (ie. email, http, lambda, etc.). SNS allows users to subscribe to recieve topic messages across a broad range of protocols like email, sms, lambda functions, http endpoints, and applications. Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email address, cross-account AWS service or other means. This rule identifies a new protocol subscription method for a particular user. 
 """
 false_positives = [
     """
@@ -31,7 +31,7 @@ This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-
 
 - **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` field to identify the user who requested the subscription. Verify if this actor typically performs such actions and has the necessary permissions. It may be unusual for this activity to originate from certain user types, such as an assumed role or federated user.
 - **Review the SNS Subscription Event**: Analyze the specifics of the `Subscribe` action in CloudTrail logs:
-  - **Topic**: Look at the `aws.cloudtrail.request_parameters` or `target.entity.id` field to identify the SNS topic involved in the subscription.
+  - **Topic**: Look at the `aws.cloudtrail.request_parameters` field to identify the SNS topic involved in the subscription.
   - **Protocol and Endpoint**: Review the `aws.cloudtrail.request_parameters` field to confirm the subscription's protocol and endpoint, if available. Confirm if this endpoint is associated with a known or trusted entity.
   - **Subscription Status**: Check the `aws.cloudtrail.response_elements` field for the subscription's current status, noting if it requires confirmation.
 - **Verify Authorization**: Evaluate whether the user typically engages in SNS subscription actions and if they are authorized to do so for the specified topic.
@@ -88,46 +88,65 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
 
-
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1496"
 name = "Resource Hijacking"
 reference = "https://attack.mitre.org/techniques/T1496/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1496.004"
 name = "Cloud Service Hijacking"
 reference = "https://attack.mitre.org/techniques/T1496/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.003"
+name = "One-Way Communication"
+reference = "https://attack.mitre.org/techniques/T1102/003/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

@@ -2,7 +2,7 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/03"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -29,10 +29,6 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Deactivation of MFA Device"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and validated for accuracy and relevance. Always
-> tailor the steps to your organization's environment and operational context.
 
 ### Investigating AWS IAM Deactivation of MFA Device
 
@@ -120,34 +116,52 @@ event.dataset: aws.cloudtrail
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1531"
 name = "Account Access Removal"
 reference = "https://attack.mitre.org/techniques/T1531/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1556.006"
 name = "Multi-Factor Authentication"
 reference = "https://attack.mitre.org/techniques/T1556/006/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -157,7 +171,6 @@ field_names = [
     "aws.cloudtrail.user_identity.arn",
     "aws.cloudtrail.user_identity.type",
     "aws.cloudtrail.user_identity.access_key_id",
-    "target.entity.id",
     "event.action",
     "event.outcome",
     "cloud.account.id",

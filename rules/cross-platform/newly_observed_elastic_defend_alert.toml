@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/05"
 maturity = "production"
-updated_date = "2026/01/05"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -33,13 +33,17 @@ from logs-endpoint.alerts-*
         Esql.process_parent_executable = VALUES(process.parent.executable),
         Esql.process_command_line = VALUES(process.command_line),
         Esql.process_hash_sha256 = VALUES(process.hash.sha256),
-        Esql.host_id = VALUES(host.id),
+        Esql.host_id_values = VALUES(host.id),
         Esql.user_name = VALUES(user.name) by rule.name
 // first time seen in the last 5 days - defined in the rule schedule Additional look-back time
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
 // first time seen is within 10m of the rule execution time
 | where Esql.recent <= 10 and Esql.agents_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
-| keep rule.name, Esql.*
+
+// Move single values to their corresponding ECS fields for alerts exclusion
+| eval host.id = mv_min(Esql.host_id_values)
+
+| keep host.id, rule.name, Esql.*
 '''
 note = """## Triage and analysis
 

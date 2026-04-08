@@ -2,7 +2,7 @@
 creation_date = "2025/05/06"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/17"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,7 @@ rule_id = "e882e934-2aaa-11f0-8272-f661ea17fbcc"
 severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Domain: Email",
     "Data Source: Azure",
     "Data Source: Microsoft Graph",
     "Data Source: Microsoft Graph Activity Logs",
@@ -79,37 +80,60 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "azure.graphactivitylogs" and
-azure.graphactivitylogs.properties.app_id: * and
-azure.graphactivitylogs.result_signature: 200 and
-azure.graphactivitylogs.properties.c_idtyp: "user" and
-azure.graphactivitylogs.properties.client_auth_method: 0 and
-http.request.method: (GET or POST or PUT or PATCH or DELETE) and (
-  url.path: (/v1.0/me/*cc or /v1.0/users/*) and
-  (
-    url.path: (*mail* or *messages* or *inbox*) or
-    azure.graphactivitylogs.properties.requestUri: (*mail* or *messages* or *inbox*)
-  ) or
-  azure.graphactivitylogs.properties.scopes: (
-    "Mail.Read" or "Mail.ReadWrite" or "Mail.Send" or "email"
-  )
-)
+event.dataset:azure.graphactivitylogs
+    and azure.graphactivitylogs.properties.app_id:*
+    and azure.graphactivitylogs.result_signature:200
+    and azure.graphactivitylogs.properties.c_idtyp:user
+    and azure.graphactivitylogs.properties.client_auth_method:0
+    and http.request.method:(DELETE or GET or PATCH or POST or PUT)
+    and (
+        (
+            url.path:(/v1.0/me/*cc or /v1.0/users/*)
+            and (
+                url.path:((*inbox* or *mail* or *messages*) and not *mailboxSettings*)
+                or azure.graphactivitylogs.properties.requestUri:(*inbox* or *mail* or *messages*)
+            )
+        )
+        or azure.graphactivitylogs.properties.scopes:(Mail.Read or Mail.ReadWrite or Mail.Send)
+    )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1114"
 name = "Email Collection"
 reference = "https://attack.mitre.org/techniques/T1114/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1114.002"
+name = "Remote Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/002/"
 
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = [

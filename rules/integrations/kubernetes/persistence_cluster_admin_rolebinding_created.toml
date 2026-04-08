@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/02/04"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/02/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation of a RoleBinding or ClusterRoleBinding that grants the cluster-admin
+ClusterRole, which provides unrestricted access to all Kubernetes resources and represents a
+high-risk privilege escalation or misconfiguration.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Cluster-Admin Role Binding Created"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Cluster-Admin Role Binding Created
+
+This rule flags when someone creates a RoleBinding or ClusterRoleBinding that assigns the cluster-admin role, which grants unrestricted control over every Kubernetes resource and enables rapid privilege escalation or persistence. Attackers often abuse a stolen namespace service account to bind it to cluster-admin, then pivot to read secrets, change security controls, or deploy a privileged DaemonSet across all nodes to maintain control.
+
+### Possible investigation steps
+
+- Identify who created the binding by reviewing the audit event user identity, groups, source IP, and user agent, and confirm whether it matches an approved admin workflow or automation.  
+- Inspect the created RoleBinding or ClusterRoleBinding to determine which subject received cluster-admin, whether it targets a service account or external identity, and whether the subject is expected to have cluster-wide privileges.  
+- Correlate the creator and bound subject with recent authentication events and credential changes to spot compromised accounts, unusual access locations, or use of long-lived tokens.  
+- Review subsequent Kubernetes audit activity from the same actor or newly privileged subject for rapid follow-on actions such as listing secrets, creating privileged pods/daemonsets, modifying RBAC, or disabling admission controls.  
+- Validate the change against change management records and repository-based RBAC manifests, and if unauthorized, assess scope by enumerating other recent privileged RBAC grants created around the same time.
+
+### False positive analysis
+
+- A cluster bootstrap, upgrade, or recovery workflow legitimately creates or re-creates a ClusterRoleBinding/RoleBinding to `cluster-admin` for a break-glass admin user or core control-plane service account as part of restoring expected RBAC state.  
+- An approved operational change temporarily grants `cluster-admin` to a namespace service account or automation identity to perform broad maintenance tasks (e.g., installing cluster-scoped resources), and the binding creation is captured during the allowed change window.
+
+### Response and remediation
+
+- Immediately identify and delete or edit the newly created RoleBinding/ClusterRoleBinding granting `cluster-admin`, then revoke the bound subject’s access by rotating the affected service account token or disabling the implicated user/identity provider account.  
+- Quarantine likely-abused workloads by scaling down or deleting pods/deployments created by the newly privileged subject and blocking its network access with namespace isolation policies while you preserve relevant audit logs and YAML manifests.  
+- Enumerate and undo follow-on changes made after the binding creation, including additional RBAC grants, new cluster-scoped resources (CRDs, webhooks), privileged DaemonSets, secret reads, or changes to admission controllers, and rotate any exposed credentials found in Secrets.  
+- Recover by restoring RBAC and critical cluster resources from GitOps or known-good backups, then re-apply least-privilege roles and validate access with `kubectl auth can-i` for impacted identities and namespaces.  
+- Escalate to incident response leadership immediately if the binding targets a service account, an external identity not in the admin group, or if there is evidence of secret access, privileged workload creation, or persistence mechanisms (e.g., new webhooks or DaemonSets).  
+- Harden by enforcing RBAC via GitOps-only change control, restricting `cluster-admin` binding creation with admission policy (ValidatingAdmissionPolicy/Kyverno/OPA Gatekeeper), requiring MFA and short-lived tokens for admins, and alerting on any creation or modification of cluster-wide RBAC bindings.
+"""
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
+]
+risk_score = 47
+rule_id = "a2951930-dd35-438c-b10e-1bbdc5881cb4"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+event.dataset: "kubernetes.audit_logs" and kubernetes.audit.objectRef.resource:("clusterrolebindings" or "rolebindings") and
+kubernetes.audit.verb:"create" and kubernetes.audit.requestObject.roleRef.name:"cluster-admin" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.level:"RequestResponse" and kubernetes.audit.stage:"ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

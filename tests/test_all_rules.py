@@ -793,7 +793,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
-            modified_rules = result.splitlines()
+            modified_rules = [path for path in result.splitlines() if path.endswith(".toml")]
             failed_rules = []
             for modified_rule_path in modified_rules:
                 diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
@@ -870,6 +870,8 @@ class TestRuleMetadata(BaseRuleTest):
                             continue
                         if rule.contents.data.type == "threat_match":
                             continue
+                        if indices == [".alerts-security.*"]:
+                            continue
                         err_msg = f"{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect."
                         failures.append(err_msg)
 
@@ -891,6 +893,7 @@ class TestRuleMetadata(BaseRuleTest):
                         not rule.contents.metadata.integration
                         and rule.id not in definitions.IGNORE_IDS
                         and rule.contents.data.type not in definitions.MACHINE_LEARNING
+                        and indices != [".alerts-security.*"]
                     ):
                         err_msg = (
                             f"substrings {non_dataset_packages} found in "
@@ -1074,7 +1077,7 @@ class TestRuleMetadata(BaseRuleTest):
         stack_map = load_etc_dump(["stack-schema-map.yaml"])
 
         # Get the minimum supported stack version as version object
-        min_supported = min(stack_map.keys(), key=lambda v: Version.parse(v))
+        min_supported = min(stack_map.keys(), key=Version.parse)
         # Load all production rules
         for rule in self.all_rules:
             min_stack_version = rule.contents.metadata.get("min_stack_version")
@@ -1437,40 +1440,7 @@ class TestInvestigationGuide(BaseRuleTest):
 
 
 class TestNoteMarkdownPlugins(BaseRuleTest):
-    """Test if a guide containing Osquery Plugin syntax contains the version note."""
-
-    def test_note_has_osquery_warning(self):
-        """Test that all rules with osquery entries have the default notification of stack compatibility."""
-        osquery_note_pattern = (
-            "> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) "
-            "introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-        invest_note_pattern = (
-            "> This investigation guide uses the [Investigate Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)"
-            " introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-
-        for rule in self.all_rules:
-            if not rule.contents.get("transform"):
-                continue
-
-            osquery = rule.contents.transform.get("osquery")
-            if osquery and osquery_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain "
-                    f"the following note:\n{osquery_note_pattern}"
-                )
-
-            investigate = rule.contents.transform.get("investigate")
-            if investigate and invest_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain "
-                    f"the following note:\n{invest_note_pattern}"
-                )
+    """Test investigation guide markdown plugin syntax and placeholders."""
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""

@@ -2,7 +2,7 @@
 creation_date = "2024/06/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2026/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -22,10 +22,6 @@ language = "esql"
 license = "Elastic License v2"
 name = "AWS IAM User Created Access Keys For Another User"
 note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 
 ### Investigating AWS IAM User Created Access Keys For Another User
 
@@ -75,27 +71,24 @@ This rule identifies `CreateAccessKey` API calls where the calling user (`aws.cl
 
 ### Response and remediation
 
-> AWS IR playbooks classify unauthorized credential creation as a **Priority-1 incident** because it may allow persistence or privilege escalation.  
-> The following steps scale for organizations with or without a dedicated IR team.
-
-**1. Immediate containment**
+**Immediate containment**
 - Deactivate or delete the access key from the target IAM user immediately using the AWS Console, CLI, or API (`DeleteAccessKey`).  
 - Rotate or reset credentials for both the calling and target users to eliminate possible compromise.  
 - Restrict risky principals. Temporarily deny `iam:CreateAccessKey` and `iam:UpdateAccessKey` permissions for non-administrative roles while scoping the incident.  
 - Enable or confirm MFA on both accounts involved, if not already enforced.
 
-**2. Evidence preservation**
+**Evidence preservation**
 - Export all related `CreateAccessKey`, `DeleteAccessKey`, and `UpdateAccessKey` events within ±30 minutes of the alert to an evidence bucket.  
 - Preserve CloudTrail, GuardDuty, and AWS Config data for the same period.  
 - Record key event details: caller ARN, target user, `accessKeyId`, `source.ip`, `userAgent`, and timestamps.
 
-**3. Scoping and investigation**
+**Scoping and investigation**
 - Search CloudTrail for usage of the new access key ID after creation. Identify any API activity or data access tied to it.  
 - Review IAM policy changes, group modifications, or new role assumptions around the same time.  
 - Determine if any additional credentials or trust policy changes were made by the same actor.  
 - Check for GuardDuty findings referencing anomalous credential usage or suspicious API behavior.
 
-**4. Recovery and hardening**
+**Recovery and hardening**
 - Remove or disable any unauthorized keys and re-enable only verified credentials.  
 - Implement least-privilege IAM policies to limit which users can perform `CreateAccessKey`.  
 - Monitor for future `CreateAccessKey` events where `userIdentity.arn != request_parameters.userName`.  
