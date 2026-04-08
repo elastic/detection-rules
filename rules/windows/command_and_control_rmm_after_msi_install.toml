@@ -2,7 +2,7 @@
 creation_date = "2026/03/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/18"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -69,14 +69,14 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=1m
- [process where host.os.type == "windows" and event.type == "start" and process.name : "msiexec.exe" and process.args : ("/i*", "-i*")]
+ [process where host.os.type == "windows" and event.type == "start" and process.name : "msiexec.exe" and 
+  process.args : ("/i*", "-i*") and process.parent.name : ("explorer.exe", "sihost.exe")]
  [process where host.os.type == "windows" and event.type == "start" and
   (
    (process.name : "ScreenConnect.ClientService.exe" and process.command_line : "*?e=Access&y=Guest&h*&k=*") or
    (process.name : "Syncro.Installer.exe" and process.args : "--config-json" and process.args : "--key") or 
     process.name : ("tvnserver.exe", "winvnc.exe") 
-  )
-  ]
+  )]
 '''
 
 [[rule.threat]]
