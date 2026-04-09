@@ -2,13 +2,13 @@
 creation_date = "2020/10/14"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential use of an SSH utility to establish RDP over a reverse SSH Tunnel. This can be used by attackers to
-enable routing of network packets that would otherwise not reach their intended destination.
+Identifies potential use of an SSH utility to establish RDP over an SSH Tunnel. This can be used by attackers to enable
+routing of network packets that would otherwise not reach their intended destination.
 """
 from = "now-9m"
 index = [
@@ -25,40 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Remote Desktop Tunneling Detected"
-note = """## Triage and analysis
-
-### Investigating Potential Remote Desktop Tunneling Detected
-
-Protocol Tunneling is a mechanism that involves explicitly encapsulating a protocol within another for various use cases, ranging from providing an outer layer of encryption (similar to a VPN) to enabling traffic that network appliances would filter to reach their destination.
-
-Attackers may tunnel Remote Desktop Protocol (RDP) traffic through other protocols like Secure Shell (SSH) to bypass network restrictions that block incoming RDP connections but may be more permissive to other protocols.
-
-This rule looks for command lines involving the `3389` port, which RDP uses by default and options commonly associated with tools that perform tunneling.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account and system owners and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine network data to determine if the host communicated with external servers using the tunnel.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-- Investigate the command line for the execution of programs that are unrelated to tunneling, like Remote Desktop clients.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Take the necessary actions to disable the tunneling, which can be a process kill, service deletion, registry key modification, etc. Inspect the host to learn which method was used and to determine a response for the case.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = ["https://blog.netspi.com/how-to-access-rdp-over-a-reverse-ssh-tunnel/"]
 risk_score = 73
 rule_id = "76fd43b7-3480-4dd9-8ad7-8bd36bfad92f"
@@ -83,11 +49,127 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  /* RDP port and usual SSH tunneling related switches in command line */
-  process.args : "*:3389" and
-  process.args : ("-L", "-P", "-R", "-pw", "-ssh")
+  /* RDP port with SSH local or reverse port-forwarding flags */
+  process.args : "*:3389" and process.args : ("-L", "-R")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Remote Desktop Tunneling Detected
+
+#### Possible investigation steps
+
+- Does the command line describe local or reverse forwarding of RDP, and who is being exposed through it?
+  - Why: tunnel direction changes the risk. "-L" accesses a remote RDP service through the tunnel (common admin pattern); "-R" exposes a host's RDP service outward through an attacker-controlled SSH server (the classic plink reverse-tunnel attack pattern).
+  - Focus: `process.command_line` and `process.executable`, checking whether the flag is "-L" (local) or "-R" (reverse), which host and port 3389 are forwarded, and whether inline credentials ("-pw") or saved sessions ("-load") are present. Many SSH clients ship unsigned, so use `process.Ext.relative_file_creation_time` to distinguish long-installed tools from recently dropped ones.
+  - Implication: "-R" (reverse forward) exposes an internal RDP service outward through the SSH server and is the higher-risk direction; "-L" (local forward) accesses a remote RDP service through the tunnel and is common in admin jump-host workflows. Both directions are common. Concern rises further when inline credentials are embedded, the remote endpoint is obscured behind a wrapper, or the binary is renamed, portable, or recently dropped.
+
+- Do surrounding artifacts show the operator seeded trust or tried to keep the tunnel reusable?
+  - Why: persistent tunnels are often paired with host-key trust, saved configuration, or scheduled relaunch so the tunnel can start non-interactively and survive user interruption.
+  - Focus: for OpenSSH clients, check `file.path` for recent changes to `~/.ssh/known_hosts`, `~/.ssh/config`, or `~/.ssh/authorized_keys`, and surrounding `process.command_line` for "schtasks.exe", "at.exe", or scripted relaunches. For PuTTY/plink, check `registry.path` and `registry.data.strings` for "SshHostKeys", "Sessions", or "-load" session reuse.
+  - Implication: more concerning when new host-key entries, saved configurations, or scheduled relaunch activity appear just before or after the tunnel start; more explainable when the trust cache and relaunch method already belong to an established workflow with no new persistence changes.
+
+- Does network telemetry show an SSH session to a destination that fits the expected workflow?
+  - Focus: the SSH destination is already in `process.args` from the alert. Use the network transform to confirm the connection succeeded and to check `destination.as.organization.name` for ownership context, especially for reverse forwards to external servers. $investigate_2
+  - Hint: if the command line already names an internal hostname you can verify, the network transform is optional. It adds the most value when the destination is an IP literal or an unfamiliar external host.
+  - Implication: supports concern when the process reaches a rare external destination, an unexpected SSH port, or infrastructure with no recognizable ownership; less concerning when the destination, port, and domain pattern fit a known bastion or jump host. Missing network telemetry is unresolved, not benign.
+
+- If the local evidence stays suspicious, does this host or user show related alerts or repeated tunneling activity?
+  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours, looking for delivery, persistence, credential access, or other remote-access activity around the tunnel event.
+    - $investigate_0
+    - $investigate_1
+  - Implication: supports concern when the host or user shows delivery, credential theft, or follow-on remote-access alerts; keeps the case locally bounded when alert history stays tied to one recognized admin workflow.
+
+- Escalate when tunnel direction, binary context, persistence artifacts, network destination, or alert scope align on unauthorized RDP exposure or SSH tunneling; close only when all evidence fits a recognized administration workflow; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Bastion or jump-host tunneling can legitimately trigger this rule. Confirm it when `process.executable`, `process.parent.executable`, the forwarding direction and target in `process.args`, and the `user.id`/`host.id` pairing all align with one recognized admin workflow. If records are unavailable, require the same binary path, parent, and tunnel pattern to recur across prior alerts.
+- Before creating an exception, build on the forwarding target in `process.command_line` (e.g., the specific host and port being tunneled) combined with `process.executable`, `user.id`, and `host.id`. Most SSH clients triggering this rule are unsigned, so `process.code_signature.subject_name` is usually empty and `process.hash.sha256` changes with updates. Avoid exceptions on port 3389, `process.name`, or SSH switches alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary destination blocks or process suspension and document the evidence that proved the workflow, including `process.hash.sha256`, `process.parent.executable`, `process.command_line`, `destination.ip` or `dns.question.name`, any linked `source.ip`, and the bounded `user.id` and `host.id` scope. Create an exception only if that same workflow recurs across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the full `process.command_line`, the alert's `process.entity_id`, `process.hash.sha256`, signer details, `destination.ip`, `dns.question.name`, linked `winlog.event_data.TargetLogonId` and `source.ip`, and any trust-seeding or relaunch artifacts (OpenSSH config files or PuTTY registry entries). Apply reversible containment first, such as blocking the SSH destination, suspending the tunneling process, or restricting the affected account. Escalate to host isolation only if the host role can tolerate it and the session or related-alert evidence suggests active abuse.
+- If confirmed malicious, use endpoint response to isolate the host and terminate or suspend the tunneling process after recording `process.entity_id`, the parent chain, destination indicators, linked logon details, and any scheduled task, service, script, or registry artifacts that relaunch the tunnel. If direct endpoint response is unavailable, escalate with that artifact set to the team that can contain the host or account.
+- Before deleting artifacts or resetting accounts, review other hosts and users for the same destination pattern, launcher lineage, or scheduled relaunch method so scoping is complete. Then remove the scheduled task, service, script, registry entries, and SSH client artifacts that sustained the tunnel, review any RDP-reachable systems for follow-on access, and reset credentials where the session review shows likely exposure or misuse.
+- Post-incident hardening: restrict which hosts and accounts can run SSH tunneling tools, limit outbound SSH to recognized bastions, and retain process, file, and registry telemetry for SSH client activity.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.pe.original_file_name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.working_directory",
+    "process.Ext.relative_file_creation_time",
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the alerting process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
