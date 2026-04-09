@@ -15,11 +15,11 @@
 ## Query
 
 ```sql
-from logs-endpoint.events.network-*
+from logs-endpoint.*
 | keep @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id, process.executable, process.command_line
 | where @timestamp > now() - 7 days
 | where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
-process.executable like "/var/lib/docker/*" and destination.ip IS NOT null and not 
+process.executable like "/var/lib/docker/*" and destination.ip IS NOT null and not
 CIDR_MATCH(
   destination.ip,
   // Exclude common destination IP ranges for your environment here
@@ -56,15 +56,15 @@ WHERE strftime('%s', 'now') - created <= (7 * 86400); -- Pulled in the last 7 da
 ```
 
 ```sql
-SELECT 
+SELECT
     id AS container_id,
     name AS container_name,
     source AS host_path,
     destination AS container_path,
     rw AS is_read_write
-FROM 
+FROM
     docker_container_mounts
-WHERE 
+WHERE
     source IN ('/var/run/docker.sock', '/', '/etc', '/var/lib/docker');
     -- Add your own list of additional sources here
 ```
