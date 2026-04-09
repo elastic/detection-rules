@@ -17,8 +17,40 @@ index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Shell History Clearing via Environment Variables"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shell History Clearing via Environment Variables
+
+This rule detects Linux processes that start with shell history controls set to disable or discard command logging, a common defense-evasion tactic that removes evidence of hands-on-keyboard activity. An attacker who gains a shell may launch bash with HISTFILE=/dev/null and HISTSIZE=0, then run discovery, credential access, or privilege-escalation commands knowing their interactive history will not be written to disk.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and login context to determine whether the shell was launched from a legitimate admin session, a remote access channel such as SSH or a web shell, or an unexpected parent process.
+- Review all commands and child processes executed by the same user and terminal session immediately before and after the history suppression event for signs of discovery, credential access, lateral movement, privilege escalation, or log tampering.
+- Correlate with authentication, sudo, PAM, and SSH logs on the host to verify who initiated the session, from where, and whether the activity aligns with approved maintenance or change windows.
+- Examine concurrent file, network, and process telemetry for follow-on actions such as downloading tools, touching sensitive files, modifying startup scripts, or making outbound connections that would indicate the shell was used for malicious objectives.
+- If the activity is not clearly benign, capture volatile evidence and inspect shell startup files and account profiles for persistent history-disabling settings or aliases that could mask repeated interactive activity.
+
+### False positive analysis
+
+- Administrators may intentionally launch a temporary shell with HISTFILE=/dev/null or HISTSIZE=0 during sensitive maintenance to avoid saving secrets entered at the prompt; verify the user, change timing, parent process, and nearby commands align with approved administrative work on the host.
+- A user's shell startup files may legitimately set HISTCONTROL=ignorespace or redirect HISTFILE for noninteractive, ephemeral, or test sessions as part of local shell customization; confirm the same settings exist in the account or system shell profiles and appear consistently across the user's normal sessions without other suspicious behavior.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while preserving forensic access, stop the malicious shell and any spawned tools, and collect copies of the user’s shell startup files, current crontabs, and recently modified scripts before cleanup.
+- Remove attacker footholds by deleting unauthorized changes in ~/.bashrc, ~/.profile, /etc/profile, /etc/bash.bashrc, ~/.ssh/authorized_keys, systemd service or timer units, cron jobs, and any backdoor binaries or web shells dropped during the session.
+- Reset credentials and secrets exposed on or from the host, including the compromised local account, any sudo-capable accounts, SSH keys, and application tokens, and review sudoers files and group membership for malicious privilege changes.
+- Restore the system to a known-good state by rebuilding from a trusted image or validated backup and verifying core packages, shell configuration files, scheduled tasks, and remote access settings match the approved baseline before reconnecting it.
+- Escalate to incident response immediately if the history-suppression shell was followed by privilege escalation, credential access, outbound tool downloads, lateral movement over SSH, or the same behavior is identified on multiple hosts, and expand scoping to related accounts and systems.
+- Harden against recurrence by enforcing centralized command and session logging, restricting interactive shell access to managed administration paths, monitoring for shell profiles that set HISTFILE=/dev/null or HISTSIZE=0, and tightening change control for user and system startup files.
+"""
 references = ["https://www.rapid7.com/blog/post/tr-new-whitepaper-stealthy-bpfdoor-variants/"]
-risk_score = 71
+risk_score = 73
 rule_id = "a68da7d6-7eab-45bd-97c5-93b469c0706e"
 setup = """## Setup
 
@@ -65,6 +97,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
