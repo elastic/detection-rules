@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any, get_args
 
 import pytoml  # type: ignore[reportMissingTypeStubs]
-import yaml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
 
 from .config import parse_rules_config
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
+from .utils import ensure_yaml_suffix, save_yaml
 
 RULES_CONFIG = parse_rules_config()
 
@@ -244,16 +244,10 @@ class TOMLException:
         target_path = path or self.path
         if not target_path:
             raise ValueError(f"Can't save exception {self.name} without a path")
-        if target_path.suffix not in (".yaml", ".yml"):
-            target_path = target_path.with_suffix(".yaml")
-        with target_path.open("w", encoding="utf-8", newline="\n") as f:
-            api_format = self.contents.to_api_format()
-            # If single item, write as dict; if multiple, write as list
-            content = api_format[0] if len(api_format) == 1 else api_format
-            output = yaml.safe_dump(content, default_flow_style=False, sort_keys=True)
-            _ = f.write(output)
-            if not output.endswith("\n"):
-                _ = f.write("\n")
+        api_format = self.contents.to_api_format()
+        # If single item, write as dict; if multiple, write as list
+        content = api_format[0] if len(api_format) == 1 else api_format
+        save_yaml(ensure_yaml_suffix(target_path), content)
 
 
 def parse_exceptions_results_from_api(
