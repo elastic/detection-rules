@@ -208,7 +208,7 @@ def kibana_import_rules(  # noqa: PLR0915
 
 
 @kibana_group.command("export-rules")
-@click.option("--directory", "-d", required=False, type=Path, help="Directory to export rules to")
+@click.option("--directory", "-d", required=True, type=Path, help="Directory to export rules to")
 @click.option(
     "--action-connectors-directory", "-acd", required=False, type=Path, help="Directory to export action connectors to"
 )
@@ -225,11 +225,11 @@ def kibana_import_rules(  # noqa: PLR0915
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option(
-    "--save-yaml-dir",
-    "-syd",
-    required=False,
-    type=Path,
-    help="Save exported rules and objects as YAML into this directory using original filenames",
+    "--save-as-yaml",
+    "-sy",
+    is_flag=True,
+    default=False,
+    help="Save exported rules and objects as YAML into --directory (instead of TOML)",
 )
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.option(
@@ -261,7 +261,7 @@ def kibana_import_rules(  # noqa: PLR0915
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     ctx: click.Context,
-    directory: Path | None,
+    directory: Path,
     action_connectors_directory: Path | None,
     exceptions_directory: Path | None,
     default_author: str,
@@ -270,7 +270,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     export_action_connectors: bool = False,
     export_exceptions: bool = False,
     skip_errors: bool = False,
-    save_yaml_dir: Path | None = None,
+    save_as_yaml: bool = False,
     strip_version: bool = False,
     no_tactic_filename: bool = False,
     local_creation_date: bool = False,
@@ -286,13 +286,6 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors or custom_rules_only or export_query
-
-    if not directory and not save_yaml_dir:
-        raise click.UsageError("One of --directory or --save-yaml-dir must be provided.")
-
-    output_directory = directory or save_yaml_dir
-    if not output_directory:
-        raise click.UsageError("Unable to determine output directory.")
 
     # Only allow one of rule_id or rule_name
     if rule_name and rule_id:
@@ -339,7 +332,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         click.echo("Warning: Action Connector export requested, but no Action Connector directory found")
 
     if results:
-        output_directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
     else:
         click.echo("No rules found to export")
         return []
@@ -389,7 +382,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             tactic_name = first_tactic if not no_tactic_filename else None  # type: ignore[reportUnknownMemberType]
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=tactic_name)  # type: ignore[reportUnknownMemberType]
 
-            save_path = output_directory / f"{rule_name}"
+            save_path = directory / f"{rule_name}"
 
             # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
             local_rule: dict[str, Any] = params.get("rule", {})
@@ -474,10 +467,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     saved: list[TOMLRule] = []
     for rule in exported:
         try:
-            if save_yaml_dir:
+            if save_as_yaml:
                 rule_path = rule.path
                 if isinstance(rule_path, Path):
-                    rule.save_yaml(save_yaml_dir / rule_path.name)
+                    rule.save_yaml(directory / rule_path.name)
                 else:
                     _raise_missing_path(f"Can't save rule {rule.name} ({rule.id}) without a path")
             else:
@@ -494,10 +487,10 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     saved_exceptions: list[TOMLException] = []
     for exception in exceptions:
         try:
-            if save_yaml_dir:
+            if save_as_yaml:
                 exception_path = exception.path
                 if isinstance(exception_path, Path):
-                    exception.save_yaml(save_yaml_dir / exception_path.name)
+                    exception.save_yaml(directory / exception_path.name)
                 else:
                     _raise_missing_path(f"Can't save exception {exception.name} without a path")
             else:
@@ -514,8 +507,8 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     saved_action_connectors: list[TOMLActionConnector] = []
     for action in action_connectors:
         try:
-            if save_yaml_dir:
-                action.save_yaml(save_yaml_dir / action.path.name)
+            if save_as_yaml:
+                action.save_yaml(directory / action.path.name)
             else:
                 action.save_toml()
         except Exception as e:
@@ -531,11 +524,11 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     click.echo(f"{len(exported)} rules converted")
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(action_connectors)} action connectors exported")
-    click.echo(f"{len(saved)} rules saved to {output_directory}")
+    click.echo(f"{len(saved)} rules saved to {directory}")
     click.echo(f"{len(saved_exceptions)} exception lists saved to {exceptions_directory}")
     click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
     if errors:
-        err_file = output_directory / "_errors.txt"
+        err_file = directory / "_errors.txt"
         _ = err_file.write_text("\n".join(errors))
         click.echo(f"{len(errors)} errors saved to {err_file}")
 
