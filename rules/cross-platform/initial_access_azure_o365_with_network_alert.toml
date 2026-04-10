@@ -107,8 +107,8 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
     Esql.source_ip_mail_access_case_count_distinct = count_distinct(Esql.source_ip_mail_access_case),
     Esql.source_ip_azure_signin_case_count_distinct = count_distinct(Esql.source_ip_azure_signin_case),
     Esql.source_ip_network_alert_case_count_distinct = count_distinct(Esql.source_ip_network_alert_case),
-    Esql.event_dataset_count_distinct = count_distinct(data_stream.dataset),
-    Esql.event_dataset_values = values(data_stream.dataset),
+    Esql.data_stream_dataset_count_distinct = count_distinct(data_stream.dataset),
+    Esql.data_stream_dataset_values = values(data_stream.dataset),
     Esql.kibana_alert_rule_id_values = values(kibana.alert.rule.rule_id),
     Esql.event_category_values = values(event.category)
   by Esql.source_ip = to_ip(source.ip)
@@ -116,7 +116,7 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
 // correlation condition
 | where
   Esql.source_ip_network_alert_case_count_distinct > 0
-  and Esql.event_dataset_count_distinct >= 2
+  and Esql.data_stream_dataset_count_distinct >= 2
   and (Esql.source_ip_mail_access_case_count_distinct > 0 or Esql.source_ip_azure_signin_case_count_distinct > 0)
   and Esql.event_count <= 100
 '''
