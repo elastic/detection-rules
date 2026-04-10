@@ -22,7 +22,7 @@ A detection that does not function correctly is a liability. Every rule should b
 
 ### Known gaps are better than unknown gaps
 
-No detection is perfect. Rules should document their known limitations and accepted blind spots. A rule with clearly stated constraints is more trustworthy and maintainable than one with undiscovered weaknesses.
+No detection is perfect. Rules should document their known limitations and accepted blind spots, whether in the description, false positive notes, investigation guide, or inline query comments. A rule with clearly stated constraints is more trustworthy and maintainable than one with undiscovered weaknesses. 
 
 ### Engineered for production
 
@@ -38,7 +38,7 @@ For endpoint protections, the goal is not only to detect a threat but to block i
 
 ### The right language for the right job
 
-Elastic Security supports multiple query languages and detection mechanisms, each capable of expressing different analytical patterns. Some detections identify rare or novel behavior, others focus on frequency and threshold-based anomalies, while others rely on event sequencing, correlation, or broad field matching. Advanced analytics enable aggregation, enrichment, and cross-domain reasoning.
+Elastic Security supports multiple query languages and detection mechanisms, each capable of expressing different analytical patterns. Some detections identify rare or novel behavior, others focus on frequency and threshold-based anomalies, while others rely on event sequencing, correlation, or broad field matching. Advanced analytics enable aggregation, enrichment, and cross-domain reasoning. Choosing the right language for each threat is key.
 
 ## Approach
 
