@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a ROLE_ASSUME event in the FreeIPA Dogtag CA audit log, indicating that a user assumed a CA administrative
+role. CA admin roles provide the ability to issue, revoke, and manage certificates. Unauthorized role assumption
+enables full control over the PKI infrastructure.
+"""
+false_positives = [
+    """
+    CA administrators performing routine maintenance or certificate operations will trigger this rule.
+    FreeIPA internal processes (RA_AGENT) also assume roles during normal operation. Exclude known internal
+    role assumptions if they are too noisy.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA CA Administrative Role Assumed"
+note = """## Triage and analysis
+
+### Investigating FreeIPA CA Administrative Role Assumed
+
+The Dogtag CA uses role-based access control for certificate operations. ROLE_ASSUME events indicate a user has taken on a CA administrative role, granting them certificate management capabilities. While some internal processes assume roles routinely, unexpected role assumptions may indicate a compromised account gaining PKI control.
+
+### Possible investigation steps
+
+- Identify the user from `user.id` and determine if they are an authorized CA administrator.
+- Check `freeipa.ca.role` to identify which role was assumed (e.g., Certificate Manager Agent, CA Administrator).
+- Review `source.ip` to determine the origin of the request.
+- Look for subsequent certificate operations (issuance, revocation) performed after the role assumption.
+- Verify the role assumption against expected CA maintenance windows.
+
+### Response and remediation
+
+- If unauthorized, revoke any certificates issued during the session and investigate the user account.
+- Review CA subsystem ACLs and restrict role assumption to authorized accounts.
+- Audit all CA operations performed after the role assumption.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+]
+risk_score = 47
+rule_id = "065c4b8d-2382-4ffc-ae96-d7626e3cbd8a"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - Dogtag CA: `/var/log/pki/pki-tomcat/ca/signedAudit/ca_audit` (ca_audit data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA CA",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ca_audit-*
+| where freeipa.ca.event_type == "ROLE_ASSUME"
+    and not user.name in ("ipara", "pkidbuser")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "source.ip",
+    "freeipa.ca.event_type",
+    "freeipa.ca.role",
+    "event.outcome",
+]

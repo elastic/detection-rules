@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple certificate revocation events from the FreeIPA Dogtag CA in a short time window. Bulk certificate
+revocation may indicate an adversary covering their tracks after certificate theft, sabotaging service authentication,
+or causing a denial of service against certificate-dependent services.
+"""
+false_positives = [
+    """
+    Planned certificate rotation that involves revoking old certificates in bulk may trigger this rule. CA
+    administrators decommissioning hosts may also revoke multiple certificates. Verify against a change management
+    record.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Bulk Certificate Revocation"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Bulk Certificate Revocation
+
+Certificate revocation in FreeIPA is normally a rare, individual operation. Multiple revocations in a short window may indicate sabotage (breaking service-to-service authentication), covering tracks after certificate theft, or a compromised CA admin account.
+
+### Possible investigation steps
+
+- Identify the actor from `user.id` and verify they are a CA administrator.
+- Review `freeipa.ca.serial_number` and `freeipa.ca.subject_dn` for the revoked certificates to understand the impact.
+- Check `freeipa.ca.revocation_reason` — unusual reasons like "Key Compromise" or "CA Compromise" indicate a declared incident.
+- Look for preceding certificate request events that might indicate the adversary obtained certificates before revoking old ones.
+- Check for service disruptions caused by the revocations.
+
+### Response and remediation
+
+- If unauthorized, reissue certificates for affected services immediately.
+- Investigate the CA admin account for compromise.
+- Review CA admin access controls and audit recent CA configuration changes.
+- Consider implementing approval workflows for certificate revocation.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1562/",
+]
+risk_score = 73
+rule_id = "5b728f48-7f4d-4ceb-ba7e-461c40fac410"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - Dogtag CA: `/var/log/pki/pki-tomcat/ca/signedAudit/ca_audit` (ca_audit data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA CA",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ca_audit-*
+| where freeipa.ca.event_type in ("CERT_STATUS_CHANGE_REQUEST_PROCESSED", "CERT_REVOKED")
+    and event.outcome == "success"
+| stats Esql.revocation_count = count(*) by user.id
+| where Esql.revocation_count >= 5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "source.ip",
+    "freeipa.ca.event_type",
+    "freeipa.ca.serial_number",
+    "freeipa.ca.subject_dn",
+    "freeipa.ca.revocation_reason",
+    "event.outcome",
+    "Esql.revocation_count",
+]

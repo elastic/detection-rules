@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple distinct Kerberos principals being locked out in a short time window. A lockout storm across
+many accounts indicates either a large-scale password spraying attack that has hit lockout thresholds, or a
+deliberate denial of service attack designed to lock out legitimate users.
+"""
+false_positives = [
+    """
+    A misconfigured batch job or monitoring system that authenticates with expired credentials across many
+    accounts could trigger lockouts. This should be rare and traceable to a specific source IP.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Kerberos Account Lockout Storm"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Kerberos Account Lockout Storm
+
+LOCKED_OUT errors from the KDC indicate that an account has exceeded the maximum failed authentication attempts defined in the password policy. Multiple accounts being locked out simultaneously is inherently abnormal and indicates either a widespread spray attack or deliberate lockout abuse.
+
+### Possible investigation steps
+
+- List all locked-out principals by querying `freeipa.kdc.error_code:LOCKED_OUT` in the alert time window.
+- Determine if the lockouts originate from a single `source.ip` (targeted attack) or many IPs (distributed attack).
+- Check for preceding PREAUTH_FAILED events from the same source(s) to confirm a spray preceded the lockouts.
+- Assess the operational impact — how many users are unable to authenticate.
+- Determine if any accounts had successful authentication before being locked out (indicating the attacker guessed a password).
+
+### Response and remediation
+
+- Block the source IP(s) at the network perimeter.
+- Unlock affected accounts via `ipa user-unlock <user>` after verifying they are legitimate.
+- Force password resets for any accounts that had successful authentications from the attacking source before lockout.
+- Review lockout policy thresholds to balance security with operational resilience.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1110/",
+    "https://attack.mitre.org/techniques/T1531/",
+]
+risk_score = 73
+rule_id = "ee6f2d52-a4b5-4c1e-9d8c-8f3b2a7e1f04"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - KDC: `/var/log/krb5kdc.log` (kdc data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA KDC",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.kdc-*
+| where freeipa.kdc.error_code == "LOCKED_OUT"
+| stats Esql.lockout_count = count(*), Esql.unique_principals = count_distinct(freeipa.kdc.client_principal) by source.ip
+| where Esql.lockout_count >= 3 and Esql.unique_principals >= 3
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "freeipa.kdc.client_principal",
+    "freeipa.kdc.error_code",
+    "event.outcome",
+    "Esql.lockout_count",
+    "Esql.unique_principals",
+]

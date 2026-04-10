@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a burst of FreeIPA API commands that disable or delete user or host accounts. Mass account manipulation
+indicates either a destructive attack (sabotage, denial of service) or a compromised admin account performing
+unauthorized cleanup to cover tracks.
+"""
+false_positives = [
+    """
+    Planned decommissioning of hosts or offboarding of users may generate multiple disable/delete commands.
+    Verify against an HR or infrastructure change management record.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Mass Account Disable or Deletion"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Mass Account Disable or Deletion
+
+Bulk account disabling or deletion in FreeIPA causes widespread authentication failures across the domain. This can be used as sabotage (denying access to legitimate users) or to cover tracks by removing compromised accounts. Even accidental mass deletion has severe impact.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` and verify they are authorized to manage accounts.
+- List all affected accounts from the `freeipa.api.parameters` field across the matched events.
+- Determine if the operations target users, hosts, or both.
+- Check if any affected accounts were recently compromised or flagged.
+- Verify against an HR offboarding list or infrastructure decommissioning plan.
+
+### Response and remediation
+
+- If unauthorized, re-enable or recreate affected accounts immediately.
+- Reset credentials for the actor's account and revoke their sessions.
+- Investigate the actor's account for compromise.
+- Review admin access controls and consider implementing approval workflows for bulk operations.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1531/",
+]
+risk_score = 73
+rule_id = "7d576109-d0cf-45d8-bc19-5145bc04beda"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.outcome == "success"
+    and event.action in ("user_del", "user_disable", "host_del", "host_disable")
+| stats Esql.action_count = count(*) by user.name
+| where Esql.action_count >= 5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+    "Esql.action_count",
+]

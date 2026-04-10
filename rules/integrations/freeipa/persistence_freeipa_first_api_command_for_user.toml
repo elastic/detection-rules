@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a user performs a specific administrative IPA API command. A user who has never managed sudo
+rules suddenly creating one, or a user who has never modified groups adding members, may indicate a compromised
+account being used for privilege escalation. Uses 14-day history to establish each user's normal command repertoire.
+"""
+false_positives = [
+    """
+    Newly promoted administrators or users granted new roles will naturally perform API commands for the first time.
+    Correlate with recent role or privilege assignments to distinguish legitimate new access from suspicious activity.
+    """,
+]
+from = "now-9m"
+index = ["logs-freeipa.ipa_api-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First FreeIPA Administrative API Command for User"
+note = """## Triage and analysis
+
+### Investigating First FreeIPA Administrative API Command for User
+
+FreeIPA administrators develop patterns of API usage based on their role. A user who typically only manages passwords suddenly adding sudo rules or modifying trust relationships is behaving outside their baseline. This can indicate credential compromise, privilege abuse, or an insider threat.
+
+### Possible investigation steps
+
+- Identify the user from `user.name` and the new command from `event.action`.
+- Determine if the user was recently granted a new role or permission that would explain the new command.
+- Review `source.ip` to check if the command originated from the user's expected location.
+- Examine the `freeipa.api.parameters` to understand what was created or modified.
+- Check for other anomalous activity from the same user — unusual login times, new source IPs, or failed commands.
+
+### Response and remediation
+
+- If the activity is unauthorized, revert the change made by the API command.
+- Reset the user's credentials and revoke active sessions.
+- Review the user's role assignments and remove any unauthorized privileges.
+- Investigate how the user obtained the ability to execute the command.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://freeipa.org/page/V4/IPA_API_Audit",
+]
+risk_score = 47
+rule_id = "d9bc8754-b35c-47fb-b79d-c2c3edcfe2ac"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "freeipa.ipa_api" and event.outcome: "success" and event.action: (user_mod or group_add_member or role_add_member or sudorule_add or hbacrule_add or otptoken_add or otptoken_del or pwpolicy_mod or trust_add or permission_add or privilege_add_permission)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "event.action"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
