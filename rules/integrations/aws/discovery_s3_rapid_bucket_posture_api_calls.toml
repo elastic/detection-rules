@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
 min_stack_version = "9.2.0"
-updated_date = "2026/04/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -107,7 +107,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 | eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
 
 | where
-    event.dataset == "aws.cloudtrail"
+    data_stream.dataset == "aws.cloudtrail"
     and event.provider == "s3.amazonaws.com"
     and event.outcome == "success"
     and event.action in (

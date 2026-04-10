@@ -3,7 +3,7 @@ creation_date = "2026/02/27"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/02/27"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
     ),
      is_openclaw_spawn = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*")
 | WHERE process.Ext.ancestry IS NOT NULL and 
-   (event.dataset == "endpoint.alerts" or is_genai_spawn or is_openclaw_spawn)
+   (data_stream.dataset == "endpoint.alerts" or is_genai_spawn or is_openclaw_spawn)
 // Identify GenAI tool spawn events and capture their entity_ids
 | EVAL genai_entity_id = CASE(is_genai_spawn or is_openclaw_spawn, process.parent.entity_id, NULL)
 
@@ -86,7 +86,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
 
 // Elastic Defend alerts from a GenAI grandparent 
 | WHERE Esql.genai_ancestor_ids IS NOT NULL 
-        AND event.dataset == "endpoint.alerts" AND not rule.name in (
+        AND data_stream.dataset == "endpoint.alerts" AND not rule.name in (
             "Persistence via GenAI Tool",
             "Code Editor Untrusted or Unsigned Child Process Execution",
             "Suspicious Credential Access via GenAI Tool",

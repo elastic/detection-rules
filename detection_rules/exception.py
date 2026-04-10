@@ -6,7 +6,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, get_args
 
@@ -16,6 +16,7 @@ from marshmallow import EXCLUDE, ValidationError, validates_schema
 from .config import parse_rules_config
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
+from .utils import ensure_yaml_suffix, save_yaml
 
 RULES_CONFIG = parse_rules_config()
 
@@ -176,8 +177,19 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         # Format date to match schema
         container = exceptions_dict["container"]
-        creation_date = datetime.strptime(container["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
-        updated_date = datetime.strptime(container["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        now_date = datetime.now(UTC).strftime("%Y/%m/%d")
+        created_at = container.get("created_at")
+        updated_at = container.get("updated_at")
+        creation_date = (
+            datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            if created_at
+            else now_date
+        )
+        updated_date = (
+            datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            if updated_at
+            else now_date
+        )
         metadata = {
             "creation_date": creation_date,
             "list_name": exceptions_dict["container"]["name"],
@@ -226,6 +238,16 @@ class TOMLException:
             # Sort the dictionary so that 'metadata' is at the top
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
             pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
+
+    def save_yaml(self, path: Path | None = None) -> None:
+        """Save the exception to a YAML file."""
+        target_path = path or self.path
+        if not target_path:
+            raise ValueError(f"Can't save exception {self.name} without a path")
+        api_format = self.contents.to_api_format()
+        # If single item, write as dict; if multiple, write as list
+        content = api_format[0] if len(api_format) == 1 else api_format
+        save_yaml(ensure_yaml_suffix(target_path), content)
 
 
 def parse_exceptions_results_from_api(
