@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik"]
 maturity = "production"
-updated_date = "2026/03/19"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -96,7 +96,7 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
 
 | keep
     @timestamp,
-    event.dataset,
+    data_stream.dataset,
     user_agent.original,
     source.ip,
     agent.id,
@@ -111,7 +111,7 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
     Esql.agent_id_values = values(agent.id),
     Esql.url_original_values = values(Esql.url_original_to_lower),
     Esql.user_agent_original_values = values(Esql.user_agent_original_to_lower),
-    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_dataset_values = values(data_stream.dataset),
     Esql.data_stream_namespace_values = values(data_stream.namespace)
     by source.ip, agent.id
 | where
