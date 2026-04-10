@@ -2,7 +2,7 @@
 creation_date = "2025/11/17"
 integration = ["endpoint", "fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/02/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by source.port, source.ip, destination.ip with maxspan=1m
- [network where event.dataset == "fortinet_fortigate.log" and event.action == "signature" and network.application in ("SOCKS4", "SOCKS5")]
+ [network where data_stream.dataset == "fortinet_fortigate.log" and event.action == "signature" and network.application in ("SOCKS4", "SOCKS5")]
  [network where event.module == "endpoint" and event.action in ("disconnect_received", "connection_attempted")]
 '''
 note = """## Triage and analysis
