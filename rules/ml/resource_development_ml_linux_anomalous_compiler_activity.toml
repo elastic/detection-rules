@@ -2,7 +2,9 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+updated_date = "2026/04/01"
 
 [rule]
 anomaly_threshold = 50
@@ -21,7 +23,7 @@ false_positives = [
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = ["v3_linux_rare_user_compiler"]
+machine_learning_job_id = ["v3_linux_rare_user_compiler_ea"]
 name = "Anomalous Linux Compiler Activity"
 setup = """## Setup
 
@@ -123,19 +125,44 @@ Compilers transform source code into executable programs, a crucial step in soft
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1588"
 name = "Obtain Capabilities"
 reference = "https://attack.mitre.org/techniques/T1588/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1588.001"
 name = "Malware"
 reference = "https://attack.mitre.org/techniques/T1588/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0042"
 name = "Resource Development"
 reference = "https://attack.mitre.org/tactics/TA0042/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1127"
+name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

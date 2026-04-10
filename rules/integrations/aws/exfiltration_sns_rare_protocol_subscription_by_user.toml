@@ -2,12 +2,12 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a use subscribes to an SNS topic using a new protocol type (ie. email, http, lambda, etc.). SNS allows users to subscribe to recieve topic messages across a broad range of protocols like email, sms, lambda functions, http endpoints, and applications. Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email address, cross-account AWS service or other means. This rule identifies a new protocol subscription method for a particular user. 
+Identifies when a user subscribes to an SNS topic using a new protocol type (ie. email, http, lambda, etc.). SNS allows users to subscribe to recieve topic messages across a broad range of protocols like email, sms, lambda functions, http endpoints, and applications. Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email address, cross-account AWS service or other means. This rule identifies a new protocol subscription method for a particular user. 
 """
 false_positives = [
     """
@@ -88,46 +88,65 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
 
-
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1496"
 name = "Resource Hijacking"
 reference = "https://attack.mitre.org/techniques/T1496/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1496.004"
 name = "Cloud Service Hijacking"
 reference = "https://attack.mitre.org/techniques/T1496/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.003"
+name = "One-Way Communication"
+reference = "https://attack.mitre.org/techniques/T1102/003/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

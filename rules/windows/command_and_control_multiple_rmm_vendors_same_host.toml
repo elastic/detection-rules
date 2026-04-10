@@ -1,0 +1,212 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = [
+    "endpoint",
+    "windows",
+    "sentinel_one_cloud_funnel",
+    "m365_defender",
+    "system",
+    "crowdstrike",
+]
+maturity = "production"
+updated_date = "2026/03/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Windows host where two or more distinct remote monitoring and management (RMM) or remote-access tool
+vendors are observed starting processes within the same eight-minute window. Legitimate MSP environments may run
+multiple tools, but this pattern can also indicate compromise, shadow IT, or attacker staging of redundant access.
+Processes are mapped to a single vendor label so multiple binaries from the same vendor do not inflate the count.
+"""
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Remote Management Tool Vendors on Same Host"
+note = """## Triage and analysis
+
+### Investigating Multiple Remote Management Tool Vendors on Same Host
+
+This rule aggregates process start events by `host.id`, host name, and a nine-minute time bucket. Data can come from
+Elastic Defend, Sysmon, Winlogbeat, Windows Security / forwarded events, Microsoft Defender for Endpoint, SentinelOne,
+CrowdStrike FDR, or Elastic Endgame—where ECS process fields are populated. Each known RMM-related process name maps
+to one **vendor** label (e.g. TeamViewer, AnyDesk, ScreenConnect). If **two or more different vendor labels** appear in
+the same bucket, the rule signals.
+
+### Possible investigation steps
+
+- Open **Esql.vendors_seen** and **Esql.processes_name_values** on the alert to see which tools fired in the window.
+- Confirm whether the host is an MSP-managed jump box, helpdesk workstation, or lab where multiple RMM stacks are expected.
+- For servers or standard user endpoints, treat as higher risk: review install source, code signatures, and recent logons.
+- Correlate with other alerts (ingress tool transfer, suspicious scripting, new persistence) on the same `host.id`.
+- Check asset inventory and change tickets for approved RMM software.
+
+### False positive analysis
+
+- **MSP / IT tooling**: A technician machine with two approved agents (e.g. RMM + remote support) may match. Tune with
+  host or organizational unit exceptions, or raise the vendor threshold if your environment standardizes on a known pair.
+- **Vendor rebrands or bundles**: Rare overlaps during migrations can briefly show two vendors; validate timeline and packages.
+
+### Response and remediation
+
+- If unauthorized or unexplained: isolate the host, inventory installed remote-access software, remove unapproved tools,
+  and reset credentials that may have been exposed. Enforce a single approved RMM stack per asset class where possible.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+]
+risk_score = 47
+rule_id = "c3f8a1d2-4b5e-4c6f-9a8b-1e2d3f4a5b6c"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: CrowdStrike",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Elastic Endgame",
+    "Data Source: Winlogbeat",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.events.process-*, endgame-*, logs-crowdstrike.fdr*, logs-m365_defender.event-*, logs-sentinel_one_cloud_funnel.*, logs-system.security*, logs-windows.sysmon_operational-*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
+| where (host.os.type == "windows" or host.os.family == "windows")
+    and event.category == "process"
+    and event.type == "start"
+    and process.name is not null
+| eval Esql.rmm_vendor = case(
+    process.name == "AeroAdmin.exe", "AeroAdmin",
+    process.name == "AnyDesk.exe", "AnyDesk",
+    process.name == "AteraAgent.exe", "Atera",
+    process.name == "AweSun.exe", "AweSun",
+    process.name like "aweray_remote*.exe", "AweSun",
+    process.name == "apc_Admin.exe", "APC",
+    process.name == "apc_host.exe", "APC",
+    process.name == "BASupSrvc.exe", "BeyondTrust",
+    process.name == "bomgar-scc.exe", "BeyondTrust",
+    process.name == "Remote Support.exe", "BeyondTrust",
+    process.name == "B4-Service.exe", "BeyondTrust",
+    process.name == "CagService.exe", "BarracudaRMM",
+    process.name == "domotzagent.exe", "Domotz",
+    process.name == "domotz-windows-x64-10.exe", "Domotz",
+    process.name == "dwagsvc.exe", "DWService",
+    process.name == "DWRCC.exe", "DWService",
+    process.name like "fleetdeck_commander*.exe", "FleetDeck",
+    process.name == "getscreen.exe", "GetScreen",
+    process.name == "g2aservice.exe", "GoTo",
+    process.name == "GoToAssistService.exe", "GoTo",
+    process.name == "gotohttp.exe", "GoTo",
+    process.name == "GoToResolveProcessChecker.exe", "GoTo",
+    process.name == "GoToResolveUnattended.exe", "GoTo",
+    process.name == "ImperoClientSVC.exe", "Impero",
+    process.name == "ImperoServerSVC.exe", "Impero",
+    process.name == "ISLLight.exe", "ISLOnline",
+    process.name == "ISLLightClient.exe", "ISLOnline",
+    process.name == "jumpcloud-agent.exe", "JumpCloud",
+    process.name == "level.exe", "Level",
+    process.name == "LvAgent.exe", "Level",
+    process.name == "LMIIgnition.exe", "LogMeIn",
+    process.name == "LogMeIn.exe", "LogMeIn",
+    process.name == "ManageEngine_Remote_Access_Plus.exe", "ManageEngine",
+    process.name == "MeshAgent.exe", "MeshCentral",
+    process.name == "meshagent.exe", "MeshCentral",
+    process.name == "Mikogo-Service.exe", "Mikogo",
+    process.name == "NinjaRMMAgent.exe", "NinjaOne",
+    process.name == "NinjaRMMAgenPatcher.exe", "NinjaOne",
+    process.name == "ninjarmm-cli.exe", "NinjaOne",
+    process.name == "parsec.exe", "Parsec",
+    process.name == "PService.exe", "Pulseway",
+    process.name == "r_server.exe", "Radmin",
+    process.name == "radmin.exe", "Radmin",
+    process.name == "radmin3.exe", "Radmin",
+    process.name == "rserver3.exe", "Radmin",
+    process.name == "vncserver.exe", "RealVNC",
+    process.name == "vncviewer.exe", "RealVNC",
+    process.name == "winvnc.exe", "RealVNC",
+    process.name == "ROMServer.exe", "RealVNC",
+    process.name == "ROMViewer.exe", "RealVNC",
+    process.name == "RemotePC.exe", "RemotePC",
+    process.name == "RemotePCDesktop.exe", "RemotePC",
+    process.name == "RemotePCService.exe", "RemotePC",
+    process.name == "RemoteDesktopManager.exe", "Devolutions",
+    process.name == "RCClient.exe", "RPCSuite",
+    process.name == "RCService.exe", "RPCSuite",
+    process.name == "RPCSuite.exe", "RPCSuite",
+    process.name == "rustdesk.exe", "RustDesk",
+    process.name == "rutserv.exe", "RemoteUtilities",
+    process.name == "rutview.exe", "RemoteUtilities",
+    process.name == "saazapsc.exe", "Kaseya",
+    process.name like "ScreenConnect*.exe", "ScreenConnect",
+    process.name == "ScreenConnect.ClientService.exe", "ScreenConnect",
+    process.name == "Splashtop-streamer.exe", "Splashtop",
+    process.name == "strwinclt.exe", "Splashtop",
+    process.name == "SRService.exe", "Splashtop",
+    process.name == "smpcview.exe", "Splashtop",
+    process.name == "spclink.exe", "Splashtop",
+    process.name == "rfusclient.exe", "Splashtop",
+    process.name == "Supremo.exe", "Supremo",
+    process.name == "SupremoService.exe", "Supremo",
+    process.name == "Syncro.Overmind.Service.exe", "Splashtop",
+    process.name == "SyncroLive.Agent.Runner.exe", "Splashtop",
+    process.name == "Syncro.Installer.exe", "Splashtop",
+    process.name == "tacticalrmm.exe", "TacticalRMM",
+    process.name == "tailscale.exe", "Tailscale",
+    process.name == "tailscaled.exe", "Tailscale",
+    process.name == "teamviewer.exe", "TeamViewer",
+    process.name == "ticlientcore.exe", "Tiflux",
+    process.name == "TiAgent.exe", "Tiflux",
+    process.name == "ToDesk_Service.exe", "ToDesk",
+    process.name == "twingate.exe", "Twingate",
+    process.name == "tvn.exe", "TightVNC",
+    process.name == "tvnserver.exe", "TightVNC",
+    process.name == "tvnviewer.exe", "TightVNC",
+    process.name == "winwvc.exe", "TightVNC",
+    process.name like "UltraVNC*.exe", "UltraVNC",
+    process.name like "UltraViewer*.exe", "UltraViewer",
+    process.name like "AA_v*.exe", "AnyAssist",
+    process.name == "Velociraptor.exe", "Velociraptor",
+    process.name == "ToolsIQ.exe", "ToolsIQ",
+    process.name == "session_win.exe", "ZohoAssist",
+    process.name == "Zaservice.exe", "ZohoAssist",
+    process.name == "ZohoURS.exe", "ZohoAssist",
+    ""
+  )
+| where Esql.rmm_vendor != "" and Esql.rmm_vendor is not NULL
+| stats Esql.vendor_count = count_distinct(Esql.rmm_vendor),
+        Esql.vendors_seen = values(Esql.rmm_vendor),
+        Esql.processes_executable_values = values(process.executable),
+        Esql.first_seen = min(@timestamp),
+        Esql.last_seen = max(@timestamp)
+  by host.name, host.id
+| where Esql.vendor_count >= 2
+| sort Esql.vendor_count desc
+| keep host.id, host.name, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

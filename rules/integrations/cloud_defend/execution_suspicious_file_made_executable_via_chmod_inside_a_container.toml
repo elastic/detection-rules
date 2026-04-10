@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/05"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -88,7 +88,7 @@ any where event.category in ("file", "process") and event.type in ("change", "cr
       "man", "/bin/man", "/usr/bin/man", "/usr/local/bin/man"
     )
   )
-) and process.args in ("4755", "755", "777", "0777", "444", "+x", "a+x") and
+) and process.args in ("4755", "755", "0755", "777", "0777", "444", "+x", "a+x", "700", "0700") and
 container.id like "?*" and not process.args == "-x"
 '''
 
@@ -122,3 +122,21 @@ reference = "https://attack.mitre.org/techniques/T1222/002/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

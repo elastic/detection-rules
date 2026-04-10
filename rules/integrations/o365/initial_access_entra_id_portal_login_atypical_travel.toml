@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/10/30"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -76,19 +76,23 @@ event.dataset:o365.audit and
     event.outcome:success and
     o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
     o365.audit.UserId:(* and not "Not Available") and
-    source.geo.region_iso_code:* and
+    source.geo.country_iso_code:* and
     not o365.audit.ApplicationId:(
         29d9ed98-a469-4536-ade2-f981bc1d605e or
         38aa3b87-a06d-4817-b275-7a316988d93b or
         a809996b-059e-42e2-9866-db24b99a9782
     ) and not o365.audit.ExtendedProperties.RequestType:(
-        "Cmsi:Cmsi" or
         "Consent:Set" or
+        "DeviceAuth:ReprocessTls" or
+        "Kmsi:kmsi" or
         "Login:reprocess" or
         "Login:resume" or
         "MessagePrompt:MessagePrompt" or
-        "SAS:EndAuth"
-    )
+        "Saml2:processrequest" or
+        "SAS:EndAuth" or
+        "SAS:ProcessAuth"
+    ) and
+    not user_agent.original:(*iPhone* or *iPad* or *Android* or *PKeyAuth*)
 '''
 
 
@@ -119,14 +123,14 @@ field_names = [
     "o365.audit.ApplicationId",
     "o365.audit.ExtendedProperties.RequestType",
     "o365.audit.Target.ID",
-    "source.geo.region_iso_code",
+    "source.geo.country_iso_code",
 ]
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.geo.region_iso_code"]
+value = ["o365.audit.UserId", "source.geo.country_iso_code"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
 
 

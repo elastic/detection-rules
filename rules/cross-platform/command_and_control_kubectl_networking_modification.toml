@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "cloud_de
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/05"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,7 @@ Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configurat
 - Fleet is required for Elastic Defend.
 - To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
 
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux or macOS system:
 - Go to the Kibana home page and click "Add integrations".
 - In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
 - Click "Add Elastic Defend".
@@ -93,6 +93,7 @@ tags = [
     "Domain: Container",
     "Domain: Kubernetes",
     "OS: Linux",
+    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
@@ -105,7 +106,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where host.os.type in ("linux", "macos") and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name == "kubectl" and (
   process.args == "port-forward" and process.args like "*:*" or
@@ -113,8 +114,10 @@ process.name == "kubectl" and (
 ) and (
   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
   (
-    process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
-    process.parent.name like (".*", "*.sh")
+    process.parent.executable like (
+      "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*", "/Users/*"
+    ) or
+    process.parent.name like (".*", "*.sh", "python*")
   )
 )
 '''
@@ -123,14 +126,14 @@ process.name == "kubectl" and (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1572"
-name = "Protocol Tunneling"
-reference = "https://attack.mitre.org/techniques/T1572/"
-
-[[rule.threat.technique]]
 id = "T1090"
 name = "Proxy"
 reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
 
 [rule.threat.tactic]
 id = "TA0011"

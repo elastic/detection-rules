@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/02/10"
+updated_date = "2026/04/07"
 
 
 [rule]
@@ -144,22 +144,25 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe"
         ) and
     not (?process.code_signature.trusted == true and
-         ?process.code_signature.subject_name : ("Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.", "Opera Norway AS"))
+         ?process.code_signature.subject_name : ("Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.", "Opera Norway AS",
+                                                  "OpenJS Foundation", "Developer ID Application: Node.js Foundation (HX7739G8FX)"))
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1102"
 name = "Web Service"
 reference = "https://attack.mitre.org/techniques/T1102/"
 
-
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-

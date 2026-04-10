@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/03/17"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the execution of "apparmor_parser" using the "-o" option to write a compiled AppArmor
+profile to an output file. This functionality is normally used by system administration tools
+or package installation scripts when building or loading AppArmor policies. In adversarial
+scenarios, attackers may use "apparmor_parser" to compile custom AppArmor profiles that can
+later be loaded into the kernel through AppArmor policy management interfaces. Malicious
+profiles may weaken security controls, alter the behavior of privileged programs, or assist in
+exploitation chains involving AppArmor policy manipulation.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Profile Compilation via apparmor_parser"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AppArmor Profile Compilation via apparmor_parser
+
+This alert flags a Linux process using apparmor_parser to write a compiled AppArmor policy to disk, an action administrators and package scripts use but adversaries can abuse to stage policy changes. An attacker with root access can compile a custom profile that grants a trojanized service broader file or capability access, then load it to weaken confinement and support privilege escalation or stealthy persistence.
+
+### Possible investigation steps
+
+- Review the full command line, parent and ancestor process chain, executing user, tty or session, and working directory to determine whether the activity came from expected package management or configuration tooling versus an interactive shell.
+- Identify the source profile and output file paths, then inspect the profile for broad file access, dangerous capability grants, unconfined transitions, or complain/disable settings that would weaken confinement for sensitive binaries or services.
+- Correlate nearby events for writes under AppArmor policy directories, subsequent policy loads or reloads, package installation actions, and restarts of the targeted application to confirm whether the compiled profile was actually deployed.
+- Compare the activity against host and peer-system baselines and validate it with change records, deployment jobs, or package updates tied to the same account or system to quickly distinguish administrative maintenance from anomalous behavior.
+- If the execution is not authorized, preserve the generated profile and related scripts, restore affected policy files from a known-good source, and review recent privileged activity on the host for additional persistence or defense-evasion changes.
+
+### False positive analysis
+
+- Operating system package installation or upgrade can invoke apparmor_parser with -o to precompile a vendor profile during a post-install action; verify this by reviewing the parent process and nearby package-management activity for an authorized update at the same time.
+- A system administrator may compile a new or modified local AppArmor profile while hardening or troubleshooting a service; verify the executing user, source and output file paths, and whether the change aligns with approved maintenance or documented policy updates.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network and stop any service whose confinement was altered if the compiled profile was loaded or written into `/etc/apparmor.d/` or AppArmor cache directories, to prevent further policy abuse.
+- Preserve the malicious source profile, compiled output, invoking script, and shell history for evidence, then delete unauthorized files from `/etc/apparmor.d/`, `/etc/apparmor.d/disable/`, and cache paths and unload the rogue policy with approved AppArmor administration commands.
+- Remove attacker persistence by reviewing and cleaning systemd unit files, timers, cron entries, package maintainer scripts, login startup files, and sudoers changes that call `apparmor_parser` or restore the profile at boot.
+- Reset or revoke credentials used on the host, including root and sudo-capable accounts, service account secrets, and unauthorized `authorized_keys`, if the attacker had interactive access or modified privileged services.
+- Restore AppArmor policy files, affected binaries, and related service configurations from trusted packages, configuration management, or a gold image, then reload AppArmor in enforce mode and confirm the targeted program is confined by the expected profile.
+- Escalate to incident response immediately if the custom profile targeted `sshd`, `sudo`, container runtimes, web-facing daemons, or appears on multiple hosts, and harden the environment by limiting write access to AppArmor policy paths, alerting on future `apparmor_parser -o` use outside approved package activity, and enforcing change control for policy updates.
+"""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 21
+rule_id = "d26331be-affe-46b2-bf4e-203d0e2d364c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name == "apparmor_parser" and process.args in ("--ofile*", "-o*", "--output*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

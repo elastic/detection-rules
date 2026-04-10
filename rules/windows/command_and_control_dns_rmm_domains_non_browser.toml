@@ -2,7 +2,7 @@
 creation_date = "2026/03/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/03/10"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -10,12 +10,9 @@ description = """
 Detects DNS queries to commonly abused remote monitoring and management (RMM) or remote access software domains from processes that are not browsers. 
 Intended to surface RMM clients, scripts, or other non-browser activity contacting these services.
 """
-from = "now-9m"
-index = [
-    "logs-endpoint.events.network-*",
-    "logs-windows.sysmon_operational-*",
-]
-language = "kuery"
+from = "now-7205m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "First Time Seen DNS Query to RMM Domain"
 note = """## Triage and analysis
@@ -26,10 +23,10 @@ This rule flags DNS queries to commonly abused RMM or remote access domains when
 
 ### Possible investigation steps
 
-- Identify the process (process.name, process.executable) that performed the DNS query and verify if it is an approved RMM or remote access tool.
+- Identify the process process.executable that performed the DNS query and verify if it is an approved RMM or remote access tool.
 - Review the full process tree and parent process to understand how the binary was launched.
 - Check process.code_signature for trusted RMM publishers; unsigned or unexpected signers may indicate abuse or trojanized installers.
-- Correlate with the companion rule "First Time Seen Commonly Abused RMM Execution" for the same host to see if the RMM process was first-time seen.
+- Correlate with the companion rule "First Time Seen Remote Monitoring and Management Tool" for the same host to see if the RMM process was first-time seen.
 - Investigate other alerts for the same host or user in the past 48 hours.
 
 ### False positive analysis
@@ -59,13 +56,125 @@ tags = [
     "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "esql"
 
 query = '''
-host.os.type: "windows" and
-event.category: "network" and
-dns.question.name: (*teamviewer.com or *logmein* or *.anydesk.com or *screenconnect.com or *connectwise.com or *splashtop.com or assist.zoho.com or zohoassist.com or downloads.zohocdn.com or join.zoho.com or dwservice.net or express.gotoassist.com or getgo.com or *rustdesk.com or rs-* or remoteutilities.com or app.atera.com or agentreporting.atera.com or pubsub.atera.com or ammyy.com or n-able.com or cdn.kaseya.net or relay.kaseya.net or license.bomgar.com or beyondtrustcloud.com or api.parsec.app or parsecusercontent.com or tailscale.com or twingate.com or agent.jumpcloud.com or kickstart.jumpcloud.com or services.vnc.com or static.remotepc.com or netsupportsoftware.com or getscreen.me or client.teamviewer.com or integratedchat.teamviewer.com or relay.screenconnect.com or control.connectwise.com or authentication.logmeininc.com or secure.logmeinrescue.com or logmeincdn.http.internapcdn.net or remoteassistance.support.services.microsoft.com or remotedesktop-pa.googleapis.com or comserver.corporate.beanywhere.com or swi-rc.com or swi-tc.com or telemetry.servers.qetqo.com or tmate.io or api.playanext.com) and not process.name: (chrome.exe or msedge.exe or MicrosoftEdge.exe or MicrosoftEdgeCP.exe or firefox.exe or iexplore.exe or safari.exe or brave.exe or opera.exe or vivaldi.exe or msedgewebview2.exe or agent.tiflux.com or *.gotoresolve.com) and
-not (process.code_signature.subject_name: ("Google LLC" or "Google Inc." or "Mozilla Corporation" or "Mozilla Foundation" or "Microsoft Corporation" or "Apple Inc." or "Brave Software, Inc." or "Opera Software AS" or "Vivaldi Technologies AS") and process.code_signature.trusted: true)
+FROM logs-endpoint.events.network-*, logs-windows.sysmon_operational-* METADATA _index
+| WHERE host.os.type == "windows"
+    AND event.category == "network"
+    AND event.action in ("lookup_requested", "DNSEvent (DNS query)")
+    AND dns.question.name IS NOT NULL
+
+// Exclude browser processes
+| WHERE NOT
+    process.name IN (
+        "chrome.exe", "msedge.exe", "MicrosoftEdge.exe", "MicrosoftEdgeCP.exe",
+        "firefox.exe", "iexplore.exe", "safari.exe", "brave.exe",
+        "opera.exe", "vivaldi.exe", "msedgewebview2.exe"
+    )
+
+// Extract the parent domain (last two labels, e.g. example.com)
+| GROK dns.question.name """(?:[^.]+\.)+(?<parent_domain>[^.]+\.[^.]+)$"""
+| EVAL parent_domain = COALESCE(parent_domain, dns.question.name)
+
+// Known RMM parent domains, add or remove entries here as your environment changes.
+| WHERE parent_domain IN (
+    "teamviewer.com",
+    "logmein.com",
+    "logmeinrescue.com",
+    "logmeininc.com",
+    "internapcdn.net",
+    "anydesk.com",
+    "screenconnect.com",
+    "connectwise.com",
+    "splashtop.com",
+    "zohoassist.com",
+    "dwservice.net",
+    "gotoassist.com",
+    "getgo.com",
+    "logmeinrescue.com",
+    "rustdesk.com",
+    "remoteutilities.com",
+    "atera.com",
+    "ammyy.com",
+    "n-able.com",
+    "kaseya.net",
+    "bomgar.com",
+    "beyondtrustcloud.com",
+    "parsec.app",
+    "parsecusercontent.com",
+    "tailscale.com",
+    "twingate.com",
+    "jumpcloud.com",
+    "vnc.com",
+    "remotepc.com",
+    "netsupportsoftware.com",
+    "getscreen.me",
+    "beanywhere.com",
+    "swi-rc.com",
+    "swi-tc.com",
+    "qetqo.com",
+    "tmate.io",
+    "playanext.com",
+    "supremocontrol.com",
+    "itarian.com",
+    "datto.com",
+    "auvik.com",
+    "syncromsp.com",
+    "pulseway.com",
+    "immy.bot",
+    "immybot.com",
+    "level.io",
+    "ninjarmm.com",
+    "ninjaone.com",
+    "centrastage.net",
+    "datto.net",
+    "liongard.com",
+    "naverisk.com",
+    "panorama9.com",
+    "superops.ai",
+    "superops.com",
+    "tacticalrmm.com",
+    "meshcentral.com",
+    "remotly.com",
+    "fixme.it",
+    "islonline.com",
+    "zoho.eu",
+    "goverlan.com",
+    "iperius.net",
+    "iperiusremote.com",
+    "remotix.com",
+    "mikogo.com",
+    "r-hud.net",
+    "pcvisit.de",
+    "netviewer.com",
+    "helpwire.app",
+    "remotetopc.com",
+    "rport.io",
+    "action1.com",
+    "tiflux.com",
+    "gotoresolve.com"
+)
+
+// Aggregate by parent domain and get 1st time seen timestamp as well as unique count of agents
+| STATS
+    event_count = COUNT(*),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.count_distinct_host_id = COUNT_DISTINCT(host.id),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.dns_question_name_values = VALUES(dns.question.name),
+    Esql.host_name_values = VALUES(host.name) BY parent_domain
+
+// Calculate the time difference between first time seen and rule execution time
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+
+// First time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule and limited to 1 unique host
+| where Esql.recent <= 6 and Esql.count_distinct_host_id == 1
+
+// populate fields for rule exception
+| eval host.name = MV_FIRST(Esql.host_name_values),
+       process.executable = MV_FIRST(Esql.process_executable_values), dns.question.name = MV_FIRST(Esql.dns_question_name_values)
+| keep host.name, process.executable, dns.question.name, Esql.*
 '''
 
 
@@ -85,9 +194,3 @@ id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "dns.question.name"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"

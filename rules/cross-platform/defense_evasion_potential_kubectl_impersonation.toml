@@ -4,12 +4,12 @@ integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "cloud
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/05"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects potential impersonation attempts via the "kubectl" command in Linux environments. It identifies
+This rule detects potential impersonation attempts via the "kubectl" command in Linux and macOS environments. It identifies
 process events where "kubectl" is executed with arguments that suggest an attempt to impersonate another user or
 group, such as using "--kubeconfig", "--token", "--as", or "--as-group". This could indicate an adversary trying
 to gain unauthorized access or escalate privileges within a Kubernetes cluster. If this rule is triggered, in
@@ -40,7 +40,7 @@ Kubectl is a command-line tool for interacting with Kubernetes clusters, allowin
 ### Possible investigation steps
 
 - Review the process arguments to confirm the presence of impersonation-related flags such as "--kubeconfig", "--token", "--as", "--as-group", or "--as-uid" to understand the scope of the impersonation attempt.
-- Examine the parent process name and executable path to determine if the kubectl command was initiated from a suspicious location or script, such as "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", or "/home/*".
+- Examine the parent process name and executable path to determine if the kubectl command was initiated from a suspicious location or script, such as "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*", or "/Users/*".
 - Check the user account associated with the kubectl execution to assess whether it aligns with expected usage patterns or if it indicates potential unauthorized access.
 - Investigate related alerts or logs for secret access or kubeconfig file discovery to identify if there is a broader pattern of suspicious activity that could indicate a coordinated impersonation attempt.
 - Analyze the network activity associated with the kubectl execution to identify any unusual connections or data transfers that may suggest unauthorized access or data exfiltration.
@@ -76,7 +76,7 @@ Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configurat
 - Fleet is required for Elastic Defend.
 - To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
 
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux or macOS system:
 - Go to the Kibana home page and click "Add integrations".
 - In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
 - Click "Add Elastic Defend".
@@ -96,6 +96,7 @@ tags = [
     "Domain: Container",
     "Domain: Kubernetes",
     "OS: Linux",
+    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Tactic: Discovery",
@@ -109,13 +110,15 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where host.os.type in ("linux", "macos") and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "executed", "process_started") and
 process.name == "kubectl" and (
   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
   (
-    process.parent.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*") or
-    process.parent.name like (".*", "*.sh")
+    process.parent.executable like (
+      "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/dev/shm/*", "/root/*", "/home/*", "/Users/*"
+    ) or
+    process.parent.name like (".*", "*.sh", "python*")
   )
 ) and process.args like~ ("--kubeconfig*", "--token*", "--as*", "--as-group*", "--as-uid*") and
 not process.parent.args like ("/snap/microk8s/*/apiservice-kicker", "/snap/microk8s/*/microk8s-start.wrapper")
@@ -123,6 +126,11 @@ not process.parent.args like ("/snap/microk8s/*/apiservice-kicker", "/snap/micro
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
 
 [[rule.threat.technique]]
 id = "T1550"
@@ -134,11 +142,6 @@ id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
@@ -148,16 +151,29 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1552"
-name = "Unsecured Credentials"
-reference = "https://attack.mitre.org/techniques/T1552/"
-
-[[rule.threat.technique]]
 id = "T1528"
 name = "Steal Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1528/"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
 
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

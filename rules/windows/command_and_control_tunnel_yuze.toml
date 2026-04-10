@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/03/18"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of Yuze, a lightweight open-source tunneling tool used for intranet penetration. Yuze supports
+forward and reverse SOCKS5 proxy tunneling and is typically executed via rundll32 loading yuze.dll with the RunYuze
+export. Threat actors may use it to proxy C2 or pivot traffic.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Protocol Tunneling via Yuze"
+note = """## Triage and analysis
+
+### Investigating Potential Protocol Tunneling via Yuze
+
+Yuze is a C-based tunneling tool used for intranet penetration and supports forward and reverse SOCKS5 proxy tunneling. It is commonly executed as `rundll32 yuze.dll,RunYuze reverse -c <ip>:<port>` and has been observed in threat actor campaigns.
+
+### Possible investigation steps
+
+- Confirm the command line contains `yuze.dll` and `RunYuze`; typical form is `rundll32 yuze.dll,RunYuze reverse -c <ip>:<port>`.
+- Extract the remote endpoint from the `-c` argument (C2 or relay) and look up the IP/domain in threat intelligence.
+- Locate where yuze.dll was loaded from; check file creation time to see if it was recently dropped.
+- Identify the parent process that started rundll32 (script, scheduled task, exploit, etc.) to understand the execution chain.
+- Correlate with network events for outbound connections from this host to the IP/port in the command line.
+
+### False positive analysis
+
+- Legitimate use of Yuze is rare; most hits are likely malicious or red-team. If you use Yuze for authorized testing, consider an exception by host or user.
+
+### Response and remediation
+
+- Isolate the host and terminate the rundll32 process.
+- Remove yuze.dll from disk and hunt for other copies or related artifacts.
+- Block the C2/relay IP or domain at DNS/firewall; rotate credentials if the tunnel was used for access.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1572/",
+    "https://github.com/P001water/yuze",
+    "https://www.trendmicro.com/tr_tr/research/26/c/dissecting-a-warlock-attack.html",
+]
+risk_score = 47
+rule_id = "e7f2c4a1-9b3d-5e8f-c6a0-2d1b4e7f8c3a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike", 
+    "Data Source: Elastic Endgame", 
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  ( 
+    (process.args : "reverse" and process.args : ("-c", "-s")) or 
+    (process.args : ("proxy", "fwd") and process.args : "-l") 
+   ) and 
+  (?process.code_signature.exists == false or process.name : "rundll32.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

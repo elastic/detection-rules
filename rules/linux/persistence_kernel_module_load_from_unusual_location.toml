@@ -2,7 +2,7 @@
 creation_date = "2026/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/02/20"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -97,16 +97,16 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name == "modprobe" and not process.args in ("-r", "--remove"))
 ) and (
   process.working_directory like (
-    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
-    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*"
+    "/tmp*", "/var/tmp*", "/dev/shm*", "/run*", "/var/run*", "/home*/*", "/root*",
+    "/var/www*", "/boot*", "/srv*", "/mnt*", "/media*"
   ) or
   process.parent.working_directory like (
-    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
-    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*"
+    "/tmp*", "/var/tmp*", "/dev/shm*", "/run*", "/var/run*", "/home*/*", "/root*",
+    "/var/www*", "/boot*", "/srv*", "/mnt*", "/media*"
   ) or
   process.args like (
     "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/home/*/*", "/root/*",
-    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*", "./*"
+    "/var/www/*", "/boot/*", "/srv/*", "/mnt/*", "/media/*", "./*"
   )
 ) and
 not (
@@ -145,3 +145,21 @@ reference = "https://attack.mitre.org/techniques/T1014/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

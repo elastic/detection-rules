@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/03/18"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of Cloudflare Tunnel (cloudflared) to expose a local service or create an outbound tunnel. Adversaries
+may abuse quick tunnels (e.g. tunnel --url http://127.0.0.1:80) or named tunnels to proxy C2 traffic or exfiltrate data
+through Cloudflare's edge while evading direct connection blocking.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Protocol Tunneling via Cloudflared"
+note = """## Triage and analysis
+
+### Investigating Potential Protocol Tunneling via Cloudflared
+
+Cloudflare Tunnel (cloudflared) is a legitimate tool for exposing local services through Cloudflare's edge. Adversaries abuse it to create quick or named tunnels for C2, data exfiltration, or ingress tool transfer while evading direct connection blocking.
+
+### Possible investigation steps
+
+- Confirm the process command line for `tunnel`, `--url`, or `tunnel run` to validate cloudflared tunnel usage.
+- Identify the parent process and process executable path; cloudflared run from temp or user writable locations is more suspicious than from Program Files.
+- For quick tunnel (`--url http://...`), identify the local URL and whether it could be a C2 callback or proxy.
+- Correlate with network data for outbound connections to Cloudflare IPs or trycloudflare.com-style hostnames around the same time.
+- Review the user and session that started the tunnel; look for other suspicious logon or execution from the same context.
+
+### False positive analysis
+
+- Legitimate use of Cloudflare Tunnel for development or internal services may trigger this rule; consider allowlisting by path or user for approved use cases.
+
+### Response and remediation
+
+- If unauthorized tunnel use is confirmed: isolate the host, terminate the cloudflared process, and block cloudflared or Cloudflare tunnel domains at DNS/firewall where policy permits.
+- Rotate credentials for any accounts that may have been exposed over the tunnel.
+"""
+references = [
+    "https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-useful-commands/",
+    "https://attack.mitre.org/techniques/T1572/",
+]
+risk_score = 47
+rule_id = "d6e1b3f0-8a2c-4e7d-b5f9-1c0e3a6d8b2f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+    "Data Source: Elastic Endgame", 
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (process.name : "cloudflared.exe" or ?process.pe.original_file_name == "cloudflared.exe" or ?process.code_signature.subject_name : "Cloudflare, Inc.") and process.args : "tunnel"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

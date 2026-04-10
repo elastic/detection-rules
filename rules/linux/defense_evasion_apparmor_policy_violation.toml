@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/03/20"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies events where the AppArmor security module blocked or restricted an operation due to a policy violation.
+AppArmor enforces mandatory access control policies that limit how processes interact with system resources such as
+files, network sockets, and capabilities. When a process attempts an action that is not permitted by the active
+profile, the kernel generates a policy violation event. While these events can occur during normal operation or
+misconfiguration, they may also indicate attempted privilege escalation, restricted file access, or malicious
+activity being prevented by the system's security policy.
+"""
+from = "now-9m"
+index = [
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Policy Violation Detected"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AppArmor Policy Violation Detected
+
+This alert shows that AppArmor blocked or limited a Linux process because it tried to act outside its assigned security profile, which can reveal privilege escalation, restricted file access, or defense-evasion activity being stopped by the kernel. An attacker who gains code execution in a web-facing service might try to read `/etc/shadow`, spawn a shell from the confined process, or touch protected sockets, causing this violation when AppArmor contains the behavior.
+
+### Possible investigation steps
+
+- Determine which AppArmor profile produced the denial and what resource or capability was blocked, then judge whether the attempted action matches the application's expected behavior or suggests shell execution, credential access, or unusual network activity.
+- Build a short timeline around the event for the affected workload to identify preceding parent-child process chains, interactive sessions, failed access attempts, new persistence artifacts, or outbound connections that indicate exploitation rather than misconfiguration.
+- Review recent software deployments, package updates, profile changes, and administrator actions on the host to verify whether the violation began after a legitimate change that may require profile tuning or rollback.
+- If the denied behavior is unexpected or repeated, validate the integrity and reputation of the involved binary or script against known-good versions from the environment and inspect its execution context for signs of tampering or abuse.
+- For violations that align with malicious behavior, preserve relevant audit and system logs, contain the host or impacted service as needed, remove any confirmed malicious artifacts, and retain or harden the AppArmor policy that successfully blocked the action.
+
+### False positive analysis
+
+- A legitimate application or package update may change binaries, file paths, or socket usage without a matching AppArmor profile update, so verify the alert timing against recent host software changes and confirm the denied path or capability is part of the application's documented normal operation.
+- An administrator-initiated maintenance task or service restart can trigger a confined process to access temporary files, logs, or helper executables outside its usual profile, so review the parent process, command line, and user context to confirm it aligns with expected maintenance activity on the host.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container from the network, stop the compromised service or process that triggered the AppArmor denial, and disable any abused user or service account to prevent additional attacker execution.
+- Remove attacker footholds by deleting unauthorized systemd units, cron jobs, startup scripts, SSH `authorized_keys` additions, dropped web shells, or replaced binaries linked to the confined process, then terminate any related child shells or reverse-connection tools.
+- Restore the workload to a known-good state by rebuilding the host or redeploying the service from a trusted image, reinstalling affected packages, validating critical files such as `/etc/passwd`, `/etc/shadow`, and application binaries against baseline hashes, and rotating any credentials the process may have reached.
+- Escalate to incident response immediately if the denial came from an internet-facing service, involved attempts to spawn a shell or read protected files, showed tampering with `/etc/apparmor.d/`, or appeared on multiple hosts, because these are strong indicators of active exploitation or wider compromise.
+- Harden the environment by keeping AppArmor in enforce mode, restoring any modified profiles, patching the vulnerable application or package the attacker abused, removing unnecessary interpreter access and write permissions for the service, and adding detections for the same blocked shell, file, or socket behaviors across similar systems."""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 21
+rule_id = "02137bc2-5cc2-4f7f-a8e4-c52dc239aa69"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+
+For this detection rule no additional audit rules are required to be added to the integration.
+
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "change" and event.action == "violated-apparmor-policy"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

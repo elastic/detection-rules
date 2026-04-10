@@ -2,7 +2,7 @@
 creation_date = "2026/02/25"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/02/25"
+updated_date = "2026/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -12,8 +12,8 @@ suddenly showing successful logons using a different logon type with low count. 
 takeover or use of stolen credentials from a new context (e.g. interactive or network logon where only batch/service
 was expected).
 """
-from = "now-30m"
-interval = "15m"
+from = "now-15m"
+interval = "14m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Account Takeover - Mixed Logon Types"
@@ -60,17 +60,19 @@ from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, 
 | WHERE event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and
         event.outcome == "success" and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
         to_lower(user.name) != "administrator"
-| STATS logon_count = COUNT(*) by user.name, winlog.logon.type
+| STATS logon_count = COUNT(*), host_names = VALUES(host.name) by user.name, user.id, winlog.logon.type
 | STATS
     Esql.max_logon = MAX(logon_count),
     Esql.min_logon = MIN(logon_count),
+    Esql.unique_host_count = COUNT_DISTINCT(host_names),
+    Esql.host_name_values = VALUES(host_names),
     Esql.logon_type_values = VALUES(winlog.logon.type),
-    Esql.count_distinct_logon_types = COUNT_DISTINCT(winlog.logon.type) by user.name
+    Esql.count_distinct_logon_types = COUNT_DISTINCT(winlog.logon.type) by user.name, user.id
 
 // high count of logons is often associated with service account tied to a specific service, if observed in use with a different logon type it's suspicious
-| WHERE Esql.count_distinct_logon_types >= 2 and Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 10)
-| EVAL winlog.logon.type = MV_FIRST(Esql.logon_type_values)
-| KEEP user.name, winlog.logon.type, Esql.*
+| WHERE Esql.count_distinct_logon_types >= 2 and Esql.max_logon >= 1000 and (Esql.min_logon >= 1 and Esql.min_logon <= 10) and Esql.unique_host_count >= 2
+| EVAL winlog.logon.type = MV_FIRST(Esql.logon_type_values), host.name = MV_FIRST(Esql.host_name_values)
+| KEEP user.name, user.id, host.name, winlog.logon.type, Esql.*
 '''
 
 [[rule.threat]]

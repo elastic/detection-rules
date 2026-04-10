@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/03/02"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/03/02"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies when a new SharePoint Site Administrator is added in Microsoft 365. Site Administrators
+have full control over SharePoint Sites, including the ability to manage permissions, access all content, and
+modify site settings. Adversaries who compromise a privileged account may add themselves or a controlled account as a
+Site Administrator to maintain persistent, high-privilege access to sensitive SharePoint data. This technique
+was notably observed in the 0mega ransomware campaign, where attackers elevated privileges to exfiltrate data and deploy
+ransom notes across SharePoint sites.
+"""
+false_positives = [
+    "Legitimate IT administrators adding Site admins as part of routine SharePoint site management.",
+    "Automated provisioning tools or scripts that assign Site admin roles during site creation workflows.",
+    "Organizational restructuring where site ownership is being transferred to new administrators.",
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 SharePoint Site Administrator Added"
+note = """## Triage and Analysis
+
+### Investigating M365 SharePoint Site Administrator Added
+
+Site Administrators in SharePoint Online have full control over a Site, including the ability to manage permissions, access all content, and configure site-level settings. Adversaries who gain access to a privileged account may assign Site Administrator rights to maintain persistent access or facilitate data exfiltration. The `SiteCollectionAdminAdded` audit event is logged when this privilege is granted.
+
+#### Possible Investigation Steps
+
+- Review the `user.id` field to determine who performed the action. Assess whether this user normally manages SharePoint site permissions.
+- Examine the `o365.audit.ModifiedProperties.SiteAdmin.NewValue` field to identify the account that was granted Site Administrator privileges.
+- Check the `o365.audit.SiteUrl` or `url.original` to determine which Site was targeted. Assess the sensitivity of the data stored in this site.
+- Review the `o365.audit.TargetUserOrGroupName` and `o365.audit.TargetUserOrGroupType` fields for additional context on the target principal.
+- Pivot to sign-in logs for the acting account to look for anomalies such as logins from unfamiliar locations, devices, or IP ranges.
+- Investigate whether the newly added admin account has performed subsequent actions such as file downloads, permission changes, or sharing link creation.
+- Check for other recent `SiteCollectionAdminAdded` events to determine if multiple Sites were targeted in a short time frame, which may indicate bulk privilege escalation.
+
+### False Positive Analysis
+
+- Routine SharePoint administration tasks by IT teams may trigger this alert. Correlate with change management tickets or scheduled maintenance windows.
+- Automated provisioning tools that assign Site admin roles during site creation or migration workflows may generate expected alerts.
+- Organizational changes such as team transitions or restructuring may involve legitimate Site admin reassignments.
+
+### Response and Remediation
+
+- If the admin addition is unauthorized, immediately remove the Site Administrator role from the suspicious account.
+- Reset credentials for both the account that performed the action and the account that was added, especially if compromise is suspected.
+- Review recent activity on the affected Site for signs of data exfiltration, permission changes, or content modifications.
+- Enable or verify enforcement of MFA for all accounts with SharePoint administrative privileges.
+- Audit the list of Site Administrators across all Sites to identify any other unauthorized additions.
+- Consider implementing Privileged Access Management (PAM) or Privileged Identity Management (PIM) to require just-in-time elevation for SharePoint admin roles.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/purview/audit-log-activities#site-permissions-activities",
+    "https://www.obsidiansecurity.com/blog/saas-ransomware-observed-sharepoint-microsoft-365/",
+]
+risk_score = 47
+rule_id = "98ebd6a1-77db-4fe1-b4fd-1bd3c737b780"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit
+    and event.provider:(SharePoint or OneDrive)
+    and event.category:web
+    and event.action:SiteCollectionAdminAdded
+    and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

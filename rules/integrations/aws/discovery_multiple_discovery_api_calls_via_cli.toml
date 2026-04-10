@@ -2,7 +2,9 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
+min_stack_version = "9.2.0"
+updated_date = "2026/04/01"
 
 [rule]
 author = ["Elastic"]
@@ -14,8 +16,9 @@ gain a better understanding of the target's infrastructure.
 """
 false_positives = [
     """
-    Administrators or automated systems may legitimately perform multiple `Describe`, `List`, `Get` and `Generate` API calls in a short
-    time frame. Verify the user identity and the purpose of the API calls to determine if the behavior is expected.
+    Administrators or automated systems may legitimately perform multiple `Describe`, `List`, `Get` and `Generate` API
+    calls in a short time frame. Verify the user identity and the purpose of the API calls to determine if the behavior
+    is expected.
     """,
 ]
 from = "now-6m"
@@ -29,7 +32,7 @@ note = """## Triage and analysis
 This rule detects when a single AWS identity executes more than five unique discovery-related API calls (`Describe*`, `List*`, `Get*`, or `Generate*`) within a 10-second window using the AWS CLI.  
 High volumes of diverse “read-only” API calls in such a short period can indicate scripted reconnaissance, often an early phase of compromise after credential exposure or access to a compromised EC2 instance.  
 
-#### Possible Investigation Steps
+### Possible investigation steps
 
 **Identify the actor and session context**
 - **Actor ARN (`aws.cloudtrail.user_identity.arn`)**: Determine which IAM user, role, or service principal performed the actions.  
@@ -103,7 +106,10 @@ If the activity is unexpected or originates from unrecognized credentials, follo
   - [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework)
 
 """
-references = ["https://stratus-red-team.cloud/attack-techniques/AWS/aws.discovery.ec2-enumerate-from-instance/"]
+references = [
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.discovery.ec2-enumerate-from-instance/",
+    "https://kudelskisecurity.com/research/investigating-two-variants-of-the-trivy-supply-chain-compromise",
+]
 risk_score = 21
 rule_id = "74f45152-9aee-11ef-b0a5-f661ea17fbcd"
 severity = "low"
@@ -122,6 +128,7 @@ tags = [
     "Data Source: AWS Cloudfront",
     "Data Source: AWS DynamoDB",
     "Data Source: AWS Elastic Load Balancing",
+    "Data Source: AWS Organizations",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
@@ -136,7 +143,10 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 
 | where
     event.dataset == "aws.cloudtrail"
-    // filter on CloudTrail audit logs for IAM, EC2, S3, etc.
+    
+    // exclude service account and console behavior
+    and source.ip IS NOT NULL
+    and aws.cloudtrail.session_credential_from_console IS NULL
     and event.provider in (
       "iam.amazonaws.com",
       "ec2.amazonaws.com",
@@ -149,7 +159,8 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
       "elasticloadbalancing.amazonaws.com", 
       "cloudtrail.amazonaws.com",
       "sts.amazonaws.com",
-      "ses.amazonaws.com"
+      "ses.amazonaws.com",
+      "organizations.amazonaws.com"
     )
     // ignore AWS service actions
     and aws.cloudtrail.user_identity.type != "AWSService"
@@ -157,6 +168,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and user_agent.name == "aws-cli"
     // exclude DescribeCapacityReservations events related to AWS Config
     and event.action != "DescribeCapacityReservations"
+    and user.name != "AWSServiceRoleForConfig"
 
 // filter for Describe, Get, List, and Generate API calls
 | where true in (
@@ -165,11 +177,6 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     starts_with(event.action, "List"),
     starts_with(event.action, "Generate")
 )
-
-// extract owner, identity type, and actor from the ARN
-| dissect aws.cloudtrail.user_identity.arn "%{}::%{Esql_priv.aws_cloudtrail_user_identity_arn_owner}:%{Esql.aws_cloudtrail_user_identity_arn_type}/%{Esql.aws_cloudtrail_user_identity_arn_roles}"
-
-| where starts_with(Esql.aws_cloudtrail_user_identity_arn_roles, "AWSServiceRoleForConfig") != true
 
 // keep relevant fields (preserving ECS fields and computed time window)
 | keep 
@@ -211,6 +218,21 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
 id = "T1580"
 name = "Cloud Infrastructure Discovery"
 reference = "https://attack.mitre.org/techniques/T1580/"
@@ -223,17 +245,17 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.investigation_fields]
 field_names = [
-  "Esql.event_action_count_distinct", 
-  "Esql.time_window_date_trunc", 
-  "aws.cloudtrail.user_identity.arn", 
-  "Esql.aws_cloudtrail_user_identity_type_values",
-  "Esql.aws_cloudtrail_user_identity_access_key_id_values", 
-  "Esql.source_ip_values", 
-  "Esql.source_as_organization_name_values", 
-  "Esql.event_provider_values", 
-  "Esql.event_action_values", 
-  "Esql.cloud_account_id_values",
-  "Esql.cloud_region_values",
-  "Esql.data_stream_namespace_values"
-  ]
+    "Esql.event_action_count_distinct",
+    "Esql.time_window_date_trunc",
+    "aws.cloudtrail.user_identity.arn",
+    "Esql.aws_cloudtrail_user_identity_type_values",
+    "Esql.aws_cloudtrail_user_identity_access_key_id_values",
+    "Esql.source_ip_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.event_provider_values",
+    "Esql.event_action_values",
+    "Esql.cloud_account_id_values",
+    "Esql.cloud_region_values",
+    "Esql.data_stream_namespace_values",
+]
 

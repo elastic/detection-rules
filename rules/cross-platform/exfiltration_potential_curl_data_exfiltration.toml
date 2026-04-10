@@ -1,19 +1,28 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/01/07"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the use of curl to upload an archived file to an internet server. Threat actors often will collect data on a 
-system and compress it in an archive file before exfiltrating the file back to their C2 server for review. Many threat 
-actors have been seen utilizing curl to upload this archive file with the collected data to do this. Use of curl in this 
-way while not inherently malicious should be considered highly abnormal and suspicious activity.
+Detects the use of curl to upload files to an internet server. Threat actors often will collect and exfiltrate data on a 
+system to their C2 server for review. Many threat actors have been observed using curl to upload the collected data. Use
+of curl in this way, while not inherently malicious, should be considered highly abnormal and suspicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*",]
+index = [
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Data Exfiltration Through Curl"
@@ -52,7 +61,10 @@ Curl is a command-line tool used for transferring data with URLs, commonly emplo
 - Review and update firewall and network security rules to block unauthorized outbound traffic, especially to suspicious or unknown external servers.
 - Implement enhanced monitoring and logging for curl usage and similar data transfer tools to detect and respond to future exfiltration attempts promptly.
 """
-references = ["https://everything.curl.dev/usingcurl/uploads"]
+references = [
+  "https://everything.curl.dev/usingcurl/uploads",
+  "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
+]
 risk_score = 47
 rule_id = "be70614d-4295-473c-a953-582aef41c865"
 setup = """## Setup
@@ -84,32 +96,56 @@ severity = "medium"
 tags = [
   "Domain: Endpoint",
   "OS: Linux",
+  "OS: Windows",
+  "OS: macOS",
   "Use Case: Threat Detection",
   "Tactic: Exfiltration",
-  "Data Source: Elastic Defend",
   "Resources: Investigation Guide",
+  "Data Source: Elastic Defend",
   "Data Source: Crowdstrike",
-  "Data Source: SentinelOne"
+  "Data Source: SentinelOne", 
+  "Data Source: Sysmon", 
+  "Data Source: Auditd Manager", 
+  "Data Source: Windows Security Event Logs"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "curl" and
-?process.parent.executable != null and (process.args in ("-F", "-T", "-d") or process.args like ("--data*", "--form*")) and 
-process.command_line like~ ("*@/*.zip*", "*@/*.gz*", "*@/*.tgz*", "*b64=@*", "*=<*") and
-process.command_line like~ "*http*" and
-not ?process.parent.executable == "/usr/share/untangle/bin/configuration-backup-upload-backup.sh"
+process where event.type == "start" and 
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name : ("curl", "curl.exe") and 
+(
+  process.args in ("-T", "--upload-file") or
+  (
+    (process.args in ("-F", "-d", "--form") or process.args like "--data*") and process.command_line like "*@*"
+  )
+) and
+(
+  process.command_line like ("*http:*", "*https:*", "*ftp:*", "*ftps:*") or
+  process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
+) and 
+not process.args : ("https://*/ap/fleet/*", "https://*/api/saved_objects/*", "http*localhost:*", "http*127.0.0.*", "*ApiKey*", "http*.us-central1.run.app/*", "*Authorization*", "*session.id*", "http*.elastic-cloud.com*", "http*.elastic.dev*", "http*.elastic.cloud*", "http*.aws.found.io*", "http*.gcp.cloud.es.io*", "http*.cisco.com/api/*", "-u", "http://192.168*")
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Exfiltration"
-  id = "TA0010"
-  reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
 
-    [[rule.threat.technique]]
-    name = "Exfiltration Over Alternative Protocol"
-    id = "T1048"
-    reference = "https://attack.mitre.org/techniques/T1048/"
+[[rule.threat.technique.subtechnique]]
+id = "T1048.001"
+name = "Exfiltration Over Symmetric Encrypted Non-C2 Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1048.003"
+name = "Exfiltration Over Unencrypted Non-C2 Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/003/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

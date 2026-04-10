@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/03/23"
+integration = ["microsoft_exchange_online_message_trace"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Azure Monitor alert notification emails with financial or billing themed subject lines delivered to organization
+users. Adversaries abuse Azure Monitor alert rules to deliver callback phishing emails from Microsoft's legitimate
+azure-noreply@microsoft.com address. Because the emails originate from Microsoft's own infrastructure, they pass SPF,
+DKIM, and DMARC checks, bypassing email security filters and increasing victim trust. The attacker embeds a fraudulent
+billing or security lure in the alert rule description, which is rendered in the notification email body. Observed
+subject patterns include invoice numbers, payment references, and order confirmations.
+"""
+false_positives = [
+    """
+    Organizations that use Azure Monitor alert rules with financial or billing related naming conventions for legitimate
+    infrastructure monitoring may trigger this rule. Review the email subject and recipient to determine if the alert
+    originates from a known internal Azure subscription.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "M365 Azure Monitor Alert Email with Financial or Billing Theme"
+note = """## Triage and analysis
+
+### Investigating M365 Azure Monitor Alert Email with Financial or Billing Theme
+
+Azure Monitor alert rules can be abused by adversaries to deliver callback phishing emails from Microsoft's legitimate `azure-noreply@microsoft.com` address. The attacker creates a metric or activity log alert in their own Azure tenant with a phishing lure embedded in the description field, then adds victim email addresses to an action group. When the alert fires, Microsoft sends the notification email — complete with the embedded lure — directly to the victims.
+
+### Possible investigation steps
+
+- Review the `email.subject` field to determine if the alert name matches known phishing patterns (e.g., `INV-`, `Payment Reference`, `order-`, `Funds Received`).
+- Check the `email.to.address` field to identify which users received the email and whether they are high-value targets.
+- Search for additional emails from `azure-noreply@microsoft.com` to the same recipient within a short time window. The attack typically sends both a "Fired" and "Resolved" notification, doubling phishing impressions.
+- Look for an earlier "You're now in the X action group" notification email, which arrives before the phishing alert — this confirms the user was added to an external Azure Monitor action group.
+- Check email message headers for the originating Azure subscription and resource group, which are embedded in the alert details.
+- Contact the recipient to determine if they interacted with the email or called the phone number in the lure.
+- If the victim called the number, initiate incident response for potential credential theft, payment fraud, or remote access tool installation.
+
+### False positive analysis
+
+- Legitimate Azure Monitor alerts with financial naming (e.g., a cost alert named "Invoice threshold exceeded") may match. Verify the alert originates from a known internal Azure subscription by examining the email body or message headers.
+- Internal teams that name alert rules with billing-related terms for cost management should be documented as exceptions.
+
+### Response and remediation
+
+- If the email is confirmed as phishing, block the sender pattern and alert name in your email security gateway.
+- Quarantine or delete the phishing emails from affected mailboxes.
+- If the victim called the phone number, treat as a compromised account: reset credentials, revoke sessions, and audit for unauthorized access.
+- Report the Azure subscription ID from the email headers to Microsoft abuse team for takedown.
+- Consider implementing a mail flow rule to flag or quarantine Azure Monitor notification emails that contain phone numbers or financial language in the body.
+"""
+references = [
+    "https://www.bleepingcomputer.com/news/security/microsoft-azure-monitor-alerts-abused-in-callback-phishing-campaigns/",
+]
+risk_score = 21
+rule_id = "a6129187-c47b-48ab-a412-67a44836d918"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Email",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft Exchange Online Message Trace",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-microsoft_exchange_online_message_trace.* metadata _id, _version, _index
+
+// Filter for Azure Monitor notification emails with financial/billing themed subjects
+| where event.dataset == "microsoft_exchange_online_message_trace.log"
+    and email.from.address == "azure-noreply@microsoft.com"
+    and event.outcome in ("success", "unknown")
+    and email.subject like "*Azure Monitor alert*"
+    and (
+        email.subject like "*INV-*"
+        or email.subject like "*invoice*"
+        or email.subject like "*payment*"
+        or email.subject like "*order-*"
+        or email.subject like "*purchase*"
+        or email.subject like "*funds*"
+        or email.subject like "*receipt*"
+        or email.subject like "*billing*"
+        or email.subject like "*transaction*"
+        or email.subject like "*refund*"
+        or email.subject like "*charge*"
+        or email.subject like "*subscription*"
+        or email.subject like "*renewal*"
+        or email.subject like "*overdue*"
+        or email.subject like "*past due*"
+        or email.subject like "*amount due*"
+        or email.subject like "*wire transfer*"
+        or email.subject like "*bank account*"
+        or email.subject like "*credit card*"
+        or email.subject like "*financial*"
+        or email.subject like "*remittance*"
+    )
+
+| keep *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.003"
+name = "Spearphishing via Service"
+reference = "https://attack.mitre.org/techniques/T1566/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
