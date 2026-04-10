@@ -2,7 +2,7 @@
 creation_date = "2025/11/18"
 integration = ["endpoint", "panw", "fortinet_fortigate", "suricata"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -42,22 +42,22 @@ query = '''
 FROM logs-* metadata _id
 | WHERE
         // Elastic Defend Alerts
-        (event.module == "endpoint" and event.dataset == "endpoint.alerts") or
+        (event.module == "endpoint" and data_stream.dataset == "endpoint.alerts") or
 
         // PANW suspicious events
-        (event.dataset == "panw.panos" and
+        (data_stream.dataset == "panw.panos" and
          event.action in ("virus_detected", "wildfire_virus_detected", "c2_communication", "spyware_detected", "large_upload", "denied", "exploit_detected")) or
 
         // Fortigate suspicious events
-        (event.dataset == "fortinet_fortigate.log" and
+        (data_stream.dataset == "fortinet_fortigate.log" and
          (event.action in ("outbreak-prevention", "infected", "blocked") or message like "backdoor*" or message like "Proxy*" or message like "anomaly*" or message like "P2P*" or message like "misc*" or message like "DNS.Over.HTTPS" or message like "Remote.Access")) or
 
         // Suricata
-        (event.dataset == "suricata.eve" and message in ("Command and Control Traffic", "Potentially Bad Traffic", "A Network Trojan was detected", "Detection of a Network Scan", "Domain Observed Used for C2 Detected", "Malware Command and Control Activity Detected"))
+        (data_stream.dataset == "suricata.eve" and message in ("Command and Control Traffic", "Potentially Bad Traffic", "A Network Trojan was detected", "Detection of a Network Scan", "Domain Observed Used for C2 Detected", "Malware Command and Control Activity Detected"))
 
 // extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
-|eval fw_alert_source_ip = CASE(event.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
-      elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", host.ip, null)
+|eval fw_alert_source_ip = CASE(data_stream.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
+      elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and data_stream.dataset == "endpoint.alerts", host.ip, null)
 | eval Esql.source_ip = COALESCE(fw_alert_source_ip, elastic_defend_alert_host_ip)
 | where Esql.source_ip is not null
 
