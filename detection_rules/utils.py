@@ -27,6 +27,7 @@ from typing import Any
 import click
 import eql.utils  # type: ignore[reportMissingTypeStubs]
 import pytoml  # type: ignore[reportMissingTypeStubs]
+import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
 
@@ -134,6 +135,23 @@ def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = T
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent)
     else:
         eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
+
+
+def ensure_yaml_suffix(path: Path) -> Path:
+    """If ``path`` has no YAML extension, use ``.yaml``; keep ``.yaml`` / ``.yml`` unchanged."""
+    if path.suffix in (".yaml", ".yml"):
+        return path
+    return path.with_suffix(".yaml")
+
+
+def save_yaml(path: Path, data: Any, *, use_absolute_path: bool = False) -> None:
+    """Write ``data`` as YAML with sorted keys, block style, UTF-8, and a trailing newline."""
+    out_path = path.absolute() if use_absolute_path else path
+    with out_path.open("w", encoding="utf-8", newline="\n") as f:
+        output = yaml.safe_dump(data, sort_keys=True, default_flow_style=False)
+        _ = f.write(output)
+        if not output.endswith("\n"):
+            _ = f.write("\n")
 
 
 # Top-level _config.yaml key -> DR_BYPASS_* env var set when true at load time
@@ -362,7 +380,7 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
         return contents or [{}]
     if extension == ".toml":
         rule = pytoml.loads(raw_text)  # type: ignore[reportUnknownVariableType]
-    elif extension.lower() in ("yaml", "yml"):
+    elif extension.lower() in (".yaml", ".yml"):
         rule = load_dump(str(rule_file))
     else:
         return []
