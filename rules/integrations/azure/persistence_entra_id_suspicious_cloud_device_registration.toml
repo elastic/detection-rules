@@ -2,7 +2,7 @@
 creation_date = "2025/06/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,7 @@ type = "eql"
 
 query = '''
 sequence by azure.correlation_id with maxspan=5m
-[any where event.dataset == "azure.auditlogs" and
+[any where data_stream.dataset == "azure.auditlogs" and
     azure.auditlogs.identity == "Device Registration Service" and
     azure.auditlogs.operation_name == "Add device" and
     (
@@ -96,10 +96,10 @@ sequence by azure.correlation_id with maxspan=5m
     ) and
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "CloudAccountEnabled" and
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value` == "[true]"]
-[any where event.dataset == "azure.auditlogs" and
+[any where data_stream.dataset == "azure.auditlogs" and
     azure.auditlogs.operation_name == "Add registered users to device" and
     `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value` like "*urn:ms-drs:enterpriseregistration.windows.net*"]
-[any where event.dataset == "azure.auditlogs" and
+[any where data_stream.dataset == "azure.auditlogs" and
     azure.auditlogs.operation_name == "Add registered owner to device"]
 '''
 

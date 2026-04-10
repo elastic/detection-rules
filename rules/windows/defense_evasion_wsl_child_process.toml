@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -96,7 +96,7 @@ process where host.os.type == "windows" and event.type : "start" and process.com
   ) and
   not (
     /* Crowdstrike specific exclusion as it uses NT Object paths */
-    (event.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
+    (data_stream.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
       process.executable : (
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\*",
         "\\Device\\HarddiskVolume*\\Program Files\\*",
