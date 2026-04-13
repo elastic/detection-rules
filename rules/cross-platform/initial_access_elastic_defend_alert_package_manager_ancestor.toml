@@ -3,7 +3,7 @@ creation_date = "2026/03/31"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/03/31"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -102,7 +102,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
     false
   )
 
-| WHERE process.Ext.ancestry IS NOT NULL AND (event.dataset == "endpoint.alerts" OR is_pkg_install)
+| WHERE process.Ext.ancestry IS NOT NULL AND (data_stream.dataset == "endpoint.alerts" OR is_pkg_install)
 
 // Capture entity_ids for package install parent processes
 | EVAL all_entity_id = CASE(is_pkg_install, process.parent.entity_id, "null")
@@ -114,7 +114,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
 | EVAL Esql.pkg_ancestor_ids = MV_INTERSECTION(all_pkg_entity_ids, process.Ext.ancestry)
 
 // Elastic Defend alerts descended from a package install process
-| WHERE Esql.pkg_ancestor_ids IS NOT NULL AND event.dataset == "endpoint.alerts"
+| WHERE Esql.pkg_ancestor_ids IS NOT NULL AND data_stream.dataset == "endpoint.alerts"
 
 | KEEP *
 '''
