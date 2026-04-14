@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/04/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful `PutKeyPolicy` calls on AWS KMS keys. The key policy is a resource-based policy that controls which
+principals can use the key for cryptographic operations and administration. Adversaries with `kms:PutKeyPolicy` may add
+or broaden principals (including external accounts) to decrypt or exfiltrate data protected by the key, or to preserve
+access after other credentials are rotated. This is distinct from disabling or scheduling deletion of the key.
+"""
+false_positives = [
+    """
+    Security, platform, and encryption teams legitimately update KMS key policies during onboarding, key rotation, or
+    cross-account access design. Review the policy document diff, ticketing, and whether new principals are in-org.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS KMS Key Policy Updated via PutKeyPolicy"
+note = """## Triage and analysis
+
+### Investigating AWS KMS Key Policy Updated via PutKeyPolicy
+
+`PutKeyPolicy` replaces the entire key policy for a customer managed KMS key (and is used in limited scenarios for AWS
+managed keys). Unexpected changes can grant `kms:Decrypt`, `kms:GenerateDataKey`, or administrative actions to new
+identities.
+
+#### Possible investigation steps
+
+- Identify the key from `aws.cloudtrail.resources.arn` or `aws.cloudtrail.request_parameters.keyId`.
+- Inspect `policy` in `aws.cloudtrail.request_parameters` (or related fields) for new `Principal`, `AWS`, or
+  `kms:CallerAccount` entries and cross-account ARNs.
+- Determine which data stores use the key (S3, EBS, RDS, Secrets Manager, etc.) via CMK aliases or CMDB.
+- Correlate with `iam:AttachRolePolicy`, `sts:AssumeRole`, or data-plane access from newly added principals.
+
+### False positive analysis
+
+- Planned multi-account encryption patterns; confirm recipient accounts are approved.
+
+### Response and remediation
+
+- If unauthorized: restore a known-good policy from backup or IAM/KMS change history, remove rogue principals, and
+  restrict `kms:PutKeyPolicy` to break-glass roles.
+
+### Additional information
+
+- [PutKeyPolicy](https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html)
+- [KMS key policies](https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html",
+    "https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html",
+]
+risk_score = 47
+rule_id = "f6a0b2c3-4d5e-4f7a-8b9c-0d1e2f3a4b5c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS KMS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "kms.amazonaws.com"
+    and event.action: "PutKeyPolicy"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

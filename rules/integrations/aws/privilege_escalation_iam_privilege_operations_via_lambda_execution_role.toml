@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/04/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful IAM API calls that create or empower IAM users and roles, attach or embed policies, or wire roles to
+instance profiles when the caller is an assumed role session associated with AWS Lambda. Serverless execution roles are
+often over-permissioned; an adversary who can run or compromise function code can abuse these APIs for privilege
+escalation and persistence—for example creating users or roles, issuing keys, attaching managed or inline policies, or
+preparing EC2 instance profiles for lateral movement.
+"""
+false_positives = [
+    """
+    Some organizations intentionally use Lambda functions to provision IAM principals, bootstrap accounts, or run
+    identity automation (including roles and instance profiles). Confirm the function name in `user_identity.arn`,
+    deployment pipelines, and change records. Exclude known automation roles or specific
+    `session_context.session_issuer.arn` values after validation.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Sensitive Operations via Lambda Execution Role"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Sensitive Operations via Lambda Execution Role
+
+Lambda functions run under an **execution role**. When that role calls sensitive IAM control-plane APIs—user and group
+changes (`CreateUser`, `AddUserToGroup`, …), user or role policies (`AttachUserPolicy`, `PutUserPolicy`,
+`AttachRolePolicy`, `PutRolePolicy`), role and instance-profile wiring (`CreateRole`, `CreateInstanceProfile`,
+`AddRoleToInstanceProfile`), or `CreateAccessKey`—CloudTrail typically records `user_identity.type` as `AssumedRole` and
+may set `user_identity.invoked_by` to `lambda.amazonaws.com`. The session issuer ARN often references the Lambda service
+or the execution role.
+
+#### Possible investigation steps
+
+- Parse `aws.cloudtrail.user_identity.arn` for the assumed-role session (function name or request id) and map it to the
+  Lambda function and deployment path in the same account.
+- Review `aws.cloudtrail.request_parameters` for targets such as `userName`, `groupName`, `roleName`, `policyArn`,
+  `instanceProfileName`, or access key subject.
+- Compare `user_agent.original` and `source.ip` to expected Lambda service patterns; correlate with CloudWatch Logs for
+  the function around `@timestamp`.
+- Hunt ±30 minutes for follow-on IAM, `sts:AssumeRole`, or data-plane access using any new credentials.
+
+### False positive analysis
+
+- Approved infrastructure-as-code or onboarding Lambdas may perform these calls. Tune on execution role ARN or tags.
+
+### Response and remediation
+
+- If unauthorized: disable the function, revoke or rotate the execution role credentials, remove rogue IAM users, roles,
+  instance profiles, or keys, detach or delete unintended policies, and review permission boundaries on the role.
+
+### Additional information
+
+- [IAM API reference](https://docs.aws.amazon.com/IAM/latest/APIReference/)
+- [Lambda execution role](https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html",
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateUser.html",
+]
+risk_score = 73
+rule_id = "a8f3c2e1-4d5b-4e6f-8a9b-0c1d2e3f4a5b"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: "AssumedRole"
+    and (
+        aws.cloudtrail.user_identity.invoked_by: "lambda.amazonaws.com"
+        or aws.cloudtrail.user_identity.session_context.session_issuer.arn: *lambda*
+    )
+    and event.action: (
+        "AddRoleToInstanceProfile" or
+        "AddUserToGroup" or 
+        "AttachGroupPolicy" or 
+        "AttachRolePolicy" or
+        "AttachUserPolicy" or
+        "CreateAccessKey" or
+        "CreateInstanceProfile" or
+        "CreateRole" or
+        "CreateUser" or
+        "PutRolePolicy" or
+        "PutUserPolicy"
+    )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.invoked_by",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

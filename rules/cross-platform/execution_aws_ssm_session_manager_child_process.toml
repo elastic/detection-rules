@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/04/03"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/04/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process start events where the parent process is the AWS Systems Manager (SSM) Session Manager worker. 
+Session Manager provides interactive shell access to EC2 instances and hybrid nodes without bastion hosts or open inbound ports.
+Adversaries abuse it for remote execution and lateral movement using legitimate AWS credentials and IAM permissions.
+This rule surfaces endpoint execution occurring under that worker for visibility and hunting. Expect noise from authorized
+administrative sessions.
+"""
+false_positives = [
+    """
+    Legitimate operators using AWS Systems Manager Session Manager to administer instances will spawn child processes
+    under the session worker. Tune with host, user, or command-line exclusions for known automation and break-glass
+    workflows.
+    """,
+    """
+    The SSM agent may invoke short-lived utilities (for example identity or environment probes) during session setup.
+    Additional exclusions may be required in your environment.
+    """,
+]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*"
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SSM Session Manager Child Process Execution"
+note = """## Triage and analysis
+
+### Investigating AWS SSM Session Manager Child Process Execution
+
+AWS Systems Manager Session Manager starts a session worker process on the endpoint; commands and shells you run in the
+session appear as child processes of that worker. The same mechanism is used for authorized administration and for
+adversary activity when IAM credentials or instance roles allow `ssm:StartSession` (or related) abuse.
+
+### Possible investigation steps
+
+- Confirm whether the host is an EC2 instance or managed node that legitimately uses Session Manager.
+- Review `process.command_line`, `process.executable`, `process.user.name`, and `user.name` for the child process to
+  judge intent (reconnaissance, download, credential access, persistence, etc.).
+- Correlate timing with AWS CloudTrail for `StartSession`, `ResumeSession`, or related SSM API calls and the IAM
+  principal that initiated the session.
+- Pivot on the same `host.id` or instance identifier for other alerts or SSM activity in the same window.
+
+### False positive analysis
+
+- Routine interactive or automated administration via Session Manager is expected to match this rule by design.
+- Prefer exclusions tied to stable attributes (approved IAM roles, automation service accounts, known script paths)
+  rather than broad process-name allowlists unless validated.
+
+### Response and remediation
+
+- If activity is unauthorized: revoke or rotate exposed IAM credentials, review SSM and VPC endpoints policies, and
+  terminate suspicious sessions from the AWS console or API.
+- Isolate the instance if compromise is suspected and perform endpoint forensics following your incident response
+  playbook.
+"""
+references = [
+    "https://www.mitiga.io/blog/abusing-the-amazon-web-services-ssm-agent-as-a-remote-access-trojan",
+    "https://hackingthe.cloud/aws/post_exploitation/run_shell_commands_on_ec2/",
+    "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html",
+]
+risk_score = 21
+rule_id = "cf2b8cf5-3364-4396-b551-42aae9b6d37e"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category: "process" and event.action : ("exec" or "exec_event" or "start" or "ProcessRollup2" or "executed" or "process_started") and
+(
+ process.parent.name:("ssm-session-worker.exe" or "ssm-session-worker" or "ssm-document-worker.exe" or "ssm-document-worker") or 
+ (process.name : "powershell.exe" and process.args : *awsrunPowerShellScript*) or
+ (process.name : ("dash" or "sh" or "bash") and process.args : *awsrunShellScript*) or 
+ (process.parent.name : "powershell.exe" and process.parent.args : *awsrunPowerShellScript*) or
+ (process.parent.name : ("dash" or "sh" or "bash") and process.parent.args : *awsrunShellScript*)
+ ) and 
+ process.command_line:* and 
+ not (process.name : "powershell.exe" and process.args :("$str.Substring($str.length" or *Convert-GuidToCompressedGuid* or get-wmiobject* or $wmi_proc* or *win32_quickfixengineering*)) and 
+ not process.executable : ("/usr/bin/lscpu" or "/usr/bin/snap" or "/usr/bin/rpm" or "/usr/bin/dpkg-query" or /snap/snapd/*/usr/bin/snap or "/usr/bin/id")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+name = "Unix Shell"
+id = "T1059.004"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+    
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

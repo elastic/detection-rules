@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/04/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful calls to AWS STS GetFederationToken where request parameters reference AdministratorAccess. This API
+returns temporary security credentials for a federated user with permissions bounded by the calling IAM user and any
+inline session policy passed in the request. Supplying or referencing the AWS managed AdministratorAccess policy (or an
+equivalent string in the policy payload) can grant broadly privileged temporary credentials and may indicate privilege
+abuse or dangerous automation.
+"""
+false_positives = [
+    """
+    Highly unusual for legitimate workflows to embed or reference full administrator access in GetFederationToken session
+    policies; if found, it is often legacy or misconfigured tooling. Confirm with the owning team and replace with
+    least-privilege session policies. Tune only after documented approval.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS STS GetFederationToken with AdministratorAccess in Request"
+note = """## Triage and analysis
+
+### Investigating AWS STS GetFederationToken with AdministratorAccess in Request
+
+`GetFederationToken` issues temporary credentials (typically up to 36 hours) for a **federated user name** you specify.
+The effective permissions are the **intersection** of the IAM user’s permissions and the optional session policy in the
+request. Including `AdministratorAccess` in `Policy` (or a policy ARN / JSON that names it) is almost always
+over-privileged for federation use cases. For first-time `GetFederationToken` usage without this policy signal, see
+**AWS First Occurrence of STS GetFederationToken Request by User**.
+
+**Note:** AWS documents that `GetFederationToken` must be called with **long-term IAM user credentials** (not role
+temporary credentials). Pivot on `aws.cloudtrail.user_identity.arn` and `access_key_id` accordingly.
+
+#### Possible investigation steps
+
+- Parse `aws.cloudtrail.request_parameters` for `name`, `policy`, and `durationSeconds`.
+- Confirm whether the IAM user should perform federation or if the key may be compromised.
+- Search CloudTrail for subsequent events using `response_elements.credentials.accessKeyId` from the same response (if
+  logged).
+- Correlate with IAM changes, data-plane access, or other STS calls from the same `source.ip` in a ±30 minute window.
+
+### False positive analysis
+
+- Typos or test accounts in non-production: still validate and narrow session policies.
+
+### Response and remediation
+
+- Revoke or rotate the IAM user access keys involved; enforce least privilege on the user and replace broad session
+  policies.
+- [GetFederationToken](https://docs.aws.amazon.com/STS/latest/APIReference/API_GetFederationToken.html)
+
+### Additional information
+
+- [AWS STS temporary security credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetFederationToken.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html",
+]
+risk_score = 73
+rule_id = "f2a3b4c5-d6e7-4f89-a012-b3c4d5e6f789"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS STS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sts.amazonaws.com"
+    and event.action: "GetFederationToken"
+    and event.outcome: "success"
+    and aws.cloudtrail.request_parameters: *AdministratorAccess*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
