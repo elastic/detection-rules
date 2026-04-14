@@ -1,0 +1,209 @@
+[metadata]
+creation_date = "2026/04/09"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/04/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may implement command and control (C2) communications that use common web services to hide their activity.
+This attack technique is typically targeted at an organization and uses web services common to the victim network, which
+allows the adversary to blend into legitimate traffic activity. These popular services are typically targeted since they
+have most likely been used before compromise, which helps malicious traffic blend in.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS to Commonly Abused Web Services"
+risk_score = 21
+rule_id = "8248323e-f888-4134-a26f-37a6362f7231"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and dns.question.name != null and process.name != null and
+dns.question.name like~ (
+  /* Google services */
+  "drive.google.com", "docs.google.com", "script.google.com", "script.googleusercontent.com",
+  "*googleapis.com", "script.googleusercontent.com", "calendar.app.google*",
+
+  /* Dropbox */
+  "api.dropboxapi.com", "content.dropboxapi.com", "*dl.dropboxusercontent.com",
+
+  /* Microsoft / OneDrive / SharePoint */
+  "api.onedrive.com", "*.onedrive.org", "onedrive.live.com", "*files.1drv.com", "graph.microsoft.com",
+  "*.sharepoint.com", "login.live.com", "g.live.com",
+
+  /* Slack */
+  "*slack.com", "slack-redir.net", "slack-files.com",
+
+  /* Discord */
+  "discord.com", "cdn.discordapp.com", "discordapp.com",
+
+  /* Telegram */
+  "api.telegram.org", "t.me",
+
+  /* Azure / Cloud storage */
+  "apis.azureedge.net", "*.blob.core.windows.net", "*.blob.storage.azure.net", "*azurewebsites.net",
+
+  /* GitHub / Dev hosting */
+  "api.github.com", "raw.githubusercontent.*", "gist.githubusercontent.com", "rawcdn.githack.*",
+  "*.notabug.org",
+
+  /* Developer tunnels / reverse proxies */
+  "*.devtunnels.ms", "*global.rel.tunnels.api.visualstudio.com", "*.ngrok.io", "*.ngrok-free.app",
+  "*.portmap.*", "serveo.net", "*localtunnel.me", "*pagekite.me", "*.trycloudflare.com",
+
+  /* AWS */
+  "*s3.amazonaws.com",
+
+  /* Paste services */
+  "pastebin.*", "paste4btc.com", "paste.ee", "ghostbin.com", "paste.nrecom.net", "zerobin.net",
+  "controlc.com", "pastecode.dev", "paste.rs", "hastebin.com", "dpaste.org", "dpaste.com", "0bin.net",
+  "paste.ofcode.org", "paste.wakas.org", "nopaste.net",
+
+  /* File sharing / exfiltration */
+  "filebin.net", "file.io", "transfer.sh", "*.gofile.io", "workupload.com", "*upload.ee", "*anonfiles.com",
+  "api.anonfile.com", "*bayfiles.com", "*bublup.com", "*dropfiles.org", "*dropmefiles.com", "*easyupload.io",
+  "*filetransfer.io", "*sendspace.com", "*share.riseup.net", "*temp.sh", "*tempsend.com", "*ufile.io",
+  "*send.now", "*send.cm", "*sendit.sh", "*pixeldrain.com", "*megaupload.com", "*mediafire.com",
+  "*bashupload.com", "*bujang.online", "mediafire.zip", "*.4shared.com", "filecloud.me", "*.pcloud.com",
+  "*catbox.moe",
+
+  /* CDN / hosting / generic file infra */
+  "*cdnmegafiles.com", "www.uplooder.net", "?.top4top.io", "top4top.io", "*.b-cdn.net", "cdn*.space",
+  "i.ibb.co", "i.imgur.com",
+
+  /* Webhooks / testing / bins */
+  "webhook.site", "run.mocky.io", "mockbin.org", "requestbin.net",
+
+  /* Public hosting / misc infra */
+  "*.publicvm.com", "*.blogspot.com", "*infinityfreeapp.com", "free.keep.sh", "*.aternos.me",
+  "*hosting-profi.de",
+
+  /* IP / network utilities */
+  "api.mylnikov.org", "ipbase.com", "ipfs.io", "*.getmyip.com", "myexternalip.com", "*.geojs.io",
+  "*api.2ip.ua", "*api.db-ip.com", "*api.ip.sb", "*api.ipify.org", "*api.myip.com",
+  "*api.npoint.io", "*api64.ipify.org", "*bot.whatismyipaddress.com", "*checkip.amazonaws.com",
+  "*checkip.dyndns.org", "*curlmyip.com", "*eth0.me", "*freegeoip.app", "*freegeoip.net",
+  "*freeipapi.com", "*geoiptool.com", "*geolocation-db.com", "*httpbin.org",
+  "*icanhazip.com", "*ident.me", "*ifcfg.me", "*ifconfig.me", "*inet-ip.info", "*ip-api.com",
+  "*ip.appspot.com", "*ip.tyk.nu", "*ip4.seeip.org", "*ipecho.net", "*ipinfo.io", "*iplogger.*",
+  "*ipof.in", "*ipwho.is", "*ipwhois.app", "*ipv4.icanhazip.com", "*ipv6.icanhazip.com",
+  "*myip.dnsomatic.com", "*myip.ipip.net", "*myip.opendns.com", "*portmap.io", "*wgetip.com",
+  "*whatismyip.akamai.com", "*wtfismyip.com",
+
+  /* Social / platforms */
+  "mbasic.facebook.com", "*.zulipchat.com", "stackoverflow.com",
+
+  /* Package hosting */
+  "files.pythonhosted.org",
+
+  /* Databases / backend platforms */
+  "*.supabase.co", "*.elastic-cloud.com", "*.cloud.es.io",
+
+  /* Misc / suspicious */
+  "*up.freeo*.space", "*icp0.io", "updates.peer2profit.com", "meacz.gq", "rwrd.org", "lobfile.com",
+  "ftpupload.net", "the.earth.li",
+
+  /* URL shorteners */
+  "*shorturl.at", "*tinyurl.com", "*bit.ly", "*cutt.ly", "*is.gd", "*rebrand.ly", "*rebrandly.com",
+  "*adf.ly", "*rb.gy", "tiny.one", "t.ly", "urlz.fr", "rentry.co",
+
+  /* Regional / large providers */
+  "yandex.ru", "*.yandex.ru"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.003"
+name = "Exfiltration to Text Storage Sites"
+reference = "https://attack.mitre.org/techniques/T1567/003/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
