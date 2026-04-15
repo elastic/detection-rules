@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/02/03"
+updated_date = "2026/04/17"
 
 [rule]
 author = ["Elastic"]
@@ -113,7 +113,35 @@ process where event.type == "start"
     (process.parent.name == "LM Studio" and process.name like~ "LM Studio Helper*") or
     (process.parent.name == "Ollama" and process.name like~ "Ollama Helper*") or
     
-    // Version and help checks
+    // docker
+    (process.name in ("docker", "docker.exe") and process.args == "context" and process.args == "ls") or
+    // neighbor / arp / ps / which (args tokens or full /bin/sh -c)
+    (
+      process.args in (
+        "ip neigh show",
+        "arp -a -n -l",
+        "ip neighbor show dev wlan0",
+        "ip neighbor show dev eth0",
+        "arp -a | findstr /C:---"
+      ) or
+      process.command_line in (
+        "/bin/sh -c ip neigh show",
+        "/bin/sh -c arp -a -n -l",
+        "/bin/sh -c /bin/ps -ax -o pid=,ppid=,pcpu=,pmem=,command=",
+        "/bin/sh -c which ps"
+      )
+    ) or
+    // git
+    (process.name in ("git", "git.exe") and (
+      (process.args == "remote" and process.args == "get-url" and process.args == "origin") or
+      (process.args == "symbolic-ref" and process.args == "refs/remotes/origin/HEAD" and process.args == "--short") or
+      (process.args == "rev-parse" and process.args == "--abbrev-ref" and process.args == "HEAD") or
+      (process.args == "status" and process.args == "-z" and process.args == "-uall") or
+      (process.args == "config" and process.args == "--get" and process.args == "commit.template") or
+      (process.args == "config" and process.args == "user.email") or
+      (process.args == "rev-parse" and process.args == "--show-toplevel")
+    )) or
+    // version / help
     process.args in ("--version", "--help", "-v", "-h", "-V", "version", "help")
   )
 '''
