@@ -282,8 +282,9 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
             contents[name] = rule_type_val
             continue
 
-        # these are set at package release time depending on the version strategy
-        if name in ("version", "revision") and not BYPASS_VERSION_LOCK:
+        # these are set at package release time depending on the version strategy;
+        # for immutable rules preserve version/revision from the cluster
+        if name in ("version", "revision") and not BYPASS_VERSION_LOCK and not kwargs.get("immutable"):
             continue
 
         if required_only and name not in required_fields:

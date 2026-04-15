@@ -414,6 +414,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     timestamp_override: str | None = None
     to: str | None = None
     version: definitions.PositiveInteger | None = None
+    immutable: bool | None = None
+    rule_source: dict[str, Any] | None = None
 
     @classmethod
     def save_schema(cls) -> None:
@@ -487,9 +489,11 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     def validates_data(self, data: dict[str, Any], **_: Any) -> None:
         """Validate fields and data for marshmallow schemas."""
 
-        # Validate version and revision fields not supplied.
+        # Validate version and revision fields not supplied (immutable rules may have them).
         disallowed_fields = [field for field in ["version", "revision"] if data.get(field) is not None]
         if not disallowed_fields:
+            return
+        if data.get("immutable") is True:
             return
 
         # If version and revision fields are supplied, and using locked versions raise an error.
@@ -1661,8 +1665,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if include_metadata:
             converted["meta"] = rule_dict["metadata"]
 
-        if include_version:
+        # Use stored version/revision for immutable rules; otherwise use autobumped version when requested
+        if self.data.get("version") is not None:
+            converted["version"] = self.data.get("version")
+        elif include_version:
             converted["version"] = self.autobumped_version
+        if self.data.get("revision") is not None:
+            converted["revision"] = self.data.get("revision")
+        if self.data.get("immutable") is not None:
+            converted["immutable"] = self.data.get("immutable")
+        if self.data.get("rule_source") is not None:
+            converted["rule_source"] = self.data.get("rule_source")
 
         return converted
 
