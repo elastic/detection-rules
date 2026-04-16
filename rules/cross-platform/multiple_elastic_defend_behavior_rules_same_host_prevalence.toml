@@ -3,7 +3,7 @@ creation_date = "2026/02/19"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/19"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ type = "esql"
 
 query = '''
 from logs-endpoint.alerts-* metadata _id
-| where event.dataset == "endpoint.alerts" and event.code == "behavior"
+| where data_stream.dataset == "endpoint.alerts" and event.code == "behavior"
 | INLINE STATS hosts = COUNT_DISTINCT(host.id) BY rule.name
 // excludes rules triggering on multiple hosts to reduce potential FPs
 | where hosts == 1
