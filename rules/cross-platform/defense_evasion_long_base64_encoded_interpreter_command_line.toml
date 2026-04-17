@@ -1,0 +1,174 @@
+[metadata]
+creation_date = "2026/03/27"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/03/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies oversized command lines used by Python, PowerShell, Node.js, or Deno that contain base64 decoding or
+encoded-command patterns. Adversaries may embed long inline encoded payloads in scripting interpreters to evade
+inspection and execute malicious content across Windows, macOS, and Linux systems.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Long Base64 Encoded Command via Scripting Interpreter"
+note = """## Triage and analysis
+
+### Investigating Long Base64 Encoded Command via Scripting Interpreter
+
+This rule detects process start events where the original `process.command_line` field was ignored at index time due to
+its size, but the full command line remains available in `process.command_line.text`. Attackers commonly use very long
+base64-encoded inline commands with interpreters such as Python, PowerShell, Node.js, and Deno to conceal payloads and
+avoid straightforward command-line inspection.
+
+### Possible investigation steps
+
+- Review `process.command_line.text` to determine whether the encoded content includes shell commands, scripts, URLs, or embedded payloads.
+- Inspect the parent process and execution chain to understand how the interpreter was launched and whether it originated from a browser, office application, archive utility, or remote access tool.
+- Check whether the same host or user generated additional suspicious process, network, or file events around the same time.
+- If the payload can be safely decoded in an isolated environment, inspect the decoded content for follow-on execution, credential access, persistence, or download behavior.
+
+### False positive analysis
+
+- Administrative automation, packaging workflows, or developer tooling may legitimately pass large encoded blobs to scripting interpreters.
+- PowerShell remoting, software deployment frameworks, or internal bootstrap scripts can occasionally use encoded commands; validate the source, user, and expected automation context.
+
+### Response and remediation
+
+- Isolate the affected host if the decoded content or surrounding activity indicates malicious execution.
+- Terminate the suspicious interpreter process and any spawned child processes.
+- Preserve the full command line and related process tree for forensic analysis before making changes on the host.
+- Reset or revoke any credentials, tokens, or secrets exposed by the decoded payload or subsequent attacker activity.
+"""
+risk_score = 73
+rule_id = "74d31cb7-4a2c-44fe-9d1d-f375b9f3cb61"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: macOS",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
+| MV_EXPAND _ignored
+| WHERE _ignored == "process.command_line"
+| WHERE event.category == "process" and event.type == "start"
+| EVAL command_line = TO_LOWER(process.command_line.text), pname = TO_LOWER(process.name)
+| WHERE 
+(
+    (
+        /* Python: inline exec with base64 decode or -c flag with encoded payload */
+        pname like "python*" and
+        (
+            command_line like "*b64decode*" or
+            (command_line like "*-c*" and command_line like "*base64*")
+        )
+    ) or
+    (
+        /* PowerShell: encoded command flag — require trailing space to avoid matching
+           -Encoding, -EncryptionType, -EncryptionProvider, etc. */
+        (pname like "powershell*" or pname like "pwsh*") and
+        (
+            command_line rlike ".* -(e|en|enc|enco|encod|encode|encoded|encodedcommand) .+" or
+            command_line like "*-encodedcommand*" or
+            command_line like "*frombase64string*"
+        )
+    ) or
+    (
+        /* Node.js: buffer.from must be paired with base64 to avoid matching
+           general Buffer usage; atob is always base64 */
+        pname like "node*" and
+        (
+            (command_line like "*buffer.from*" and command_line like "*base64*") or
+            command_line like "*atob(*"
+        )
+    ) or
+    (
+        /* Deno: eval( (not eval/evaluate/evaluation), atob, or buffer+base64 */
+        pname like "deno*" and
+        (
+            command_line like "*atob(*" or
+            (command_line like "*buffer.from*" and command_line like "*base64*") or
+            command_line like "*eval(*"
+        )
+    )
+)
+| EVAL Esql.length_cmdline = LENGTH(command_line)
+| WHERE Esql.length_cmdline >= 4000
+| KEEP
+    @timestamp,
+    _id,
+    _index,
+    _version,
+    agent.id,
+    host.id,
+    host.name,
+    host.os.type,
+    user.id,
+    user.name,
+    process.entity_id,
+    process.name,
+    process.executable,
+    process.command_line.text,
+    process.parent.executable,
+    process.parent.command_line,
+    Esql.length_cmdline
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
