@@ -2,7 +2,7 @@
 creation_date = "2021/10/19"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -127,54 +127,6 @@ field_names = [
     "powershell.file.script_block_length"
 ]
 
-[[transform.investigate]]
-label = "Script block fragments for the same script"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Process events for the PowerShell instance"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the user"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the host"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -224,3 +176,54 @@ reference = "https://attack.mitre.org/techniques/T1120/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[transform]
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
