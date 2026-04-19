@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["endpoint", "checkpoint_email"]
 maturity = "production"
-updated_date = "2025/12/15"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -35,11 +35,11 @@ from logs-endpoint.alerts-*, logs-checkpoint_email.event-* metadata _id
 // Email or Elastic Defend alerts where user name is populated
 | where
   (event.category == "email" and event.kind == "alert" and destination.user.name is not null) or
-  (event.module == "endpoint" and event.dataset == "endpoint.alerts" and user.name is not null)
+  (event.module == "endpoint" and data_stream.dataset == "endpoint.alerts" and user.name is not null)
 
 // extract target user name from email and endpoint alerts
 | eval email_alert_target_user_name = CASE(event.category == "email", destination.user.name, null),
-       elastic_defend_alert_user_name = CASE(event.module == "endpoint" and event.dataset == "endpoint.alerts", user.name, null)
+       elastic_defend_alert_user_name = CASE(event.module == "endpoint" and data_stream.dataset == "endpoint.alerts", user.name, null)
 | eval Esql.target_user_name = COALESCE(email_alert_target_user_name, elastic_defend_alert_user_name)
 | where Esql.target_user_name is not null
 

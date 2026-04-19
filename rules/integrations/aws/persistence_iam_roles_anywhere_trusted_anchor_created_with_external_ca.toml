@@ -2,7 +2,7 @@
 creation_date = "2024/04/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -119,7 +119,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-info where event.dataset == "aws.cloudtrail"
+info where data_stream.dataset == "aws.cloudtrail"
   and event.provider == "rolesanywhere.amazonaws.com"
   and event.action == "CreateTrustAnchor"
   and event.outcome == "success"
@@ -129,22 +129,26 @@ info where event.dataset == "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
 
-
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

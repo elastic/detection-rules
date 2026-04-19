@@ -2,7 +2,7 @@
 creation_date = "2024/05/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-  event.dataset: "aws.cloudtrail" and 
+  data_stream.dataset: "aws.cloudtrail" and 
   event.provider : "s3.amazonaws.com" and 
   aws.cloudtrail.error_code : "AccessDenied" and 
   tls.client.server_name : * 
@@ -111,18 +111,25 @@ field_names = [
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1657"
 name = "Financial Theft"
 reference = "https://attack.mitre.org/techniques/T1657/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
 [[rule.threat.technique]]
 id = "T1619"
 name = "Cloud Storage Object Discovery"
@@ -132,20 +139,19 @@ reference = "https://attack.mitre.org/techniques/T1619/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
-
 [rule.threshold]
 field = ["tls.client.server_name", "source.address", "aws.cloudtrail.user_identity.type"]
 value = 1

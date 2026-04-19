@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -78,24 +78,42 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-ManagementRoleAssignment" and event.outcome:success
+data_stream.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-ManagementRoleAssignment" and event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

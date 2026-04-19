@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -77,25 +77,34 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:gcp.audit and event.action:v*.compute.routes.delete and event.outcome:success
+data_stream.dataset:gcp.audit and event.action:v*.compute.routes.delete and event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.007"
 name = "Disable or Modify Cloud Firewall"
 reference = "https://attack.mitre.org/techniques/T1562/007/"
 
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

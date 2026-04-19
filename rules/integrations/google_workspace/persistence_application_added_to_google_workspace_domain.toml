@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -97,15 +97,24 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
+data_stream.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

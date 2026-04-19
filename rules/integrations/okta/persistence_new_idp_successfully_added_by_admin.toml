@@ -2,7 +2,7 @@
 creation_date = "2023/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -70,25 +70,52 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "okta.system" and event.action: "system.idp.lifecycle.create" and okta.outcome.result: "SUCCESS"
+data_stream.dataset: "okta.system" and event.action: "system.idp.lifecycle.create" and okta.outcome.result: "SUCCESS"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1556.007"
 name = "Hybrid Identity"
 reference = "https://attack.mitre.org/techniques/T1556/007/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.007"
+name = "Hybrid Identity"
+reference = "https://attack.mitre.org/techniques/T1556/007/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

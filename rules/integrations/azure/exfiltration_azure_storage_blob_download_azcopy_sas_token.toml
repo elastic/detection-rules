@@ -2,7 +2,7 @@
 creation_date = "2025/10/02"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/10/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: azure.platformlogs and
+data_stream.dataset: azure.platformlogs and
     event.action: GetBlob and
     azure.platformlogs.identity.type: SAS and
     azure.platformlogs.properties.userAgentHeader: AzCopy* and
@@ -95,22 +95,34 @@ event.dataset: azure.platformlogs and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1567.002"
 name = "Exfiltration to Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1567/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.platformlogs.properties.accountName"]

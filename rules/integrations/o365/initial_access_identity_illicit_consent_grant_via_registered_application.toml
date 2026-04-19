@@ -2,7 +2,7 @@
 creation_date = "2025/03/24"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -92,44 +92,59 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "o365.audit"
+data_stream.dataset: "o365.audit"
   and o365.audit.Actor.Type: 5
   and event.action: "Consent to application."
   and event.outcome: "success"
   and o365.audit.Target.Type: (0 or 2 or 3 or 9 or 10)
+  and o365.audit.UserId: *
+  and o365.audit.ObjectId: *
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1566.002"
 name = "Spearphishing Link"
 reference = "https://attack.mitre.org/techniques/T1566/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1528"
 name = "Steal Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1528/"
-
 
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

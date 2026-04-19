@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -93,20 +93,32 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
+data_stream.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1531"
 name = "Account Access Removal"
 reference = "https://attack.mitre.org/techniques/T1531/"
-
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

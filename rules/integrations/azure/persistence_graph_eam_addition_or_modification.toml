@@ -2,7 +2,7 @@
 creation_date = "2025/07/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -66,7 +66,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: azure.graphactivitylogs and
+data_stream.dataset: azure.graphactivitylogs and
     url.path: *authenticationMethodsPolicy* and
     http.request.method: "PATCH" and
     http.response.status_code: 200
@@ -75,22 +75,39 @@ event.dataset: azure.graphactivitylogs and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1556.009"
 name = "Conditional Access Policies"
 reference = "https://attack.mitre.org/techniques/T1556/009/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.graphactivitylogs.properties.user_principal_object_id"]

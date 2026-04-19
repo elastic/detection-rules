@@ -2,7 +2,7 @@
 creation_date = "2025/09/18"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/12/23"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -115,25 +115,30 @@ process.parent.name in ("node", "bun", "node.exe", "bun.exe") and (
   process.name in ("curl", "wget", "curl.exe", "wget.exe")
 )
 ) and not (
-  process.command_line like ("*127.0.0.1*", "*localhost*", "*/home/*/.claude/shell-snapshots/*", "*/root/.claude/shell-snapshots/snapshot*") or
-  process.parent.executable like ("/*/.cursor-server/*node", "/root/.nvm/*/node", "/*/.vscode-server/*/node", "/home/*/.nvm/*/node", "/home/*/cursor-agent/*/node") 
+  process.command_line like ("*127.0.0.1*", "*localhost*", "*/home/*/.claude/shell-snapshots/*", "*/root/.claude/shell-snapshots/snapshot*", "*/Users/*/.claude/shell-snapshots/*") or
+  process.parent.executable like ("/*/.cursor-server/*node", "/home/*/cursor-agent/*/node") 
 )
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Command and Control"
-  id = "TA0011"
-  reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
 
-  [[rule.threat.technique]]
-  name = "Application Layer Protocol"
-  id = "T1071"
-  reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
 
-    [[rule.threat.technique.subtechnique]]
-    name = "Web Protocols"
-    id = "T1071.001"
-    reference = "https://attack.mitre.org/techniques/T1071/001/"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/06/18"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +81,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs"
+data_stream.dataset : "kubernetes.audit_logs"
   and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
   and kubernetes.audit.objectRef.resource:"services"
   and kubernetes.audit.verb:("create" or "update" or "patch")
@@ -91,14 +91,26 @@ event.dataset : "kubernetes.audit_logs"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1133"
 name = "External Remote Services"
 reference = "https://attack.mitre.org/techniques/T1133/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

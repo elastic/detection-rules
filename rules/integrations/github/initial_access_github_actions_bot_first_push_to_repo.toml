@@ -2,7 +2,7 @@
 creation_date = "2025/12/09"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/12/09"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -77,17 +77,19 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "github.audit" and
+data_stream.dataset: "github.audit" and
     event.action: "git.push" and
     user.name: "github-actions[bot]"
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1195.002"
 name = "Compromise Software Supply Chain"
@@ -100,6 +102,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -110,6 +113,23 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["github.org_id", "github.repo"]

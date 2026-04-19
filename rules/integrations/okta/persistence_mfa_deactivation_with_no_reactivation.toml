@@ -2,7 +2,7 @@
 creation_date = "2020/05/20"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/09/08"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -77,27 +77,44 @@ type = "eql"
 
 query = '''
 sequence by okta.target.id with maxspan=12h
-    [any where event.dataset == "okta.system" and okta.event_type in ("user.mfa.factor.deactivate", "user.mfa.factor.reset_all")
+    [any where data_stream.dataset == "okta.system" and okta.event_type in ("user.mfa.factor.deactivate", "user.mfa.factor.reset_all")
         and okta.outcome.reason != "User reset SECURITY_QUESTION factor" and okta.outcome.result == "SUCCESS"]
-    ![any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.activate"]
+    ![any where data_stream.dataset == "okta.system" and okta.event_type == "user.mfa.factor.activate"]
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1556.006"
 name = "Multi-Factor Authentication"
 reference = "https://attack.mitre.org/techniques/T1556/006/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

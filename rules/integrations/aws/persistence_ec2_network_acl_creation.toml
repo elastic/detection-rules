@@ -2,7 +2,7 @@
 creation_date = "2020/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateNetworkAcl or CreateNetworkAclEntry) and event.outcome:success
+data_stream.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateNetworkAcl or CreateNetworkAclEntry) and event.outcome:success
 '''
 
 [rule.investigation_fields]
@@ -99,30 +99,41 @@ field_names = [
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1133"
 name = "External Remote Services"
 reference = "https://attack.mitre.org/techniques/T1133/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.007"
 name = "Disable or Modify Cloud Firewall"
 reference = "https://attack.mitre.org/techniques/T1562/007/"
 
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

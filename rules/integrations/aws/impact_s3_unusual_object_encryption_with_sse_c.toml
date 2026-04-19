@@ -2,7 +2,7 @@
 creation_date = "2025/01/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "s3.amazonaws.com"
     and event.action: "PutObject"
     and event.outcome: "success"
@@ -105,17 +105,34 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1486"
 name = "Data Encrypted for Impact"
 reference = "https://attack.mitre.org/techniques/T1486/"
-
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

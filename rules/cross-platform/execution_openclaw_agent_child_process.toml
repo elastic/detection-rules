@@ -2,7 +2,7 @@
 creation_date = "2026/02/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/10"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -76,43 +76,101 @@ process where event.type == "start" and
   process.parent.name : ("node", "node.exe") and 
   process.parent.command_line : ("*openclaw*", "*moltbot*", "*clawdbot*") and
    process.name : ("bash", "sh", "zsh", "bash.exe", "cmd.exe", "powershell.exe", "curl.exe", "curl", "base64", "xattr", "osascript", "python*", "chmod", "certutil.exe", "rundll32.exe") and
-   not process.command_line in ("/bin/sh -c ip neigh show", "/usr/bin/sh -c ip neigh show",
-                                "/bin/sh -c arp -a -n -l", "/usr/bin/sh -c arp -a -n -l")
+   not process.args in (
+     "ip neigh show",
+     "arp -a -n -l",
+     "ip neighbor show dev wlan0",
+     "ip neighbor show dev eth0",
+     "arp -a | findstr /C:---"
+   )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
 
-
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

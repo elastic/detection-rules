@@ -2,7 +2,7 @@
 creation_date = "2021/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
@@ -144,7 +144,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "rds.amazonaws.com"
     and event.action: ("RestoreDBInstanceFromDBSnapshot" or "RestoreDBInstanceFromS3")
     and event.outcome: "success"
@@ -153,10 +153,12 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1578"
 name = "Modify Cloud Compute Infrastructure"
 reference = "https://attack.mitre.org/techniques/T1578/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1578.002"
 name = "Create Cloud Instance"
@@ -167,13 +169,28 @@ id = "T1578.004"
 name = "Revert Cloud Instance"
 reference = "https://attack.mitre.org/techniques/T1578/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1074"
+name = "Data Staged"
+reference = "https://attack.mitre.org/techniques/T1074/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1074.002"
+name = "Remote Data Staging"
+reference = "https://attack.mitre.org/techniques/T1074/002/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

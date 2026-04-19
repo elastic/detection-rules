@@ -2,7 +2,7 @@
 creation_date = "2025/06/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +69,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "azure.signinlogs" and
+data_stream.dataset: "azure.signinlogs" and
     azure.signinlogs.properties.app_id : "29d9ed98-a469-4536-ade2-f981bc1d605e" and
     azure.signinlogs.properties.resource_id : "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" and
     azure.signinlogs.category: "NonInteractiveUserSignInLogs" and
@@ -81,19 +81,31 @@ event.dataset: "azure.signinlogs" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

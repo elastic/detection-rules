@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,7 @@ severity = "medium"
 tags = [
     "Use Case: Threat Detection",
     "Tactic: Lateral Movement",
+    "Tactic: Impact",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
 ]
@@ -72,21 +73,38 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
-  (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
+(data_stream.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
+  (data_stream.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1210"
 name = "Exploitation of Remote Services"
 reference = "https://attack.mitre.org/techniques/T1210/"
-
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1499.004"
+name = "Application or System Exploitation"
+reference = "https://attack.mitre.org/techniques/T1499/004/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

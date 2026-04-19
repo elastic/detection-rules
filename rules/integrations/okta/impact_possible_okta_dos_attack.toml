@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -72,12 +72,13 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:okta.system and event.action:(application.integration.rate_limit_exceeded or system.org.rate_limit.warning or system.org.rate_limit.violation or core.concurrency.org.limit.violation)
+data_stream.dataset:okta.system and event.action:(application.integration.rate_limit_exceeded or system.org.rate_limit.warning or system.org.rate_limit.violation or core.concurrency.org.limit.violation)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1498"
 name = "Network Denial of Service"
@@ -88,9 +89,17 @@ id = "T1499"
 name = "Endpoint Denial of Service"
 reference = "https://attack.mitre.org/techniques/T1499/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1499.002"
+name = "Service Exhaustion Flood"
+reference = "https://attack.mitre.org/techniques/T1499/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1499.003"
+name = "Application Exhaustion Flood"
+reference = "https://attack.mitre.org/techniques/T1499/003/"
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

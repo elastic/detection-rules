@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/02/19"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -96,7 +96,7 @@ process where host.os.type == "windows" and event.type : "start" and process.com
   ) and
   not (
     /* Crowdstrike specific exclusion as it uses NT Object paths */
-    (event.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
+    (data_stream.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
       process.executable : (
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\*",
         "\\Device\\HarddiskVolume*\\Program Files\\*",
@@ -119,14 +119,31 @@ process where host.os.type == "windows" and event.type : "start" and process.com
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1202"
 name = "Indirect Command Execution"
 reference = "https://attack.mitre.org/techniques/T1202/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

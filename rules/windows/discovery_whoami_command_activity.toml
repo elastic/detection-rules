@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "system", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -91,7 +91,7 @@ process where host.os.type == "windows" and event.type == "start" and process.na
         not ?winlog.event_data.SubjectUserName : "*$" and
 
         /* Sysmon will always populate user.id as S-1-5-18, leading to FPs */
-        not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+        not data_stream.dataset : ("windows.sysmon_operational", "windows.sysmon")
       ) or
       (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System")
     ) and
@@ -117,14 +117,18 @@ process where host.os.type == "windows" and event.type == "start" and process.na
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1033"
 name = "System Owner/User Discovery"
 reference = "https://attack.mitre.org/techniques/T1033/"
 
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

@@ -2,7 +2,7 @@
 creation_date = "2026/03/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/09"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -14,30 +14,6 @@ interval = "6m"
 language = "esql"
 license = "Elastic License v2"
 name = "Newly Observed ScreenConnect Host Server"
-note = """## Triage and analysis
-
-### Investigating Newly Observed ScreenConnect Host Server
-
-ScreenConnect (ConnectWise Control) is legitimate RMM software often abused by threat actors for command-and-control and persistence. This rule fires when a host is seen connecting to a ScreenConnect server host that was not seen before (within the rule window) and that is not the official *.screenconnect.com cloud—surfacing self-hosted or non-standard relay servers that may indicate abuse.
-
-### Possible investigation steps
-
-- Identify the host and user from the alert and confirm whether use of ScreenConnect is approved.
-- Inspect the parsed ScreenConnect server host (Esql.screenconnect_server)—is it an internal host, a known vendor, or an unknown domain/IP?
-- Review the process command line for the full connection parameters and any other suspicious options.
-- Correlate with the companion rule "First Time Seen Remote Monitoring and Management Tool" for the same host.
-- Check for other alerts on the host or user in the past 48 hours.
-
-### False positive analysis
-
-- Legitimate use of self-hosted ScreenConnect/ConnectWise Control by IT or MSP will trigger; allowlist known relay servers by host or exception if appropriate.
-- New deployments of on-prem ScreenConnect relays will appear as newly observed; validate with change management.
-
-### Response and remediation
-
-- If unauthorized RMM use or an unknown relay is confirmed: isolate the host, remove or block the client, and investigate how the software was installed and who operates the server.
-- Enforce policy that only approved RMM tools and approved relay servers may be used.
-"""
 references = [
     "https://attack.mitre.org/techniques/T1219/002/",
     "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
@@ -57,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-endpoint.events.process-* metadata _id, _version, _index
+from logs-endpoint.events.process-*
 | where event.category == "process" and event.type == "start" and (process.name == "ScreenConnect.ClientService.exe" or process.code_signature.subject_name == "ConnectWise, LLC")
 | grok process.command_line """e=Access&y=Guest&h=(?<Esql.screenconnect_server>[^&]+)&p"""
 | where Esql.screenconnect_server is not null and not Esql.screenconnect_server like "*.screenconnect.com"
@@ -66,14 +42,134 @@ from logs-endpoint.events.process-* metadata _id, _version, _index
         Esql.user_name_values = values(user.name),
         Esql.command_line_values = values(process.command_line),
         Esql.host_id_values = values(host.id),
-        Esql.host_name_values = values(host.name) by Esql.screenconnect_server
+        Esql.host_name_values = values(host.name),
+        Esql.process_entity_id_values = values(process.entity_id) by Esql.screenconnect_server
 | eval Esql.recent = date_diff("minute", Esql.first_time_seen, now())
 | where Esql.recent <= 6 and Esql.count_distinct_host_id == 1
 | eval host.id = mv_first(Esql.host_id_values),
        host.name = mv_first(Esql.host_name_values),
-       process.command_line = mv_first(Esql.command_line_values)
-| keep host.id, host.name, process.command_line, Esql.screenconnect_server
+       process.command_line = mv_first(Esql.command_line_values),
+       process.entity_id = mv_first(Esql.process_entity_id_values)
+| keep host.id, host.name, process.command_line, process.entity_id, Esql.screenconnect_server, Esql.user_name_values, Esql.first_time_seen
 '''
+
+note = """## Triage and analysis
+
+### Investigating Newly Observed ScreenConnect Host Server
+
+#### Possible investigation steps
+
+- What do the alert-preserved fields tell you about this new ScreenConnect relay?
+  - Focus: `Esql.screenconnect_server`, `Esql.user_name_values`, `Esql.first_time_seen`, `host.id`, `host.name`, and `process.command_line`; note `Esql.*` fields are alert-local, not source-event records.
+  - Implication: supports concern when the relay is an IP literal or unknown domain; weaker when it points to a recognized internal relay or managed service provider host.
+
+- Does the ScreenConnect client binary and install path match recognized software on this host?
+  - Focus: recover from source events via `process.entity_id`: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_0
+  - Implication: suspicious when unsigned, portable, user-writable, or mismatched to its original file name; consistent only when signer and path match the expected ScreenConnect installation.
+
+- Does the parent and ancestry explain why this host initiated a new relay connection now?
+  - Focus: from the recovered source event: `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`.
+  - Implication: harder to justify when a script host, Office application, installer, or unexpected interactive session starts the client; easier to explain when the lineage resolves to a recognized service deployment or management tooling chain.
+
+- Do network events show the host contacting infrastructure consistent with the parsed relay?
+  - Why: `Esql.screenconnect_server` is an alert-level field, so source DNS and connection events are needed to confirm what the host actually contacted.
+  - Focus: DNS "lookup_result" events for `Esql.screenconnect_server` and connection events scoped to `process.entity_id` and `host.id`, checking `dns.question.name`, `dns.resolved_ip`, `destination.ip`, and `destination.as.organization.name`. $investigate_1
+  - Implication: supports concern when the process reaches public infrastructure with unknown ownership, or when multiple destinations cluster around the same relay; less concerning when the infrastructure matches the relay and belongs to a known hosting provider. Missing network telemetry is unresolved, not benign.
+
+- Does the host context fit managed service provider or internal ScreenConnect use?
+  - Focus: `host.id` and `Esql.user_name_values` pairing, and whether the same `Esql.screenconnect_server`, signer, and parent workflow recur across a known admin host group.
+  - Implication: more concerning if ScreenConnect appears on end-user or sensitive hosts not typically managed remotely, or if the user and host evidence do not fit the expected workflow; more explainable when the same managed host group, operator identity, and deployment pattern recur together.
+
+- Have other hosts in the environment resolved the same ScreenConnect relay domain?
+  - Focus: DNS events across all hosts where `dns.question.name` matches the relay from `Esql.screenconnect_server` over the last 30 days. $investigate_2
+  - Implication: multiple unrelated hosts resolving the same relay suggests a campaign or broad rollout; a single host stays locally bounded.
+
+- Does this host show related alerts or adjacent remote-access tooling that suggest broader compromise?
+  - Focus: related alerts for the same `host.id` in the last 48 hours, plus adjacent remote-access, persistence, credential-access, or delivery activity, especially renamed or portable ConnectWise or ScreenConnect binaries tied to the same relay. $investigate_3
+  - Implication: suggests broader host compromise when the asset also shows suspicious precursor delivery, persistence, credential theft, or additional remote-access tooling; stays locally bounded when the surrounding alert history is limited to expected admin activity or unrelated benign activity.
+
+- Escalate when the relay, client identity, launch lineage, contacted infrastructure, or host spread point to unauthorized remote access; close only when all evidence aligns with a recognized ScreenConnect workflow; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Legitimate self-hosted ScreenConnect or managed service provider ConnectWise Control can trigger this rule. Confirm when the same `Esql.screenconnect_server`, recovered `process.executable`, signer, parent workflow, and DNS evidence all align with one recognized operator. If change records are unavailable, require the same client identity and admin host group to show prior new-relay alerts from this rule.
+- Before creating an exception, confirm the relay is authorized through organizational records, then build the exception on the relay domain in `process.command_line`. Avoid exceptions on `host.name` or `host.id` alone, since the rule fires per host and those would suppress only one endpoint.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the authorized relay, client signer and path, and source-event lineage. Build the exception on the relay domain in `process.command_line` once authorization is confirmed through organizational records.
+- If suspicious but unconfirmed, preserve the alert's `process.entity_id`, `process.command_line`, `Esql.screenconnect_server`, and any linked `dns.question.name` or `destination.ip` evidence. Apply reversible containment such as temporary DNS or egress blocking for the relay host. Escalate to host isolation only when the relay, lineage, or network evidence shows meaningful risk and the host's support role can tolerate it. Avoid destructive cleanup until scope is clearer.
+- If confirmed malicious, document the alert's `process.entity_id`, recovered `process.executable`, `process.code_signature.subject_name`, `process.command_line`, `Esql.screenconnect_server`, and any confirmed `dns.question.name` or `destination.ip` values before initiating response actions. Use available endpoint response integrations to isolate the host when the relay, client identity, lineage, or contacted infrastructure indicates unauthorized remote access. If direct endpoint response is unavailable, escalate with the documented artifacts to the team that can act.
+- Review how the software was installed, who operated the relay, and whether additional remote-access tooling or credential exposure is present on the host. Then block the malicious relay host and any confirmed relay IPs, and remove or disable the unauthorized ScreenConnect client, service, persistence mechanism, or installer artifacts identified during the investigation.
+- After containment, enforce approved-relay policy for remote-access tools and retain Elastic Defend process and network telemetry needed to validate future relay changes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "process.command_line",
+    "Esql.screenconnect_server",
+    "Esql.user_name_values",
+    "Esql.first_time_seen",
+    "process.entity_id",
+]
+
+[[transform.investigate]]
+label = "Process events for the ScreenConnect client"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the ScreenConnect client"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Hosts resolving the same ScreenConnect relay domain"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "dns.question.name", queryType = "phrase", value = "{{Esql.screenconnect_server}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-30d/d"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

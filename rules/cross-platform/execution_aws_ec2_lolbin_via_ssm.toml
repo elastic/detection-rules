@@ -2,7 +2,7 @@
 creation_date = "2025/11/23"
 integration = ["aws", "endpoint"]
 maturity = "production"
-updated_date = "2025/11/23"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -101,14 +101,14 @@ FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version
 | WHERE
   // CloudTrail SSM SendCommand with AWS-RunShellScript
   (
-    event.dataset == "aws.cloudtrail"
+    data_stream.dataset == "aws.cloudtrail"
     AND event.action == "SendCommand"
     AND aws.cloudtrail.request_parameters LIKE "*documentName=AWS-RunShellScript*"
   )
   // Linux endpoint process events, prefiltered to SSM shell runner OR LOLBins/GTFOBins
   OR
   (
-    event.dataset == "endpoint.events.process"
+    data_stream.dataset == "endpoint.events.process"
     AND host.os.type == "linux"
     AND (
       // SSM shell (_script.sh) runner
@@ -149,8 +149,8 @@ FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version
 | WHERE Esql.aws_ssm_command_id IS NOT NULL
 
 // Role flags
-| EVAL Esql.is_cloud_event    = event.dataset == "aws.cloudtrail"
-| EVAL Esql.is_endpoint_event = event.dataset == "endpoint.events.process"
+| EVAL Esql.is_cloud_event    = data_stream.dataset == "aws.cloudtrail"
+| EVAL Esql.is_endpoint_event = data_stream.dataset == "endpoint.events.process"
 
 // Identify the SSM shell processes (the _script.sh runners)
 | EVAL Esql.is_ssm_shell_process =
@@ -225,26 +225,36 @@ FROM logs-aws.cloudtrail*, logs-endpoint.events.process-* METADATA _id, _version
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
 [[rule.threat.technique]]
 id = "T1651"
 name = "Cloud Administration Command"
 reference = "https://attack.mitre.org/techniques/T1651/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1105"
 name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

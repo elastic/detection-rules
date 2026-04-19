@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2026/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where host.os.type == "windows" and process.name : "PsExec.exe" and event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
+   (process.name : "PsExec.exe" or ?process.pe.original_file_name : "psexec.c") and
 
    /* This flag suppresses the display of the license dialog and may
       indicate that psexec executed for the first time in the machine */
@@ -88,7 +89,7 @@ sequence by process.entity_id
                              "?:\\Program Files\\Docusnap X\\Bin\\psexec.exe",
                              "?:\\Program Files\\Docusnap X\\Tools\\dsDNS.exe") and
    not process.parent.executable : "?:\\Program Files (x86)\\Cynet\\Cynet Scanner\\CynetScanner.exe"]
-  [network where host.os.type == "windows" and process.name : "PsExec.exe"]
+  [network where host.os.type == "windows"]
 '''
 
 

@@ -1742,6 +1742,11 @@ class TOMLRule:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             _ = f.write("\n")
 
+    def save_yaml(self, path: Path, contents_override: dict[str, Any] | None = None) -> None:
+        """Save the rule in YAML format."""
+        data = contents_override if contents_override is not None else self.contents.to_api_format()
+        utils.save_yaml(path.with_suffix(".yaml"), data, use_absolute_path=True)
+
 
 @dataclass(frozen=True)
 class DeprecatedRuleContents(BaseRuleContents):

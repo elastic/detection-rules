@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/07/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -75,25 +75,34 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:okta.system and event.action:zone.deactivate
+data_stream.dataset:okta.system and event.action:zone.deactivate
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.007"
 name = "Disable or Modify Cloud Firewall"
 reference = "https://attack.mitre.org/techniques/T1562/007/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

@@ -2,7 +2,7 @@
 creation_date = "2024/11/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/02/27"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "sts.amazonaws.com"
     and event.action: "AssumeRole"
     and event.outcome: "success"
@@ -95,34 +95,62 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

@@ -2,7 +2,7 @@
 creation_date = "2020/05/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -109,7 +109,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and 
+data_stream.dataset:aws.cloudtrail and 
     event.provider:s3.amazonaws.com and
     event.action:(DeleteBucketPolicy or 
                     DeleteBucketReplication or 
@@ -122,6 +122,7 @@ event.dataset:aws.cloudtrail and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
@@ -131,30 +132,34 @@ reference = "https://attack.mitre.org/techniques/T1070/"
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.008"
 name = "Disable or Modify Cloud Logs"
 reference = "https://attack.mitre.org/techniques/T1562/008/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1490"
 name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

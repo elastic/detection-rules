@@ -2,7 +2,7 @@
 creation_date = "2021/06/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -141,7 +141,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: aws.cloudtrail 
+data_stream.dataset: aws.cloudtrail 
     and event.provider: rds.amazonaws.com 
     and event.action: StartExportTask 
     and event.outcome: success
@@ -151,28 +151,38 @@ event.dataset: aws.cloudtrail
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1213"
 name = "Data from Information Repositories"
 reference = "https://attack.mitre.org/techniques/T1213/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1213.006"
 name = "Databases"
 reference = "https://attack.mitre.org/techniques/T1213/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/02/04"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -76,7 +76,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and
+data_stream.dataset:o365.audit and
     event.provider:SecurityComplianceCenter and
     event.category:web and
     rule.name:("Ransomware activity" or "Potential ransomware activity") and
@@ -86,14 +86,23 @@ event.dataset:o365.audit and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1486"
 name = "Data Encrypted for Impact"
 reference = "https://attack.mitre.org/techniques/T1486/"
 
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
 
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
