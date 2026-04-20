@@ -2,13 +2,13 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/20"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies execution of the NetSupport remote access software from non-default paths. Adversaries may abuse NetSupport
-Manager to control a target victim machine.
+Manager to control a victim machine.
 """
 from = "now-9m"
 index = [
@@ -24,32 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "NetSupport Manager Execution from an Unusual Path"
-note = """## Triage and analysis
-
-### Investigating NetSupport Manager Execution from an Unusual Path
-
-NetSupport Manager, is a remote access tool, facilitates legitimate remote support but can be exploited by adversaries to execute unauthorized commands.
-
-### Possible investigation steps
-
-- Review the origin of the NetSupport file and if it's related to an authorized IT Support case.
-- Examine if the NetSupport process is set to persist in the affected system via scheduled task, Startup folder or Run key.
-- Check the network, files and child processes activity associated with the NetSupport client32.exe process.
-- Correlate the event with other security alerts or logs from data sources like Elastic Defend or Microsoft Defender for Endpoint to gather additional context and identify any related malicious activities.
-
-### False positive analysis
-
-- Legitimate IT support activities using NetSupport by IT support accounts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
-- Terminate any suspicious processes identified in the alert, such as PowerShell, cmd.exe, or other flagged executables, to halt any ongoing malicious activity.
-- Review and revoke any unauthorized user accounts or privileges that may have been created or modified using tools like net.exe or schtasks.exe.
-- Conduct a thorough scan of the affected system using endpoint protection tools to identify and remove any malware or unauthorized software installed by the attacker.
-- Restore the system from a known good backup if any critical system files or configurations have been altered or compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for ScreenConnect and other remote access tools to detect similar activities in the future, ensuring that alerts are promptly reviewed and acted upon."""
 references = [
     "https://www.netsupportsoftware.com/",
 ]
@@ -80,12 +54,147 @@ process where host.os.type == "windows" and event.type == "start" and
   process.executable :
                ("?:\\Users\\*.exe",
                 "?:\\ProgramData\\*.exe",
-                "\\Device\\HarddiskVolume?\\Users\\*.exe",
-                "\\Device\\HarddiskVolume?\\ProgramData\\*.exe") or
+                "\\Device\\HarddiskVolume*\\Users\\*.exe",
+                "\\Device\\HarddiskVolume*\\ProgramData\\*.exe") or
   ?process.parent.executable : ("?:\\Users\\*\\client32.exe", "?:\\ProgramData\\*\\client32.exe")
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating NetSupport Manager Execution from an Unusual Path
+
+#### Possible investigation steps
+
+- What is the alerting process and how did NetSupport reach this host from a non-default path?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when the client is unsigned, portable, or mismatched to its original file name, or when the parent chain starts from a script host, archive utility, browser, or Office process; lower suspicion when signer, path, and parent chain resolve to a recognized deployment. Identity alone does not clear the behavior.
+
+- Does the client or child command line show recognized deployment behavior or covert control intent?
+  - Focus: `process.command_line`, `process.working_directory`, and `process.parent.command_line`, with attention to connection targets, relay parameters, and hidden or scripted launch behavior.
+  - Hint: if the alert fired on a child process and the parent command line is absent or truncated, recover the NetSupport client start event on the same `host.id` before judging deployment or relay intent.
+  - Implication: escalate when the command line reveals external control targets, stealthy launch parameters, or deployment behavior that does not fit expected support tooling; lower suspicion when the arguments match a recognized support or managed rollout workflow.
+
+- Do network events show expected support infrastructure or suspicious relay traffic?
+  - Focus: process-scoped DNS and connection events for `process.entity_id`, checking `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_2
+  - Implication: escalate when the process reaches rare public destinations or unexpected relay infrastructure; lower suspicion when destinations align with known internal support infrastructure. Missing network telemetry is unresolved, not benign.
+
+- Do file events show staged components, renamed NetSupport files, or persistence artifacts?
+  - Focus: file events scoped to `process.entity_id`: `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, `file.Ext.header_bytes`, and adjacent NetSupport files ("client32u.ini", "NSM.lic", "NSM.ini", "CKSINI.EXE").
+  - Implication: escalate when the process writes portable components, renamed files, or bundled config/license files, or when artifacts later appear in persistence or execution telemetry; lower suspicion when file activity stays in a recognized installation path with no suspicious reuse.
+
+- Do child processes launched from NetSupport show interactive abuse beyond normal support?
+  - Focus: child process events from `process.entity_id`, checking `process.executable` and `process.command_line`. $investigate_3
+  - Implication: escalate when NetSupport spawns shells, scripting engines, archivers, credential tools, or other hands-on-keyboard tooling; lower suspicion when child activity stays limited to expected helper processes or no secondary execution follows.
+
+- If the local evidence stays suspicious, does this host or user show related alerts or a recurring deployment pattern?
+  - Focus: related alerts for `host.id` and `user.id` in the last 48 hours, checking for delivery, persistence, remote-access, or credential activity, and whether the same client path, signer, and destination pattern recur across prior alerts.
+    - $investigate_0
+    - $investigate_1
+  - Hint: if workflow documentation is unavailable, recurrence of the same client path, signer, and destination pattern across prior alerts is the strongest telemetry-based benign signal.
+  - Implication: broaden when the host or user shows suspicious precursor, follow-on, or cross-host activity; lower suspicion when the same deployment pattern recurs with no contradictory alerts.
+
+- Escalate when binary identity, launch chain, network destinations, staged artifacts, or child-process behavior point to unauthorized NetSupport deployment or interactive abuse; close only when all evidence aligns with a recognized support deployment; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Legitimate IT support or managed deployment can stage NetSupport in non-default paths. Confirm it when the client is signed by NetSupport Ltd, the parent is an IT deployment tool (SCCM, GPO, management agent), bundled config files (client32u.ini, NSM.lic) sit alongside the client in the same directory, and network destinations resolve to internal support infrastructure.
+- Before creating an exception, build on `process.executable`, `process.code_signature.subject_name`, `process.parent.executable`, `user.id`, and `host.id`. Avoid exceptions on `process.name` alone, the user alone, or the host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document `process.executable`, `process.code_signature.subject_name`, `process.parent.executable`, the destination pattern, and the `user.id`/`host.id` pairing. Create an exception using the fields from the FP guidance above.
+- If suspicious but unconfirmed, preserve the alert's `process.entity_id`, client path, signer, `process.command_line`, related `file.path` values, child-process lineage, and any linked `destination.ip`, `dns.question.name`, or `dns.resolved_ip` values. Apply reversible containment such as temporary blocking of confirmed destinations. Escalate to host isolation only when live remote control or lateral movement is still plausible and the asset can tolerate it.
+- If confirmed malicious, use endpoint response to contain the host after recording the alert's `process.entity_id`, client path, signer, command line, child-process details, written artifact paths, and confirmed destinations. If direct endpoint response is unavailable, escalate with that evidence set to the team that can terminate the process, isolate the host, and block the malicious destinations and dropped artifact hashes identified during the investigation.
+- Before deleting files or removing access, review the same client path family, destinations, bundled config or license files, and dropped artifact names across other hosts and users so portable staging or shared controller infrastructure does not stay localized by mistake. Then eradicate the unauthorized NetSupport client, persistence mechanism, installer artifacts, and follow-on tooling uncovered during the file and child-process review.
+- Post-incident hardening: restrict remote-access tool installs to approved signed packages and approved paths, review software-allowlisting or deployment controls that allowed the portable client to run, and retain endpoint process, file, and network telemetry.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.working_directory",
+    "process.pe.original_file_name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the NetSupport process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child processes launched by the NetSupport client"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -94,9 +203,7 @@ id = "T1219"
 name = "Remote Access Tools"
 reference = "https://attack.mitre.org/techniques/T1219/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

@@ -5,7 +5,7 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies instances where a process attempts to open the Local Security Authority Subsystem Service (LSASS) memory and where the number of occurences is limited to one unique agent and a low number of attempts. This may indicate either a rare legitimate condition or a malicious process attempting to obtain credentials or inject code into the LSASS.
+- **Description:** This hunt identifies instances where a process attempts to open the Local Security Authority Subsystem Service (LSASS) memory and where the number of occurrences is limited to one unique agent and a low number of attempts. This may indicate either a rare legitimate condition or a malicious process attempting to obtain credentials or inject code into the LSASS.
 
 - **UUID:** `d0aed6f5-f84c-4da8-bb2a-b5ca0fbb55e0`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
@@ -22,8 +22,8 @@ from logs-endpoint.events.api*
 | keep process.executable.caseless, host.id
  /* normalize process paths to reduce known random patterns in process.executable */
 | eval process = replace(process.executable.caseless, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
-| stats occurences = count(process), agents = count_distinct(host.id) by process
-| where agents == 1 and occurences <= 10
+| stats occurrences = count(process), agents = count_distinct(host.id) by process
+| where agents == 1 and occurrences <= 10
 ```
 
 ```sql
@@ -35,8 +35,8 @@ from logs-windows.sysmon_operational-*
  /* normalize process paths to reduce known random patterns in process.executable */
 | eval process_path = replace(process.executable, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
 | eval process_path = replace(process_path, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9\.\-\_\$~]+\\""", "C:\\\\users\\\\user\\\\")
-| stats occurences = count(process_path), agents = count_distinct(host.id) by process_path
-| where agents == 1 and occurences <= 10
+| stats occurrences = count(process_path), agents = count_distinct(host.id) by process_path
+| where agents == 1 and occurrences <= 10
 ```
 
 ## Notes

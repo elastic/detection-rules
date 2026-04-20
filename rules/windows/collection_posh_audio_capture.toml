@@ -2,7 +2,7 @@
 creation_date = "2021/10/19"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/01/26"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -11,90 +11,13 @@ Detects PowerShell script block content that invokes microphone capture routines
 Adversaries may use audio recording to surveil users or capture sensitive conversations for theft or extortion.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Audio Capture Capabilities"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Suspicious Script with Audio Capture Capabilities
-
-This alert indicates PowerShell script block content associated with microphone recording or Windows multimedia audio capture routines. Because audio capture can expose sensitive conversations, prioritize investigation when the activity is unexpected for the user, host, or time of day, or when the script suggests local staging or external transfer.
-
-#### Key alert fields to review
-
-- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
-- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
-- `powershell.file.script_block_text`: Script block content that matched the detection logic.
-- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
-- `powershell.file.script_block_length`: Script block length (size) context.
-
-#### Possible investigation steps
-
-- Establish alert context and ownership:
-  - Identify the execution context using `user.name`, `user.domain`, and `user.id`, and the impacted endpoint using `host.name` and `host.id`.
-  - If `file.path` or `file.name` is populated, note the script origin and whether the location is expected for administrative scripts.
-
-- Analyze `powershell.file.script_block_text` for capability and intent:
-  - Determine whether the script enumerates devices, starts/stops recording, sets recording duration, or saves output.
-  - Capture any referenced output paths, filenames, or extensions (for example, `.wav`) that may indicate where audio was written.
-  - Look for higher-risk patterns in the same content, such as dynamic unmanaged API access (for example, `Add-Type` with `DllImport`), obfuscation, looping/retry logic, or cleanup routines (delete after save/upload).
-  - Note any embedded remote destinations, credentials, or upload logic if present to support containment and scoping.
-
-- Reconstruct full script content when the script block is split:
-  - Pivot on `powershell.file.script_block_id` for the same endpoint and time window.
-  - Rebuild the full content by ordering fragments with `powershell.sequence` and validating completeness with `powershell.total` before drawing conclusions from a single fragment.
-  - Review nearby script blocks from the same `user.id` and `host.id` to identify configuration, helper functions, or follow-on actions not present in the matching fragment.
-
-- Validate execution chain and likely launch method (if additional telemetry is available):
-  - Correlate the alert time on `host.name` with process execution telemetry to identify the PowerShell host process and its parent process.
-  - Assess whether the parent process and timing are consistent with expected user/admin activity on that host.
-  - If the script content indicates remote execution, scheduled execution, or automation, review surrounding activity for corroborating evidence (repeated runs, multiple hosts, or multiple users).
-
-- Assess evidence of audio collection and data handling:
-  - If the script indicates an output location, correlate with file activity around `@timestamp` to identify newly created or modified files that could contain recorded audio.
-  - Review `file.path` and `file.name` (when present) for suspicious or deceptive naming and whether the same artifact appears on multiple endpoints.
-  - If the script references encoding or compression, consider that audio may be staged as non-audio file types; use distinctive filenames or directories from the script content to guide searches.
-
-- Identify possible exfiltration or secondary objectives:
-  - Review the script content for staging steps (chunking, encoding, archiving) and any explicit network transfer logic.
-  - If remote destinations are present in the script content, correlate with network telemetry for outbound connections from the same host near the alert time and evaluate whether transfer volume and timing are consistent with audio data movement.
-
-- Scope and prevalence:
-  - Search for the same function names, API strings, or distinctive substrings from `powershell.file.script_block_text` across other endpoints to identify reuse.
-  - Check whether the same `user.id` is associated with similar script blocks on multiple hosts, or whether multiple users on the same `host.id` exhibit similar activity.
-  - If `file.name` is populated, look for the same filename and path patterns elsewhere to determine distribution.
-
-### False positive analysis
-
-- Benign scripts typically show consistent script content and stable provenance (reused script name/path and predictable execution patterns). Unexpected users, ad hoc locations, or one-off executions on user workstations increase suspicion.
-
-### Response and remediation
-
-- If malicious or unauthorized audio capture is suspected:
-  - Contain the endpoint to prevent further collection and reduce the risk of data loss.
-  - Preserve evidence: the full reconstructed script content (all fragments), related PowerShell events in the same time window, and any identified output or staging artifacts.
-  - If audio files are discovered, handle them as potentially sensitive data per your incident response and privacy procedures.
-  - Identify any remote destinations from the script content and take network containment actions appropriate for your environment.
-  - Scope for related activity using `user.id`, `host.id`, and distinctive content from `powershell.file.script_block_text` to identify other affected endpoints or users.
-  - Assess the associated account for compromise and take account-level containment actions (credential reset, session revocation, access review) when misuse is confirmed.
-
-- If confirmed benign:
-  - Document the business purpose, script owner, and expected execution scope (accounts, hosts, and schedule).
-  - If the activity is legitimate but creating operational noise, add rule exceptions with narrowly scoped constraints based on stable attributes (consistent script content patterns, known script file path/name, and expected executing accounts) rather than broadly suppressing audio-related indicators.
-"""
 references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
 risk_score = 73
 rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"
-setup = """## Setup
-
-PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
-Setup instructions: https://ela.st/powershell-logging-setup
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -126,41 +49,64 @@ event.category:process and host.os.type:windows and
   )
 '''
 
+note = """## Triage and analysis
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1123"
-name = "Audio Capture"
-reference = "https://attack.mitre.org/techniques/T1123/"
+### Investigating PowerShell Suspicious Script with Audio Capture Capabilities
 
+#### Possible investigation steps
 
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.001"
-name = "PowerShell"
-reference = "https://attack.mitre.org/techniques/T1059/001/"
+- Does the preserved script content show live microphone capture logic rather than inert reference text?
+  - Focus: the preserved script text on the alert and any associated `file.path`.
+  - Implication: supports concern when the content invokes recording routines, output paths, duration controls, or upload logic; carries less weight when the text is clearly inert example material, documentation, or recognized test content with no adjacent execution evidence.
 
+- Does reconstructing the full script reveal staging, timers, cleanup, or transfer behavior that changes urgency?
+  - Why: script block logging can split one script across multiple records; later fragments often reveal save locations, loop logic, or exfiltration.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_length` to rebuild adjacent fragments, then the reconstructed content for output paths, encoding steps, remote destinations, or cleanup logic. $investigate_0
+  - Implication: supports active collection when reconstruction shows repeated capture loops, hidden staging paths, compression, upload, persistence, or cleanup after collection.
 
-[[rule.threat.technique]]
-id = "T1106"
-name = "Native API"
-reference = "https://attack.mitre.org/techniques/T1106/"
+- Does the user-host pairing fit recognized accessibility testing, media tooling, or security assessment?
+  - Focus: the `user.id` and `host.id` pairing, whether the host role or asset classification supports microphone access, and any prior alert recurrence from this rule for the same pairing and launcher.
+  - Implication: escalate when the user has no recurring pattern of audio access, the host handles privileged or sensitive workflows, or the timing falls outside scheduled testing.
 
+- Can you recover the PowerShell process and explain how it was launched?
+  - Focus: the matching process start event via `process.pid` and `host.id`, recovering `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.Ext.session_info.logon_type`. $investigate_1
+  - Hint: if the process event cannot be found, keep later file and network review bounded to the same host and alert time rather than assuming a wider process scope.
+  - Implication: supports concern when the recovered process is launched by a document, browser, chat client, scheduled task, remote session, or user-writable script path.
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+- Do file events from the same process show recorded audio or staging artifacts?
+  - Focus: file events for the same `process.entity_id`, with attention to `file.path`, `file.extension`, `file.Ext.header_bytes`, and `file.Ext.original.path` when media files or archives are renamed for staging.
+  - Implication: supports active collection when media files, deceptive extensions, archives, or renamed payloads appear in user-writable or hidden paths, or when written artifacts are later executed or uploaded.
+
+- Do network events show outbound transfer or second-stage behavior from the same process?
+  - Focus: network events for the same `process.entity_id`, separating `dns.question.name` / `dns.resolved_ip` from `destination.ip` / `destination.port`.
+  - Implication: suggests follow-on transfer when the same process or host reaches rare public destinations, cloud storage, or messaging services. Missing network telemetry is unresolved, not benign.
+
+- If the local evidence stays suspicious, do related alerts or repeated script-block activity suggest broader compromise?
+  - Focus: related alerts for the same `user.id` to find repeated collection, execution, or defense-evasion activity. $investigate_2
+  - Hint: compare related alerts for the same `host.id` and repeated preserved script substrings on this asset to look for persistence, repeated collection, follow-on staging, or renamed audio-capture variants. $investigate_3
+  - Implication: suggests broader compromise when either view shows collection, execution, defense-evasion, persistence, or transfer activity; stays localized when alerts are confined to the known script and host with no repeated collection or follow-on staging.
+
+- Escalate when script intent, launch context, artifacts, or network activity align on active collection; close only when all evidence supports a recognized benign workflow; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Accessibility, QA, or red-team activity can legitimately trigger this rule. Confirm that the script content, writer identity, and host all belong to an authorized workflow.
+- Before creating an exception, validate that the same `user.id`, `host.id`, `file.path`, and a stable `powershell.file.script_block_text` substring recur across prior alerts. Avoid exceptions on audio API strings alone, `user.name` alone, or the host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the script content, recovered launch chain, user-host scope, and any benign file or destination pattern that proved the confirmed workflow. Create an exception only if the same workflow recurs consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the reconstructed script content, recovered `process.entity_id`, related `file.path` artifacts, and any `dns.question.name` or `destination.ip` values linked to transfer. Apply reversible containment such as temporary destination blocking or session restrictions. Escalate to host isolation only when active collection or transfer evidence is strong and the host role can tolerate it. Avoid destructive cleanup until scope is clearer.
+- If confirmed malicious, document the recovered `process.entity_id`, `process.command_line`, `process.parent.executable`, written `file.path` artifacts, and any confirmed `dns.question.name` or `destination.ip` values before initiating response actions. Use available endpoint response integrations to isolate the host (preferred over process termination for initial containment when the asset can tolerate it), then block confirmed malicious destinations and scripts. If direct endpoint response is unavailable, escalate with the documented artifacts to the team that can act. If the captured audio may have exposed sensitive conversations or privileged sessions, initiate access review for the affected accounts.
+- If recorded audio files or staging archives are identified, preserve them according to privacy and evidence-handling requirements. Review related users and hosts for the same `powershell.file.script_block_text` content, `file.path` pattern, or `dns.question.name` destinations before eradicating. Then remove the artifacts and any persistence or automation identified during reconstruction or host-scoping.
+- After containment, restrict the execution path that allowed the script to run, such as tightening PowerShell execution policies or script-path allowlists. Retain PowerShell script block logging and related endpoint telemetry.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 
 [rule.investigation_fields]
 field_names = [
@@ -180,3 +126,101 @@ field_names = [
     "host.id",
     "powershell.file.script_block_length"
 ]
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1120"
+name = "Peripheral Device Discovery"
+reference = "https://attack.mitre.org/techniques/T1120/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

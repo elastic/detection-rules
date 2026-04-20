@@ -981,35 +981,49 @@ class ESQLRuleData(QueryRuleData):
         )
 
         # Ensure that non-aggregate queries have metadata
-        if not combined_pattern.search(query_lower):
-            raise EsqlSemanticError(
-                f"Rule: {data['name']} contains a non-aggregate query without"
-                f" metadata fields '_id', '_version', and '_index' ->"
-                f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None:
+            bypass_metadata_hint = (
+                " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+                "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
             )
+            if not combined_pattern.search(query_lower):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a non-aggregate query without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+                    + bypass_metadata_hint
+                )
 
         # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
-        # Match | followed by optional whitespace/newlines and then 'keep'
-        keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-        keep_match = keep_pattern.search(query_lower)
-        if not keep_match:
-            raise EsqlSemanticError(
-                f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+        if os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is None:
+            bypass_keep_hint = (
+                " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
             )
+            # Match | followed by optional whitespace/newlines and then 'keep'
+            keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
+            keep_matches = list(keep_pattern.finditer(query_lower))
+            if not keep_matches:
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+                    + bypass_keep_hint
+                )
 
-        # Ensure that keep clause includes metadata fields on non-aggregate queries
-        aggregate_pattern = re.compile(r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL)
-        if not aggregate_pattern.search(query_lower):
-            raw_keep = re.sub(r"//.*", "", keep_match.group(1))
-            keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
-            if "*" not in keep_fields:
-                required_metadata = {"_id", "_version", "_index"}
-                if not required_metadata.issubset(set(map(str.strip, keep_fields))):
-                    raise EsqlSemanticError(
-                        f"Rule: {data['name']} contains a keep clause without"
-                        f" metadata fields '_id', '_version', and '_index' ->"
-                        f" Add '_id', '_version', '_index' to the keep command."
-                    )
+            # Ensure that keep clause includes metadata fields on non-aggregate queries
+            aggregate_pattern = re.compile(
+                r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL
+            )
+            if not aggregate_pattern.search(query_lower):
+                for keep_match in keep_matches:
+                    raw_keep = re.sub(r"//.*", "", keep_match.group(1))
+                    keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
+                    if "*" not in keep_fields:
+                        required_metadata = {"_id", "_version", "_index"}
+                        if not required_metadata.issubset(set(map(str.strip, keep_fields))):
+                            raise EsqlSemanticError(
+                                f"Rule: {data['name']} contains a keep clause without"
+                                f" metadata fields '_id', '_version', and '_index' ->"
+                                f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
+                            )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1261,7 +1275,7 @@ class BaseRuleContents(ABC):
         return obj
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
-        """Check if this is an ES|QL rule that uses `| keep *`."""
+        """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
         if hashable_dict.get("language") != "esql":
             return False
 
@@ -1273,7 +1287,7 @@ class BaseRuleContents(ABC):
         keep_match: re.Match[str] | None = keep_pattern.search(query)
         if keep_match:
             keep_fields: list[str] = [field.strip() for field in keep_match.group(1).split(",")]
-            return "*" in keep_fields
+            return any(field == "*" or field.endswith("*") for field in keep_fields)
         return False
 
     @abstractmethod
@@ -1727,6 +1741,11 @@ class TOMLRule:
         with path.absolute().open("w", newline="\n") as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             _ = f.write("\n")
+
+    def save_yaml(self, path: Path, contents_override: dict[str, Any] | None = None) -> None:
+        """Save the rule in YAML format."""
+        data = contents_override if contents_override is not None else self.contents.to_api_format()
+        utils.save_yaml(path.with_suffix(".yaml"), data, use_absolute_path=True)
 
 
 @dataclass(frozen=True)

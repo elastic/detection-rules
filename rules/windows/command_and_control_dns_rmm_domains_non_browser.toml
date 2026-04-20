@@ -1,0 +1,196 @@
+[metadata]
+creation_date = "2026/03/03"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2026/03/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects DNS queries to commonly abused remote monitoring and management (RMM) or remote access software domains from processes that are not browsers. 
+Intended to surface RMM clients, scripts, or other non-browser activity contacting these services.
+"""
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "First Time Seen DNS Query to RMM Domain"
+note = """## Triage and analysis
+
+### Investigating First Time Seen DNS Query to RMM Domain
+
+This rule flags DNS queries to commonly abused RMM or remote access domains when the requesting process is not a browser. Legitimate RMM and remote desktop software is frequently abused for C2, persistence, and lateral movement.
+
+### Possible investigation steps
+
+- Identify the process process.executable that performed the DNS query and verify if it is an approved RMM or remote access tool.
+- Review the full process tree and parent process to understand how the binary was launched.
+- Check process.code_signature for trusted RMM publishers; unsigned or unexpected signers may indicate abuse or trojanized installers.
+- Correlate with the companion rule "First Time Seen Remote Monitoring and Management Tool" for the same host to see if the RMM process was first-time seen.
+- Investigate other alerts for the same host or user in the past 48 hours.
+
+### False positive analysis
+
+- Approved RMM or remote support tools used by IT will trigger this rule; consider allowlisting by process path or code signer for known managed tools.
+- Some updaters or installers (e.g. signed by the RMM vendor) may resolve these domains; combine with process name or parent context to reduce noise.
+
+### Response and remediation
+
+- If unauthorized RMM use is confirmed: isolate the host, remove the RMM software, rotate credentials, and block the domains at DNS/firewall where policy permits.
+- Enforce policy that only approved RMM tools from approved publishers may be used, and only by authorized staff.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/002/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+]
+risk_score = 47
+rule_id = "e5f6a7b8-c9d0-8e1f-2a3b-4c5d6e7f8a9b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.network-*, logs-windows.sysmon_operational-* METADATA _index
+| WHERE host.os.type == "windows"
+    AND event.category == "network"
+    AND event.action in ("lookup_requested", "DNSEvent (DNS query)")
+    AND dns.question.name IS NOT NULL
+
+// Exclude browser processes
+| WHERE NOT
+    process.name IN (
+        "chrome.exe", "msedge.exe", "MicrosoftEdge.exe", "MicrosoftEdgeCP.exe",
+        "firefox.exe", "iexplore.exe", "safari.exe", "brave.exe",
+        "opera.exe", "vivaldi.exe", "msedgewebview2.exe"
+    )
+
+// Extract the parent domain (last two labels, e.g. example.com)
+| GROK dns.question.name """(?:[^.]+\.)+(?<parent_domain>[^.]+\.[^.]+)$"""
+| EVAL parent_domain = COALESCE(parent_domain, dns.question.name)
+
+// Known RMM parent domains, add or remove entries here as your environment changes.
+| WHERE parent_domain IN (
+    "teamviewer.com",
+    "logmein.com",
+    "logmeinrescue.com",
+    "logmeininc.com",
+    "internapcdn.net",
+    "anydesk.com",
+    "screenconnect.com",
+    "connectwise.com",
+    "splashtop.com",
+    "zohoassist.com",
+    "dwservice.net",
+    "gotoassist.com",
+    "getgo.com",
+    "logmeinrescue.com",
+    "rustdesk.com",
+    "remoteutilities.com",
+    "atera.com",
+    "ammyy.com",
+    "n-able.com",
+    "kaseya.net",
+    "bomgar.com",
+    "beyondtrustcloud.com",
+    "parsec.app",
+    "parsecusercontent.com",
+    "tailscale.com",
+    "twingate.com",
+    "jumpcloud.com",
+    "vnc.com",
+    "remotepc.com",
+    "netsupportsoftware.com",
+    "getscreen.me",
+    "beanywhere.com",
+    "swi-rc.com",
+    "swi-tc.com",
+    "qetqo.com",
+    "tmate.io",
+    "playanext.com",
+    "supremocontrol.com",
+    "itarian.com",
+    "datto.com",
+    "auvik.com",
+    "syncromsp.com",
+    "pulseway.com",
+    "immy.bot",
+    "immybot.com",
+    "level.io",
+    "ninjarmm.com",
+    "ninjaone.com",
+    "centrastage.net",
+    "datto.net",
+    "liongard.com",
+    "naverisk.com",
+    "panorama9.com",
+    "superops.ai",
+    "superops.com",
+    "tacticalrmm.com",
+    "meshcentral.com",
+    "remotly.com",
+    "fixme.it",
+    "islonline.com",
+    "zoho.eu",
+    "goverlan.com",
+    "iperius.net",
+    "iperiusremote.com",
+    "remotix.com",
+    "mikogo.com",
+    "r-hud.net",
+    "pcvisit.de",
+    "netviewer.com",
+    "helpwire.app",
+    "remotetopc.com",
+    "rport.io",
+    "action1.com",
+    "tiflux.com",
+    "gotoresolve.com"
+)
+
+// Aggregate by parent domain and get 1st time seen timestamp as well as unique count of agents
+| STATS
+    event_count = COUNT(*),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.count_distinct_host_id = COUNT_DISTINCT(host.id),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.dns_question_name_values = VALUES(dns.question.name),
+    Esql.host_name_values = VALUES(host.name) BY parent_domain
+
+// Calculate the time difference between first time seen and rule execution time
+| eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+
+// First time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule and limited to 1 unique host
+| where Esql.recent <= 6 and Esql.count_distinct_host_id == 1
+
+// populate fields for rule exception
+| eval host.name = MV_FIRST(Esql.host_name_values),
+       process.executable = MV_FIRST(Esql.process_executable_values), dns.question.name = MV_FIRST(Esql.dns_question_name_values)
+| keep host.name, process.executable, dns.question.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

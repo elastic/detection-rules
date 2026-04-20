@@ -2,7 +2,7 @@
 creation_date = "2022/07/12"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/22"
+updated_date = "2026/03/24"
 
 [transform]
 [[transform.osquery]]
@@ -166,11 +166,12 @@ tags = [
 type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
-   process.args in (
-     "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
-     "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
-    )]
+  [process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
+  process.args in (
+   "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
+   "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
+  ) and
+  not process.args like ("/var/tmp/mkinitramfs*", "/var/tmp/dracut*", "/tmp/mkinitcpio*")]
 [file where host.os.type == "linux" and event.action == "creation" and (file.extension == "so" or file.name like "*.so.*")]
 '''
 
@@ -191,3 +192,21 @@ reference = "https://attack.mitre.org/techniques/T1574/006/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

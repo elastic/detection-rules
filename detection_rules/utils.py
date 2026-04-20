@@ -27,6 +27,7 @@ from typing import Any
 import click
 import eql.utils  # type: ignore[reportMissingTypeStubs]
 import pytoml  # type: ignore[reportMissingTypeStubs]
+import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
 
@@ -136,12 +137,38 @@ def save_etc_dump(contents: dict[str, Any], path: list[str], sort_keys: bool = T
         eql.utils.save_dump(contents, path)  # type: ignore[reportUnknownVariableType]
 
 
+def ensure_yaml_suffix(path: Path) -> Path:
+    """If ``path`` has no YAML extension, use ``.yaml``; keep ``.yaml`` / ``.yml`` unchanged."""
+    if path.suffix in (".yaml", ".yml"):
+        return path
+    return path.with_suffix(".yaml")
+
+
+def save_yaml(path: Path, data: Any, *, use_absolute_path: bool = False) -> None:
+    """Write ``data`` as YAML with sorted keys, block style, UTF-8, and a trailing newline."""
+    out_path = path.absolute() if use_absolute_path else path
+    with out_path.open("w", encoding="utf-8", newline="\n") as f:
+        output = yaml.safe_dump(data, sort_keys=True, default_flow_style=False)
+        _ = f.write(output)
+        if not output.endswith("\n"):
+            _ = f.write("\n")
+
+
+# Top-level _config.yaml key -> DR_BYPASS_* env var set when true at load time
+OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV: dict[str, str] = {
+    "bypass_note_validation_and_parse": "DR_BYPASS_NOTE_VALIDATION_AND_PARSE",
+    "bypass_bbr_lookback_validation": "DR_BYPASS_BBR_LOOKBACK_VALIDATION",
+    "bypass_tags_validation": "DR_BYPASS_TAGS_VALIDATION",
+    "bypass_timeline_template_validation": "DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION",
+    "bypass_esql_keep_validation": "DR_BYPASS_ESQL_KEEP_VALIDATION",
+    "bypass_esql_metadata_validation": "DR_BYPASS_ESQL_METADATA_VALIDATION",
+}
+
+
 def set_all_validation_bypass(env_value: bool = False) -> None:
     """Set all validation bypass environment variables."""
-    os.environ["DR_BYPASS_NOTE_VALIDATION_AND_PARSE"] = str(env_value)
-    os.environ["DR_BYPASS_BBR_LOOKBACK_VALIDATION"] = str(env_value)
-    os.environ["DR_BYPASS_TAGS_VALIDATION"] = str(env_value)
-    os.environ["DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION"] = str(env_value)
+    for env_var in OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV.values():
+        os.environ[env_var] = str(env_value)
 
 
 def set_nested_value(obj: dict[str, Any], compound_key: str, value: Any) -> None:
@@ -353,7 +380,7 @@ def load_rule_contents(rule_file: Path, single_only: bool = False) -> list[Any]:
         return contents or [{}]
     if extension == ".toml":
         rule = pytoml.loads(raw_text)  # type: ignore[reportUnknownVariableType]
-    elif extension.lower() in ("yaml", "yml"):
+    elif extension.lower() in (".yaml", ".yml"):
         rule = load_dump(str(rule_file))
     else:
         return []

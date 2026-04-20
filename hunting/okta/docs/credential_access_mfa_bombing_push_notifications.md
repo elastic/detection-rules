@@ -10,7 +10,7 @@
 - **UUID:** `223451b0-6eca-11ef-a070-f661ea17fbcc`
 - **Integration:** [okta](https://docs.elastic.co/integrations/okta)
 - **Language:** `[ES|QL]`
-- **Source File:** [Rapid MFA Deny Push Notifications (MFA Bombing)](../queries/credential_access_mfa_bombing_push_notications.toml)
+- **Source File:** [Rapid MFA Deny Push Notifications (MFA Bombing)](../queries/credential_access_mfa_bombing_push_notifications.toml)
 
 ## Query
 

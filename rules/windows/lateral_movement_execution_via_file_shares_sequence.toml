@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/09/04"
+updated_date = "2026/03/24"
 
 [transform]
 [[transform.osquery]]
@@ -110,7 +110,7 @@ type = "eql"
 query = '''
 sequence with maxspan=1m
   [file where host.os.type == "windows" and event.type in ("creation", "change") and 
-   process.pid == 4 and (file.extension : "exe" or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
+   process.pid == 4 and (file.extension : ("exe", "scr", "pif", "com") or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
   [process where host.os.type == "windows" and event.type == "start" and
     not (
       (
@@ -145,19 +145,23 @@ sequence with maxspan=1m
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.002"
 name = "SMB/Windows Admin Shares"
 reference = "https://attack.mitre.org/techniques/T1021/002/"
 
-
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

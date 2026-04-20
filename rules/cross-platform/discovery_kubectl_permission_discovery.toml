@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/05"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ note = """ ## Triage and analysis
 
 ### Investigating Kubectl Permission Discovery
 
-Kubectl is a command-line tool for interacting with Kubernetes clusters, allowing users to manage applications and resources. Adversaries may exploit the "kubectl auth can-i" command to probe for permission misconfigurations, potentially leading to unauthorized access or privilege escalation. The detection rule identifies this activity by monitoring specific command executions on Linux systems, flagging potential misuse for further investigation.
+Kubectl is a command-line tool for interacting with Kubernetes clusters, allowing users to manage applications and resources. Adversaries may exploit the "kubectl auth can-i" command to probe for permission misconfigurations, potentially leading to unauthorized access or privilege escalation. The detection rule identifies this activity by monitoring specific command executions on Linux and macOS systems, flagging potential misuse for further investigation.
 
 ### Possible investigation steps
 
@@ -77,7 +77,7 @@ Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configurat
 - Fleet is required for Elastic Defend.
 - To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
 
-#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux or macOS system:
 - Go to the Kibana home page and click "Add integrations".
 - In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
 - Click "Add Elastic Defend".
@@ -97,6 +97,7 @@ tags = [
   "Domain: Container",
   "Domain: Kubernetes",
   "OS: Linux",
+  "OS: macOS",
   "Use Case: Threat Detection",
   "Tactic: Discovery",
   "Data Source: Elastic Defend",
@@ -110,13 +111,18 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where host.os.type in ("linux", "macos") and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name == "kubectl" and process.args == "auth" and process.args == "can-i"
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
 
 [[rule.threat.technique]]
 id = "T1613"

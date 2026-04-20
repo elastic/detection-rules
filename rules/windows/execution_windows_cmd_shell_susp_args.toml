@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/01"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -137,7 +137,7 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
   not (
         /* Crowdstrike doesn't populate process.parent.executable */
-        event.dataset == "crowdstrike.fdr" and
+        data_stream.dataset == "crowdstrike.fdr" and
         process.parent.name : (
           "perl.exe", "node.exe", "pg_dumpall.exe", "PRTG Server.exe", "spiceworks-finder.exe", "leds.exe", "twexec.exe",
           "SonarScanner.MSBuild.exe", "Code.exe", "netbeans64.exe", "javaw.exe", "Bot Framework Composer.exe", "SessionMgr.exe",
@@ -161,19 +161,59 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.010"
+name = "Regsvr32"
+reference = "https://attack.mitre.org/techniques/T1218/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

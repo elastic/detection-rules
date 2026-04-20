@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/03/17"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/03/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects processes attempting to write to AppArmor policy management pseudo-files located
+under "/sys/kernel/security/apparmor/". These special kernel interfaces are used to load,
+replace, or remove AppArmor profiles (".load", ".replace", ".remove"). In normal environments,
+AppArmor policy management is typically performed by administrative tools such as "apparmor_parser"
+during system initialization or package installation. Direct interaction with these pseudo-files
+from shell utilities, interpreters, or scripting environments is uncommon and may indicate attempts
+to modify security policy at runtime. Adversaries may abuse these interfaces to weaken or disable
+AppArmor protections, introduce malicious profiles, or exploit vulnerabilities in the AppArmor policy
+parser as part of local privilege escalation chains.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Write Attempt to AppArmor Policy Management Files"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Write Attempt to AppArmor Policy Management Files
+
+This rule flags shells, scripting runtimes, and basic file utilities trying to write directly to AppArmor’s policy control files, an unusual action that can change or remove enforcement while the system is running. An attacker with local code execution may echo a crafted profile into `.replace` or write to `.remove` from a shell script to weaken confinement before dumping credentials or launching a privilege-escalation chain.
+
+### Possible investigation steps
+
+- Determine whether the activity aligns with authorized package installation, configuration management, or AppArmor maintenance by correlating the timestamp with change tickets, software updates, and administrator sessions.
+- Reconstruct the full parent-child execution chain and user context to identify how the write was initiated, whether it came from an interactive shell, script, container entrypoint, or remotely spawned session, and whether elevated privileges were obtained just beforehand.
+- Capture the exact payload or referenced file used in the write attempt and compare it to approved AppArmor profiles to determine whether the action was loading a new profile, weakening an existing one, or removing confinement entirely.
+- Verify the system’s current AppArmor state immediately after the event, including enforcement mode, recently modified or unloaded profiles, and any audit or kernel messages indicating parser errors, profile replacement, or successful policy removal.
+- Investigate adjacent activity from the same user, session, and host for signs of defense evasion or privilege escalation, such as sudo abuse, exploitation traces, disabling other security controls, credential access, or rapid execution of binaries that would normally be confined.
+
+### False positive analysis
+
+- A legitimate system initialization or package maintenance script may use `echo`, `tee`, `cat`, or a shell redirection to load or replace an approved AppArmor profile, so verify the parent process and event timing align with boot activity or an authorized update and that the profile content matches a known file under `/etc/apparmor.d/`.
+- An administrator or deployment script may temporarily reload or remove a profile during sanctioned application troubleshooting, so confirm the executing user or service account, the script location and change record, and that the expected AppArmor profile was restored or reloaded immediately afterward.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network and suspend interactive access while preserving the shell history, the script or payload used to write to `/sys/kernel/security/apparmor/.load`, `.replace`, or `.remove`, and any related dropped files for forensic review.
+- Re-enable AppArmor enforcement from trusted administration tooling, compare currently loaded profiles with the approved baseline under `/etc/apparmor.d/`, and remove any unauthorized profile loads, replacements, or profile removals introduced by the attacker.
+- Hunt for and delete persistence established around the same activity, including new or modified `systemd` services, cron jobs, startup scripts, SSH `authorized_keys` entries, `sudoers` changes, and binaries or scripts placed in writable directories.
+- Escalate immediately to incident response if AppArmor protections were successfully weakened or removed, a privileged service profile was altered, root access is suspected, or similar write attempts appear on additional Linux systems.
+- Restore the host to a known-good state from a trusted image or approved configuration backup when system integrity is uncertain, then rotate credentials used on the host and harden access so only authorized administrators and deployment tooling can modify AppArmor policies.
+"""
+references = [
+    "https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2026/03/12/crackarmor-critical-apparmor-flaws-enable-local-privilege-escalation-to-root",
+]
+risk_score = 47
+rule_id = "8293bf1f-8dd0-434e-b52a-1aa6ec101777"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+( 
+  process.name in (
+    "cat", "echo", "tee", "dd", "truncate", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish",
+    "busybox", "awk", "sed", "xargs", "find", "grep", "node", "timeout", "env"
+  ) or
+  process.name like (".*", "python*", "perl*", "ruby*", "lua*", "php*")
+) and
+process.command_line like (
+  "*/sys/kernel/security/apparmor/.load*",
+  "*/sys/kernel/security/apparmor/.replace*",
+  "*/sys/kernel/security/apparmor/.remove*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -2,7 +2,7 @@
 creation_date = "2022/09/06"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -93,26 +93,30 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING" and event.category:(iam or configuration)
+data_stream.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING" and event.category:(iam or configuration)
     and google_workspace.admin.new_value:"Disabled" and google_workspace.admin.setting.name:BitLocker*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

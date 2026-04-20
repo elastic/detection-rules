@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/12/18"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -108,58 +108,73 @@ sequence by host.id, process.parent.entity_id with maxspan=3s
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*"
   ) and
   not (
-    ?process.parent.command_line in ("bash ./run_tests.sh unit-integration", "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure") or
+    ?process.parent.command_line in (
+      "bash ./run_tests.sh unit-integration",
+      "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure",
+      "bash -c base64 -d <<< Zm9yIHN2YyBpbiBxZW11LWt2bSBvdnMtdnN3aXRjaGQgbGlidmlydGQgdmlydGxvY2tkIHBhY2VtYWtlciBwY3NkOyBkbyBzeXN0ZW1jdGwgaXMtYWN0aXZlICRzdmM7IGRvbmU= | bash -l"
+    ) or
     process.command_line == "/usr/bin/perl /usr/bin/shasum -a 256" or
     ?process.working_directory like (
       "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
       "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
     ) or
     (?process.parent.name == "zsh" and ?process.parent.command_line like "*extendedglob*") or
-    (process.name like "python*" and ?process.parent.name == "python*")
+    (process.name like "python*" and ?process.parent.name == "python*") or
+    process.args like "/tmp/apt-key-gpghome*"
   )]
 '''
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
 
-    [[rule.threat.technique]]
-    name = "Obfuscated Files or Information"
-    id = "T1027"
-    reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
-    [[rule.threat.technique]]
-    name = "Deobfuscate/Decode Files or Information"
-    id = "T1140"
-    reference = "https://attack.mitre.org/techniques/T1140/"
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
-    [[rule.threat.technique]]
-    id = "T1059"
-    name = "Command and Scripting Interpreter"
-    reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-      [[rule.threat.technique.subtechnique]]
-      name = "Unix Shell"
-      id = "T1059.004"
-      reference = "https://attack.mitre.org/techniques/T1059/004/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
 
-    [[rule.threat.technique]]
-    name = "User Execution"
-    id = "T1204"
-    reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.011"
+name = "Lua"
+reference = "https://attack.mitre.org/techniques/T1059/011/"
 
-      [[rule.threat.technique.subtechnique]]
-      name = "Malicious File"
-      id = "T1204.002"
-      reference = "https://attack.mitre.org/techniques/T1204/002/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

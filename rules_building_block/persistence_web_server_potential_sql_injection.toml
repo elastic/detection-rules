@@ -1,9 +1,9 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2025/11/19"
-integration = ["nginx", "apache", "apache_tomcat", "iis"]
+integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik"]
 maturity = "production"
-updated_date = "2025/11/19"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,8 @@ index = [
         "logs-nginx.access-*",
         "logs-apache.access-*",
         "logs-apache_tomcat.access-*",
-        "logs-iis.access-*"
+        "logs-iis.access-*",
+        "logs-traefik.access-*"
 ]
 interval = "10m"
 language = "eql"
@@ -39,6 +40,7 @@ tags = [
     "Data Source: Apache",
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
+    "Data Source: Traefik",
     "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
@@ -122,3 +124,16 @@ reference = "https://attack.mitre.org/techniques/T1595/003/"
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
