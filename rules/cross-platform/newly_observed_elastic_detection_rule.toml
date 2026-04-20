@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/07"
 maturity = "production"
-updated_date = "2026/02/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ FROM .alerts-security.*
   not kibana.alert.rule.type in ("threat_match", "machine_learning", "new_terms") and
   not kibana.alert.rule.name like "Deprecated - *" and kibana.alert.rule.name != "My First Rule" and
   // covered by 7306ce7d-5c90-4f42-aa6c-12b0dc2fe3b8
-  event.dataset != "endpoint.alerts" and
+  data_stream.dataset != "endpoint.alerts" and
   not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
