@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -40,7 +40,7 @@ Windows Subsystem for Linux (WSL) allows users to run Linux binaries natively on
 - Investigate the parent process, specifically wsl.exe or wslhost.exe, to understand how the execution was initiated and if it aligns with expected user behavior or scheduled tasks.
 - Check the user account associated with the process execution to verify if the activity is consistent with the user's typical behavior or if the account may have been compromised.
 - Analyze the event dataset, especially if it is from crowdstrike.fdr, to gather additional context about the process execution and any related activities on the host.
-- Correlate the alert with other security events or logs from data sources like Microsoft Defender for Endpoint or SentinelOne to identify any related suspicious activities or patterns.
+- Correlate the alert with other security events or logs from data sources like Microsoft Defender XDR or SentinelOne to identify any related suspicious activities or patterns.
 - Assess the risk score and severity in the context of the organization's environment to prioritize the investigation and response actions accordingly.
 
 ### False positive analysis
@@ -72,7 +72,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
@@ -96,7 +96,7 @@ process where host.os.type == "windows" and event.type : "start" and process.com
   ) and
   not (
     /* Crowdstrike specific exclusion as it uses NT Object paths */
-    (event.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
+    (data_stream.dataset == "crowdstrike.fdr" or event.action == "ProcessRollup2") and
       process.executable : (
         "\\Device\\HarddiskVolume*\\Program Files (x86)\\*",
         "\\Device\\HarddiskVolume*\\Program Files\\*",

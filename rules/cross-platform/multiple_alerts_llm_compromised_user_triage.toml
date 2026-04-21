@@ -3,7 +3,7 @@ creation_date = "2026/02/03"
 maturity = "production"
 min_stack_comments = "ES|QL COMPLETION command requires Elastic Managed LLM (gp-llm-v2) available in 9.3.0+"
 min_stack_version = "9.3.0"
-updated_date = "2026/04/07"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -110,7 +110,7 @@ from .alerts-security.* METADATA _id, _version, _index
         Esql.host_name_values = VALUES(host.name),
         Esql.source_ip_values = VALUES(source.ip),
         Esql.destination_ip_values = VALUES(destination.ip),
-        Esql.event_dataset_values = VALUES(event.dataset),
+        Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.user_email_values = VALUES(user.email),
         Esql.timestamp_min = MIN(@timestamp),
@@ -131,7 +131,7 @@ from .alerts-security.* METADATA _id, _version, _index
 | eval Esql.hosts_str = COALESCE(MV_CONCAT(Esql.host_name_values, ", "), "unknown")
 | eval Esql.source_ips_str = COALESCE(MV_CONCAT(TO_STRING(Esql.source_ip_values), ", "), "unknown")
 | eval Esql.destination_ips_str = COALESCE(MV_CONCAT(TO_STRING(Esql.destination_ip_values), ", "), "unknown")
-| eval Esql.datasets_str = COALESCE(MV_CONCAT(Esql.event_dataset_values, ", "), "unknown")
+| eval Esql.datasets_str = COALESCE(MV_CONCAT(Esql.data_stream_dataset_values, ", "), "unknown")
 | eval Esql.processes_str = COALESCE(MV_CONCAT(Esql.process_executable_values, ", "), "unknown")
 | eval Esql.users_email_str = COALESCE(MV_CONCAT(Esql.user_email_values, "; "), "n/a")
 | eval alert_summary = CONCAT("User: ", user.name, " | Email: ", Esql.users_email_str, " | Alerts: ", TO_STRING(Esql.alerts_count), " | Distinct rules: ", TO_STRING(Esql.kibana_alert_rule_name_count_distinct), " | Hosts affected: ", TO_STRING(Esql.host_name_count_distinct), " | Time window: ", Esql.time_window_minutes, " min | Max risk: ", TO_STRING(Esql.kibana_alert_risk_score_max), " | Rules: ", Esql.rules_str, " | Tactics: ", Esql.tactics_str, " | Techniques: ", Esql.techniques_str, " | Hosts: ", Esql.hosts_str, " | Source IPs: ", Esql.source_ips_str, " | Destination IPs: ", Esql.destination_ips_str, " | Data sources: ", Esql.datasets_str, " | Processes: ", Esql.processes_str)
