@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -146,7 +146,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     process.parent.command_line,
     agent.id,
     host.name,
-    event.dataset,
+    data_stream.dataset,
     data_stream.namespace
 | stats
     Esql.event_count = count(),
@@ -155,7 +155,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     Esql.agent_id_count_distinct = count_distinct(agent.id),
     Esql.host_name_values = values(host.name),
     Esql.agent_id_values = values(agent.id),
-    Esql.event_dataset_values = values(event.dataset),
+    Esql.data_stream_dataset_values = values(data_stream.dataset),
     Esql.data_stream_namespace_values = values(data_stream.namespace)
     by process.name, process.command_line
 | where

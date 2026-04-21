@@ -113,7 +113,8 @@ def update_gist(  # noqa: PLR0913
         response.raise_for_status()
         data = response.json()
         files = list(data["files"])
-        body["files"] = {file: {} for file in files if file not in file_map}
+        keep_names = {path.name for path in file_map}
+        body["files"] = {name: {} for name in files if name not in keep_names}
         response = requests.patch(url, headers=headers, json=body, timeout=30)
         response.raise_for_status()
 
