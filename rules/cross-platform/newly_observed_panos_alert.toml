@@ -2,7 +2,7 @@
 creation_date = "2026/01/21"
 integration = ["panw"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ query = '''
 FROM logs-panw.panos-*, filebeat-* metadata _id
 
 // exclude Informational and Low severity levels (4 and 5)
-| where event.dataset == "panw.panos" and TO_INTEGER(event.severity) <= 3 and event.action != "flood_detected"
+| where data_stream.dataset == "panw.panos" and TO_INTEGER(event.severity) <= 3 and event.action != "flood_detected"
 
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),

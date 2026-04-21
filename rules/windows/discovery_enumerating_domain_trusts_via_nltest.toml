@@ -2,7 +2,7 @@
 creation_date = "2022/05/31"
 integration = ["endpoint", "windows", "system", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -78,7 +78,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Crowdstrike",
     "Data Source: Sysmon",
 ]
@@ -96,7 +96,7 @@ not process.parent.name : "PDQInventoryScanner.exe" and
 not (
   user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
   /* Don't apply the user.id exclusion to Sysmon for compatibility */
-  not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+  not data_stream.dataset : ("windows.sysmon_operational", "windows.sysmon")
 )
 '''
 
