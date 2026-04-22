@@ -64,7 +64,7 @@ references = [
     "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html",
     "https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html",
 ]
-risk_score = 65
+risk_score = 73
 rule_id = "ae32268b-bfd0-4c35-b002-13461b5830ca"
 severity = "high"
 tags = [
@@ -80,13 +80,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset: "aws.cloudtrail" and
-    event.provider: "sts.amazonaws.com" and
-    event.action: "AssumeRoleWithWebIdentity" and
-    event.outcome: "success" and
-    user.name: system*serviceaccount* and
-    source.as.organization.name: * and
-    not source.as.organization.name: "Amazon.com, Inc."
+data_stream.dataset:aws.cloudtrail and 
+ event.provider:sts.amazonaws.com and 
+ event.action:AssumeRoleWithWebIdentity and 
+ event.outcome:success and user.name:system*serviceaccount* and 
+ source.as.organization.name:(* and not Amazon*)
 '''
 
 [rule.investigation_fields]
