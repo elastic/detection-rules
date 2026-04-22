@@ -134,14 +134,15 @@ FROM logs-aws.cloudtrail-*
       ))
     BY user.name, aws.cloudtrail.user_identity.type
 
-| EVAL Esql.rare_asn_ratio = TO_DOUBLE(Esql.untrusted_event_count) / TO_DOUBLE(Esql.total_events_all_asns)
+| EVAL Esql.rare_asn_ratio = TO_DOUBLE(Esql.untrusted_event_count) / TO_DOUBLE(Esql.total_events_all_asns), 
+       Esql.unique_action_from_untrusted_asn = MV_COUNT(Esql.untrusted_suspicious_actions)
 
 // Detection thresholds — unchanged, full event counts drive the logic
 | WHERE Esql.has_trusted_cloud_asn == true
   AND Esql.untrusted_event_count >= 1
   AND Esql.trusted_cloud_event_count >= 100
   AND Esql.rare_asn_ratio <= 0.01
-  AND Esql.untrusted_suspicious_actions IS NOT NULL
+  AND Esql.unique_action_from_untrusted_asn >= 2 
   AND Esql.count_distinct_asns <= 5
   AND Esql.most_recent_low_asn_day >= NOW() - 1 hour
 
