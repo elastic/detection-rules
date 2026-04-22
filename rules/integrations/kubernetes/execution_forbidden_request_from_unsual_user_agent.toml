@@ -2,7 +2,7 @@
 creation_date = "2025/06/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/03"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.dataset:"kubernetes.audit_logs" and
+data_stream.dataset:"kubernetes.audit_logs" and
 kubernetes.audit.stage:"ResponseComplete" and
 kubernetes.audit.annotations.authorization_k8s_io/decision:"forbid" and
 user_agent.original:(* and not (*kubernetes/$Format))
@@ -79,6 +79,18 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user_agent.original"]
