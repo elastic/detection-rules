@@ -7,11 +7,11 @@ updated_date = "2026/04/22"
 [rule]
 author = ["Elastic"]
 description = """
-Detects execution of **curl** or **wget** from processes whose title aligns with **`runc init`**, a common fingerprint for
-workloads running inside **OCI/runc-backed containers** on Linux hosts instrumented with Auditd Manager. After
-breaking out of an application container or abusing a privileged workload, attackers often pull **ingress tooling**
-(stagers, scripts, implants) or stage **exfiltration** with minimal HTTP clients. Those utilities are also used
-benignly in images, so context matters; the **`runc init`** anchor narrows the signal to the container runtime boundary
+Detects execution of curl or wget from processes whose title aligns with **`runc init`**, a common fingerprint 
+forworkloads running inside **OCI/runc-backed containers** on Linux hosts instrumented with Auditd Manager. 
+After breaking out of an application container or abusing a privileged workload, attackers often pull ingress tooling
+(stagers, scripts, implants) or stage exfiltration with minimal HTTP clients. Those utilities are also used
+benignly in images, so context matters; the `runc init` anchor narrows the signal to the container runtime boundary
 where unexpected download clients are more worthy of review than the same binaries on a bare-metal admin shell.
 """
 false_positives = [
@@ -33,9 +33,9 @@ note = """## Triage and analysis
 
 ### Investigating Curl or Wget Execution from Container Context
 
-The rule matches Auditd-backed process events where **`process.title`** is **`runc init`** and the executed program is
-**curl/wget** (by `process.name`) or the argument vector suggests **curl** or **wget** paths. Use it to spot **ingress
-tool transfer** or scripted downloads from inside a container as seen at the host audit layer.
+The rule matches Auditd-backed process events where `process.title` is `runc init` and the executed program is
+curl/wget (by `process.name`) or the argument vector suggests curl or wget paths. Use it to spot ingress tool 
+transfer or scripted downloads from inside a container as seen at the host audit layer.
 
 ### Possible investigation steps
 
@@ -90,12 +90,14 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Tactic: Execution",
+    "Domain: Containers",
     "Data Source: Auditd Manager",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
+host.os.type:linux and 
 data_stream.dataset:"auditd_manager.auditd" and
 event.action:"executed" and
 process.title:"runc init" and
