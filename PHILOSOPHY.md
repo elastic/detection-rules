@@ -1,69 +1,72 @@
 # Philosophy
 
-Rule development can be hotly debated and there are many ideas for what makes a detection rule *good*. We hear about arguments between *Indicators of Compromise* vs. *Indicators of Attack* and *signatures* vs. *rules*. Instead of boring ourselves with those re-hashed discussions, we want to share our approach for rule writing and our expectations of this repository.
+Rule development can be hotly debated and there are many ideas for what makes a detection rule *good*. We hear about arguments between *Indicators of Compromise* vs. *Indicators of Attack* and *signatures* vs. *rules*. Instead of rehashing those discussions, we want to share our approach and what we've learned: detection engineering is about understanding adversary behavior, available telemetry, and building detections that hold up over time. This document captures the principles that guide our work and our expectations of this repository.
 
-### The Zen of Security Rules
+## Core Principles
 
-We incorporate the [Zen of Security Rules](https://zenofsecurity.io/rules) into all of our rule development and planning. We strive to follow these principles to ensure practical rule design for resiliency at scale. 
+### Detections are never done
 
+Threats change, data sources evolve, and attackers adapt. Every detection in this repository needs continuous tuning, measurement, and improvement. Shipping a rule is the start of its lifecycle, not the end.
+
+### Quality is holistic
+
+A detection is more than a query that fires. Quality encompasses purposeful rule context and intentional behavior detection: confirmed behavior matching, severity and risk scoring, ATT&CK mapping, investigation guidance, highlighted fields, enrichment fields, and documentation of what the rule detects, what it misses, and its known limitations. This enables a full analyst experience. A smaller set of well-documented rules is worth more than a large set of noisy, brittle ones.
+
+### Coverage is about depth, not count
+
+A single rule mapped to a technique does not mean that technique is "covered." True coverage means understanding the technique's variants, the telemetry required to observe them, surrounding security controls and infrastructure, the evasion paths available to attackers, and the gaps that remain.
+
+### Trusted and tested
+
+A detection that does not function correctly is a liability. Every rule should be accompanied by evidence that it fires correctly and models scoped threat behavior, whether through emulation, simulation, or representative log samples.
+
+### Known gaps are better than unknown gaps
+
+No detection is perfect. Rules should document their known limitations and accepted blind spots, whether in the description, false positive notes, investigation guide, or inline query comments. A rule with clearly stated constraints is more trustworthy and maintainable than one with undiscovered weaknesses. 
+
+### Engineered for production
+
+Detection rules are software that run in production. They must be performant, maintainable, and effective, not just technically correct. That means lean queries with acceptable execution time, clear logic, documented assumptions, adequate lookback windows and schedules, and active maintenance as schemas and data sources evolve.
+
+### Threat-informed defense drives prioritization
+
+What we build and in what order should be driven by real-world threat intelligence: customer incidents, adversary emulation, emerging campaigns, and telemetry gap analysis. Not by abstract completeness goals.
+
+### Detection and prevention go together
+
+For endpoint protections, the goal is not only to detect a threat but to block it. When possible, the workflow should include verification that an attack is actually prevented once a production rule is merged, not just that the logic triggers an alert.
+
+### The right language for the right job
+
+Elastic Security supports multiple query languages and detection mechanisms, each capable of expressing different analytical patterns. Some detections identify rare or novel behavior, others focus on frequency and threshold-based anomalies, while others rely on event sequencing, correlation, or broad field matching. Advanced analytics enable aggregation, enrichment, and cross-domain reasoning. Choosing the right language for each threat is key.
 
 ## Approach
 
-Our goal is to improve detection within Elastic Security, while combating alert fatigue. When we create a rule, we often approach it from this perspective. To make sure a rule is a complete and a good candidate for Detection Rules, consider asking these questions: 
+Our goal is to improve detection within Elastic Security while combating alert fatigue. When developing or reviewing a rule, consider these questions:
 
-* Does this rule improve our detection or visibility?
-* Does it strike a good balance between true positives, false positives, and false negatives?
-* How difficult is it for an attacker to evade the rule?
-* Is the rule written with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/ecs-reference.html) in mind? Is the logic data source-agnostic or does it depend on specific beats or agents?
+* What behavior am I detecting?
+* What data proves that behavior?
+* What assumptions am I making?
+* How does an attacker break those assumptions?
+* What happens when this fires?
 
 ### Behavioral rules
 
-Based on our approach, we tend to prefer rules that are more *behavioral* in nature. Behavioral rules are rules that focus on the attacker technique, and less on a specific tool or indicator. This might mean more research and effort is needed to figure out how a technique works. By taking this approach, we do a better job detecting and stopping the attacks of today and tomorrow, instead of the attacks of yesterday.
+We tend to prefer rules that are more *behavioral* in nature. Behavioral rules focus on the attacker technique, and less on a specific tool or indicator. This may require more research to understand how a technique works, but it does a better job detecting the attacks of today and tomorrow, not just the attacks of yesterday.
 
 ### Signatures and indicators
 
-Even though we gravitate towards behavioral or technique-based rules, we don't want to automatically disqualify a rule just because it uses indicators of a specific actor or tool. Though those are typically more brittle, they tend to have less noise, because they are specifically written to detect exactly one thing. Sometimes tools are used across multiple actors or red teams, and a signature could go a long way.
+Even though we gravitate towards behavioral or technique-based rules, we don't automatically disqualify a rule because it uses indicators of a specific actor or tool. Though indicator-based detections are typically more brittle, they tend to have less noise and are specifically written to detect exactly one thing. When a tool is used across multiple actors or red teams, a well-scoped signature can go a long way.
 
-One example would be a detection for the common open source tool [mimikatz](http://github.com/gentilkiwi/mimikatz), which is used by many red teams and in real world incidents. It dumps credentials by requesting read access to the `lsass.exe` process and decrypts passwords from memory. This technique is often too low-level for some tools. One way to detect it would be to look for special flags in the command line or inside the file itself, such as `sekurlsa::logonpasswords` or `sekurlsa::wdigest`. Those indicator-based detections are less effective these days, because `mimikatz` mostly runs in memory, so there's no command line or even a file to observe.
+### Evasion awareness
 
-A better approach is to focus on the technique: remotely reading memory for `lsass.exe`. Defenders now have tools and solutions that can detect a process requesting memory access to `lsass.exe` and block or defend the behavior natively. One tool, Microsoft Sysmon, has Event ID 10: [ProcessAccess](https://docs.microsoft.com/en-us/sysinternals/downloads/sysmon#event-id-10-processaccess) which can detect the access request to `lsass.exe`. From there, the logic needs to tune out legitimate software that requests access or tune out specific flags from the process access request. Then, you get a detection that doesn't just find `mimikatz`, but can also detect other tools like ProcDump.exe requesting memory access to `lsass.exe`.
-
-
-## Review questions
-
-There are a few ways that we strive to improve our detection rates and performance when writing rules. We ask a handful of questions while developing or reviewing rules. When contributing, consider this questionnaire:
-
-### Does the rule detect what it's supposed to?
-
-This probably seems like an obvious question, but is a crucial and regular part of any review for a new rule. Sometimes we work backwards from a specific indicator to a general rule. But when we get there, how do we know that we're detecting other instances of the technique?
-
-Another good reason for asking this question: others may have experience with this type of data. Someone else may be aware of false positives which original author didn't anticipate.
-
-Maybe you're looking for suspicious privilege escalation on Windows by looking for services that spawn with `cmd /c ...` in the command line. This is behavior metasploit does when calling `getsystem`. You might write a rule like this: `process.parent.name: services.exe and process.child.name: cmd.exe`, and it would detect what you expected. But what *else* did it detect? There are [failure actions](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actionsw) for services that can run arbitrary commands when a service fails.
-
-Knowing this, there are a few good options to take:
-* Try switching to registry events to look for the `binPath` key
-* Look for Windows Event Logs for [Event ID 4697](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventid=4697) to detect service creations
-* Leave the logic in there. Maybe you're more worried about failure actions also being used maliciously and don't want to risk the false negatives by making the rule more precise
-
-Regardless of the approach you took, document any caveats in the rule's description, false positive notes, or investigation notes. This information helps users to both understand what the rule is trying to detect and will also give good information when triaging an alert.
-
-
-### Does a rule have trivial evasions?
-
-We don't want our rules to be trivial to evade. When looking for evasions in a rule, try putting on the hat of the adversary and ask yourself: *How could I perform this action while going undetected by this rule?*
-
-One way that we've seen evasions before is when matching the command line for process events. Those rules can be trivial to evade. For instance, consider the command `wmic process call create whoami.exe`.
-
-If you search for the substring `process call create`, then all an attacker has to do is add a few more spaces: `process  call   create`. Voilà! Undetected.
-
-Maybe the next iteration of the rule tried to avoid whitespace evasions and then opted for `* process *` and `* call *` and `* create *`. But the rule is still easy to evade by quoting the individual args with the command `wmic "process" "call" "create" "whoami.exe"`.
-
-The **ideal** way to write the rule would be to use a parsed command line and not rely on wildcards or regular expressions. Thankfully, [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) has the [`process.args`](https://www.elastic.co/guide/en/ecs/current/ecs-process.html#_process_field_details) field which contains exactly this. Then the KQL for the rule is simple: `process.args:(process and call and create)`.
-
+When writing or reviewing a rule, think like an adversary: *How could I perform this action while going undetected by this rule?* Prefer structured fields like parsed arguments over raw command lines, and avoid pattern matching that is trivially bypassed by whitespace, quoting, or encoding changes. When evasions are accepted trade-offs, document them.
 
 ## Resources
 
 - [MITRE ATT&CK®](https://attack.mitre.org)
-- [MITRE ATT&CK philosophy](https://attack.mitre.org/docs/ATTACK_Design_and_Philosophy_March_2020.pdf)
+- [MITRE ATT&CK Design and Philosophy](https://attack.mitre.org/docs/ATTACK_Design_and_Philosophy_March_2020.pdf)
 - [Finding Cyber Threats with ATT&CK-Based Analytics](https://www.mitre.org/publications/technical-papers/finding-cyber-threats-with-attck-based-analytics)
+- [Elastic Security Labs](https://www.elastic.co/security-labs)
+- [Elastic Detection Engineering Behavior Maturity Model (DEBMM)](https://www.elastic.co/security-labs/elastic-releases-debmm)
+- [Detections-as-Code (DaC) Reference](https://dac-reference.readthedocs.io/en/latest/)

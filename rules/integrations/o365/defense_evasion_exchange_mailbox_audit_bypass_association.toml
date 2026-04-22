@@ -2,7 +2,7 @@
 creation_date = "2022/01/13"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/12/10"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -69,29 +69,37 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:Exchange and event.action:Set-MailboxAuditBypassAssociation and event.outcome:success
+data_stream.dataset:o365.audit and event.provider:Exchange and event.action:Set-MailboxAuditBypassAssociation and event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1562.008"
-name = "Disable or Modify Cloud Logs"
-reference = "https://attack.mitre.org/techniques/T1562/008/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/03/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -26,8 +26,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
-  network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
+(data_stream.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+  network.transport:tcp and (destination.port:135 or data_stream.dataset:zeek.dce_rpc) and
   not (event.type: denied or event.action: flow_dropped or event.outcome: failure) and
   not source.ip:(
     10.0.0.0/8 or
@@ -101,14 +101,18 @@ RPC enables remote management and resource sharing, crucial for system administr
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
 
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-

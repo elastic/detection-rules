@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/03/10"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/04/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Entra ID service principal sign-ins where the workload identity and source autonomous system number (ASN)
+together have not appeared in recent history. Attackers who obtain application secrets or tokens often authenticate
+from unfamiliar hosting providers, residential or VPN egress, or networks outside normal automation footprints, which
+can precede data access, lateral movement, or ransomware activity in the tenant. The detection emphasizes first-seen
+network context for non-interactive workload identities.
+"""
+false_positives = [
+    """
+    New deployments, DR sites, IP rotation, or first-time CI/CD expansion can produce a genuinely new
+    (service principal, ASN) pair without malicious intent. Baseline expected apps and approve new network paths.
+    """,
+    """
+    Geo-IP and ASN enrichment updates can occasionally shift how a stable egress is labeled, creating a one-time
+    \"new\" tuple.
+    """,
+    """
+    Shared or reused service principal secrets across teams may register as new paths when first used from another site.
+    """,
+]
+from = "now-65m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+interval = "1h"
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Service Principal with Unusual Source ASN"
+note = """## Triage and analysis
+
+### Investigating Entra ID Service Principal with Unusual Source ASN
+
+This rule matches successful **ServicePrincipalSignInLogs** events where `azure.signinlogs.properties.service_principal_id`
+and `source.as.number` together have not appeared in the rule history window. It is a first-seen network path signal for
+the workload identity, not proof of compromise by itself.
+
+#### Possible investigation steps
+
+- Confirm the event is **ServicePrincipalSignInLogs** with a successful outcome and review `azure.signinlogs.properties.status.error_code` on the source document if needed.
+- Identify the application using `azure.signinlogs.properties.app_display_name`, `azure.signinlogs.properties.app_id`, and `azure.signinlogs.properties.service_principal_id`. In Entra ID, review the enterprise application or app registration (first-party, partner, or internal automation).
+- Review `source.ip`, `source.as.organization.name`, `source.as.number`, and `source.geo.*` against the owning team’s expected regions, cloud subscriptions, and CI/CD or automation footprint.
+- Compare `@timestamp` to maintenance windows, releases, and planned infrastructure changes.
+- Where possible, enrich `source.ip` with internal CMDB, cloud asset inventory, or threat intelligence (residential or low-reputation ASNs warrant more scrutiny than a known cloud provider already used by this app).
+- In Entra sign-in logs, pivot on the same `service_principal_id` or `app_id` and review prior successful sign-ins for typical ASNs and egress patterns; a one-off path may be a new pipeline or stolen credentials used from a new host.
+- Review Entra audit logs for recent changes to this application: client secrets, certificates, federated credentials, owners, API permissions, or app role assignments, especially shortly before the alert.
+- Query Azure Activity, Microsoft Graph, or workload-specific logs after the sign-in time using `azure.signinlogs.properties.correlation_id` or `session_id` when present to see what resources the identity accessed (subscriptions, Key Vault, mail, privileged roles).
+- Search for related alerts in the same time window involving the same `app_id` or `source.ip` (for example OAuth abuse, consent, Arc or Kubernetes access, or directory role changes).
+- Note that the rule query excludes Microsoft-labeled `source.as.organization.name` values; high-value investigations should also review raw sign-in data for suspicious activity that only appears under those labels.
+
+### False positive analysis
+
+- New regions, subscriptions, GitHub Actions or Azure DevOps pools, DR exercises, or vendor migrations can produce a legitimate first-seen ASN for the service principal. Validate with the owner and document expected paths before excluding.
+- Amazon- and Google-labeled ASNs are in scope by design; adversaries may egress through AWS or GCP. Expect more noise from legitimate automation in those clouds and prefer allowlisting reviewed `app_id` or automation accounts over disabling the rule.
+- GeoIP or ASN enrichment updates can occasionally produce a one-time new tuple; compare to historical events for the same IP if available.
+
+### Response and remediation
+
+- If the path is unexpected and risky audit activity preceded the sign-in, treat as a potential credential incident: rotate application secrets and certificates, revoke sessions or tokens as applicable, and review Conditional Access and workload identity policies for the application.
+- Review and reduce API permissions, OAuth scopes, and directory or subscription roles granted to the application; remove unused access.
+- Document approved automation and network baselines so repeat first-seen ASN alerts can be triaged faster.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins",
+    "https://learn.microsoft.com/en-us/entra/identity/conditional-access/workload-identities",
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/",
+    "https://www.wiz.io/blog/lateral-movement-risks-in-the-cloud-and-how-to-prevent-them-part-3-from-compromis",
+]
+risk_score = 47
+rule_id = "db97a2aa-3ba5-4fa5-b8b9-bf42284edb5f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.signinlogs
+    and azure.signinlogs.category:ServicePrincipalSignInLogs
+    and azure.signinlogs.properties.status.error_code:0
+    and azure.signinlogs.properties.service_principal_id:*
+    and source.as.number:*
+    and not source.as.organization.name:(*MICROSOFT* or *Microsoft*)
+    and not azure.signinlogs.properties.app_owner_tenant_id:(72f988bf-86f1-41af-91ab-2d7cd011db47 or f8cdef31-a31e-4b4a-93e4-5f571e91255a)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.reason",
+    "source.ip",
+    "source.geo.country_name",
+    "source.geo.country_iso_code",
+    "user.name",
+    "azure.signinlogs.properties.service_principal_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_id",
+    "source.as.number",
+    "source.as.organization.name",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.correlation_id",
+    "azure.signinlogs.properties.session_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.signinlogs.properties.service_principal_id",
+    "source.as.number",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

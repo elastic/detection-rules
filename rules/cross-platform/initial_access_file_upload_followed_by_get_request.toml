@@ -2,7 +2,7 @@
 creation_date = "2025/11/27"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/12/08"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -99,7 +99,7 @@ sequence by agent.id with maxspan=5m
    */
   ]
   [file where
-   event.dataset == "endpoint.events.file" and
+   data_stream.dataset == "endpoint.events.file" and
    event.action in ("creation", "rename") and
    file.extension in ("php", "phtml", "pht", "php5", "asp", "aspx", "jsp", "jspx", "war", "cgi")
    /* We can add file.path values here in the future, if telemetry is noisy */
@@ -143,3 +143,16 @@ reference = "https://attack.mitre.org/techniques/T1505/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
