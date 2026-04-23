@@ -554,7 +554,7 @@ class Package:
                     deprecated_reason=dep_entry.deprecated_reason,
                     stack_version=stack_version,
                 )
-                asset_path = rules_dir / f"deprecated_{asset['id']}.json"
+                asset_path = rules_dir / f"{asset['id']}.json"
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
