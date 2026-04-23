@@ -78,8 +78,8 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
 | WHERE Esql.executed_command IS NOT NULL 
 | WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND 
-        // local service health check patterns
-        NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
+ // local service health check patterns
+  NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
 | KEEP *
 '''
 
