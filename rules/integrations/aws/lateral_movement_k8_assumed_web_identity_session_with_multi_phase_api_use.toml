@@ -96,11 +96,12 @@ query = '''
 FROM logs-aws.cloudtrail-*
 | WHERE (event.action == "AssumeRoleWithWebIdentity" AND user.name like "system:serviceaccount:*")
   // S3 PutObject/GetObject is too  common in legit pod SA behavior 
-  OR event.action IN ("ListBuckets", "DescribeInstances", "GetCallerIdentity",
+  OR (event.action IN ("ListBuckets", "DescribeInstances", "GetCallerIdentity",
     "ListUsers", "ListRoles", "GetSecretValue", "ListSecrets",
     "GetParameters", "DescribeParameters", "ListKeys",
     "ListFunctions", "GetAuthorizationToken", "CreateUser", "CreateAccessKey", 
     "AttachRolePolicy", "RunInstances", "CreateRole", "PutRolePolicy")
+    AND aws.cloudtrail.user_identity.type == "AssumedRole")
 | GROK aws.cloudtrail.response_elements "accessKeyId=%{NOTSPACE:issued_key_id},"
 | EVAL access_key = COALESCE(issued_key_id, aws.cloudtrail.user_identity.access_key_id)
 | EVAL is_assume = CASE(event.action == "AssumeRoleWithWebIdentity", 1, 0)
