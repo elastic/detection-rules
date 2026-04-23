@@ -428,7 +428,7 @@ class TestRuleTags(BaseRuleTest):
             "logs-system.system*": {"all": ["Data Source: Windows System Event Logs"]},
             "logs-sentinel_one_cloud_funnel.*": {"all": ["Data Source: SentinelOne"]},
             "logs-fim.event-*": {"all": ["Data Source: File Integrity Monitoring"]},
-            "logs-m365_defender.event-*": {"all": ["Data Source: Microsoft Defender for Endpoint"]},
+            "logs-m365_defender.event-*": {"all": ["Data Source: Microsoft Defender XDR"]},
             "logs-crowdstrike.fdr*": {"all": ["Data Source: Crowdstrike"]},
         }
 
