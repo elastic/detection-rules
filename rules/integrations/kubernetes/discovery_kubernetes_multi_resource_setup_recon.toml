@@ -73,7 +73,8 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | eval Esql.time_interval = date_trunc(1 minute, @timestamp)
 | where event.dataset == "kubernetes.audit_logs"
     and event.action in ("get", "list")
-    and kubernetes.audit.objectRef.resource in ("namespaces", "pods", "roles", "clusterroles")
+    and kubernetes.audit.objectRef.resource in ("namespaces", "nodes", "pods", "roles", "configmaps", "serviceaccounts", "clusterroles", "clusterrolebindings", "rolebindings")
+| where Esql.unique_resources >= 3
     and source.ip is not null
     and not to_string(source.ip) in ("127.0.0.1", "::1")
     and not user.name like "eks:*"
