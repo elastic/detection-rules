@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "zeek"]
 maturity = "production"
-updated_date = "2026/04/08"
+updated_date = "2026/04/24"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +26,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-(event.dataset:network_traffic.flow or event.category:(network or network_traffic))
+(data_stream.dataset:network_traffic.flow or event.category:(network or network_traffic))
   and network.transport:tcp and (destination.port:(139 or 445)
-  or event.dataset:(zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping))
+  or data_stream.dataset:(zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping))
   and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
   and not destination.ip:(10.0.0.0/8
     or 100.64.0.0/10

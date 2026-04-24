@@ -2,7 +2,7 @@
 creation_date = "2025/05/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -93,11 +93,11 @@ type = "esql"
 query = '''
 from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _version, _index
 | where
-    (event.dataset == "azure.signinlogs"
+    (data_stream.dataset == "azure.signinlogs"
      and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
      and azure.signinlogs.properties.session_id is not null)
     or
-    (event.dataset == "azure.graphactivitylogs"
+    (data_stream.dataset == "azure.graphactivitylogs"
      and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
      and azure.graphactivitylogs.properties.c_sid is not null)
 
@@ -108,12 +108,12 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.source_ip = source.ip,
     Esql.@timestamp = @timestamp,
     Esql.event_type_case = case(
-        event.dataset == "azure.signinlogs", "signin",
-        event.dataset == "azure.graphactivitylogs", "graph",
+        data_stream.dataset == "azure.signinlogs", "signin",
+        data_stream.dataset == "azure.graphactivitylogs", "graph",
         "other"
     ),
-    Esql.signin_source_asn = case(event.dataset == "azure.signinlogs", source.`as`.organization.name, null),
-    Esql.graph_source_asn = case(event.dataset == "azure.graphactivitylogs", source.`as`.organization.name, null)
+    Esql.signin_source_asn = case(data_stream.dataset == "azure.signinlogs", source.`as`.organization.name, null),
+    Esql.graph_source_asn = case(data_stream.dataset == "azure.graphactivitylogs", source.`as`.organization.name, null)
 
 | where Esql.azure_signinlogs_properties_app_id_coalesce not in (
     "4354e225-50c9-4423-9ece-2d5afd904870",  // Augmentation Loop
