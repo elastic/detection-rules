@@ -74,11 +74,9 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | where event.dataset == "kubernetes.audit_logs"
     and event.action in ("get", "list")
     and kubernetes.audit.objectRef.resource in ("namespaces", "nodes", "pods", "roles", "configmaps", "serviceaccounts", "clusterroles", "clusterrolebindings", "rolebindings")
-| where Esql.unique_resources >= 3
-    and source.ip is not null
+    and source.ip is not null and user.name IS NOT NULL
     and not to_string(source.ip) in ("127.0.0.1", "::1")
-    and not user.name like "eks:*"
-    and not user.name like "system:kube*"
+    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/).*"""
 | stats
     Esql.unique_resources = count_distinct(kubernetes.audit.objectRef.resource),
     Esql.enumerated_resources = values(kubernetes.audit.objectRef.resource),
