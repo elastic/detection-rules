@@ -72,10 +72,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
         type: definitions.EsDataTypes
 
     operator: definitions.ExceptionEntryOperator
-    list_vals: ListObject | None = field(
-        default=None,
-        metadata={"data_key": "list"}
-    )
+    list_vals: ListObject | None = field(default=None, metadata={"data_key": "list"})
     value: str | None | list[str] = None
 
     @validates_schema
