@@ -2,7 +2,7 @@
 creation_date = "2026/02/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -66,11 +66,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by user.name with maxspan=5m
-  [any where event.dataset == "kubernetes.audit_logs" and
+  [any where data_stream.dataset == "kubernetes.audit_logs" and
    `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
     kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
     kubernetes.audit.verb in ("create", "update", "patch")]
-  [any where event.dataset == "kubernetes.audit_logs" and
+  [any where data_stream.dataset == "kubernetes.audit_logs" and
    `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
     kubernetes.audit.objectRef.resource in ("daemonsets", "deployments", "cronjobs") and
     kubernetes.audit.verb in ("create", "patch") and

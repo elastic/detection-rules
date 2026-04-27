@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/03/27"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2026/04/01"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+
+[rule]
+anomaly_threshold = 50
+author = ["Elastic"]
+description = """
+A machine learning job detected a rare PowerShell script, identified by its script block hash, that may indicate
+execution of malware, or persistence mechanisms. Unlike anomaly detection based on content entropy, this rule
+identifies scripts that have rarely or never been seen in the environment.
+"""
+false_positives = [
+    """
+    A newly installed program or one that runs rarely as part of a monthly or quarterly workflow could trigger this
+    alert. PowerShell scripts that are new to the environment or run infrequently may trigger this alert.
+    """,
+]
+from = "now-45m"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = ["v3_windows_rare_script_ea"]
+name = "Rare Powershell Script"
+note = """## Triage and analysis
+
+###  Investigating Rare Powershell Script
+
+Searching for abnormal PowerShell scripts is a good methodology to find potentially malicious activity within a network. Understanding what is commonly run within an environment and developing baselines for legitimate activity can help uncover potential malware and suspicious behaviors.
+
+This rule uses a machine learning job to detect a PowerShell script that is rare and unusual for an individual Windows host in your environment, based on the script block hash.
+
+#### Possible investigation steps
+
+- Investigate the PowerShell script block that triggered the detection. Retrieve the full script content associated with the hash and examine it for malicious indicators such as encoded commands, suspicious URLs, or unusual system calls.
+  - Investigate the process execution chain (parent process tree) for the PowerShell process. Examine the parent process for prevalence, whether it is located in an expected location, and if it is signed with a valid digital signature.
+  - If the parent process is a legitimate system utility or service, this could be related to software updates or system management. If the parent process is something user-facing like an Office application, this process could be more suspicious.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Consider the user as identified by the `user.name` field. Is this script part of an expected workflow for the user who ran it on this host?
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Validate if the activity has a consistent cadence (for example, if it runs monthly or quarterly), as it could be part of a monthly or quarterly business process.
+- Retrieve the script block hash value and search for its existence and reputation in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False Positive Analysis
+
+- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
+
+### Related Rules
+
+- Suspicious Powershell Script - 1781d055-5c66-4adf-9d60-fc0fa58337b6
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://www.elastic.co/security-labs/detecting-living-off-the-land-attacks-with-new-elastic-integration",
+]
+risk_score = 21
+rule_id = "4577d441-0c05-4bfb-9068-39a0cb855269"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+- Windows
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Windows Integration Setup
+The Windows integration allows you to monitor the Windows OS, services, applications, and more.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "windows" to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Windows" and select the integration to see more details about it.
+- Click "Add Windows".
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed "windows" to an existing or a new agent policy, and deploy the agent on your system from which windows log files are desirable.
+- Click "Save and Continue".
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/windows).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

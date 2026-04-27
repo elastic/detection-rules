@@ -2,14 +2,16 @@
 creation_date = "2026/03/23"
 integration = ["unifiedlogs"]
 maturity = "production"
-updated_date = "2026/03/23"
+min_stack_comments = "Requires the unifiedlogs integration structured TCC fields introduced in package version 0.5.0."
+min_stack_version = "8.19.0"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects a denied Camera or Microphone access request via macOS Unified Logs TCC telemetry. The `com.apple.TCC`
 subsystem logs access decisions for protected resources. When `kTCCServiceCamera` or `kTCCServiceMicrophone` appears
-with `auth_value=0`, it indicates an application was denied access to the camera or microphone. Spyware and
+with a denied request result, it indicates an application was denied access to the camera or microphone. Spyware and
 surveillance tools commonly attempt to activate the camera or microphone to record the user. While legitimate
 conferencing and communication applications may also trigger denials, this event is significant when correlated with
 other suspicious activity on the host. This detection leverages the `com.apple.TCC` subsystem with category `access`
@@ -68,7 +70,6 @@ tags = [
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Collection",
-    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -79,7 +80,7 @@ FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
   AND unified_log.category == "access"
   AND (message LIKE "*kTCCServiceCamera*" OR message LIKE "*kTCCServiceMicrophone*")
   AND message LIKE "*Handling access request*"
-  AND NOT message LIKE "*Allowed*"
+  AND message LIKE "*Denied*"
 | KEEP *
 '''
 

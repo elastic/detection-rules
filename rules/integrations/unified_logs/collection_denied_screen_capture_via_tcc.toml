@@ -2,15 +2,17 @@
 creation_date = "2026/03/23"
 integration = ["unifiedlogs"]
 maturity = "production"
-updated_date = "2026/03/23"
+min_stack_comments = "Requires the unifiedlogs integration structured TCC fields introduced in package version 0.5.0."
+min_stack_version = "8.19.0"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects a denied Screen Capture request via macOS Unified Logs TCC telemetry. The `com.apple.TCC` subsystem logs
-access decisions for protected resources. When the `kTCCServiceScreenCapture` service appears with `auth_value=0`,
-it indicates an application was denied permission to capture the screen. macOS stealers and spyware commonly attempt
-screen capture to exfiltrate sensitive information displayed on screen. While legitimate screen sharing and
+access decisions for protected resources. When the `kTCCServiceScreenCapture` service appears with an explicit denied
+result, it indicates an application was denied permission to capture the screen. macOS stealers and spyware commonly
+attempt screen capture to exfiltrate sensitive information displayed on screen. While legitimate screen sharing and
 conferencing applications may also trigger denials during initial setup, this event should be investigated in
 combination with other suspicious activity. This detection leverages the `com.apple.TCC` subsystem with category
 `access` and does not require private data enablement.
@@ -67,7 +69,6 @@ tags = [
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Collection",
-    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -78,7 +79,7 @@ FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
   AND unified_log.category == "access"
   AND message LIKE "*kTCCServiceScreenCapture*"
   AND message LIKE "*Handling access request*"
-  AND NOT message LIKE "*Allowed*"
+  AND message LIKE "*Denied*"
 | KEEP *
 '''
 

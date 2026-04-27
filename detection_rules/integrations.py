@@ -8,7 +8,6 @@
 import fnmatch
 import gzip
 import json
-import re
 from collections import OrderedDict, defaultdict
 from collections.abc import Iterator
 from pathlib import Path
@@ -182,6 +181,69 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
+def _parse_clause(clause: str) -> tuple[Version, Version | None]:
+    """Parse a single AND'd clause of npm-style range tokens into ``[lo, hi)`` bounds.
+
+    ``hi`` is ``None`` when the clause has no upper bound. Supports the subset of
+    npm semver currently emitted by EPR ``conditions.kibana.version`` strings:
+    ``^X.Y.Z``, ``~X.Y.Z``, ``>=X.Y.Z``, ``>X.Y.Z``, ``<=X.Y.Z``, ``<X.Y.Z``,
+    ``=X.Y.Z``, and bare ``X.Y.Z``. Unsupported tokens raise ``ValueError`` so
+    we fail loudly if EPR's grammar grows.
+    """
+    lo = Version(0, 0, 0)
+    hi: Version | None = None
+
+    def tighten_hi(current: Version | None, candidate: Version) -> Version:
+        return candidate if current is None else min(current, candidate)
+
+    for token in clause.strip().split():
+        if not token:
+            continue
+        if token.startswith("^"):
+            base = Version.parse(token[1:])
+            if base.major == 0:
+                raise ValueError(f"caret on 0.x kibana version is unsupported: {token!r}")
+            lo = max(lo, base)
+            hi = tighten_hi(hi, Version(base.major + 1, 0, 0))
+        elif token.startswith("~"):
+            base = Version.parse(token[1:])
+            lo = max(lo, base)
+            hi = tighten_hi(hi, Version(base.major, base.minor + 1, 0))
+        elif token.startswith(">="):
+            lo = max(lo, Version.parse(token[2:]))
+        elif token.startswith("<="):
+            hi = tighten_hi(hi, Version.parse(token[2:]).bump_patch())
+        elif token.startswith(">"):
+            lo = max(lo, Version.parse(token[1:]).bump_patch())
+        elif token.startswith("<"):
+            hi = tighten_hi(hi, Version.parse(token[1:]))
+        elif token.startswith("="):
+            exact = Version.parse(token[1:])
+            lo = max(lo, exact)
+            hi = tighten_hi(hi, exact.bump_patch())
+        elif token[0].isdigit():
+            exact = Version.parse(token)
+            lo = max(lo, exact)
+            hi = tighten_hi(hi, exact.bump_patch())
+        else:
+            raise ValueError(f"unsupported kibana version token: {token!r}")
+    return lo, hi
+
+
+def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
+    """Parse an EPR ``conditions.kibana.version`` string into a list of ``[lo, hi)`` clauses.
+
+    Clauses separated by ``||`` are OR'd; whitespace-separated tokens within a
+    clause are AND'd.
+    """
+    return [_parse_clause(c) for c in version_requirement.split("||")]
+
+
+def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
+    """Return True iff ``stack`` satisfies the EPR ``conditions.kibana.version`` string."""
+    return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
+
+
 def find_least_compatible_version(
     package: str,
     integration: str,
@@ -207,14 +269,9 @@ def find_least_compatible_version(
         for version, manifest in OrderedDict(
             sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0]))
         ).items():
-            compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", manifest["conditions"]["kibana"]["version"]).split(
-                " || "
-            )
-            for kibana_ver in compatible_versions:
-                _kibana_ver = Version.parse(kibana_ver)
-                # check versions have the same major
-                if _kibana_ver.major == stack_version.major and _kibana_ver <= stack_version:
-                    return f"^{version}"
+            version_requirement = manifest["conditions"]["kibana"]["version"]
+            if _satisfies_kibana_range(stack_version, version_requirement):
+                return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
@@ -236,7 +293,8 @@ def find_latest_compatible_version(
 
     # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
     integration_manifests = sorted(package_manifest.items(), key=lambda x: Version.parse(x[0]), reverse=True)
-    notice = [""]
+    notice: list[str] = [""]
+    newest_skipped: tuple[str, Version] | None = None
 
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
@@ -244,30 +302,23 @@ def find_latest_compatible_version(
         if not version_requirement:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
 
-        compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", version_requirement).split(" || ")
-
-        if not compatible_versions:
-            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
-
-        highest_compatible_version = Version.parse(max(compatible_versions, key=Version.parse))
-
-        if highest_compatible_version > rule_stack_version:
-            # generate notice message that a later integration version is available
-            integration = f" {integration.strip()}" if integration else ""
-
-            notice = [
-                f"There is a new integration {package}{integration} version {version} available!",
-                f"Update the rule min_stack version from {rule_stack_version} to "
-                f"{highest_compatible_version} if using new features in this latest version.",
-            ]
-
-        if highest_compatible_version.major == rule_stack_version.major:
+        if _satisfies_kibana_range(rule_stack_version, version_requirement):
+            if newest_skipped is not None:
+                skipped_version, skipped_floor = newest_skipped
+                integration_label = f" {integration.strip()}" if integration else ""
+                notice = [
+                    f"There is a new integration {package}{integration_label} version {skipped_version} available!",
+                    f"Update the rule min_stack version from {rule_stack_version} to "
+                    f"{skipped_floor} if using new features in this latest version.",
+                ]
             return version, notice
 
-        # Check for rules that cross majors
-        for compatible_version in compatible_versions:
-            if Version.parse(compatible_version) <= rule_stack_version:
-                return version, notice
+        # Track the newest manifest we had to skip so the notice can still
+        # point the reader at the most recent incompatible version and its floor.
+        if newest_skipped is None:
+            clauses = _parse_kibana_range(version_requirement)
+            floor = min(lo for lo, _ in clauses)
+            newest_skipped = (version, floor)
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 

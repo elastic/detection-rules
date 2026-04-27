@@ -2,7 +2,9 @@
 creation_date = "2026/03/23"
 integration = ["unifiedlogs"]
 maturity = "production"
-updated_date = "2026/03/23"
+min_stack_comments = "Requires the unifiedlogs integration structured TCC fields introduced in package version 0.5.0."
+min_stack_version = "8.19.0"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -10,10 +12,10 @@ description = """
 Detects applications probing for TCC permissions they cannot prompt for via macOS Unified Logs TCC telemetry. The
 `com.apple.TCC` subsystem logs when a service "does not allow prompting" and the access request is automatically
 denied. This pattern indicates an application is attempting to access a protected resource (such as Accessibility,
-Full Disk Access, or Screen Capture) for which it has no entitlement to trigger the user consent prompt. Malware
-may probe TCC services to discover what permissions are available or to attempt access without user interaction.
-This detection leverages the `com.apple.TCC` subsystem with category `access` and does not require private data
-enablement.
+Full Disk Access, or Screen Capture) for which it has no entitlement to trigger the user consent prompt. Malware may
+probe TCC services to discover what permissions are available or to attempt access without user interaction. The
+query narrows this pattern to denied outcomes and excludes unknown results. This detection leverages the
+`com.apple.TCC` subsystem with category `access` and does not require private data enablement.
 """
 false_positives = [
     """
@@ -30,7 +32,7 @@ note = """## Triage and analysis
 
 ### Investigating TCC Permission Probing Without Prompt Entitlement
 
-This rule detects the "does not allow prompting" TCC pattern, which indicates an application attempted to access a protected service but lacks the entitlement to trigger the user consent dialog. The request is automatically denied. This is distinct from a user-denied request and often indicates unauthorized permission probing.
+This rule detects the "does not allow prompting" TCC pattern, which indicates an application attempted to access a protected service but lacks the entitlement to trigger the user consent dialog. The request is automatically denied. This is distinct from a user-denied request and often indicates unauthorized permission probing. The query requires a denied result to avoid matching unknown permission lookups.
 
 ### Possible investigation steps
 
@@ -77,6 +79,7 @@ FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
 | WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
   AND unified_log.category == "access"
   AND message LIKE "*does not allow prompting*"
+  AND (message LIKE "*returning denied*" OR message LIKE "*recording denied*")
 | KEEP *
 '''
 

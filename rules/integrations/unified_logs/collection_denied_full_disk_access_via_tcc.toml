@@ -2,15 +2,17 @@
 creation_date = "2026/03/23"
 integration = ["unifiedlogs"]
 maturity = "production"
-updated_date = "2026/03/23"
+min_stack_comments = "Requires the unifiedlogs integration structured TCC fields introduced in package version 0.5.0."
+min_stack_version = "8.19.0"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects a denied Full Disk Access (FDA) request via macOS Unified Logs TCC telemetry. The `com.apple.TCC` subsystem
 logs access decisions for protected resources. When the `kTCCServiceSystemPolicyAllFiles` service appears with
-`auth_value=0`, it indicates an application was denied Full Disk Access. Malware commonly attempts to access files
-protected by FDA (e.g., Mail.app databases, Safari data, Time Machine backups) and gets denied when it lacks the
+an explicit denied result, it indicates an application was denied Full Disk Access. Malware commonly attempts to
+access files protected by FDA (e.g., Mail.app databases, Safari data, Time Machine backups) and gets denied when it lacks the
 required TCC entitlement. While legitimate applications may also be denied during normal operation, this event is
 worth investigating in the context of other suspicious activity on the host. This detection leverages the
 `com.apple.TCC` subsystem with category `access` and does not require private data enablement.
@@ -67,7 +69,6 @@ tags = [
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Collection",
-    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -78,7 +79,7 @@ FROM logs-unifiedlogs.unifiedlogs-* METADATA _id, _version, _index
   AND unified_log.category == "access"
   AND message LIKE "*kTCCServiceSystemPolicyAllFiles*"
   AND message LIKE "*Handling access request*"
-  AND NOT message LIKE "*Allowed*"
+  AND message LIKE "*Denied*"
 | KEEP *
 '''
 

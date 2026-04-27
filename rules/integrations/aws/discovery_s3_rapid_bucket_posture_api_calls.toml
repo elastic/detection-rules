@@ -1,0 +1,210 @@
+[metadata]
+creation_date = "2026/04/02"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
+min_stack_version = "9.2.0"
+updated_date = "2026/04/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the same AWS principal, from the same source IP, successfully invokes read-only S3 control-plane APIs
+that reveal bucket posture across many buckets in a short period. This pattern can indicate automated reconnaissance or
+security scanning, similar to CSPM tools and post-compromise enumeration. The rule excludes AWS service principals,
+requires programmatic-style sessions (not Management Console credentials), and requires populated resource and identity
+fields so nulls do not skew cardinality.
+"""
+false_positives = [
+    """
+    Legitimate security scanners, CSPM products, compliance jobs, and inventory automation may call the same read-only
+    bucket APIs across many buckets quickly. Verify the principal ARN, source IP, user agent, and schedule against known
+    approved tooling before treating the activity as malicious.
+    """,
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS S3 Rapid Bucket Posture API Calls from a Single Principal"
+note = """## Triage and analysis
+
+### Investigating AWS S3 Rapid Bucket Posture API Calls from a Single Principal
+
+This rule detects when the same AWS principal (`aws.cloudtrail.user_identity.arn`), from the same `source.ip`, successfully invokes read-only S3 control-plane APIs that reveal bucket posture across more than 15 distinct `aws.cloudtrail.resources.arn` values within a 10-second window.
+
+Security scanners, compliance tools, and post-compromise reconnaissance often walk many buckets quickly to map public access, policies, and versioning. Bursts of distinct buckets in seconds are less typical of one-off console administration or single-bucket troubleshooting. This could be indicative of reconnaissance as seen by threat actors like Team PCP. 
+
+### Possible investigation steps
+
+**Identify the actor and session context**
+- **Actor ARN (`aws.cloudtrail.user_identity.arn`)**: Determine which IAM user, role, or federated principal performed the reads. Confirm whether this identity is approved for broad S3 read or security auditing. Unusual types or unfamiliar roles may warrant deeper review.
+- **Access key (`Esql.aws_cloudtrail_user_identity_access_key_id_values`)**: Identify which access key or temporary credential was used. Correlate with IAM last-used metadata for the key or role session.
+
+**Characterize the bucket sweep**
+- **Distinct bucket count (`Esql.bucket_arn_count_distinct`)**: Compare to normal baselines for this identity; values at or just above the threshold may still warrant review for new automation.
+- **Bucket ARNs (`Esql.aws_cloudtrail_resources_arn_values`)**: Identify which buckets were touched. Prioritize buckets that store logs, backups, credentials, or regulated data. Search the same time range for write or policy-change APIs (`PutBucket*`, `DeleteBucket*`) on the same buckets.
+
+**Analyze source and client**
+- **Source IP (`Esql.source_ip_values`)**: Map to corporate egress, a known runner or bastion, an EC2 instance, or an unfamiliar ASN. Compare with VPC Flow Logs or proxy logs when available.
+- **User agent (`Esql.user_agent_original_values`, `Esql.user_agent_name_values`)**: Identify the AWS CLI, Boto3, a specific scanner, or custom scripts. Unusual or minimal user agents may align with tooling and require investigation.
+
+**Correlate in time**
+- Query CloudTrail for the same `aws.cloudtrail.user_identity.arn` and `source.ip` within approximately ±30 minutes for follow-on patterns: `ListBuckets`, `GetObject`, `PutBucketPolicy`, `AssumeRole`, or IAM changes.
+- Check for overlapping alerts related to credential access, unusual geolocation, or new external bucket policy grants.
+
+### False positive analysis
+
+Legitimate causes can include:
+- **Security and compliance scanners** (for example CSPM or assessment tools) using API credentials with `s3:Get*` permissions across many buckets.
+- **Inventory or backup catalog tools** that enumerate bucket metadata for reporting.
+- **CI/CD or infrastructure-as-code validation** jobs that verify bucket settings across environments.
+
+Validate whether the principal is a documented service account, the IP belongs to known infrastructure, and the timing matches scheduled jobs. If behavior is expected, consider raising the distinct-bucket threshold, adding `user_agent` filters, or documenting exception identities.
+
+### Response and remediation
+
+**Contain**
+- If activity is unexpected, rotate or disable keys for the affected identity, revoke active role sessions where possible, and restrict the source IP at the network layer if it is not authorized.
+
+**Investigate**
+- Export CloudTrail for the window around `Esql.time_window_date_trunc` and review all S3 and IAM events for the same actor.
+- Review IAM policies attached to the principal for excessive `s3:Get*` or `s3:List*` scope.
+
+**Harden**
+- Enforce least privilege on S3 read APIs; use permission boundaries or service control policies where appropriate.
+- Ensure sensitive buckets are not unnecessarily reachable from the observed network context.
+- Document approved scanning accounts and tune the rule to reduce noise from those identities.
+
+### Additional information
+
+- [AWS Security Incident Response Guide](https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.pdf)
+- [AWS Incident Response Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/)
+- [AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework)
+
+"""
+references = [
+    "https://kudelskisecurity.com/research/investigating-two-variants-of-the-trivy-supply-chain-compromise",
+]
+risk_score = 21
+rule_id = "a7577205-88a1-4a08-85d4-7b72a9a2e969"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| eval Esql.time_window_date_trunc = date_trunc(10 seconds, @timestamp)
+
+| where
+    data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "s3.amazonaws.com"
+    and event.outcome == "success"
+    and event.action in (
+      "GetBucketAcl",
+      "GetBucketPublicAccessBlock",
+      "GetBucketPolicy",
+      "GetBucketPolicyStatus",
+      "GetBucketVersioning"
+    )
+    and aws.cloudtrail.user_identity.type != "AWSService"
+    and source.ip IS NOT NULL
+    and aws.cloudtrail.resources.arn IS NOT NULL
+    and aws.cloudtrail.user_identity.arn IS NOT NULL
+    and aws.cloudtrail.session_credential_from_console IS NULL
+
+| keep
+    @timestamp,
+    Esql.time_window_date_trunc,
+    event.action,
+    aws.cloudtrail.user_identity.arn,
+    aws.cloudtrail.user_identity.type,
+    aws.cloudtrail.user_identity.access_key_id,
+    source.ip,
+    aws.cloudtrail.resources.arn,
+    cloud.account.id,
+    cloud.region,
+    user_agent.original,
+    source.as.organization.name,
+    data_stream.namespace
+
+| stats
+    Esql.bucket_arn_count_distinct = count_distinct(aws.cloudtrail.resources.arn),
+    Esql.aws_cloudtrail_resources_arn_values = VALUES(aws.cloudtrail.resources.arn),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.timestamp_values = VALUES(@timestamp),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn, source.ip
+
+| where Esql.bucket_arn_count_distinct > 15
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat.technique]]
+id = "T1619"
+name = "Cloud Storage Object Discovery"
+reference = "https://attack.mitre.org/techniques/T1619/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.bucket_arn_count_distinct",
+    "Esql.time_window_date_trunc",
+    "aws.cloudtrail.user_identity.arn",
+    "source.ip",
+    "Esql.aws_cloudtrail_resources_arn_values",
+    "Esql.event_action_values",
+    "Esql.aws_cloudtrail_user_identity_type_values",
+    "Esql.aws_cloudtrail_user_identity_access_key_id_values",
+    "Esql.cloud_account_id_values",
+    "Esql.cloud_region_values",
+    "Esql.user_agent_original_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.data_stream_namespace_values",
+]
+
