@@ -112,6 +112,34 @@ class TestEQLInSet(BaseRuleTest):
         rc.load_dict(rule_dict)
 
 
+class TestEQLStringEventType(BaseRuleTest):
+    """Tests for EQL queries that use a string-literal event type (e.g. ``"ec2.amazonaws.com" where ...``).
+
+    Elasticsearch accepts these but the bundled ``eql`` package's grammar only allows a NAME token
+    in that position, so detection-rules pre-processes the query before parsing.
+    See https://github.com/elastic/detection-rules/issues/5236.
+    """
+
+    def test_string_event_type_parses(self) -> None:
+        """A leading double-quoted string event type should parse without error."""
+        eql.parse_query('"ec2.amazonaws.com" where event.dataset == "aws.cloudtrail"')
+
+    def test_string_event_type_in_subquery_parses(self) -> None:
+        """A double-quoted string event type inside a sequence subquery should parse."""
+        query = (
+            "sequence by host.id\n"
+            '  ["ec2.amazonaws.com" where event.action == "a"]\n'
+            '  ["foo.bar" where event.action == "b"]'
+        )
+        eql.parse_query(query)
+
+    def test_string_event_type_error_keeps_original_source(self) -> None:
+        """Syntax errors below the rewritten event type should reference the original query text."""
+        with self.assertRaises(eql.EqlParseError) as ctx:
+            eql.parse_query('"ec2.amazonaws.com" where field ==')
+        self.assertIn('"ec2.amazonaws.com"', ctx.exception.source)
+
+
 class TestEQLSequencePerIntegration(BaseRuleTest):
     """Tests for per-subquery EQL validation against the correct integration.package schema."""
 

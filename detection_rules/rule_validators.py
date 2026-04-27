@@ -128,6 +128,41 @@ def custom_in_set(self: LarkToEQL, node: KvTree) -> NodeInfo:
     return NodeInfo(term, TypeHint.Boolean, nullable=nullable, source=node)
 
 
+# Matches a quoted-string event type at the start of a (sub)query, e.g.
+#   "ec2.amazonaws.com" where ...
+#   [ "ec2.amazonaws.com" where ... ]
+#   ![ "ec2.amazonaws.com" where ... ]
+# The grammar in `eql==0.9.19` only allows a NAME token here, but Elasticsearch
+# accepts string literals (since event categories may contain characters such
+# as "." that are not valid in an EQL identifier). See
+# https://github.com/elastic/detection-rules/issues/5236.
+_STRING_EVENT_TYPE_RE = re.compile(
+    r'(?P<prefix>\A|(?<=\[)|(?<=!\[))'
+    r'(?P<lead_ws>\s*)'
+    r'"(?P<value>(?:\\.|[^"\\\r\n])*)"'
+    r'(?P<post>\s+where\b)'
+)
+
+
+def _rewrite_string_event_types(query: str) -> str:
+    """Replace string-literal event types with ``any`` while preserving column positions.
+
+    The substitution keeps the overall character count of the rewritten span identical
+    to the original so that any parser error positions remain meaningful to the user.
+    """
+
+    def _replace(match: re.Match[str]) -> str:
+        original = match.group(0)
+        replacement = match.group("prefix") + match.group("lead_ws") + "any" + match.group("post")
+        if len(replacement) >= len(original):
+            return replacement
+        # Pad after `any` to preserve column positions in error messages.
+        pad = " " * (len(original) - len(replacement))
+        return match.group("prefix") + match.group("lead_ws") + "any" + pad + match.group("post")
+
+    return _STRING_EVENT_TYPE_RE.sub(_replace, query)
+
+
 def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     """Override and address the limitations of the eql in_set method."""
 
@@ -135,8 +170,26 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(query: str, start: str | None = None, **kwargs: dict[str, Any]) -> Any:
         original_in_set = LarkToEQL.in_set  # type: ignore[reportUnknownMemberType]
         LarkToEQL.in_set = custom_in_set
+        rewritten_query = _rewrite_string_event_types(query)
         try:
-            result = func(query, start=start, **kwargs)
+            try:
+                result = func(rewritten_query, start=start, **kwargs)
+            except eql.EqlParseError as exc:
+                # If we rewrote the query, re-raise using the original source so
+                # the error context shown to the user matches what they wrote.
+                if rewritten_query != query and getattr(exc, "source", None):
+                    original_lines = query.split("\n")
+                    line_idx = getattr(exc, "line", 0) or 0
+                    new_source = "\n".join(original_lines[max(line_idx - 1, 0) : line_idx + 1])
+                    raise type(exc)(
+                        exc.error_msg,
+                        line=exc.line,
+                        column=exc.column,
+                        source=new_source,
+                        width=getattr(exc, "width", 1),
+                        trailer=getattr(exc, "trailer", None),
+                    ) from None
+                raise
         finally:  # Using finally to ensure that the original method is restored
             LarkToEQL.in_set = original_in_set
         return result
