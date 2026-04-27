@@ -21,6 +21,7 @@ from marshmallow_dataclass import class_schema
 from semver import Version
 
 from .action_connector import (
+    TOMLActionConnector,
     TOMLActionConnectorContents,
     build_action_connector_objects,
     parse_action_connector_results_from_api,
@@ -28,7 +29,7 @@ from .action_connector import (
 from .attack import build_threat_map_entry
 from .cli_utils import multi_collection, rule_prompt
 from .config import load_current_package_version, parse_rules_config
-from .exception import TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
+from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
 from .generic_loader import GenericCollection
 from .misc import (
     add_client,
@@ -512,6 +513,60 @@ def view_rule(
     return rule
 
 
+def _export_rules_as_yaml(  # noqa: PLR0913
+    rules: RuleCollection,
+    yaml_directory: Path,
+    downgrade_version: definitions.SemVer | None = None,
+    verbose: bool = True,
+    skip_unsupported: bool = False,
+    include_metadata: bool = False,
+    include_action_connectors: bool = False,
+    include_exceptions: bool = False,
+) -> None:
+    """Export rules and exceptions into a directory of YAML files."""
+    from .rule import downgrade_contents_from_rule
+
+    unsupported: list[str] = []
+
+    for rule in rules:
+        contents_override = None
+        if downgrade_version:
+            try:
+                contents_override = downgrade_contents_from_rule(
+                    rule, downgrade_version, include_metadata=include_metadata
+                )
+            except ValueError as e:
+                if skip_unsupported:
+                    unsupported.append(f"{e}: {rule.id} - {rule.name}")
+                    continue
+                raise
+
+        rule_path = yaml_directory / rulename_to_filename(rule.name)
+        rule_path.parent.mkdir(parents=True, exist_ok=True)
+        rule.save_yaml(rule_path, contents_override=contents_override)
+
+    export_types: list[type[Any]] = []
+    if include_exceptions:
+        export_types.append(TOMLException)
+    if include_action_connectors:
+        export_types.append(TOMLActionConnector)
+
+    if export_types:
+        cl = GenericCollection.default()
+        for d in cl.items:
+            if any(isinstance(d, export_type) for export_type in export_types):
+                save_yaml = getattr(d, "save_yaml", None)
+                if callable(save_yaml) and isinstance(d.path, Path):
+                    _ = save_yaml(yaml_directory / d.path.name)
+
+    if verbose:
+        click.echo(f"Exported {len(rules) - len(unsupported)} rules into {yaml_directory}")
+
+        if skip_unsupported and unsupported:
+            unsupported_str = "\n- ".join(unsupported)
+            click.echo(f"Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}")
+
+
 def _export_rules(  # noqa: PLR0913
     rules: RuleCollection,
     outfile: Path,
@@ -611,6 +666,13 @@ def _export_rules(  # noqa: PLR0913
 @click.option(
     "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
 )
+@click.option(
+    "--save-yaml-dir",
+    "-syd",
+    type=Path,
+    required=False,
+    help="Optional directory to export individual YAML files instead of NDJSON",
+)
 def export_rules_from_repo(  # noqa: PLR0913
     rules: RuleCollection,
     outfile: Path,
@@ -620,6 +682,7 @@ def export_rules_from_repo(  # noqa: PLR0913
     include_metadata: bool,
     include_action_connectors: bool,
     include_exceptions: bool,
+    save_yaml_dir: Path | None,
 ) -> RuleCollection:
     """Export rule(s) and exception(s) into an importable ndjson file."""
     if len(rules) == 0:
@@ -636,16 +699,28 @@ def export_rules_from_repo(  # noqa: PLR0913
             new_contents = dataclasses.replace(rule.contents, data=new_data)
             rules.add_rule(TOMLRule(contents=new_contents))
 
-    outfile.parent.mkdir(exist_ok=True)
-    _export_rules(
-        rules=rules,
-        outfile=outfile,
-        downgrade_version=stack_version,
-        skip_unsupported=skip_unsupported,
-        include_metadata=include_metadata,
-        include_action_connectors=include_action_connectors,
-        include_exceptions=include_exceptions,
-    )
+    if save_yaml_dir:
+        save_yaml_dir.mkdir(parents=True, exist_ok=True)
+        _export_rules_as_yaml(
+            rules=rules,
+            yaml_directory=save_yaml_dir,
+            downgrade_version=stack_version,
+            skip_unsupported=skip_unsupported,
+            include_metadata=include_metadata,
+            include_action_connectors=include_action_connectors,
+            include_exceptions=include_exceptions,
+        )
+    else:
+        outfile.parent.mkdir(exist_ok=True)
+        _export_rules(
+            rules=rules,
+            outfile=outfile,
+            downgrade_version=stack_version,
+            skip_unsupported=skip_unsupported,
+            include_metadata=include_metadata,
+            include_action_connectors=include_action_connectors,
+            include_exceptions=include_exceptions,
+        )
 
     return rules
 

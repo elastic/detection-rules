@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/07"
+updated_date = "2026/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -34,8 +34,6 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-/* This rule is only compatible with Elastic Endpoint 8.4+ */
-
 process where host.os.type == "windows" and event.action == "start" and
 
  /* CreateProcessWithToken and effective parent is a privileged MS native binary used as a target for token theft */
@@ -49,7 +47,7 @@ process where host.os.type == "windows" and event.action == "start" and
       process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
 
 /* Ignores Windows print spooler service with correlation to Access Intelligent Form */
-not (process.parent.executable : ("?\\Windows\\System32\\spoolsv.exe", "C:\\Windows\\System32\\PrintIsolationHost.exe") and
+not (process.parent.executable : ("?:\\Windows\\System32\\spoolsv.exe", "?:\\Windows\\System32\\PrintIsolationHost.exe") and
      process.executable: ("?:\\Program Files\\*.exe",
                           "?:\\Program Files (x86)\\*.exe",
                           "?:\\Windows\\System32\\spool\\drivers\\*.exe",
