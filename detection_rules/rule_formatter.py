@@ -151,12 +151,13 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             lines = wrap_text(v)
 
         multiline = len(lines) > 1
-        raw = (multiline or (DQ in v and SQ not in v)) and TRIPLE_DQ not in v
+        raw = (multiline or (DQ in v and SQ not in v)) and TRIPLE_DQ not in v and "\\" not in v
 
         if multiline:
             if raw:
                 return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
-            return "\n".join([TRIPLE_SQ] + [json.dumps(line)[1:-1] for line in lines] + [TRIPLE_SQ])
+            # Use literal triple-SQ to preserve backslashes and avoid invalid TOML escape sequences
+            return "".join([TRIPLE_SQ, *initial_newline, *lines, TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
