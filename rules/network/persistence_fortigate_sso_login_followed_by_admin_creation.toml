@@ -2,7 +2,7 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -68,10 +68,10 @@ type = "eql"
 
 query = '''
 sequence by observer.name with maxspan=15m
-  [authentication where event.dataset == "fortinet_fortigate.log" and
+  [authentication where data_stream.dataset == "fortinet_fortigate.log" and
     event.action == "login" and event.outcome == "success" and
     (fortinet.firewall.method == "sso" or fortinet.firewall.ui like~ "sso*")]
-  [any where event.dataset == "fortinet_fortigate.log" and
+  [any where data_stream.dataset == "fortinet_fortigate.log" and
     event.code == "0100044547" and
     fortinet.firewall.cfgpath == "system.admin" and
     fortinet.firewall.action == "Add"]

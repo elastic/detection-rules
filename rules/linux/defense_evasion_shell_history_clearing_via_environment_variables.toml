@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2026/04/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/04/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the clearing of the shell history via environment variables. Attackers may clear the shell history
+to hide their activities from being tracked. By leveraging environment variables such as HISTSIZE, HISTFILESIZE,
+HISTCONTROL, and HISTFILE, attackers can clear the shell history by setting them to 0, ignoring spaces, or redirecting
+the history to /dev/null, effectively erasing the command history.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Shell History Clearing via Environment Variables"
+note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shell History Clearing via Environment Variables
+
+This rule detects Linux processes that start with shell history controls set to disable or discard command logging, a common defense-evasion tactic that removes evidence of hands-on-keyboard activity. An attacker who gains a shell may launch bash with HISTFILE=/dev/null and HISTSIZE=0, then run discovery, credential access, or privilege-escalation commands knowing their interactive history will not be written to disk.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and login context to determine whether the shell was launched from a legitimate admin session, a remote access channel such as SSH or a web shell, or an unexpected parent process.
+- Review all commands and child processes executed by the same user and terminal session immediately before and after the history suppression event for signs of discovery, credential access, lateral movement, privilege escalation, or log tampering.
+- Correlate with authentication, sudo, PAM, and SSH logs on the host to verify who initiated the session, from where, and whether the activity aligns with approved maintenance or change windows.
+- Examine concurrent file, network, and process telemetry for follow-on actions such as downloading tools, touching sensitive files, modifying startup scripts, or making outbound connections that would indicate the shell was used for malicious objectives.
+- If the activity is not clearly benign, capture volatile evidence and inspect shell startup files and account profiles for persistent history-disabling settings or aliases that could mask repeated interactive activity.
+
+### False positive analysis
+
+- Administrators may intentionally launch a temporary shell with HISTFILE=/dev/null or HISTSIZE=0 during sensitive maintenance to avoid saving secrets entered at the prompt; verify the user, change timing, parent process, and nearby commands align with approved administrative work on the host.
+- A user's shell startup files may legitimately set HISTCONTROL=ignorespace or redirect HISTFILE for noninteractive, ephemeral, or test sessions as part of local shell customization; confirm the same settings exist in the account or system shell profiles and appear consistently across the user's normal sessions without other suspicious behavior.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while preserving forensic access, stop the malicious shell and any spawned tools, and collect copies of the user’s shell startup files, current crontabs, and recently modified scripts before cleanup.
+- Remove attacker footholds by deleting unauthorized changes in ~/.bashrc, ~/.profile, /etc/profile, /etc/bash.bashrc, ~/.ssh/authorized_keys, systemd service or timer units, cron jobs, and any backdoor binaries or web shells dropped during the session.
+- Reset credentials and secrets exposed on or from the host, including the compromised local account, any sudo-capable accounts, SSH keys, and application tokens, and review sudoers files and group membership for malicious privilege changes.
+- Restore the system to a known-good state by rebuilding from a trusted image or validated backup and verifying core packages, shell configuration files, scheduled tasks, and remote access settings match the approved baseline before reconnecting it.
+- Escalate to incident response immediately if the history-suppression shell was followed by privilege escalation, credential access, outbound tool downloads, lateral movement over SSH, or the same behavior is identified on multiple hosts, and expand scoping to related accounts and systems.
+- Harden against recurrence by enforcing centralized command and session logging, restricting interactive shell access to managed administration paths, monitoring for shell profiles that set HISTFILE=/dev/null or HISTSIZE=0, and tightening change control for user and system startup files.
+"""
+references = ["https://www.rapid7.com/blog/post/tr-new-whitepaper-stealthy-bpfdoor-variants/"]
+risk_score = 73
+rule_id = "a68da7d6-7eab-45bd-97c5-93b469c0706e"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Enter the names of environment variables you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "HISTSIZE, HISTFILESIZE, HISTCONTROL, HISTFILE".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.env_vars like~ (
+  "HISTSIZE=0", "HISTFILESIZE=0", "HISTCONTROL=ignorespace", "HISTFILE=/dev/null"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Indicator Removal"
+  id = "T1070"
+  reference = "https://attack.mitre.org/techniques/T1070/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Clear Command History"
+    id = "T1070.003"
+    reference = "https://attack.mitre.org/techniques/T1070/003/"

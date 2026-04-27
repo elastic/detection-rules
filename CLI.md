@@ -413,21 +413,25 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 Toml formatted rule files can also be imported into Kibana through Kibana security app via a consolidated ndjson file
 which is exported from detection rules.
 
+For this command, **`-d` / `--directory`** selects **input**: directories to load rules from (same as other multi-collection commands). **`--outfile` / `-o`** is the **NDJSON output path** when you are not using YAML mode. **`--save-yaml-dir` / `-syd`** writes **per-rule (and related) YAML files** into that directory instead of producing a single NDJSON file; when `-syd` is set, `-o` is unused.
+
+Default NDJSON path when `-o` is omitted: `exports/<timestamp>.ndjson` under the detection-rules repository root.
+
 ```console
 Usage: detection_rules export-rules-from-repo [OPTIONS]
 
   Export rule(s) and exception(s) into an importable ndjson file.
 
 Options:
-  -f, --rule-file FILE
-  -d, --directory DIRECTORY       Recursively load rules from a directory
-  -id, --rule-id TEXT
+  -f, --rule-file FILE            Rule file(s) to load (repeatable)
+  -d, --directory DIRECTORY      Recursively load rules from a directory (repeatable)
+  -id, --rule-id TEXT             Load prebuilt rules matching these IDs (repeatable)
   -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
-  -o, --outfile PATH              Name of file for exported rules
-  -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15|8.16|8.17|8.18|9.0]
-                                  Downgrade a rule version to be compatible with older instances of Kibana
-  -s, --skip-unsupported          If `--stack-version` is passed, skip rule types which are unsupported (an error will be raised otherwise)
+  -o, --outfile PATH              NDJSON file path for exported rules (ignored if --save-yaml-dir is set)
+  -syd, --save-yaml-dir PATH      Export individual YAML files into this directory instead of NDJSON
+  -r, --replace-id                Replace rule IDs with new UUIDs before export
+  --stack-version [7.8|...|9.0]   Downgrade rule payloads for older Kibana (see `export-rules-from-repo --help` for full list)
+  -s, --skip-unsupported          With `--stack-version`, skip unsupported rule types instead of erroring
   --include-metadata              Add metadata to the exported rules
   -ac, --include-action-connectors
                                   Include Action Connectors in export
@@ -500,18 +504,19 @@ Usage: detection_rules kibana export-rules [OPTIONS]
   Export rules from Kibana.
 
 Options:
-  -d, --directory PATH            Directory to export rules to  [required]
+  -d, --directory PATH            Directory to write exported rules to  [required]
   -acd, --action-connectors-directory PATH
-                                  Directory to export action connectors to
+                                  Directory to export action connectors to (defaults from rules config if omitted)
   -ed, --exceptions-directory PATH
-                                  Directory to export exceptions to
+                                  Directory to export exceptions to (defaults from rules config if omitted)
   -da, --default-author TEXT      Default author for rules missing one
-  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
-  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)
+  -r, --rule-id TEXT              Optional rule ID(s) to restrict export to (repeatable)
+  -rn, --rule-name TEXT           Optional rule name filter (KQL, case-insensitive, wildcards); mutually exclusive with `--rule-id`
   -ac, --export-action-connectors
                                   Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
+  -sy, --save-as-yaml             Write rules (and exported exceptions/connectors when requested) as YAML under `--directory` instead of TOML
   -sv, --strip-version            Strip the version fields from all rules
   -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
   -lc, --local-creation-date      Preserve the local creation date of the rule
@@ -522,6 +527,8 @@ Options:
   -h, --help                      Show this message and exit.
 
 ```
+
+**Note:** `kibana export-rules` **`--directory` / `-d`** is the **output** directory only. It is unrelated to **`export-rules-from-repo`**, where **`-d`** means **input** rule directories.
 
 Example of a rule exporting, with errors skipped
 

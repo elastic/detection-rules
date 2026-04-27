@@ -5,19 +5,24 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies `do shell script` execution via AppleScript using macOS Unified Logs Apple Event telemetry. The Apple Event type `syso,exec` corresponds to the `do shell script` command, which allows AppleScript to execute arbitrary shell commands. While `do shell script` has many legitimate uses, it is heavily abused by macOS stealers to run shell commands for reconnaissance, credential theft, data exfiltration, and payload execution. This hunt returns hosts and event counts for `syso,exec` Apple Events, enabling analysts to identify unusual volumes of shell execution via AppleScript.
+- **Description:** This hunt identifies `do shell script` execution via AppleScript using macOS Unified Logs Apple Event telemetry. The Apple
+Event type `syso,exec` corresponds to the `do shell script` command, which allows AppleScript to execute arbitrary shell
+commands. While `do shell script` has many legitimate uses, it is heavily abused by macOS stealers to run shell commands
+for reconnaissance, credential theft, data exfiltration, and payload execution. This hunt returns hosts and event counts
+for `syso,exec` Apple Events, enabling analysts to identify unusual volumes of shell execution via AppleScript. This
+detection leverages the `com.apple.appleevents` subsystem debug logs and does not require private data enablement.
 
 - **UUID:** `447987db-4501-416b-b3b3-9176871a6b20`
-- **Integration:** [unified_logs](https://docs.elastic.co/integrations/unified_logs)
+- **Integration:** [unifiedlogs](https://docs.elastic.co/integrations/unifiedlogs)
 - **Language:** `[ES|QL]`
 - **Source File:** [Do Shell Script Execution via Apple Events](../queries/execution_do_shell_script_via_apple_events.toml)
 
 ## Query
 
 ```sql
-FROM logs-unified_logs.log-*
+FROM logs-unifiedlogs.unifiedlogs-*
 | WHERE @timestamp > NOW() - 7 day
-| WHERE host.os.type == "macos" AND event.dataset == "unified_logs.log" AND message LIKE "*syso,exec*"
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND apple_event.type_code == "syso,exec"
 | STATS event_count = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY host.name
 | WHERE event_count >= 3
 | SORT event_count DESC
