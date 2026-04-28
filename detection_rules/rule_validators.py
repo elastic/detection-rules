@@ -762,8 +762,7 @@ class ESQLValidator(QueryValidator):
             return [field["name"] for field in self.esql_unique_fields]
         return []
 
-    @staticmethod
-    def get_esql_query_indices(query: str) -> tuple[str, list[str]]:
+    def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
         """Extract indices from an ES|QL query."""
         match = FROM_SOURCES_REGEX.search(query)
         if not match:
