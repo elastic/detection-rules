@@ -42,12 +42,6 @@ from .alerts-security.*
     Esql.source_ip_values = VALUES(source.ip), 
     Esql.destination_ip_values = VALUES(destination.ip) by user.id
 
-| where Esql.rule_name_distinct_count >= 4 AND Esql.rule_id_distinct_count >= 2 and
-  // Exclude known system accounts with matches in more than one host
-  not (
-    (length(TO_STRING(user.id)) <= 4 or user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")) and
-    (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
-  )
 | where Esql.kibana_alert_rule_name_distinct_count >= 4 AND Esql.kibana_alert_rule_rule_id_distinct_count >= 2 and
  // Exclude known system accounts with matches in more than one host
  not (
