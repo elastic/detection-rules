@@ -761,6 +761,30 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f"{rule_id} - {entry['rule_name']} ->"
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Skipping deprecated version lock check")
+    def test_newly_deprecated_rules_have_reason(self):
+        """Newly deprecated rules must include `deprecated_reason` in [metadata].
+
+        Rules already in `deprecated_rules.json` are grandfathered.
+        """
+        already_deprecated = set(self.rules_config.deprecated_rules)
+        missing: list[str] = []
+
+        for rule in self.deprecated_rules:
+            if rule.id in already_deprecated:
+                continue
+            if not rule.contents.metadata.get("deprecated_reason"):
+                missing.append(self.rule_str(rule))
+
+        if missing:
+            rules_str = "\n  ".join(missing)
+            self.fail(
+                "The following newly deprecated rules are missing `deprecated_reason` in "
+                "[metadata]. Add a short explanation (e.g. 'Replaced by <rule name>'). This "
+                "field is only required for NEW deprecations on this branch; rules already "
+                f"tracked in `deprecated_rules.json` are grandfathered.\n  {rules_str}"
+            )
+
     def test_deprecated_rules_modified(self):
         """Test to ensure deprecated rules are not modified."""
 
