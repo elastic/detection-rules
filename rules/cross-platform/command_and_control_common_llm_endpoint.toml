@@ -2,8 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/07"
-
+updated_date = "2026/04/21"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +16,7 @@ index = [
     "logs-endpoint.events.network-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-windows.sysmon_operational-*",
-    "winlogbeat-*"
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -103,11 +102,12 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
     "generativelanguage.googleapis.com",
     "api.azure.com",
     "api.bedrock.aws",
-    "bedrock-runtime.amazonaws.com",
+    "bedrock-runtime.*.amazonaws.com",
 
     // Hugging Face & other ML infra
     "api-inference.huggingface.co",
     "inference-endpoint.huggingface.cloud",
+    "router.huggingface.co",
     "*.hf.space",
     "*.replicate.com",
     "api.replicate.com",
@@ -115,6 +115,99 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
     "*.runpod.io",
     "api.modal.com",
     "*.forefront.ai",
+
+    "api.arcee.ai",
+    "api.sambanova.ai",
+    "chatapi.akash.network",
+    "api.reka.ai",
+    "api.cerebras.ai",
+    "api.morphllm.com",
+    "openrouter.ai",
+    "api.moonshot.cn",
+    "api.moonshot.ai",
+    "api.z.ai",
+    "api.inference.wandb.ai",
+    "trace.wandb.ai",
+    "api.bfl.ai",
+    "api.eu.bfl.ai",
+    "api.us.bfl.ai",
+    "api.ionstream.ai",
+    "api.minimax.io",
+    "api.minimaxi.com",
+    "api.stepfun.ai",
+    "api.stepfun.com",
+    "api.featherless.ai",
+    "api.intelligence.io.solutions",
+    "api.fireworks.ai",
+    "inference.baseten.co",
+    "api.baseten.co",
+    "api.gmi-serving.com",
+    "api.ncompass.tech",
+    "api.nextbit256.com",
+    "api.hyperbolic.xyz",
+    "neuro.mancer.tech",
+    "managed-inference-api-proxy.crusoecloud.com",
+    "api.crusoe.ai",
+    "api.avian.io",
+    "api.siliconflow.cn",
+    "api.totalgpt.ai",
+    "switchpoint.dev",
+    "api.novita.ai",
+    "api.inflection.ai",
+    "api.wavespeed.ai",
+    "api.cloud.mara.com",
+    "api.inference.net",
+    "api.deepinfra.com",
+    "api.xiaomimimo.com",
+    "dashscope.aliyuncs.com",
+    "dashscope-intl.aliyuncs.com",
+    "dashscope-us.aliyuncs.com",
+    "integrate.api.nvidia.com",
+    "api.inceptionlabs.ai",
+    "api.friendli.ai",
+    "external.api.recraft.ai",
+    "api.cloudflare.com",
+    "gateway.ai.cloudflare.com",
+    "api.studio.nebius.ai",
+    "api.tokenfactory.nebius.com",
+    "api.aionlabs.ai",
+    "api.relace.run",
+    "instantapply.endpoint.relace.run",
+    "ranker.endpoint.relace.run",
+    "embeddings.endpoint.relace.run",
+    "console-api.inference.ai",
+    "api.parasail.io",
+    "api.redpill.ai",
+    "api.modular.com",
+    "ark.cn-beijing.volces.com",
+    "ark.ap-southeast.bytepluses.com",
+    "ai2endpoints.cirrascale.ai",
+    "aisuite.cirrascale.com",
+    "api.clarifai.com",
+    "api.venice.ai",
+    "api.atlascloud.ai",
+    "wanqing.streamlakeapi.com",
+    "api.ambient.xyz",
+    "api.upstage.ai",
+    "api.together.xyz",
+    "api.inceptron.io",
+    "chutes.ai",
+    "aiplatform.googleapis.com",
+    "portal.nousresearch.com",
+    "inference-api.nousresearch.com",
+    "api.githubcopilot.com",
+    "ai-gateway.vercel.sh",
+    "opencode.ai",
+    "api.kilo.ai",
+    "qianfan.baidubce.com",
+    "hunyuan.tencentcloudapi.com",
+    "open.bigmodel.cn",
+    "spark-api-open.xf-yun.com",
+    "api.sensenova.cn",
+    "api.baichuan-ai.com",
+    "api-inference.modelscope.cn",
+    "api.lingyiwanwu.com",
+    "api.360.cn",
 
     // Consumer-facing AI chat portals
     "chat.openai.com",
@@ -151,18 +244,19 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1102"
 name = "Web Service"
 reference = "https://attack.mitre.org/techniques/T1102/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1102.002"
 name = "Bidirectional Communication"
 reference = "https://attack.mitre.org/techniques/T1102/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
