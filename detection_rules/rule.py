@@ -392,6 +392,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     type: definitions.RuleType
 
     actions: list[dict[str, Any]] | None = None
+    response_actions: list[dict[str, Any]] | None = None
     building_block_type: definitions.BuildingBlockType | None = None
     enabled: bool | None = None
     exceptions_list: list[dict[str, str]] | None = None
