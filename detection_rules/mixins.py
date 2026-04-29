@@ -49,7 +49,7 @@ def get_dataclass_required_fields(cls: Any) -> list[str]:
         if not hint:
             continue
 
-        mm_field = marshmallow_schema.fields.get(dc_field.name)
+        mm_field = marshmallow_schema.fields.get(dc_field.name)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
         if mm_field is None:
             continue
         if dc_field.default is not dataclasses.MISSING:
@@ -283,10 +283,10 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
             # marshmallow 4 removed `name`, `parent`, `root`, and `default_error_messages`
             # from `Field.__init__`; bind the new field to the parent schema after construction.
             new_field = marshmallow_union.Union(
-                [subfield for _, subfield in field.union_fields],
+                [subfield for _, subfield in field.union_fields],  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
                 metadata=field.metadata,  # type: ignore[reportUnknownMemberType]
                 required=field.required,
-                error_messages=field.error_messages,
+                error_messages=field.error_messages,  # type: ignore[reportUnknownMemberType]
                 dump_default=field.dump_default,  # type: ignore[reportUnknownMemberType]
                 allow_none=field.allow_none,
             )
