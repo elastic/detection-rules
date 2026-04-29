@@ -7,9 +7,12 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Detects ctr, crictl, or nerdctl on Linux when invoked with arguments associated with container lifecycle abuse, image
-staging, task or snapshot access, privileged or host-namespace flags, bind mounts, or CRI namespace targeting—patterns
-common during post-compromise container administration and breakout attempts.
+Detects execution of container runtime CLI tools (ctr, crictl, nerdctl) with arguments indicating container creation,
+command execution inside existing containers, image manipulation, or host filesystem mounting. These tools interact
+directly with the container runtime socket, bypassing the Kubernetes API server, RBAC authorization, admission webhooks,
+pod security standards, and Kubernetes audit logging entirely. Attackers with host-level access may use these tools to
+create privileged ghost containers, exec into other pods to steal service account tokens and secrets, pull
+attacker-controlled images, and destroy evidence, all while remaining invisible to Kubernetes-level monitoring.
 """
 false_positives = [
     """
