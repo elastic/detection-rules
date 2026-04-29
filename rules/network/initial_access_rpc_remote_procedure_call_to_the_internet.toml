@@ -32,14 +32,14 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: network_traffic.flow or event.category: (network or network_traffic)) and
-  network.transport: tcp and (destination.port: 135 or data_stream.dataset: zeek.dce_rpc) and
-  source.ip: (
+(data_stream.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+  network.transport:tcp and (destination.port:135 or data_stream.dataset:zeek.dce_rpc) and
+  source.ip:(
     10.0.0.0/8 or
     172.16.0.0/12 or
     192.168.0.0/16
   ) and
-  not destination.ip: (
+  not destination.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or
     169.254.0.0/16 or
