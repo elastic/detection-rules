@@ -143,6 +143,7 @@ class TestKQLtoDSL(unittest.TestCase):
 
     def test_wildcard_query_string_escaping(self):
         """Wildcard values converted to query_string.query must escape Lucene reserved chars while preserving `*`."""
+
         def qs(field, query):
             return {"filter": [{"query_string": {"fields": [field], "query": query}}]}
 
