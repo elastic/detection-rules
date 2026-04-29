@@ -75,30 +75,21 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 host.os.type:linux and event.category:process and event.action:(exec or executed) and 
-  (
-    process.name:(ctr or crictl or nerdctl or .*) or 
-    process.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or /home/* or /run/user/*)
-  ) and (
-  process.args:("run" or "exec" or "create" or "start") or
-  process.args:("pull" or "import" or "load" or "push") or
-  (process.args:"tasks" and process.args:("exec" or "kill" or "start")) or
-  (process.args:"snapshots" and process.args:("mount" or "prepare")) or
-  (process.args:"content" and process.args:("get" or "fetch")) or
-  process.args:("--privileged" or "--net-host" or "--pid-host") or
-  process.args:("--mount" and "type=bind") or
-  (process.args:("k8s.io" or "moby") and process.args:("exec" or "run" or "tasks")) or
-  (process.args:("rm" or "delete" or "--rm") and process.args:("containers" or "run"))
+(
+  process.name:(crictl or ctr or nerdctl or .*) or 
+  process.executable:(/dev/shm/* or /home/* or /run/user/* or /tmp/* or /var/tmp/*)
 ) and 
-not process.args:("version" or "info" or "--help") and 
-not process.parent.executable:(
-  "/usr/bin/kubelet" or
-  "/usr/local/bin/kubelet" or
-  "/usr/bin/containerd" or
-  "/usr/sbin/containerd" or
-  "/usr/lib/systemd/systemd" or
-  "/lib/systemd/systemd" or
-  "/sbin/init"
-)
+process.args:(
+  (--net-host or --pid-host or --privileged or create or exec or import or load or pull or push or run or start or 
+   tasks and (exec or kill or start) or 
+   snapshots and (mount or prepare) or 
+   content and (fetch or get) or 
+   --mount and type=bind or
+   (k8s.io or moby) and (exec or run or tasks) or 
+   (--rm or delete or rm) and (containers or run)) and 
+   not (--help or info or version)
+   ) and 
+not process.parent.executable:(/lib/systemd/systemd or /sbin/init or /usr/bin/containerd or /usr/bin/kubelet or /usr/lib/systemd/systemd or /usr/local/bin/kubelet or /usr/sbin/containerd)
 '''
 
 [[rule.threat]]
