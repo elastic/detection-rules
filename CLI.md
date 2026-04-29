@@ -28,6 +28,7 @@ Currently supported arguments:
 * es_user 
 * es_password
 * api_key
+* kibana_import_batch_size (positive integer; default `50`)
 
 Authenticating to Kibana is only available using api_key.
 
@@ -52,6 +53,8 @@ For instance, some users may want to increase the default value in cases where h
 Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
 
 Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
+
+Using the environment variable `DR_KIBANA_IMPORT_BATCH_SIZE` (or the `kibana_import_batch_size` config value) will control how many rules are sent per HTTP request by `kibana import-rules`. The default is `50`. Increase it to reduce the number of round-trips when Kibana is fast; decrease it if large imports time out (Kibana has an internal ~2 minute request budget). The value must be a positive integer. See [Batching and shared exceptions / action connectors](#batching-and-shared-exceptions--action-connectors) for how this interacts with grouped rules.
 
 ## Importing rules into the repo
 
@@ -262,6 +265,39 @@ Options:
                                   Overwrite action connectors in existing rules
   -h, --help                      Show this message and exit.
 ```
+
+#### Batching and shared exceptions / action connectors
+
+`kibana import-rules` splits the rule set into batches before calling Kibana's `/_import`
+endpoint, so large imports do not exceed Kibana's internal request budget. Batch size is
+resolved in the following order (highest precedence first):
+
+1. `DR_KIBANA_IMPORT_BATCH_SIZE` environment variable
+2. `kibana_import_batch_size` in the user config file
+3. Built-in default of `50`
+
+Rules linked through shared TOML exceptions or action connectors cannot be split across
+batches. Each TOML exception and action connector declares the rules it applies to via
+`metadata.rule_ids`; `import-rules` keeps every rule listed on an exception/connector in
+the same batch as that exception/connector so a single `/_import` payload always
+contains both the rule and the shared item it depends on. Only the rules and items
+being imported are considered when grouping — existing Kibana state is not consulted.
+
+As a consequence, a single batch may exceed the configured `batch_size` when a group of
+linked rules is larger than it. The batch is sent intact in that case, because splitting
+it would separate a rule from the exception/connector it depends on. If you hit Kibana
+timeouts on such a group, split the underlying exception/connector TOML files so fewer
+rules are linked together.
+
+Each batch prints a progress line such as:
+
+```
+Importing batch 3/12: 50 rule(s), 2 exception list(s), 1 action connector(s)
+```
+
+The final summary aggregates success counts, errors, exceptions, and action connectors
+across all batches, so the command's exit output is equivalent to a single-request
+import.
 
 Example usage of a successful upload:
 

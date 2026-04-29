@@ -25,7 +25,7 @@ from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents, build_exception_objects, parse_exceptions_results_from_api
 from .generic_loader import GenericCollection
 from .main import root
-from .misc import add_params, get_kibana_client, kibana_options, nested_set, raise_client_error
+from .misc import add_params, get_kibana_client, getdefault, kibana_options, nested_set, raise_client_error
 from .rule import TOMLRule, TOMLRuleContents, downgrade_contents_from_rule
 from .rule_loader import RawRuleCollection, RuleCollection, update_metadata_from_file
 from .schemas import definitions
@@ -91,6 +91,147 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     return results
 
 
+def _resolve_import_batch_size() -> int:
+    """Resolve the Kibana import batch size.""""
+
+    """
+    Order of precedence (highest first):
+    * ``DR_KIBANA_IMPORT_BATCH_SIZE`` environment variable
+    * ``kibana_import_batch_size`` in the user config file (``.detection-rules-cfg.*``)
+    * ``definitions.KIBANA_IMPORT_BATCH_SIZE`` default
+    """
+    raw = getdefault("kibana_import_batch_size")()
+    if raw is None or raw == "":
+        return definitions.KIBANA_IMPORT_BATCH_SIZE
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise_client_error(
+            "Invalid kibana_import_batch_size / DR_KIBANA_IMPORT_BATCH_SIZE value "
+            f"{raw!r}; expected a positive integer."
+        )
+    if value <= 0:
+        raise_client_error(
+            "Invalid kibana_import_batch_size / DR_KIBANA_IMPORT_BATCH_SIZE value "
+            f"{value}; expected a positive integer."
+        )
+    return value
+
+
+def _build_import_batches(
+    rules_list: list[TOMLRule],
+    exceptions: list[Any],
+    action_connectors: list[Any],
+    batch_size: int,
+) -> list[tuple[list[TOMLRule], list[Any], list[Any]]]:
+    """Group rules that share an exception or action connector, then chunk up to ``batch_size``."""
+
+    """
+    Only the rules and items being imported are considered; Kibana state is not consulted.
+    A linked group larger than ``batch_size`` is emitted intact as one oversized batch so a
+    rule is never separated from the exception/connector it depends on.
+    """
+    rule_by_id: dict[str, TOMLRule] = {r.id: r for r in rules_list}
+    import_ids: set[str] = set(rule_by_id)
+
+    # One group per rule; each group is (rules, exceptions, connectors).
+    # group_of[rule_id] points at the rule's current group key.
+    group_of: dict[str, str] = {rid: rid for rid in import_ids}
+    groups: dict[str, tuple[list[TOMLRule], list[Any], list[Any]]] = {
+        rid: ([rule_by_id[rid]], [], []) for rid in import_ids
+    }
+
+    def attach(item: Any, slot: int) -> None:
+        linked = [rid for rid in getattr(item.contents.metadata, "rule_ids", []) if rid in import_ids]
+        if not linked:
+            return
+        target = group_of[linked[0]]
+        for rid in linked[1:]:
+            src = group_of[rid]
+            if src == target:
+                continue
+            src_rules, src_exc, src_conn = groups.pop(src)
+            for moved in src_rules:
+                group_of[moved.id] = target
+            groups[target][0].extend(src_rules)
+            groups[target][1].extend(src_exc)
+            groups[target][2].extend(src_conn)
+        groups[target][slot].append(item)
+
+    for e in exceptions:
+        attach(e, 1)
+    for a in action_connectors:
+        attach(a, 2)
+
+    batches: list[tuple[list[TOMLRule], list[Any], list[Any]]] = []
+    cur: tuple[list[TOMLRule], list[Any], list[Any]] = ([], [], [])
+    for group_rules, group_exc, group_conn in groups.values():
+        if cur[0] and len(cur[0]) + len(group_rules) > batch_size:
+            batches.append(cur)
+            cur = ([], [], [])
+        cur[0].extend(group_rules)
+        cur[1].extend(group_exc)
+        cur[2].extend(group_conn)
+    if cur[0]:
+        batches.append(cur)
+
+    return batches
+
+
+_MERGE_BOOL_KEYS: tuple[str, ...] = (
+    "success",
+    "exceptions_success",
+    "action_connectors_success",
+)
+_MERGE_COUNT_KEYS: tuple[str, ...] = (
+    "success_count",
+    "rules_count",
+    "exceptions_success_count",
+    "action_connectors_success_count",
+)
+_MERGE_LIST_KEYS: tuple[str, ...] = (
+    "errors",
+    "exceptions_errors",
+    "action_connectors_errors",
+    "action_connectors_warnings",
+)
+
+
+def _merge_import_responses(responses: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge per-batch Kibana ``/_import`` responses into a single aggregate response.
+
+    Boolean success flags are AND-ed, count fields are summed, and error/warning lists are
+    concatenated. Unknown keys from the first response are preserved so callers that inspect
+    additional fields are not silently stripped.
+    """
+    merged: dict[str, Any] = {key: True for key in _MERGE_BOOL_KEYS}
+    merged.update({key: 0 for key in _MERGE_COUNT_KEYS})
+    merged.update({key: [] for key in _MERGE_LIST_KEYS})
+
+    for resp in responses:
+        if not resp:
+            continue
+        for key in _MERGE_BOOL_KEYS:
+            if key in resp:
+                merged[key] = bool(merged[key]) and bool(resp[key])
+        for key in _MERGE_COUNT_KEYS:
+            if key in resp:
+                try:
+                    merged[key] = int(merged[key]) + int(resp[key])
+                except (TypeError, ValueError):
+                    continue
+        for key in _MERGE_LIST_KEYS:
+            value = resp.get(key)
+            if isinstance(value, list):
+                merged[key].extend(value)  # type: ignore[reportUnknownArgumentType]
+        for key, value in resp.items():
+            if key in _MERGE_BOOL_KEYS or key in _MERGE_COUNT_KEYS or key in _MERGE_LIST_KEYS:
+                continue
+            merged.setdefault(key, value)
+
+    return merged
+
+
 @kibana_group.command("import-rules")
 @multi_collection
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing rules")
@@ -109,7 +250,14 @@ def kibana_import_rules(  # noqa: PLR0915
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
 ) -> tuple[dict[str, Any], list[RuleResource]]:
-    """Import rules into Kibana."""
+    """Import rules into Kibana.
+
+    Rules are sent to Kibana's ``/_import`` endpoint in batches to avoid request timeouts
+    on large rule sets. Batch size is resolved from the ``DR_KIBANA_IMPORT_BATCH_SIZE``
+    environment variable or the ``kibana_import_batch_size`` config setting (default: 50).
+    Rules that share a TOML exception or action connector are always kept together in the
+    same batch, so a batch may exceed the configured size when a linked group is larger.
+    """
 
     def _handle_response_errors(response: dict[str, Any], imported_exception_dicts: list[list[dict[str, Any]]]) -> None:
         """Handle errors from the import response."""
@@ -173,29 +321,38 @@ def kibana_import_rules(  # noqa: PLR0915
             click.echo(f" - {ids_str}")
 
     kibana = ctx.obj["kibana"]
-    batch_size = definitions.KIBANA_IMPORT_BATCH_SIZE
+    batch_size = _resolve_import_batch_size()
     rules_list = list(rules)
     imported_exception_dicts: list[list[dict[str, Any]]] = []
     imported_action_connectors_dicts: list[list[dict[str, Any]]] = []
     successful_rule_ids: list[str] = []
-    all_errors: list[dict[str, Any]] = []
+    batch_responses: list[dict[str, Any]] = []
     results: list[RuleResource] = []
 
     with kibana:
         cl = GenericCollection.default()
-        for i in range(0, len(rules_list), batch_size):
-            batched_rules = rules_list[i : i + batch_size]
-            rule_dicts = [r.contents.to_api_format() for r in batched_rules]
-            rule_ids = {rule["rule_id"] for rule in rule_dicts}
+        import_rule_ids = {r.id for r in rules_list}
+        all_exceptions = list(cl.items_matching(TOMLExceptionContents, import_rule_ids))
+        all_action_connectors = list(cl.items_matching(TOMLActionConnectorContents, import_rule_ids))
 
+        batches = _build_import_batches(rules_list, all_exceptions, all_action_connectors, batch_size)
+        total_batches = len(batches)
+
+        for batch_index, (batched_rules, batched_exceptions, batched_connectors) in enumerate(batches, start=1):
+            rule_dicts = [r.contents.to_api_format() for r in batched_rules]
             exception_dicts: list[list[dict[str, Any]]] = [
-                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-                for d in cl.items_matching(TOMLExceptionContents, rule_ids)
+                e.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for e in batched_exceptions
             ]
             action_connectors_dicts: list[list[dict[str, Any]]] = [
-                d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-                for d in cl.items_matching(TOMLActionConnectorContents, rule_ids)
+                a.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+                for a in batched_connectors
             ]
+
+            click.echo(
+                f"Importing batch {batch_index}/{total_batches}: {len(rule_dicts)} rule(s), "
+                f"{len(exception_dicts)} exception list(s), {len(action_connectors_dicts)} action connector(s)"
+            )
 
             response, batch_successful_rule_ids, batch_results = RuleResource.import_rules(  # type: ignore[reportUnknownMemberType]
                 rule_dicts,
@@ -210,22 +367,22 @@ def kibana_import_rules(  # noqa: PLR0915
             imported_exception_dicts.extend(exception_dicts)
             imported_action_connectors_dicts.extend(action_connectors_dicts)
             successful_rule_ids.extend(cast("list[str]", batch_successful_rule_ids))
-            all_errors.extend(cast("list[dict[str, Any]]", response.get("errors", [])))
+            batch_responses.append(response)
             results.extend(cast("list[RuleResource]", batch_results))
 
-    response: dict[str, Any] = {"errors": all_errors}
+    merged_response: dict[str, Any] = _merge_import_responses(batch_responses)
 
     if successful_rule_ids:
-        click.echo(f"{len(successful_rule_ids)} rule(s) successfully imported")  # type: ignore[reportUnknownArgumentType]
-        rule_str = "\n - ".join(successful_rule_ids)  # type: ignore[reportUnknownArgumentType]
+        click.echo(f"{len(successful_rule_ids)} rule(s) successfully imported")
+        rule_str = "\n - ".join(successful_rule_ids)
         click.echo(f" - {rule_str}")
-    if response["errors"]:
-        _handle_response_errors(response, imported_exception_dicts)  # type: ignore[reportUnknownArgumentType]
+    if merged_response["errors"]:
+        _handle_response_errors(merged_response, imported_exception_dicts)
     else:
-        _process_imported_items(imported_exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
-        _process_imported_items(imported_action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
+        _process_imported_items(imported_exception_dicts, "exception list(s)", "list_id")
+        _process_imported_items(imported_action_connectors_dicts, "action connector(s)", "id")
 
-    return response, results  # type: ignore[reportUnknownVariableType]
+    return merged_response, results
 
 
 @kibana_group.command("export-rules")
