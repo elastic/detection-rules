@@ -126,22 +126,6 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
     return data
 
 
-def preserve_all_strings(obj: Any) -> Any:
-    """Recursively mark every string leaf under ``obj`` as NonformattedField."""
-
-    # Used to keep arbitrary nested string content which would otherwise
-    # reflow/wrap the text via ``wrap_text``.
-    if isinstance(obj, NonformattedField):
-        return obj
-    if isinstance(obj, str):
-        return NonformattedField(obj)
-    if isinstance(obj, dict):
-        return {k: preserve_all_strings(v) for k, v in obj.items()}  # type: ignore[reportUnknownVariableType]
-    if isinstance(obj, list):
-        return [preserve_all_strings(v) for v in obj]  # type: ignore[reportUnknownVariableType]
-    return obj
-
-
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
     """Generate a pretty form of toml."""
 
@@ -167,13 +151,15 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             lines = wrap_text(v)
 
         multiline = len(lines) > 1
-        raw = (multiline or (DQ in v and SQ not in v)) and TRIPLE_DQ not in v and "\\" not in v
+        raw = (multiline or (DQ in v and SQ not in v)) and TRIPLE_DQ not in v
 
         if multiline:
-            if raw:
-                return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
-            # Use literal triple-SQ to preserve backslashes and avoid invalid TOML escape sequences
-            return "".join([TRIPLE_SQ, *initial_newline, *lines, TRIPLE_SQ])
+            # Triple-double-quoted basic strings allow literal newlines and literal ``"``
+            # (as long as ``"""`` doesn't appear, which is guarded above via ``TRIPLE_DQ not in v``),
+            # but backslashes must be escaped so that e.g. ``Hello\:World`` is serialized as
+            # ``Hello\\:World`` -- otherwise ``\:`` is an invalid TOML escape sequence (issue #5182).
+            escaped_lines = [line.replace("\\", "\\\\") for line in lines]
+            return "".join([TRIPLE_DQ, *initial_newline, *escaped_lines, TRIPLE_DQ])
         if raw:
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
@@ -263,12 +249,6 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
                 # explicitly preserve formatting for value field in filters
                 preserved_fields = ["meta.value"]
                 v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
-                # Preserve the verbatim content of any nested DSL query body under ``filters[].query``
-                # (e.g. ``query.query_string.query``, ``query.match_phrase.*.query``, ``query.bool.*``).
-                # These are Elasticsearch query DSL strings and must not be reflowed by ``wrap_text``.
-                for filt in v:
-                    if isinstance(filt, dict) and isinstance(filt.get("query"), dict):
-                        filt["query"] = preserve_all_strings(filt["query"])
 
             if k == "note" and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
