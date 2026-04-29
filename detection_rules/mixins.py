@@ -77,9 +77,14 @@ def patch_jsonschema(obj: Any) -> dict[str, Any]:
         child.pop("title", None)
 
         if "anyOf" in child:
-            child["anyOf"] = [dive(c) for c in child["anyOf"]]
+            # marshmallow-jsonschema 0.16+ emits an extra `anyOf` branch with only
+            # `default`/`title` keys to represent the None side of an Optional field.
+            # After diving (which strips `default: null` and `title`) those branches
+            # become empty dicts and should be dropped to preserve the previous shape.
+            dived = [dive(c) for c in child["anyOf"]]
+            child["anyOf"] = [c for c in dived if c]
 
-        elif isinstance(child["type"], list):
+        elif isinstance(child.get("type"), list):
             type_vals: list[str] = child["type"]  # type: ignore[reportUnknownVariableType]
 
             if "null" in type_vals:
@@ -275,16 +280,16 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
 
         if isinstance(field, marshmallow_dataclass.union_field.Union):
             # convert to marshmallow_union.Union
-            field = marshmallow_union.Union(
+            # marshmallow 4 removed `name`, `parent`, `root`, and `default_error_messages`
+            # from `Field.__init__`; bind the new field to the parent schema after construction.
+            new_field = marshmallow_union.Union(
                 [subfield for _, subfield in field.union_fields],
                 metadata=field.metadata,  # type: ignore[reportUnknownMemberType]
                 required=field.required,
-                name=field.name,  # type: ignore[reportUnknownMemberType]
-                parent=field.parent,  # type: ignore[reportUnknownMemberType]
-                root=field.root,  # type: ignore[reportUnknownMemberType]
                 error_messages=field.error_messages,
-                default_error_messages=field.default_error_messages,
-                default=field.default,  # type: ignore[reportUnknownMemberType]
+                dump_default=field.dump_default,  # type: ignore[reportUnknownMemberType]
                 allow_none=field.allow_none,
             )
+            new_field._bind_to_schema(field.name, field.parent)  # type: ignore[reportUnknownMemberType]  # noqa: SLF001
+            field = new_field
         return super()._get_schema_for_field(obj, field)  # type: ignore[reportUnknownMemberType]
