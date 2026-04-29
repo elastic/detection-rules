@@ -126,6 +126,22 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
     return data
 
 
+def preserve_all_strings(obj: Any) -> Any:
+    """Recursively mark every string leaf under ``obj`` as NonformattedField."""
+
+    # Used to keep arbitrary nested string content which would otherwise
+    # reflow/wrap the text via ``wrap_text``.
+    if isinstance(obj, NonformattedField):
+        return obj
+    if isinstance(obj, str):
+        return NonformattedField(obj)
+    if isinstance(obj, dict):
+        return {k: preserve_all_strings(v) for k, v in obj.items()}  # type: ignore[reportUnknownVariableType]
+    if isinstance(obj, list):
+        return [preserve_all_strings(v) for v in obj]  # type: ignore[reportUnknownVariableType]
+    return obj
+
+
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
     """Generate a pretty form of toml."""
 
@@ -247,6 +263,12 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
                 # explicitly preserve formatting for value field in filters
                 preserved_fields = ["meta.value"]
                 v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
+                # Preserve the verbatim content of any nested DSL query body under ``filters[].query``
+                # (e.g. ``query.query_string.query``, ``query.match_phrase.*.query``, ``query.bool.*``).
+                # These are Elasticsearch query DSL strings and must not be reflowed by ``wrap_text``.
+                for filt in v:
+                    if isinstance(filt, dict) and isinstance(filt.get("query"), dict):
+                        filt["query"] = preserve_all_strings(filt["query"])
 
             if k == "note" and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
