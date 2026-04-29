@@ -7,7 +7,7 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Detects potential remote code execution attempts via Git Enterprise Server, as a result of a vulnerability (CVE-2026-3854).
+Detects potential remote code execution attempts via GitHub Enterprise Server, as a result of a vulnerability (CVE-2026-3854).
 Authenticated command injection via git push options in GitHub Enterprise Server allows RCE on backend nodes by abusing
 unsanitized push-option metadata injected into internal headers.
 """
@@ -27,8 +27,38 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Remote Code Execution via Git Enterprise Server"
+name = "Potential Remote Code Execution via GitHub Enterprise Server"
 note = """
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Remote Code Execution via GitHub Enterprise Server
+
+This rule spots git push activity that includes crafted push options with shell metacharacters, a strong sign that someone is trying to turn repository traffic into command execution on backend GitHub Enterprise Server nodes. An attacker with valid access can issue a push using a malicious option such as `--push-option='x; curl ... | sh'` to inject commands through internal request handling and gain code execution on the server.
+
+### Possible investigation steps
+
+- Validate whether the user, source workstation, and target repository match normal developer behavior and confirm with change records or the user whether the push and any custom push options were expected.
+- Review GitHub Enterprise Server audit, SSH, web, and reverse-proxy logs for the same account and time window to determine whether the push reached the server and whether request handling, hooks, or backend services showed anomalies.
+- Hunt on GitHub Enterprise Server backend nodes for shells, interpreters, download utilities, temporary file creation, or other unexpected child activity spawned shortly after the push to confirm or refute successful code execution.
+- Examine follow-on activity tied to the same account or affected server, including unusual outbound connections, new SSH keys or tokens, repository permission changes, and access to additional systems or repositories.
+- If the activity is unauthorized, preserve volatile data and relevant logs, revoke the user’s credentials and tokens, isolate impacted backend nodes, and expedite remediation or patching for CVE-2026-3854.
+
+### False positive analysis
+
+- A developer or approved script may legitimately use `git push -o/--push-option` to pass custom metadata to repository hooks, and a literal value containing `;` or backticks can match this rule, so verify the option against documented hook usage and confirm the same pattern is routinely used by the same user or repository.
+- A local shell wrapper, alias, or maintenance script can build a `git push` command with quoted semicolons or backtick-based variable expansion that appears suspicious in process telemetry without delivering a malicious payload, so review the parent process and invoked script to confirm it is an expected workflow and that no abnormal activity followed on GitHub Enterprise Server.
+
+### Response and remediation
+
+- Immediately isolate the affected GitHub Enterprise Server backend node or cluster members from the network, pause repository synchronization and background jobs, and block the source workstation, VPN session, or bastion host used for the malicious `git push`.
+- Revoke the involved user’s password, personal access tokens, SSH keys, OAuth tokens, and active sessions, then remove any attacker-added SSH authorized keys, cron entries, system services, scheduled tasks, repository hooks, or webhooks created after the malicious push.
+- Preserve memory, relevant logs, the malicious push command, and any dropped scripts or binaries for forensics, then rebuild or restore compromised GitHub Enterprise Server nodes from a known-good image or backup taken before the exploit and validate repository integrity before returning them to service.
+- Escalate to incident response immediately if you confirm command execution on a backend node, see shells or download tools spawned by Git services, detect outbound connections from the appliance, or find evidence that source code, secrets, tokens, or admin settings were accessed or changed.
+- Patch GitHub Enterprise Server to the fixed release for CVE-2026-3854, restrict or disable push options and custom hooks where not required, rotate secrets stored on the appliance, enforce MFA for administrators, and add detections for `git push` commands carrying shell metacharacters or unusual child processes from Git components.
+
 """
 references = [
     "https://www.wiz.io/blog/github-rce-vulnerability-cve-2026-3854"
