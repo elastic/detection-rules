@@ -2,7 +2,7 @@
 creation_date = "2026/03/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/03/12"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "cloudshell.amazonaws.com"
     and event.action: "CreateEnvironment"
     and event.outcome: "success"
@@ -104,22 +104,39 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.009"
 name = "Cloud API"
 reference = "https://attack.mitre.org/techniques/T1059/009/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
