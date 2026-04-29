@@ -6,7 +6,7 @@
 
 import copy
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, get_args
@@ -73,7 +73,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
         type: definitions.EsDataTypes
 
     operator: definitions.ExceptionEntryOperator
-    list_vals: ListObject | None = None
+    list_vals: ListObject | None = field(default=None, metadata={"data_key": "list"})
     value: str | None | list[str] = None
 
     @validates_schema

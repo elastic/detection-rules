@@ -6,7 +6,7 @@ on:
           description: 'List of branches to lock versions (ordered, comma separated)'
           required: true
           # 7.17 was intentionally skipped because it was added late and was bug fix only
-          default: '8.19,9.1,9.2,9.3'
+          default: '8.19,9.2,9.3,9.4'
 
 jobs:
   pr:
@@ -59,6 +59,7 @@ jobs:
           echo "::add-mask::$GENERATED_PASSWORD"
           echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
           set -x
+          bash elastic-container.sh update-version
           bash elastic-container.sh start
           
       - name: Get API Key and setup auth
