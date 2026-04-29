@@ -17,46 +17,23 @@ _LUCENE_QUERY_STRING_SPECIALS = set('+-=&|><!(){}[]^"~*?:\\/')
 
 
 def _escape_query_string_wildcard(value) -> str:
-    """Convert a KQL wildcard value into a Lucene `query_string.query` string,
-    escaping Lucene specials while preserving `*` as the wildcard marker.
-    Mirrors Kibana's `toQueryStringQuery`.
+    """Convert a KQL wildcard value into a Lucene query_string.query string."""
 
-    The value may contain KQL escape sequences (e.g. ``\\:``, ``\\(``) as
-    produced by the KQL parser: a ``\\X`` pair is unescaped to the literal
-    ``X``, which is then re-escaped with a leading backslash if ``X`` is a
-    Lucene reserved char. Bare ``*`` is preserved as the wildcard marker;
-    ``\\*`` (literal ``*``) is emitted as ``\\*`` for Lucene.
-    """
+    # Converts Python literal with `*` wildcards into a Lucene
+    # `query_string.query` string, escaping Lucene specials while preserving
+    # `*` as the wildcard marker. Mirrors Kibana's `toQueryStringQuery`.
     if value is None:
         return value
-    out = []
-    i = 0
-    n = len(value)
-    while i < n:
-        ch = value[i]
-        if ch == '\\' and i + 1 < n:
-            nxt = value[i + 1]
-            if nxt == 't':
-                literal = '\t'
-            elif nxt == 'r':
-                literal = '\r'
-            elif nxt == 'n':
-                literal = '\n'
-            else:
-                literal = nxt
-            if literal in _LUCENE_QUERY_STRING_SPECIALS:
-                out.append('\\')
-            out.append(literal)
-            i += 2
-        elif ch == '*':
-            out.append('*')
-            i += 1
+    escaped = []
+    for char in value:
+        if char == '*':
+            escaped.append('*')
+        elif char in _LUCENE_QUERY_STRING_SPECIALS:
+            escaped.append('\\')
+            escaped.append(char)
         else:
-            if ch in _LUCENE_QUERY_STRING_SPECIALS:
-                out.append('\\')
-            out.append(ch)
-            i += 1
-    return ''.join(out)
+            escaped.append(char)
+    return ''.join(escaped)
 
 
 def boolean(**kwargs):
