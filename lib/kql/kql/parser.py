@@ -386,7 +386,9 @@ class KqlParser(BaseKqlParser):
                 raise self.error(tree, "Unable to perform wildcard on field {field} of {type}",
                                  field=field_name, type=field_type)
 
-            return Wildcard(token.value)
+            # Store the unescaped Python literal (consistent with eql2kql/Value.from_python)
+            # so downstream consumers (DSL, evaluator, renderer) see a canonical value.
+            return Wildcard(value)
 
         # For quoted strings, treat as literal values (wildcards in quotes are literal in Kibana)
         # This bypasses Value.from_python's wildcard conversion for quoted strings
