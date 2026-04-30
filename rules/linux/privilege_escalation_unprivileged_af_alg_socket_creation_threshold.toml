@@ -7,11 +7,10 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies one or more AF_ALG (Linux kernel crypto) socket creations by the same non-root user and process name on a
-Linux host. AF_ALG socket creation is the core primitive used by the "Copy Fail" exploit for CVE-2026-31431. Legitimate
-unprivileged AF_ALG usage is rare, and successful exploitation can lead to local privilege escalation or container
-escape by corrupting the page cache of a readable setuid-root binary. Because the page-cache corruption does not modify
-the on-disk file, syscall-level telemetry is one of the most reliable places to identify exploitation attempts.
+Correlates a burst of non-root `splice` or AF_ALG-class `socket` syscall telemetry with a subsequent process execution
+where effective user is root but the login user remains non-root. This sequence matches common post-exploitation chains
+for Copy Fail (CVE-2026-31431) style abuse where AF_ALG and `splice` primitives precede executing a corrupted setuid
+binary from cache.
 """
 false_positives = [
     """
@@ -22,7 +21,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Unprivileged AF_ALG Socket Creation Threshold"
 note = """## Triage and analysis
@@ -34,7 +33,10 @@ note = """## Triage and analysis
 
 Copy Fail (CVE-2026-31431) abuses the Linux kernel `authencesn` AEAD path through AF_ALG and `splice()` to write four controlled bytes into the page cache of a readable file. Public exploitation targets setuid-root binaries such as `/usr/bin/su`, then executes the corrupted in-memory copy to gain root. The file on disk is not modified, so traditional on-disk integrity checks may miss the activity.
 
-This threshold rule groups non-root AF_ALG socket creation (`socket(38, ...)`, represented as `auditd.data.a0:26` in auditd telemetry) by `host.name`, `user.name`, and `process.name`. The threshold is intentionally low because unprivileged AF_ALG use is rare and a single socket creation can be enough to begin exploitation.
+This sequence rule requires many (`runs=20`) non-root `splice` or AF_ALG-related `socket` events (`auditd.data.a0 == "26"`)
+within 60 seconds, followed by an `executed` event where `user.effective.id` is root while `user.id` is still non-root.
+That ordering aligns with abusing AF_ALG/`splice` primitives and then running a setuid-root helper whose page cache was
+targeted.
 
 ### Possible investigation steps
 
@@ -98,11 +100,15 @@ The Auditd Manager integration receives audit events from the Linux Audit Framew
 - For more details on the integration, refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
-This detection relies on the `socket` syscall being audited. If your environment uses a minimal audit ruleset, add a rule similar to the following in the integration's "audit rules" configuration so the socket syscall is captured:
+This detection relies on auditing the `socket` and `splice` syscalls so `auditd.data.syscall` and `auditd.data.a0` are
+present on process-class events. If your environment uses a minimal audit ruleset, add rules similar to the following
+in the integration's "audit rules" configuration:
 
 ```
 -a always,exit -F arch=b64 -S socket -k af_alg_socket
 -a always,exit -F arch=b32 -S socketcall -k af_alg_socket
+-a always,exit -F arch=b64 -S splice -k splice
+-a always,exit -F arch=b32 -S splice -k splice
 ```
 """
 severity = "high"
@@ -116,16 +122,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:linux and auditd.data.syscall:socket and auditd.data.a0:26 and
-not user.id:"0" and
-not process.name:(
-  "cryptsetup" or "systemd-cryptsetup" or "veritysetup" or "integritysetup" or
-  "charon" or "pluto" or "ipsec" or "strongswan" or "swanctl" or
-  "tcrypt" or "cryptd" or "tpm2-abrmd"
-)
+sequence by host.id, user.id with maxspan=60s
+  [process where (auditd.data.syscall == "splice" or (auditd.data.syscall == "socket" and auditd.data.a0 == "26")) and user.id != "0"] with runs=20
+  [process where event.action == "executed" and user.effective.id == "0" and user.id != "0"]
 '''
 
 
@@ -151,8 +153,3 @@ reference = "https://attack.mitre.org/techniques/T1548/001/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[rule.threshold]
-field = ["host.name", "user.name", "process.name"]
-value = 1
-
