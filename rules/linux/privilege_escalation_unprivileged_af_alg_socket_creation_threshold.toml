@@ -100,13 +100,14 @@ The Auditd Manager integration receives audit events from the Linux Audit Framew
 - For more details on the integration, refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
-This detection relies on auditing the `socket` syscalls so `auditd.data.syscall` and `auditd.data.a0` are
-present on process-class events. If your environment uses a minimal audit ruleset, add rules similar to the following
+This detection relies on auditing the `socket` syscalls or the `bound-socket` events. If your environment uses a minimal audit ruleset, add rules similar to the following
 in the integration's "audit rules" configuration:
 
 ```
--a always,exit -F arch=b64 -S socket -k af_alg_socket
--a always,exit -F arch=b32 -S socketcall -k af_alg_socket
+-a always,exit -F arch=b64 -S socket -k socket_syscall
+-a always,exit -F arch=b32 -S socketcall -k socket_syscall
+-a always,exit -F arch=b64 -S bind -k socket_bind
+-a always,exit -F arch=b32 -S bind -k socket_bind
 ```
 """
 severity = "high"
@@ -124,7 +125,12 @@ type = "eql"
 
 query = '''
 sequence with maxspan=60s
-  [process where host.os.type == "linux" and auditd.data.syscall == "socket" and auditd.data.a0 == "26" and user.id != "0"]  by process.pid, host.id, user.id with runs=10
+  [any where host.os.type == "linux" and    
+   (
+    (event.category == "process" and auditd.data.syscall == "socket" and auditd.data.a0 == "26") or 
+    (event.category == "network" and event.action == "bound-socket" and auditd.data.socket.family == "38")
+    )  
+   and user.id != "0"]  by process.pid, host.id, user.id with runs=10
   [process where host.os.type == "linux"  and event.action == "executed" and 
    (
      (user.effective.id == "0" and user.id != "0") or 
