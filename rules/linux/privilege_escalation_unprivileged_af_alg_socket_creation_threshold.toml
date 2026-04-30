@@ -10,7 +10,8 @@ description = """
 Identifies one or more AF_ALG (Linux kernel crypto) socket creations by the same non-root user and process name on a
 Linux host. AF_ALG socket creation is the core primitive used by the "Copy Fail" exploit for CVE-2026-31431. Legitimate
 unprivileged AF_ALG usage is rare, and successful exploitation can lead to local privilege escalation or container
-escape by corrupting the page cache of a readable setuid-root binary.
+escape by corrupting the page cache of a readable setuid-root binary. Because the page-cache corruption does not modify
+the on-disk file, syscall-level telemetry is one of the most reliable places to identify exploitation attempts.
 """
 false_positives = [
     """
@@ -26,29 +27,38 @@ license = "Elastic License v2"
 name = "Unprivileged AF_ALG Socket Creation Threshold"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Unprivileged AF_ALG Socket Creation Threshold
 
 Copy Fail (CVE-2026-31431) abuses the Linux kernel `authencesn` AEAD path through AF_ALG and `splice()` to write four controlled bytes into the page cache of a readable file. Public exploitation targets setuid-root binaries such as `/usr/bin/su`, then executes the corrupted in-memory copy to gain root. The file on disk is not modified, so traditional on-disk integrity checks may miss the activity.
 
-This threshold rule groups non-root AF_ALG socket creation (`socket(38, ...)`, represented as `auditd.data.a0:26` in auditd telemetry) by host, user, and process name. The threshold is intentionally low because unprivileged AF_ALG use is rare and a single creation can be enough for exploitation.
+This threshold rule groups non-root AF_ALG socket creation (`socket(38, ...)`, represented as `auditd.data.a0:26` in auditd telemetry) by `host.name`, `user.name`, and `process.name`. The threshold is intentionally low because unprivileged AF_ALG use is rare and a single socket creation can be enough to begin exploitation.
 
 ### Possible investigation steps
 
-- Review the grouped `host.id`, `user.id`, and `process.name` values in the alert, then inspect the original events for `process.executable`, `process.command_line`, parent process details, and working directory.
-- Pivot on the same host and user around the alert time for `splice`, `sendmsg`, `recvmsg`, and execution of setuid-root binaries such as `/usr/bin/su`, `/usr/bin/sudo`, `/usr/bin/passwd`, `/usr/bin/mount`, `/usr/bin/newgrp`, `/usr/bin/gpasswd`, or `/usr/bin/chfn`.
-- Look for a UID transition to root from the same process tree shortly after the AF_ALG socket creation.
-- If the process is an interpreter, collect the script content and look for `socket.socket(38, 5, 0)`, `authencesn`, `os.splice`, or `MSG_MORE`.
+- Review the grouped `host.name`, `user.name`, and `process.name` values in the alert, then inspect the original audit events for `process.executable`, `process.command_line`, `process.pid`, parent process details, working directory, and session or login context.
+- Determine whether the process is an interpreter or ad-hoc binary. Public proof-of-concept behavior may appear as a short Python script using standard library modules and calls such as `socket.socket(38, 5, 0)`, `authencesn`, `os.splice`, or `MSG_MORE`.
+- Pivot on the same host, user, process name, and nearby timestamps for additional syscall activity from the same process tree, especially `splice`, `sendmsg`, `recvmsg`, or repeated `socket` activity.
+- Look for execution of setuid-root binaries shortly after the AF_ALG socket creation, including `/usr/bin/su`, `/usr/bin/sudo`, `/usr/bin/passwd`, `/usr/bin/mount`, `/usr/bin/newgrp`, `/usr/bin/gpasswd`, or `/usr/bin/chfn`.
+- Check for evidence of a UID transition to root from the same process tree, followed by root shell activity, persistence creation, credential access, or security control tampering.
 - Check container fields such as `container.id` and `container.image.name`. Because this primitive abuses the shared host page cache, container-originated activity should be treated as a possible node-compromise attempt.
+- Confirm the host kernel version and distribution advisory status. Prioritize hosts running vulnerable kernels or untrusted container workloads.
 
 ### False positive analysis
 
-Legitimate unprivileged AF_ALG consumers are rare. Validate whether the activity comes from documented kernel crypto testing, disk encryption tooling, IPsec helpers, HSM integration software, or approved research systems. Add narrow exceptions only after confirming the executable, user, and host role.
+- Legitimate unprivileged AF_ALG consumers are rare, but some environments may use kernel crypto testing, disk encryption tooling, IPsec helpers, HSM integration software, or approved research systems.
+- Verify whether the process name and executable path are expected on the host. Confirm that the user identity, host role, and execution time align with documented administrative or testing activity.
+- If the activity is expected, add a narrow exception using stable values such as `process.executable`, `user.id`, and `host.id` rather than broad process-name-only exclusions.
+- Treat interpreter-driven AF_ALG use, activity from temporary directories, or AF_ALG use inside containers as suspicious unless there is a documented reason.
 
 ### Response and remediation
 
-- Isolate the host if unauthorized AF_ALG activity cannot be quickly ruled out. Treat confirmed exploitation as root compromise.
-- Terminate the alerting process and preserve memory, scripts, shell history, and temporary files.
-- Inspect setuid-root binaries that may have been targeted. Remember that the vulnerable write affects the page cache, not the on-disk file.
+- Isolate the affected Linux host if unauthorized AF_ALG activity cannot be quickly ruled out. Treat confirmed exploitation as root compromise.
+- Terminate the alerting process and any suspicious child processes. Preserve memory, exploit scripts, shell history, temporary files, and relevant audit logs for forensic review.
+- Inspect setuid-root binaries that may have been targeted. Remember that the vulnerable write affects the page cache, not the on-disk file; normal file-integrity checks may not show the corrupted in-memory state.
+- Rebuild or reimage the host if successful privilege escalation cannot be ruled out. Rotate credentials, SSH keys, tokens, and secrets that were accessible to the affected user or any root shell spawned afterward.
 - Patch the kernel with the vendor fix for CVE-2026-31431. Until patched, consider blocking `algif_aead` module loading or restricting AF_ALG socket creation via seccomp for untrusted workloads.
 - For containerized environments, patch the underlying node kernel. Rebuilding container images does not remediate the host kernel vulnerability.
 """
@@ -66,8 +76,26 @@ This rule requires data coming in from one of the following integrations:
 - Auditbeat
 - Auditd Manager
 
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit user and process activity. It can collect and centralize events from the Linux Audit Framework.
+
+#### The following steps should be executed in order to add Auditbeat on a Linux system:
+- Elastic provides repositories available for APT and YUM-based distributions. To install the repositories, follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- For complete "Setup and Run Auditbeat" instructions, refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+- To run Auditbeat on Docker or Kubernetes, follow the relevant deployment guides in the Auditbeat documentation.
+
 ### Auditd Manager Integration Setup
-The Auditd Manager integration receives audit events from the Linux Audit Framework, which is part of the Linux kernel.
+The Auditd Manager integration receives audit events from the Linux Audit Framework, which is part of the Linux kernel. Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Auditd Manager" and select the integration to see more details.
+- Click "Add Auditd Manager".
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings as needed.
+- Add the newly installed "auditd manager" integration to an existing or new agent policy, and deploy the agent on Linux systems where detection is desired.
+- Click "Save and Continue".
+- For more details on the integration, refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
 This detection relies on the `socket` syscall being audited. If your environment uses a minimal audit ruleset, add a rule similar to the following in the integration's "audit rules" configuration so the socket syscall is captured:
