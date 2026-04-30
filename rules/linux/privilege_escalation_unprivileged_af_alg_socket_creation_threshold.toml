@@ -33,7 +33,7 @@ note = """## Triage and analysis
 
 Copy Fail (CVE-2026-31431) abuses the Linux kernel `authencesn` AEAD path through AF_ALG and `splice()` to write four controlled bytes into the page cache of a readable file. Public exploitation targets setuid-root binaries such as `/usr/bin/su`, then executes the corrupted in-memory copy to gain root. The file on disk is not modified, so traditional on-disk integrity checks may miss the activity.
 
-This sequence rule requires many (`runs=20`) non-root `splice` or AF_ALG-related `socket` events (`auditd.data.a0 == "26"`)
+This sequence rule requires many (`runs=10`) non-root `splice` or AF_ALG-related `socket` events (`auditd.data.a0 == "26"`)
 within 60 seconds, followed by an `executed` event where `user.effective.id` is root while `user.id` is still non-root.
 That ordering aligns with abusing AF_ALG/`splice` primitives and then running a setuid-root helper whose page cache was
 targeted.
