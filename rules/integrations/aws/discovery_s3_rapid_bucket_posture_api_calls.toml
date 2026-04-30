@@ -41,7 +41,7 @@ Security scanners, compliance tools, and post-compromise reconnaissance often wa
 - **Access key (`Esql.aws_cloudtrail_user_identity_access_key_id_values`)**: Identify which access key or temporary credential was used. Correlate with IAM last-used metadata for the key or role session.
 
 **Characterize the bucket sweep**
-- **Distinct bucket count (`Esql.bucket_arn_count_distinct`)**: Compare to normal baselines for this identity; values at or just above the threshold may still warrant review for new automation.
+- **Distinct bucket count (`Esql.aws_cloudtrail_resources_arn_count_distinct`)**: Compare to normal baselines for this identity; values at or just above the threshold may still warrant review for new automation.
 - **Bucket ARNs (`Esql.aws_cloudtrail_resources_arn_values`)**: Identify which buckets were touched. Prioritize buckets that store logs, backups, credentials, or regulated data. Search the same time range for write or policy-change APIs (`PutBucket*`, `DeleteBucket*`) on the same buckets.
 
 **Analyze source and client**
@@ -209,7 +209,7 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.bucket_arn_count_distinct",
+    "Esql.aws_cloudtrail_resources_arn_count_distinct",
     "Esql.time_window_date_trunc",
     "aws.cloudtrail.user_identity.arn",
     "source.ip",
