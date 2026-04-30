@@ -7,7 +7,7 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Correlates a burst of non-root AF_ALG-class `socket` syscall telemetry with a subsequent process execution
+Correlates a burst of non-root AF_ALG-class `socket` or `splice` or `bound-socket` telemetry with a subsequent process execution
 where effective user is root but the login user remains non-root. This sequence matches common post-exploitation chains
 for Copy Fail (CVE-2026-31431) style abuse where AF_ALG and `splice` primitives precede executing a corrupted setuid
 binary from cache.
@@ -100,14 +100,16 @@ The Auditd Manager integration receives audit events from the Linux Audit Framew
 - For more details on the integration, refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
-This detection relies on auditing the `socket` syscalls or the `bound-socket` events. If your environment uses a minimal audit ruleset, add rules similar to the following
+This detection relies on auditing one of the 3 event types `socket` or `splice` or `bound-socket` event. If your environment uses a minimal audit ruleset, add rules similar to the following
 in the integration's "audit rules" configuration:
 
 ```
 -a always,exit -F arch=b64 -S socket -k socket_syscall
 -a always,exit -F arch=b32 -S socketcall -k socket_syscall
--a always,exit -F arch=b64 -S bind -k socket_bind
--a always,exit -F arch=b32 -S bind -k socket_bind
+-a always,exit -F arch=b64 -S splice -k splice-syscall
+-a always,exit -F arch=b32 -S splice -k splice-syscall
+-a always,exit -F arch=b64 -S bind -k socket_bound
+-a always,exit -F arch=b32 -S bind -k socket_bound
 ```
 """
 severity = "high"
@@ -128,7 +130,8 @@ sequence with maxspan=60s
   [any where host.os.type == "linux" and    
    (
     (event.category == "process" and auditd.data.syscall == "socket" and auditd.data.a0 == "26") or 
-    (event.category == "network" and event.action == "bound-socket" and auditd.data.socket.family == "38")
+    (event.category == "process" and auditd.data.syscall == "splice") or 
+    (event.category == "network" and event.action == "bound-socket" and auditd.data.socket.family == "38") 
     )  
    and user.id != "0"]  by process.pid, host.id, user.id with runs=10
   [process where host.os.type == "linux"  and event.action == "executed" and 
