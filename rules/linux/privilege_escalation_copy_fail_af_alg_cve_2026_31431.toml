@@ -7,77 +7,59 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an unprivileged process creating an AF_ALG (Linux kernel crypto) socket, which is the core primitive used by
-the "Copy Fail" exploit for CVE-2026-31431. AF_ALG is a socket family that exposes the kernel's crypto subsystem to
-userspace and is reachable by any local user. The vulnerability in the authencesn AEAD template allows a crafted 4-byte
-controlled write into the page cache of any file the attacker can read (for example, /usr/bin/su), leading to local
-privilege escalation and a container-escape primitive. Legitimate unprivileged use of AF_ALG is very rare on production
-Linux hosts, so a non-root process opening an AF_ALG socket is highly suspicious and warrants investigation,
-particularly when followed by execution of a setuid-root binary.
+Identifies one or more AF_ALG (Linux kernel crypto) socket creations by the same non-root user and process name on a
+Linux host. AF_ALG socket creation is the core primitive used by the "Copy Fail" exploit for CVE-2026-31431. Legitimate
+unprivileged AF_ALG usage is rare, and successful exploitation can lead to local privilege escalation or container
+escape by corrupting the page cache of a readable setuid-root binary.
 """
+false_positives = [
+    """
+    Legitimate AF_ALG usage from unprivileged users is uncommon, but some kernel crypto tests, IPsec helpers, disk
+    encryption tooling, HSM integrations, or approved security research systems may exercise this interface. Verify the
+    process, user, and host role before adding an exception.
+    """,
+]
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "Potential Linux Privilege Escalation via AF_ALG Socket (Copy Fail CVE-2026-31431)"
+name = "Unprivileged AF_ALG Socket Creation Threshold"
 note = """## Triage and analysis
 
-### Investigating Potential Linux Privilege Escalation via AF_ALG Socket (Copy Fail CVE-2026-31431)
+### Investigating Unprivileged AF_ALG Socket Creation Threshold
 
-"Copy Fail" (CVE-2026-31431) is a logic bug in the Linux kernel's `authencesn` AEAD template that lets an unprivileged local user trigger a deterministic, controlled 4-byte write into the page cache of any readable file. The typical exploitation chain is:
+Copy Fail (CVE-2026-31431) abuses the Linux kernel `authencesn` AEAD path through AF_ALG and `splice()` to write four controlled bytes into the page cache of a readable file. Public exploitation targets setuid-root binaries such as `/usr/bin/su`, then executes the corrupted in-memory copy to gain root. The file on disk is not modified, so traditional on-disk integrity checks may miss the activity.
 
-1. Open an `AF_ALG` socket (`socket(38, SOCK_SEQPACKET, 0)`) — no privileges required.
-2. Bind to `authencesn(hmac(sha256),cbc(aes))`.
-3. `splice()` a target file (commonly `/usr/bin/su`) into the socket so its page-cache pages appear in the crypto scatterlist.
-4. `sendmsg()` + `recv()` invoke the vulnerable AEAD decrypt path, corrupting 4 bytes of the cached file per iteration.
-5. `execve("/usr/bin/su")` runs the now-corrupted binary; because `su` is setuid-root, injected shellcode runs as UID 0.
-
-This rule fires when a non-root process creates an AF_ALG socket. Legitimate unprivileged AF_ALG usage is exceedingly rare on production servers, so this event is a strong signal of exploitation or reconnaissance for this class of bugs. Because the page-cache write is invisible to on-disk integrity tools (the file on disk is never modified), syscall-level telemetry is the most reliable place to detect the activity.
+This threshold rule groups non-root AF_ALG socket creation (`socket(38, ...)`, represented as `auditd.data.a0:26` in auditd telemetry) by host, user, and process name. The threshold is intentionally low because unprivileged AF_ALG use is rare and a single creation can be enough for exploitation.
 
 ### Possible investigation steps
 
-- Inspect the alerting process lineage (`process.parent.name`, `process.parent.command_line`, `process.command_line`, `process.executable`, `process.working_directory`) to determine whether the process is an interpreter (for example, `python3`, `perl`) running an ad-hoc script versus a known package binary.
-- Review the user context (`user.id`, `user.name`): confirm that the account is not a service identity authorized to exercise the kernel crypto subsystem (for example, a hardware-security-module bridge or IPsec helper).
-- Pivot on `process.pid` and `host.id` over the next few minutes and look for:
-  - Additional AF_ALG socket operations or `splice`/`sendmsg`/`recvmsg` syscalls from the same PID.
-  - Subsequent `execve` of setuid binaries such as `/usr/bin/su`, `/usr/bin/sudo`, `/usr/bin/passwd`, `/usr/bin/mount`, `/usr/bin/newgrp`, `/usr/bin/gpasswd`, or `/usr/bin/chfn`.
-  - A UID transition to 0 (root) from the same process tree shortly after the AF_ALG activity.
-- Collect the content of any script the alerting process executed. The public proof of concept is a short (~732-byte) Python script using only `os`, `socket`, and `zlib`; look for calls such as `socket.socket(38, 5, 0)`, `authencesn`, `os.splice`, or `MSG_MORE`.
-- Check for container context (`container.id`, `container.image.name`): this primitive crosses container boundaries via the shared host page cache, so alerts from inside a container are high priority and should be treated as a potential node-compromise attempt.
-- Confirm the host's kernel version against the fix commit. Unpatched kernels (6.12, 6.17, 6.18 lines are explicitly demonstrated vulnerable) should be patched or have `algif_aead` disabled immediately.
+- Review the grouped `host.id`, `user.id`, and `process.name` values in the alert, then inspect the original events for `process.executable`, `process.command_line`, parent process details, and working directory.
+- Pivot on the same host and user around the alert time for `splice`, `sendmsg`, `recvmsg`, and execution of setuid-root binaries such as `/usr/bin/su`, `/usr/bin/sudo`, `/usr/bin/passwd`, `/usr/bin/mount`, `/usr/bin/newgrp`, `/usr/bin/gpasswd`, or `/usr/bin/chfn`.
+- Look for a UID transition to root from the same process tree shortly after the AF_ALG socket creation.
+- If the process is an interpreter, collect the script content and look for `socket.socket(38, 5, 0)`, `authencesn`, `os.splice`, or `MSG_MORE`.
+- Check container fields such as `container.id` and `container.image.name`. Because this primitive abuses the shared host page cache, container-originated activity should be treated as a possible node-compromise attempt.
 
 ### False positive analysis
 
-Legitimate unprivileged consumers of AF_ALG are uncommon. Known benign scenarios include:
-
-- Software that exercises the kernel crypto subsystem from unprivileged userspace (for example, some high-performance TLS libraries, hardware-security-module bridges, kernel-crypto self-tests, or disk encryption helpers running without root).
-- Security research, red-team tooling, or CI pipelines that test the crypto API surface.
-
-If activity is traced to a documented, approved service identity, consider excluding that `process.name`/`process.executable` combination in an exception.
+Legitimate unprivileged AF_ALG consumers are rare. Validate whether the activity comes from documented kernel crypto testing, disk encryption tooling, IPsec helpers, HSM integration software, or approved research systems. Add narrow exceptions only after confirming the executable, user, and host role.
 
 ### Response and remediation
 
-- Isolate the affected host from the network if unauthorized activity cannot be quickly ruled out. Treat the box as potentially compromised to root.
-- Terminate the alerting process and any child processes. Preserve memory and on-host artifacts (exploit script, shell history, `/tmp` content) for forensic review.
-- Inspect setuid-root binaries that the attacker may have targeted. Note that the on-disk binary is unchanged: verify integrity by evicting and re-reading from disk (for example, `sync; echo 3 > /proc/sys/vm/drop_caches`) and re-run the host's file-integrity tool, then compare against the package owner.
-- Rotate credentials, SSH keys, and secrets readable by the alerting account and by any shell obtained after the event.
-- Apply the vendor kernel fix reverting `algif_aead.c` to out-of-place operation (commit `a664bf3d603d`, fixes `72548b093ee3`). Until patched, mitigate by preventing `algif_aead` from loading, for example:
-  ```
-  echo "install algif_aead /bin/false" > /etc/modprobe.d/disable-algif-aead.conf
-  rmmod algif_aead 2>/dev/null || true
-  ```
-  Alternatively, restrict `AF_ALG` socket creation via seccomp profiles for untrusted workloads and containers.
-- For containerized hosts, patch the underlying node kernel — container images alone cannot mitigate a kernel bug in the shared host.
+- Isolate the host if unauthorized AF_ALG activity cannot be quickly ruled out. Treat confirmed exploitation as root compromise.
+- Terminate the alerting process and preserve memory, scripts, shell history, and temporary files.
+- Inspect setuid-root binaries that may have been targeted. Remember that the vulnerable write affects the page cache, not the on-disk file.
+- Patch the kernel with the vendor fix for CVE-2026-31431. Until patched, consider blocking `algif_aead` module loading or restricting AF_ALG socket creation via seccomp for untrusted workloads.
+- For containerized environments, patch the underlying node kernel. Rebuilding container images does not remediate the host kernel vulnerability.
 """
 references = [
     "https://xint.io/blog/copy-fail-linux-distributions",
     "https://nvd.nist.gov/vuln/detail/CVE-2026-31431",
     "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=a664bf3d603d",
-    "https://www.man7.org/linux/man-pages/man2/socket.2.html",
     "https://www.kernel.org/doc/html/latest/crypto/userspace-if.html",
 ]
 risk_score = 73
-rule_id = "35eb314d-2545-4521-ba60-db4366c258ba"
+rule_id = "1c28becc-ec0b-4e6d-81a5-899d00348089"
 setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
@@ -85,19 +67,10 @@ This rule requires data coming in from one of the following integrations:
 - Auditd Manager
 
 ### Auditd Manager Integration Setup
-The Auditd Manager integration receives audit events from the Linux Audit Framework which is part of the Linux kernel. It provides a friendly interface and automation to configure and monitor system auditing through the auditd daemon.
-
-#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux system:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Auditd Manager" and select the integration.
-- Click "Add Auditd Manager".
-- Configure the integration name and optionally add a description.
-- Add the newly installed "auditd manager" to an existing or a new agent policy, and deploy the agent on the Linux systems where detection is desired.
-- Click "Save and Continue".
-- For more details refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+The Auditd Manager integration receives audit events from the Linux Audit Framework, which is part of the Linux kernel.
 
 #### Rule Specific Setup Note
-By default, the Auditd Manager integration subscribes to kernel audit events without additional rules. This detection relies on the `socket` syscall being audited. If your environment uses a minimal audit ruleset, add a rule similar to the following in the integration's "audit rules" configuration so the `socket` syscall is captured:
+This detection relies on the `socket` syscall being audited. If your environment uses a minimal audit ruleset, add a rule similar to the following in the integration's "audit rules" configuration so the socket syscall is captured:
 
 ```
 -a always,exit -F arch=b64 -S socket -k af_alg_socket
@@ -115,18 +88,16 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "threshold"
 
 query = '''
-process where host.os.type == "linux" and
-  auditd.data.syscall == "socket" and
-  auditd.data.a0 == "26" and
-  user.id != "0" and
-  not process.name in (
-    "cryptsetup", "systemd-cryptsetup", "veritysetup", "integritysetup",
-    "charon", "pluto", "ipsec", "strongswan", "swanctl",
-    "tcrypt", "cryptd", "tpm2-abrmd"
-  )
+event.category:process and host.os.type:linux and auditd.data.syscall:socket and auditd.data.a0:26 and
+not user.id:"0" and
+not process.name:(
+  "cryptsetup" or "systemd-cryptsetup" or "veritysetup" or "integritysetup" or
+  "charon" or "pluto" or "ipsec" or "strongswan" or "swanctl" or
+  "tcrypt" or "cryptd" or "tpm2-abrmd"
+)
 '''
 
 
@@ -152,4 +123,8 @@ reference = "https://attack.mitre.org/techniques/T1548/001/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.threshold]
+field = ["host.name", "user.name", "process.name"]
+value = 1
 
