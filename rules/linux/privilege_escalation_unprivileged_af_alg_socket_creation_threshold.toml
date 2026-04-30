@@ -7,7 +7,7 @@ updated_date = "2026/04/29"
 [rule]
 author = ["Elastic"]
 description = """
-Correlates a burst of non-root `splice` or AF_ALG-class `socket` syscall telemetry with a subsequent process execution
+Correlates a burst of non-root AF_ALG-class `socket` syscall telemetry with a subsequent process execution
 where effective user is root but the login user remains non-root. This sequence matches common post-exploitation chains
 for Copy Fail (CVE-2026-31431) style abuse where AF_ALG and `splice` primitives precede executing a corrupted setuid
 binary from cache.
@@ -100,15 +100,13 @@ The Auditd Manager integration receives audit events from the Linux Audit Framew
 - For more details on the integration, refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
 
 #### Rule Specific Setup Note
-This detection relies on auditing the `socket` and `splice` syscalls so `auditd.data.syscall` and `auditd.data.a0` are
+This detection relies on auditing the `socket` syscalls so `auditd.data.syscall` and `auditd.data.a0` are
 present on process-class events. If your environment uses a minimal audit ruleset, add rules similar to the following
 in the integration's "audit rules" configuration:
 
 ```
 -a always,exit -F arch=b64 -S socket -k af_alg_socket
 -a always,exit -F arch=b32 -S socketcall -k af_alg_socket
--a always,exit -F arch=b64 -S splice -k splice
--a always,exit -F arch=b32 -S splice -k splice
 ```
 """
 severity = "high"
@@ -125,9 +123,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, user.id with maxspan=60s
-  [process where (auditd.data.syscall == "splice" or (auditd.data.syscall == "socket" and auditd.data.a0 == "26")) and user.id != "0"] with runs=20
-  [process where event.action == "executed" and user.effective.id == "0" and user.id != "0"]
+sequence with maxspan=60s
+  [process where host.os.type == "linux" and auditd.data.syscall == "socket" and auditd.data.a0 == "26" and user.id != "0"]  by process.pid, host.id, user.id with runs=10
+  [process where host.os.type == "linux"  and event.action == "executed" and 
+   (
+     (user.effective.id == "0" and user.id != "0") or 
+     (process.name in ("bash", "sh", "zsh", "dash", "fish", "ksh", "busybox") and process.args in ("-c", "--command", "-ic", "-ci"))
+    )] by process.parent.pid, host.id, user.id
 '''
 
 
