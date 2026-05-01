@@ -106,7 +106,7 @@ FROM logs-aws.cloudtrail-*
       user_agent.original like "*Terraform*"
       or user_agent.original like "*Ansible*"
       or user_agent.original like "*Pulumi*"
-    ) and 
+    ) and not source.address: ( "cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
   (
    event.action in ("StopInstances", "StartInstances") or 
    (event.action == "ModifyInstanceAttribute" and aws.cloudtrail.request_parameters like "*userData=*")
