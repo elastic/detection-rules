@@ -108,10 +108,18 @@ FROM logs-aws.cloudtrail-*
 | EVAL is_post_exploit = CASE(event.action != "AssumeRoleWithWebIdentity", 1, 0)
 | EVAL phase = CASE(
     event.action == "AssumeRoleWithWebIdentity", "initial_access",
-    event.action IN ("ListBuckets", "DescribeInstances", "ListUsers", "ListRoles", "GetCallerIdentity"), "recon",
-    event.action IN ("GetSecretValue", "ListSecrets", "GetParameters", "GetAuthorizationToken"), "credential_access",
-    event.action IN ("CreateUser", "CreateAccessKey", "AttachRolePolicy", "CreateRole", "PutRolePolicy"), "persistence",
-    event.action IN ("RunInstances"), "impact",
+    event.action IN ("ListBuckets", "DescribeInstances", "ListUsers", "ListRoles",
+      "GetCallerIdentity", "ListAttachedRolePolicies", "GetRolePolicy",
+      "ListFunctions"), "recon",
+    event.action IN ("GetSecretValue", "ListSecrets", "GetParameters",
+      "GetAuthorizationToken", "Decrypt"), "credential_access",
+    event.action IN ("SendCommand", "StartSession"), "lateral_movement",
+    event.action IN ("CreateUser", "CreateAccessKey", "AttachRolePolicy",
+      "CreateRole", "PutRolePolicy", "UpdateAssumeRolePolicy",
+      "UpdateFunctionCode", "UpdateFunctionConfiguration",
+      "ModifyInstanceAttribute"), "persistence",
+    event.action IN ("StopLogging", "DeleteTrail"), "defense_evasion",
+    "other"
     "other"
   )
 | STATS 
