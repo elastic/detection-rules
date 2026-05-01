@@ -682,6 +682,8 @@ class QueryValidator:
 
         required: list[dict[str, Any]] = []
         unique_fields: list[str] = self.unique_fields or []
+        if isinstance(self, ESQLValidator):
+            unique_fields = [f for f in unique_fields if not f.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES)]
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
