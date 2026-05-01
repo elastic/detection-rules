@@ -2,39 +2,13 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies child processes of unusual instances of RunDLL32 where the command line parameters were suspicious. Misuse of
-RunDLL32 could indicate malicious activity.
+Identifies a no-argument or malformed Rundll32 launch followed by child process execution. This unusual sequence can
+indicate Rundll32 abuse for proxy execution or payload handoff.
 """
 from = "now-60m"
 index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-crowdstrike.fdr*"]
@@ -42,62 +16,6 @@ interval = "30m"
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Child Processes of RunDLL32"
-note = """## Triage and analysis
-
-### Investigating Unusual Child Processes of RunDLL32
-
-By examining the specific traits of Windows binaries -- such as process trees, command lines, network connections, registry modifications, and so on -- it's possible to establish a baseline of normal activity. Deviations from this baseline can indicate malicious activity, such as masquerading and deserve further investigation.
-
-RunDLL32 is a legitimate Windows utility used to load and execute functions within dynamic-link libraries (DLLs). However, adversaries may abuse RunDLL32 to execute malicious code, bypassing security measures and evading detection. This rule identifies potential abuse by looking for an unusual process creation with no arguments followed by the creation of a child process.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate any abnormal behavior by the subject process, such as network connections, registry or file modifications, and any spawned child processes.
-- Investigate the behavior of child processes, such as network connections, registry or file modifications, and any spawned processes.
-- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Related Rules
-
-- Unusual Network Connection via RunDLL32 - 52aaab7b-b51c-441a-89ce-4387b3aea886
-
-### Response and Remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "f036953a-4615-4707-a1ca-dc53bf69dcd5"
 severity = "high"
@@ -125,6 +43,120 @@ sequence with maxspan=1h
   ] by process.parent.entity_id
 '''
 
+note = """## Triage and analysis
+
+### Investigating Unusual Child Processes of RunDLL32
+
+#### Possible investigation steps
+
+- Which source events define the no-argument "rundll32.exe" parent and the spawned child?
+  - Why: this asymmetric sequence has no single safe process identity; recover source events before interpreting grouped meaning or pivoting.
+  - Focus: Timeline source events for the sequence, recording parent and child `process.entity_id`, child `process.parent.entity_id`, `host.id`, and `user.id`.
+  - Implication: escalate when recovered events show one no-argument "rundll32.exe" handing off to an unexpected child; lower suspicion only when recovery shows a parser/quoting artifact and the child is signed, stable, and path-consistent for the same user and host.
+
+- Does the recovered "rundll32.exe" event truly lack a DLL, export, or Control_RunDLL-style target?
+  - Why: normal Rundll32 proxy execution names a DLL/export, ordinal, script target, or Control Panel handler; this rule covers empty or malformed invocation that still spawns a child.
+  - Focus: parent `process.command_line`, `process.args_count`, `process.executable`, and `process.pe.original_file_name`.
+  - Implication: escalate when `process.args_count` and `process.command_line` confirm only the image path or a malformed target; lower suspicion only when source recovery proves a quoting/parser artifact and the exact parent-child command pattern is stable.
+
+- What did the recovered child process do, and does its identity fit that parent chain?
+  - Focus: child `process.executable`, `process.command_line`, `process.pe.original_file_name`, code signature, and descendant process starts.
+  - Hint: after recovering the child `process.entity_id` from source events, pivot manually on that ID for descendants; the final sequence alert may not preserve a child-specific entity ID.
+  - Implication: escalate when the child is a shell, script host, network utility, unsigned payload, user-writable binary, or mismatched original file name; lower suspicion when the child is signed, path-consistent, and matches the exact recovered wrapper pattern. Identity alone does not clear the behavior.
+
+- What launched "rundll32.exe", and does the user-host context explain the handoff?
+  - Focus: parent `process.parent.executable`, `process.parent.command_line`, `process.Ext.ancestry`, `user.name`, and `user.domain`.
+  - Implication: escalate when the launcher is Office, a browser, archive utility, script host, temp-path executable, or a lineage unusual for that `user.id` and `host.id`; lower suspicion only when the same parent executable, command line, child path, signer, and host/user scope recur without artifact or network contradictions.
+
+- If library telemetry is available after source-event recovery, did the recovered process load a hidden or recently staged DLL?
+  - Focus: library events for recovered `host.id` and each `process.entity_id`, checking `dll.path`, `dll.hash.sha256`, signer, trust, and `dll.Ext.relative_file_creation_time`.
+  - Hint: query library events separately for the recovered parent and child IDs; missing library telemetry limits DLL corroboration but does not clear the process evidence.
+  - Implication: escalate when a DLL loads from a user-writable, unrelated, unsigned, or recently created path; lower suspicion when library identity, signer, and path relationship fit the recovered parent-child workflow.
+
+- If file or network telemetry is available after source-event recovery, did the chain stage payloads or reach suspicious infrastructure?
+  - Focus: file and network events for recovered `host.id` and each `process.entity_id`, checking `file.path`, `file.Ext.windows.zone_identifier`, DNS `dns.question.name`, connection `destination.ip`, and `destination.port`.
+  - Hint: separate DNS lookup events from connection events before interpreting them. Missing network telemetry is unresolved, not benign.
+  - Implication: escalate when the chain writes executable or scriptable artifacts, carries internet provenance, or connects to rare external infrastructure; lower suspicion when optional activity stays inside the recovered parent-child workflow.
+
+- If local evidence remains suspicious or unresolved, do related alerts show the same user, host, or child-process pattern?
+  - Focus: recent alerts for `user.id`, `host.id`, child `process.executable`, child `process.hash.sha256`, or a distinctive `process.command_line` fragment.
+  - Hint: use only after source recovery keeps the case suspicious or unresolved.
+    - $investigate_0
+    - $investigate_1
+  - Implication: broaden response when the same user or host repeats Rundll32 proxy-execution, child payload, or related defense-evasion alerts; keep scope local when the suspicious pattern remains isolated and the recovered workflow is tightly explained.
+
+- Escalate when source recovery, invocation shape, child identity, launcher lineage, DLL/file/network evidence, or recurrence shows "rundll32.exe" proxying unauthorized child execution or payload delivery; close only when recovered process evidence and corroborators tightly bind one exact signed workflow on this host; if evidence is mixed or incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- No-argument "rundll32.exe" spawning a child is an operational anti-pattern. Close as benign only when source recovery proves a parser/quoting artifact or authorized reproduction, the child is signed and path-consistent, and no DLL, file, or network evidence contradicts that workflow. Align available inventory, vendor, or test records; otherwise treat prior recurrence for the same `host.id` and stable parent-child anchors as supporting evidence only.
+- Build exceptions from the minimum confirmed workflow: parent `process.parent.executable`, child `process.executable`, stable `process.code_signature.subject_name`, command-line shape, host/user scope, and recovered artifact anchors when present. Do not except a first occurrence, unresolved source recovery, missing contradictory-telemetry checks, or "rundll32.exe" alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse temporary containment and document the recovered parent-child workflow, source-event IDs, signer, command-line pattern, and corroborating inventory, vendor record, or recurrence that established it.
+- If suspicious but unconfirmed:
+  - Preserve a case export of Timeline source events, recovered process identifiers and command lines, child binary hash, and any recovered DLL, file, or network artifacts before cleanup.
+  - Apply reversible containment such as temporary network restrictions or heightened monitoring on the affected `host.id` and `user.id`; use host isolation only when child-process or artifact evidence indicates active payload execution and the host role can tolerate isolation.
+- If confirmed malicious:
+  - Preserve the recovered source events, process IDs, command lines, child hashes, DLL or file artifacts, and network indicators, then isolate the host or restrict the account based on the child execution, launcher lineage, artifact, or network evidence.
+  - Block confirmed malicious child hashes, DLL hashes, staged payload paths, domains, and destination IPs, then review other hosts and users for the same parent-child or artifact pattern before eradication.
+  - Remove only the malicious DLLs, scripts, or child payloads identified during investigation, remediate the parent launcher or delivery path that invoked "rundll32.exe", and investigate credential exposure if follow-on behavior suggests collection or lateral movement.
+- Post-incident hardening:
+  - Keep process telemetry for "rundll32.exe" and child processes enabled, and enable file, network, or library telemetry where missing evidence limited the case.
+  - Restrict unusual "rundll32.exe" child-process patterns where the business does not require them, and record any adjacent DLL/export, ordinal, Control Panel, or script-target variants observed in the case.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "event.category",
+    "event.type",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -137,10 +169,7 @@ id = "T1218.011"
 name = "Rundll32"
 reference = "https://attack.mitre.org/techniques/T1218/011/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
