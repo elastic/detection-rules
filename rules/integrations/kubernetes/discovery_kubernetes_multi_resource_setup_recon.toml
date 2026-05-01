@@ -76,7 +76,7 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
     and kubernetes.audit.objectRef.resource in ("namespaces", "nodes", "pods", "roles", "configmaps", "serviceaccounts", "clusterroles", "clusterrolebindings", "rolebindings")
     and source.ip is not null and user.name IS NOT NULL
     and not to_string(source.ip) in ("127.0.0.1", "::1")
-    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/).*"""
+    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/|system:serviceaccount:kube-system:azure|system:node:aks-default|aksService).*"""
 | stats
     Esql.unique_resources = count_distinct(kubernetes.audit.objectRef.resource),
     Esql.enumerated_resources = values(kubernetes.audit.objectRef.resource),
