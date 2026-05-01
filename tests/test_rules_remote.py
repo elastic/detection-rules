@@ -242,7 +242,12 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
         | where Esql.host_id_count_distinct >= 3
         """
-        _ = RuleCollection().load_dict(production_rule)
+        rule = RuleCollection().load_dict(production_rule)
+        for rf in rule.contents.to_api_format().get("required_fields") or []:
+            name = rf["name"]
+            assert not name.startswith(("Esql_priv.", "Esql.")), (
+                f"required_fields must not include ES|QL engine columns (not index mappings): {name!r}"
+            )
 
     def test_esql_endpoint_unknown_index(self):
         """Test an ESQL rule's index validation. This is expected to error on an unknown index."""
