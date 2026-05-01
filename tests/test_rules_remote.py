@@ -19,6 +19,7 @@ from detection_rules.misc import (
     get_default_config,
     getdefault,
 )
+from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.utils import get_path, load_rule_contents
 
@@ -245,9 +246,13 @@ class TestRemoteRules(BaseRuleTest):
         _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_required_fields_omit_engine_columns(self):
-        """required_fields must not list Esql.* / Esql_priv.* (not index mappings)."""
+        """ESQL required_fields must not list Esql.* / Esql_priv.* (not index mappings)."""
         for rule in self.all_rules:
-            for rf in rule.contents.to_api_format().get("required_fields") or []:
+            data = rule.contents.data
+            if not isinstance(data, ESQLRuleData):
+                continue
+            index = data.get("index") or []
+            for rf in data.get_required_fields(index) or []:
                 name = rf["name"]
                 assert not name.startswith(("Esql_priv.", "Esql.")), (
                     f"{rule.id} - {rule.name}: required_fields must not include ES|QL engine columns "
