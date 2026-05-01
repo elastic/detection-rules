@@ -7,16 +7,12 @@ updated_date = "2026/04/23"
 [rule]
 author = ["Elastic"]
 description = """
-Flags **`exec`** into a pod when the URL-decoded **`command=`** payload resembles **reverse-shell or bind-shell
-one-liners**—for example **`/dev/tcp`** or **`/dev/udp`** redirections, **`nc`/`ncat`/`netcat`** invocation patterns
-associated with **`-e` / `-c`**, **`mkfifo`** named-pipe shells, **`socat`** with **exec/pty**, classic **`bash -i`**
-redirection tricks, or **scripted sockets** in Python, Perl, Ruby, and PHP. Legitimate debug sessions sometimes use
-similar building blocks, but together these patterns align with **post-exploitation interactive access** and
-**command-and-control** setup more than routine `kubectl exec` troubleshooting. A narrow exclusion trims common
-**localhost `dev/tcp`** probes against **well-known dev ports** to reduce noise from local tooling and examples.
+Flags exec into a pod when the URL-decoded command payload resembles reverse-shell or bind-shell
+one-liners invocation patterns. Legitimate debug sessions sometimes use similar building blocks, but together 
+these patterns align with post-exploitation interactive access and command-and-control.
 """
-from = "now-11m"
-interval = "10m"
+from = "now-6m"
+interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Kubernetes Pod Exec Potential Reverse Shell"
@@ -24,32 +20,31 @@ note = """## Triage and analysis
 
 ### Investigating Kubernetes Pod Exec Potential Reverse Shell
 
-The rule inspects Kubernetes **audit `exec`** **`requestURI`** values, URL-decodes them, parses the **`command=`**
-query fragment, and matches **high-signal shell and socket idioms** often used to obtain a **callback shell** from
-inside a container.
+The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and 
+matches high-signal shell and socket idioms often used to obtain a allback shell from inside a container.
 
 ### Possible investigation steps
 
-- Identify the actor (`kubernetes.audit.user.username`, groups, impersonation), **source IP**, and **user agent**
+- Identify the actor (kubernetes.audit.user.username, groups, impersonation), source IP, and user agent
   (human kubectl vs automation).
-- Resolve the target **namespace**, **pod**, and **container** from `kubernetes.audit.objectRef.*` and correlate with
+- Resolve the target namespace, pod, and container from kubernetes.audit.objectRef.* and correlate with
   workload ownership and change tickets.
 - Pull the raw and decoded URI from the alert document and replay the inferred command in a sandbox only if policy
   allows—otherwise rely on audit and platform logs.
-- Hunt nearby events from the same identity: **secret** reads, **pods/exec** to other workloads, **RoleBinding**
-  changes, or **anonymous** API use.
+- Hunt nearby events from the same identity: secret reads, pods/exec to other workloads, RoleBinding
+  changes, or anonymous API use.
 
 ### False positive analysis
 
-- Security training, CTF-style images, or vendor diagnostics may include **bash** redirection or **`/dev/tcp`** examples;
+- Security training, CTF-style images, or vendor diagnostics may include bash redirection or /dev/tcp examples;
   baseline approved images and break-glass accounts.
-- Some observability or mesh sidecars use **socat** or sockets in ways that could overlap; validate container image and
+- Some observability or mesh sidecars use socat or sockets in ways that could overlap; validate container image and
   command lineage.
 
 ### Response and remediation
 
-- If malicious, **terminate the exec session**, isolate the workload or node, **rotate credentials** reachable from the
-  pod, and **revoke `pods/exec`** for the abused principal unless strictly required.
+- If malicious, terminate the exec session, isolate the workload or node, rotate credentials reachable from the
+  pod, and revoke pods/exec for the abused principal unless strictly required.
 """
 references = [
     "https://attack.mitre.org/techniques/T1609/",
