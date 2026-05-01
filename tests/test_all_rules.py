@@ -1645,7 +1645,9 @@ class TestEQLEventFieldUsage(BaseRuleTest):
                 continue
 
             first = rule_ast.first
-            event_queries = [sq.query for sq in first.queries] if isinstance(first, eql.ast.Sequence) else [first]
+            event_queries = (
+                [sq.query for sq in first.queries] if isinstance(first, (eql.ast.Sequence, eql.ast.Join)) else [first]
+            )
 
             for event_query in event_queries:
                 if not isinstance(event_query, eql.ast.EventQuery):
