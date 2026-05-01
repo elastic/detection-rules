@@ -21,6 +21,7 @@ from detection_rules.misc import (
 )
 from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
+from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
@@ -254,7 +255,7 @@ class TestRemoteRules(BaseRuleTest):
             index = data.get("index") or []
             for rf in data.get_required_fields(index) or []:
                 name = rf["name"]
-                assert not name.startswith(("Esql_priv.", "Esql.")), (
+                assert not name.startswith(ESQL_DYNAMIC_FIELD_PREFIXES), (
                     f"{rule.id} - {rule.name}: required_fields must not include ES|QL engine columns "
                     f"(not index mappings): {name!r}"
                 )
