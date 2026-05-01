@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -28,26 +28,26 @@ from .alerts-security.*
   kibana.alert.risk_score > 21 and
   not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | stats
-    Esql.rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name), 
-    Esql.rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
+    Esql.kibana_alert_rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name), 
+    Esql.kibana_alert_rule_rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
     Esql.host_id_distinct_count = COUNT_DISTINCT(host.id),
-    Esql.risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
-    Esql.data_stream_dataset_distinct_count = COUNT_DISTINCT(data_stream.dataset),
-    Esql.rule_name_values = VALUES(kibana.alert.rule.name), 
-    Esql.risk_score_values = VALUES(kibana.alert.risk_score), 
-    Esql.data_stream_dataset_values = VALUES(data_stream.dataset), 
+    Esql.kibana_alert_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
+    Esql.event_dataset_distinct_count = COUNT_DISTINCT(event.dataset),
+    Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name), 
+    Esql.kibana_alert_risk_score_values = VALUES(kibana.alert.risk_score), 
+    Esql.event_dataset_values = VALUES(event.dataset),
     Esql.event_module_values = VALUES(event.module), 
-    Esql.process_command_line = VALUES(process.command_line), 
+    Esql.process_command_line_values = VALUES(process.command_line), 
     Esql.host_id_values = VALUES(host.id), 
     Esql.source_ip_values = VALUES(source.ip), 
     Esql.destination_ip_values = VALUES(destination.ip) by user.id
 
-| where Esql.rule_name_distinct_count >= 4 AND Esql.rule_id_distinct_count >= 2 and
-  // Exclude known system accounts with matches in more than one host
-  not (
-    (length(TO_STRING(user.id)) <= 4 or user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")) and
-    (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
-  )
+| where Esql.kibana_alert_rule_name_distinct_count >= 4 AND Esql.kibana_alert_rule_rule_id_distinct_count >= 2 and
+ // Exclude known system accounts with matches in more than one host
+ not (
+   (length(TO_STRING(user.id)) <= 4 or user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")) and
+   (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
+ )
 
 | keep user.id, Esql.*
 '''
