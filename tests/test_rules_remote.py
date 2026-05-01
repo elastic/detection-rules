@@ -245,23 +245,14 @@ class TestRemoteRules(BaseRuleTest):
         _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_required_fields_omit_engine_columns(self):
-        """required_fields must not list Esql.* / Esql_priv.* (not index mappings). Same query shape as test_esql_endpoint_alerts_index."""
-        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
-        original_production_rule = load_rule_contents(file_path)
-        production_rule = deepcopy(original_production_rule)[0]
-        production_rule["rule"]["query"] = """
-        from logs-endpoint.alerts-* METADATA _id, _version, _index
-        | where event.code in ("malicious_file", "memory_signature", "shellcode_thread") and rule.name is not null
-        | keep host.id, rule.name, event.code, _id, _version, _index
-        | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code
-        | where Esql.host_id_count_distinct >= 3
-        """
-        rule = RuleCollection().load_dict(production_rule)
-        for rf in rule.contents.to_api_format().get("required_fields") or []:
-            name = rf["name"]
-            assert not name.startswith(("Esql_priv.", "Esql.")), (
-                f"required_fields must not include ES|QL engine columns (not index mappings): {name!r}"
-            )
+        """required_fields must not list Esql.* / Esql_priv.* (not index mappings)."""
+        for rule in self.all_rules:
+            for rf in rule.contents.to_api_format().get("required_fields") or []:
+                name = rf["name"]
+                assert not name.startswith(("Esql_priv.", "Esql.")), (
+                    f"{rule.id} - {rule.name}: required_fields must not include ES|QL engine columns "
+                    f"(not index mappings): {name!r}"
+                )
 
     def test_esql_endpoint_unknown_index(self):
         """Test an ESQL rule's index validation. This is expected to error on an unknown index."""
