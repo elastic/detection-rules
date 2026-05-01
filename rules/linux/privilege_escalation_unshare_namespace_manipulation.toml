@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/08/30"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager", "cloud_defend"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ or escape container security boundaries. Threat actors have utilized this binary
 host and access other resources or escalate privileges.
 """
 from = "now-9m"
-index = ["auditbeat-*", "endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-cloud_defend.process*", "endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Namespace Manipulation Using Unshare"
@@ -95,25 +95,31 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 severity = "medium"
 tags = [
     "Domain: Endpoint",
+    "Domain: Container",
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend for Containers",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event", "start") and
-process.executable: "/usr/bin/unshare" and not (
-  process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
-  process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java") or
-  process.parent.args like (
+process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event", "start", "executed") and
+process.name: "unshare" and not (
+  ?process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
+  (process.args == "/usr/bin/snap" and not ?process.parent.name in ("zz-proxmox-boot", "java")) or
+  ?process.parent.args like (
     "/etc/kernel/postinst.d/zz-proxmox-boot", "/opt/openssh/sbin/sshd", "/usr/sbin/sshd",
     "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*"
-  )
+  ) or
+ (process.args == "--propagation" and process.args == "private" and process.args:"/etc/kernel/post*.d/zz-proxmox-boot") or 
+ (process.args == "--fork" and process.args == "--kill-child") or 
+  process.args like ("/usr/bin/os-prober", "/usr/bin/linux-boot-prober", "/opt/SIGOS/sitedata/exec/*")
 )
 '''
 
