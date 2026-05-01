@@ -2,7 +2,7 @@
 creation_date = "2025/05/27"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic"]
@@ -24,42 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Disabling Lsa Protection via Registry Modification"
-note = """## Triage and analysis
-
-### Investigating Disabling Lsa Protection via Registry Modification
-
-For more information about the Lsa Protection and how it works, check the [official Microsoft docs page](https://learn.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/configuring-additional-lsa-protection).
-
-Attackers may disable Lsa protection to access Lsass memory for credentals. This rule identifies RunAsPPL registry value modifications.
-
-#### Possible investigation steps
-
-- Verify the context of the change and if it's related to a planned system administration activity.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Inspect the host for suspicious or abnormal behaviors in the alert timeframe.
-- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-
-### False positive analysis
-
-- Approved changes to relax the Lsa protection for compatibility with third party solutions such as authentication plugins or alike.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Restore UAC settings to the desired state.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = ["https://learn.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/configuring-additional-lsa-protection"]
 risk_score = 73
 rule_id = "37cb6756-8892-4af3-a6bd-ddc56db0069d"
@@ -89,6 +53,148 @@ registry where host.os.type == "windows" and event.type == "change" and
   not process.executable : "?:\\Windows\\System32\\SecurityHealthService.exe"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Disabling Lsa Protection via Registry Modification
+
+#### Possible investigation steps
+
+- Does the alert-local registry write attempt to lower LSA protection?
+  - Why: RunAsPPL values 1 and 2 enable protected LSASS modes; a non-enabling value under the LSA control path weakens credential protection even when live-state effect is unresolved.
+  - Focus: `registry.path`, `registry.value`, `registry.data.type`, and `registry.data.strings`, confirming the RunAsPPL LSA control path and non-enabling data.
+  - Implication: escalate or keep investigating when RunAsPPL receives a non-enabling value; treat numbered-ControlSet effect as unresolved, not benign. Lower suspicion only when verified as controlled compatibility testing on a non-production host.
+
+- Which process and parent made the RunAsPPL change?
+  - Focus: `process.executable`, `process.command_line`, `process.code_signature.subject_name`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when a user-writable binary, script host, renamed tool, unexpected signer, or unexplained parent changed RunAsPPL; lower suspicion when writer identity and parent workflow match a recognized validation, image-engineering, or compatibility toolchain. Identity alone does not clear the weakening change.
+
+- Does the account and session context fit a controlled LSA protection change?
+  - Focus: `user.id`, `user.name`, `user.domain`, `process.Ext.session_info.logon_type`, and `process.Ext.token.elevation_level`.
+  - Implication: escalate when the change comes from an unexpected administrator, service account, remote shell, Office lineage, or token/session context that does not fit the expected task; lower suspicion only when account, session type, and privilege context fit the same recognized host-management workflow.
+
+- Did the same process modify adjacent credential-protection or authentication settings?
+  - Focus: registry events on the same `host.id` and `process.entity_id`, especially `registry.path`, `registry.value`, and `registry.data.strings` under LSA, WDigest, security provider, or Credential Guard families. $investigate_2
+  - Hint: filter surrounding registry events by `host.id` plus `process.entity_id`; if absent, use `host.id`, `process.pid`, and a tight event-time window.
+  - Implication: escalate when the writer also touches RunAsPPLBoot, LsaCfgFlags, UseLogonCredential, security packages, or similar credential-protection settings; keep scope narrower when the RunAsPPL write is isolated and registry context fits the same recognized test or build workflow.
+
+- Did process activity prepare to exploit the weakened setting?
+  - Why: a registry-only disable generally matters after reboot, so restart staging and LSASS-access preparation change urgency.
+  - Focus: registry-writer and child process activity on the same `host.id`, checking `process.name`, `process.executable`, and `process.command_line`; broaden to the same `user.id` only if writer-scoped activity is unresolved. $investigate_3
+  - Implication: escalate when the same lineage or user queues a reboot, launches LSASS dump tooling, invokes memory-access utilities, or stages archive commands; absence of follow-on process evidence does not close the alert because the weakened setting can be used after a later reboot.
+
+- If local findings remain suspicious or unresolved, does the same host show broader defense weakening or credential-access activity?
+  - Focus: related alerts for the same `host.id`, especially LSA-protection, LSASS-access, reboot, persistence, privilege-escalation, or credential-access alerts. $investigate_0
+  - Hint: review related alerts for the same `user.id` to see whether the account is changing LSA protection or staging credential access elsewhere. $investigate_1
+  - Implication: broaden scope when the same host has aligned defense-evasion or credential-access alerts; keep handling local when related host alerts are absent and registry, writer, session, and follow-on process evidence all support one recognized workflow.
+
+- Escalate when registry meaning plus writer, session, adjacent-registry, reboot/LSASS-prep, or related-alert evidence shows unauthorized LSA-protection weakening; close only when telemetry proves one verified compatibility, validation, or image-engineering workflow with no contradictions; preserve evidence and escalate when telemetry is mixed or incomplete.
+
+### False positive analysis
+
+- Controlled compatibility testing, security validation, image engineering, or break-fix work can lower RunAsPPL on lab, pre-production, build, or troubleshooting systems. Confirm the exact expected test value in `registry.path`, `registry.value`, and `registry.data.strings`; a matching validation or build toolchain in `process.executable`, `process.command_line`, `process.code_signature.subject_name`, `process.parent.executable`, and `user.id`; and a bounded `host.id` / `host.name` cohort. If registry meaning, writer context, session context, or host pattern is missing or contradictory, do not close as benign.
+- Before creating an exception, validate recurrence of the same `process.executable`, `process.command_line`, `process.code_signature.subject_name`, `user.id`, `host.id`, and specific `registry.path` family across prior alerts from this rule. Build the exception from that minimum confirmed workflow pattern; avoid exceptions on RunAsPPL alone, `user.name` alone, or a host alone.
+
+### Response and remediation
+
+- If confirmed benign, record which evidence proved the workflow: `registry.path`, `registry.data.strings`, writer identity, parent context, `user.id`, `host.id`, host cohort, and change window. Then reverse any temporary containment. Create an exception only when the same narrow pattern recurs consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert, registry timeline, modified RunAsPPL value (`registry.path`, `registry.data.strings`), writer command context (`process.entity_id`, `process.command_line`), parent context, account context, and any reboot or LSASS-prep command evidence before containment or cleanup. Apply reversible containment first: heightened monitoring, temporary access restrictions for the affected `user.id`, or host isolation only when dump or reboot evidence raises risk and isolation will not disrupt critical service.
+- If confirmed malicious, record process and registry evidence first, then isolate the host through endpoint response when registry, writer, session, and follow-on evidence establish unauthorized protection weakening. Restore RunAsPPL to the expected enabled value, usually 1 or 2, verify adjacent LSA and security-provider settings, and confirm LSASS starts protected after the required reboot.
+- If reboot or LSASS-access preparation occurred, treat resident credentials as potentially exposed, scope privileged or service accounts active on the host, and perform credential hygiene based on their exposure.
+- Eradicate only the scripts, binaries, persistence changes, registry values, and dump or archive artifacts identified during the investigation, then remediate the access path that allowed the protection change.
+- Retain registry and process telemetry, the final RunAsPPL state, and reboot timing so future cases can separate recurring controlled testing from repeated abuse.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.Ext.session_info.logon_type",
+    "process.Ext.token.elevation_level",
+    "registry.path",
+    "registry.value",
+    "registry.data.type",
+    "registry.data.strings",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry activity by the same writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process activity for the registry writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
