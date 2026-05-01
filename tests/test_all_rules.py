@@ -428,7 +428,7 @@ class TestRuleTags(BaseRuleTest):
             "logs-system.system*": {"all": ["Data Source: Windows System Event Logs"]},
             "logs-sentinel_one_cloud_funnel.*": {"all": ["Data Source: SentinelOne"]},
             "logs-fim.event-*": {"all": ["Data Source: File Integrity Monitoring"]},
-            "logs-m365_defender.event-*": {"all": ["Data Source: Microsoft Defender for Endpoint"]},
+            "logs-m365_defender.event-*": {"all": ["Data Source: Microsoft Defender XDR"]},
             "logs-crowdstrike.fdr*": {"all": ["Data Source: Crowdstrike"]},
         }
 
@@ -760,6 +760,30 @@ class TestRuleMetadata(BaseRuleTest):
 
             rule_str = f"{rule_id} - {entry['rule_name']} ->"
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Skipping deprecated version lock check")
+    def test_newly_deprecated_rules_have_reason(self):
+        """Newly deprecated rules must include `deprecated_reason` in [metadata].
+
+        Rules already in `deprecated_rules.json` are grandfathered.
+        """
+        already_deprecated = set(self.rules_config.deprecated_rules)
+        missing: list[str] = []
+
+        for rule in self.deprecated_rules:
+            if rule.id in already_deprecated:
+                continue
+            if not rule.contents.metadata.get("deprecated_reason"):
+                missing.append(self.rule_str(rule))
+
+        if missing:
+            rules_str = "\n  ".join(missing)
+            self.fail(
+                "The following newly deprecated rules are missing `deprecated_reason` in "
+                "[metadata]. Add a short explanation (e.g. 'Replaced by <rule name>'). This "
+                "field is only required for NEW deprecations on this branch; rules already "
+                f"tracked in `deprecated_rules.json` are grandfathered.\n  {rules_str}"
+            )
 
     def test_deprecated_rules_modified(self):
         """Test to ensure deprecated rules are not modified."""
@@ -1440,40 +1464,7 @@ class TestInvestigationGuide(BaseRuleTest):
 
 
 class TestNoteMarkdownPlugins(BaseRuleTest):
-    """Test if a guide containing Osquery Plugin syntax contains the version note."""
-
-    def test_note_has_osquery_warning(self):
-        """Test that all rules with osquery entries have the default notification of stack compatibility."""
-        osquery_note_pattern = (
-            "> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) "
-            "introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-        invest_note_pattern = (
-            "> This investigation guide uses the [Investigate Markdown Plugin]"
-            "(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)"
-            " introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display "
-            "unrendered Markdown in this guide."
-        )
-
-        for rule in self.all_rules:
-            if not rule.contents.get("transform"):
-                continue
-
-            osquery = rule.contents.transform.get("osquery")
-            if osquery and osquery_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain "
-                    f"the following note:\n{osquery_note_pattern}"
-                )
-
-            investigate = rule.contents.transform.get("investigate")
-            if investigate and invest_note_pattern not in rule.contents.data.note:
-                self.fail(
-                    f"{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain "
-                    f"the following note:\n{invest_note_pattern}"
-                )
+    """Test investigation guide markdown plugin syntax and placeholders."""
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""

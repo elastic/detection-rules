@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,7 @@ The Windows Command Shell (cmd.exe) is a critical component for executing comman
 - Check the parent process of the cmd.exe execution to determine if it is a known benign process or if it is associated with potentially malicious activity, especially if the parent process is explorer.exe or other unusual executables.
 - Investigate the user account associated with the cmd.exe process to determine if the activity aligns with the user's typical behavior or if it appears anomalous.
 - Examine the network activity of the host to identify any unusual outbound connections or data transfers that may correlate with the suspicious command execution.
-- Cross-reference the alert with other security logs or alerts from tools like Sysmon, SentinelOne, or Microsoft Defender for Endpoint to gather additional context and corroborate findings.
+- Cross-reference the alert with other security logs or alerts from tools like Sysmon, SentinelOne, or Microsoft Defender XDR to gather additional context and corroborate findings.
 - Assess the risk score and severity of the alert to prioritize the investigation and determine if immediate response actions are necessary.
 
 ### False positive analysis
@@ -71,7 +71,7 @@ tags = [
     "Data Source: Windows Security Event Logs",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
 ]
@@ -137,7 +137,7 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
   not (
         /* Crowdstrike doesn't populate process.parent.executable */
-        event.dataset == "crowdstrike.fdr" and
+        data_stream.dataset == "crowdstrike.fdr" and
         process.parent.name : (
           "perl.exe", "node.exe", "pg_dumpall.exe", "PRTG Server.exe", "spiceworks-finder.exe", "leds.exe", "twexec.exe",
           "SonarScanner.MSBuild.exe", "Code.exe", "netbeans64.exe", "javaw.exe", "Bot Framework Composer.exe", "SessionMgr.exe",

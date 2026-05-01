@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/16"
 
 [rule]
 author = ["Elastic"]
@@ -73,8 +73,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
-  (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
+((event.category:(network or network_traffic) and destination.port:53) 
+      or network.protocol:"dns" 
+      or data_stream.dataset:(network_traffic.dns or zeek.dns))
+    and destination.bytes > 60000
+    and event.type:("allowed" or "end" or "protocol" or "start")
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2026/03/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/26"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,37 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Suspicious Python Shell Command Execution"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Python Shell Command Execution
+
+This rule flags Linux or macOS activity where Python rapidly launches multiple shell commands through sh/bash-style interpreters, a strong sign that a script is driving hands-on execution rather than normal application behavior. An attacker might use a Python backdoor to run `sh -c` commands such as `whoami`, `uname`, `env`, `find`, and `curl` in quick succession to profile the host, locate data, and pull down follow-on tools.
+
+### Possible investigation steps
+
+- Reconstruct the full process tree around the Python parent to identify the originating script or module, execution path, user context, and whether it was launched by an interactive session, scheduled task, service, container runtime, or approved automation.
+- Review the Python code or script content that spawned the shells, along with recent file creation or modification and package installation activity, to determine whether it is legitimate application logic or an unexpected payload introduced in temporary, user, or application directories.
+- Compare the clustered shell commands with any immediate follow-on behavior such as outbound network connections, tool downloads, archive creation, credential store access, or additional interpreter launches to assess whether the activity moved from discovery into payload delivery or exfiltration.
+- Pivot on the same host and Python execution lineage for prior and subsequent events to uncover persistence or lateral movement indicators, including cron or systemd changes, launchd modifications, SSH activity, or repeated execution patterns across other endpoints.
+- Validate with the asset or application owner whether the behavior matches known deployment, build, or administrative workflows, and if it does not, isolate the host and collect memory, script artifacts, and shell history for deeper analysis.
+
+### False positive analysis
+
+- A legitimate Python administration or deployment script may call `sh -c` to run discovery and download commands such as `whoami`, `uname`, `env`, `find`, or `curl` during host setup; verify the parent Python script path, user, and working directory match an approved maintenance job and that the command set is expected for that script.
+- A Python application on Linux or macOS may spawn shell wrappers during startup, diagnostics, or update checks and generate several distinct commands within a minute; confirm the Python executable and child shell activity originate from the expected application directory and correlate with a recent authorized install, upgrade, or troubleshooting session.
+
+### Response and remediation
+
+- Isolate the affected Linux or macOS host from the network, terminate the malicious Python process and any spawned `sh -c` or `bash -c` children, and block any external IPs, domains, or download URLs the script contacted.
+- Preserve and quarantine the Python script, shell history, downloaded payloads, and files created in temporary, user, or application directories, then remove attacker persistence such as cron jobs, systemd service or timer units, launchd plists, login scripts, and unauthorized `authorized_keys` entries.
+- Restore the system to a known-good state by removing attacker-created files only after collection, reinstalling or repairing modified packages and startup items, and reimaging the host if system binaries, security tools, or core configuration files were altered.
+- Rotate credentials and secrets exposed on the host, including local accounts, SSH keys, API tokens, and application or cloud credentials, especially if the shell activity included `env`, keychain access, history review, or reads from credential files.
+- Escalate to incident response immediately if the Python-launched shells used `curl` or `wget` to fetch payloads, established outbound sessions to untrusted infrastructure, touched multiple endpoints, or showed evidence of credential theft, persistence, or data collection.
+- Harden the environment by restricting Python and shell execution from temporary or user-writable paths, limiting which users and services can invoke shell interpreters, tightening egress controls, and adding detections for Python spawning shell commands, new cron or launchd items, and unauthorized SSH key changes.
+"""
 risk_score = 47
 rule_id = "b42e4b88-fc4a-417b-a45e-4d4a3db9fd41"
 severity = "medium"
@@ -25,6 +56,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "esql"
 query = '''
@@ -66,7 +98,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
     process.parent.entity_id,
     agent.id,
     host.name,
-    event.dataset,
+    data_stream.dataset,
     data_stream.namespace
 
 | STATS
@@ -75,7 +107,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
   Esql.process_command_line_values = VALUES(process.command_line),
   Esql.host_name_values = values(host.name),
   Esql.agent_id_values = values(agent.id),
-  Esql.event_dataset_values = values(event.dataset),
+  Esql.data_stream_dataset_values = values(data_stream.dataset),
   Esql.data_stream_namespace_values = values(data_stream.namespace)
   BY process.parent.entity_id, agent.id, host.name, Esql.time_window_date_trunc
 
