@@ -73,9 +73,10 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "executed") and (
-  process.name == "kubeletctl" or 
-  (process.args in ("-s", "--server") and process.args in ("run", "portForward", "scan", "attach", "exec", "pods", "runningpods", "cri", "pid2pod"))
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "executed") and 
+(
+  process.name == "kubeletctl" or
+  (process.args in ("run", "exec", "scan", "pods", "runningpods", "attach", "portForward", "cri", "pid2pod") and process.args:("*:10250*", "*:10255*"))
 )
 '''
 
