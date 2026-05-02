@@ -73,7 +73,7 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
   kubernetes.audit.sourceIPs is not null and
   not kubernetes.audit.sourceIPs in ("::1", "127.0.0.1") and
   KQL(""" kubernetes.audit.responseObject.rules.verbs:"*" and kubernetes.audit.responseObject.rules.resources:"*" """)
-| keep *
+| keep user.name, user_agent.original, event.action, source.ip, kubernetes.audit.verb, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, kubernetes.audit.user.username, kubernetes.audit.user.groups, `kubernetes.audit.annotations.authorization_k8s_io/decision`, event.original
 '''
 
 [[rule.threat]]
