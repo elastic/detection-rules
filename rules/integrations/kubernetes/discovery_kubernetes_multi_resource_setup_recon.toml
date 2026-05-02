@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/04/22"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/04/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries who land credentials in a cluster—or abuse an over-privileged token—often map the environment before
+exfiltration or privilege escalation. A practical first pass is to learn where workloads run, how the cluster is
+partitioned, and what RBAC exists at namespace vs cluster scope. Rapid `get`/`list` traffic across distinct
+API resource kinds that answer those questions (namespaces, workloads, roles, cluster-wide roles) is a common
+setup and orientation pattern for both interactive attackers and automated recon scripts. It is less typical for
+steady-state controllers, which usually touch a narrow set of resources repeatedly. This rule highlights that
+cross-resource burst from a single client fingerprint within a one-minute bucket so analysts can separate routine
+automation from potential discovery and permission reconnaissance ahead of follow-on actions.
+"""
+from = "now-11m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Kubernetes Multi-Resource Discovery"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Multi-Resource Discovery
+
+The rule groups Kubernetes audit `get`/`list` events on namespaces, pods, roles, and clusterroles into one-minute windows 
+per `user.name`, `source.ip`, `user_agent.original`, and flags windows where three or more distinct resource types appear. 
+That combination is consistent with someone sketching cluster layout and privilege structure rather than touching a single 
+resource type. **Allowed and denied** authorizations are both included: failures still signal probing and validate which 
+object types the caller attempted to reach.
+
+### Possible investigation steps
+
+- Pivot on `Esql.time_interval` and the same identity or IP in raw audit logs to see ordering (e.g. namespaces first,
+  then roles, then pods) and whether calls succeeded.
+- Review `Esql.decisions` and namespaces touched; correlate with RBAC for that identity to see if scope matches a
+  known job or breaks least-privilege expectations.
+- Hunt for follow-on activity: secret/configmap reads, rolebinding changes, pod exec, anonymous or unusual user agents.
+- Baseline automation: CI, GitOps, and some monitoring agents can read several resource types during sync; exclude
+  known service accounts or source networks if noisy.
+
+### False positive analysis
+
+- Platform operators or runbooks that reconcile RBAC and workload state may legitimately span these resource types in
+  a short window; tune by user, IP allowlist, or user agent when documented.
+- Some installers briefly query namespaces, pods, and roles during upgrades—correlate with change windows.
+
+### Response and remediation
+
+- If malicious, revoke or rotate the implicated credentials, review and tighten RBAC, and inspect for data access or
+  persistence established after the burst.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1613/",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+]
+risk_score = 47
+rule_id = "c2a91e88-4f4b-4e1d-9c7b-8fde112a9403"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-kubernetes.audit_logs-* metadata _id, _index, _version
+| eval Esql.time_interval = date_trunc(1 minute, @timestamp)
+| where event.dataset == "kubernetes.audit_logs"
+    and event.action in ("get", "list")
+    and kubernetes.audit.objectRef.resource in ("namespaces", "nodes", "pods", "roles", "configmaps", "serviceaccounts", "clusterroles", "clusterrolebindings", "rolebindings")
+    and source.ip is not null and user.name IS NOT NULL
+    and not to_string(source.ip) in ("127.0.0.1", "::1")
+    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/|system:serviceaccount:kube-system:azure|system:node:aks-default|aksService).*"""
+| stats
+    Esql.unique_resources = count_distinct(kubernetes.audit.objectRef.resource),
+    Esql.enumerated_resources = values(kubernetes.audit.objectRef.resource),
+    Esql.enumerated_namespaces = values(kubernetes.audit.objectRef.namespace),
+    Esql.decisions = values(`kubernetes.audit.annotations.authorization_k8s_io/decision`)
+  by user.name, source.ip, user_agent.original, Esql.time_interval
+| where Esql.unique_resources >= 3
+| keep Esql.*, user.name, source.ip, user_agent.original
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
