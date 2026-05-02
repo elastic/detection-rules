@@ -2,33 +2,7 @@
 creation_date = "2021/10/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/03/19"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -42,60 +16,6 @@ index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Process Access via Direct System Call"
-note = """## Triage and analysis
-
-### Investigating Suspicious Process Access via Direct System Call
-
-Endpoint security solutions usually hook userland Windows APIs in order to decide if the code that is being executed is malicious or not. It's possible to bypass hooked functions by writing malicious functions that call syscalls directly.
-
-More context and technical details can be found in this [research blog](https://outflank.nl/blog/2019/06/19/red-team-tactics-combining-direct-system-calls-and-srdi-to-bypass-av-edr/).
-
-This rule identifies suspicious process access events from an unknown memory region. Attackers can use direct system calls to bypass security solutions that rely on hooks.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
-
-
-### False positive analysis
-
-- This detection may be triggered by certain applications that install root certificates for the purpose of inspecting SSL traffic. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove the malicious certificate from the root certificate store.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://twitter.com/SBousseaden/status/1278013896440324096",
     "https://www.ired.team/offensive-security/defense-evasion/using-syscalls-directly-from-visual-studio-to-bypass-avs-edrs",
@@ -123,7 +43,7 @@ process where host.os.type == "windows" and event.code == "10" and
  not winlog.event_data.CallTrace :
             ("?:\\WINDOWS\\SYSTEM32\\ntdll.dll*",
              "?:\\WINDOWS\\SysWOW64\\ntdll.dll*",
-             "?:\\WINDOWS\\System32\\sysfer.dll*",
+             "?:\\Windows\\System32\\sysfer.dll*",
              "?:\\Windows\\System32\\wow64cpu.dll*",
              "?:\\WINDOWS\\System32\\wow64win.dll*",
              "?:\\Windows\\System32\\win32u.dll*",
@@ -140,6 +60,161 @@ process where host.os.type == "windows" and event.code == "10" and
       not winlog.event_data.TargetImage : "?:\\WINDOWS\\system32\\lsass.exe")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Process Access via Direct System Call
+
+#### Possible investigation steps
+
+- What did the Sysmon process-access event prove?
+  - Focus: `winlog.event_data.SourceImage`, `winlog.event_data.SourceProcessGUID`, `winlog.event_data.TargetImage`, `winlog.event_data.GrantedAccess`, and `winlog.event_data.CallTrace`.
+  - Implication: escalate when the call trace starts in UNKNOWN or unbacked memory before the Windows syscall layer and the source opens lsass.exe, a browser, or a security process with memory-read, memory-write, thread, duplicate-handle, or all-access rights; lower concern only when the same source-target-access pattern matches recognized EDR, anti-exploit, debugger, accessibility, anti-cheat, or browser instrumentation.
+- Which source process instance made the access?
+  - Focus: recover the source process start on `host.id` using `process.entity_id`, or `winlog.event_data.SourceProcessGUID` plus `process.pid` and alert-time proximity as a weaker fallback; review `process.executable`, `process.hash.sha256`, PE metadata, and code signature. $investigate_0
+  - Hint: hash, PE metadata, and signature fields are optional; if absent, keep disposition tied to source path, GUID/PID recovery, parent or command context, and target/access evidence rather than closing.
+  - Implication: escalate when the source is unsigned, recently dropped, user-writable, renamed, or mismatched to PE metadata; lower concern only when identity, signer or hash, path, and recovery context fit the same recognized security, debugger, accessibility, anti-cheat, or instrumentation workflow.
+- Did launch and user context fit that workflow?
+  - Focus: recovered `process.command_line`, parent executable/command line, alert `user.id`, and session context.
+  - Hint: join `process.Ext.authentication_id` to `winlog.event_data.TargetLogonId` only when session origin changes severity; if absent, keep origin unresolved and rely on alert user plus recovered session context.
+  - Implication: escalate when Office, browsers, script hosts, archive tools, LOLBins, or remote-interactive sessions launch the accessor; lower concern when parent, command line, account, and session type fit the same recognized low-level tool. If process/session fields cannot be recovered, treat the gap as unresolved, not benign.
+- Did the same source process create dumping, injection, or staging artifacts?
+  - Focus: same-source child starts and file events where `file.path` shows dump output, temp staging, payload drops, or renamed executable content. $investigate_1 $investigate_2
+  - Hint: use the transform when `process.entity_id` is present; otherwise repeat the `host.id` plus `process.pid` alert-time fallback from source recovery.
+  - Implication: escalate when the source writes dumps, stages payloads, or spawns tooling after access; missing process or file telemetry is unresolved, not benign.
+- Did the same source process communicate after access?
+  - Focus: process-scoped DNS `dns.question.name` and connections to `destination.ip`.
+  - Hint: correlate DNS to destination IP only after matching the same recovered process, `host.id`, and surrounding time window. $investigate_3
+  - Implication: escalate when the source reaches rare or misaligned destinations, connects directly to public IPs, or talks outbound after accessing a sensitive process; missing network telemetry is unresolved, not benign.
+- If local evidence remains suspicious or unresolved, is there related activity for the same user, host, or source binary?
+  - Focus: related alerts for `user.id`, `host.id`, and recovered `process.hash.sha256` when available, especially process-access, dump-file, injection, credential-access, or persistence alerts.
+  - Hint: start with user-scoped alerts when the alert user is meaningful. $investigate_4
+  - Hint: use host-scoped alerts when the source runs as a service identity or user context is sparse. $investigate_5
+  - Implication: broaden scope only when local source, target, access, identity, or follow-on evidence remains suspicious or unresolved; expand containment and credential scoping when related alerts show the same access pattern beyond one process.
+- Escalate unauthorized direct-syscall access to credential-bearing, browser, or security processes when source-target-access-call-trace, recovered identity, launch/session context, or follow-on evidence remain suspicious; close only when those categories bind to one recognized workflow with outside confirmation for any legitimacy gap; preserve and escalate mixed evidence or visibility gaps.
+
+### False positive analysis
+
+- Security agents, anti-exploit tools, debuggers, accessibility tools, anti-cheat systems, browser or PDF instrumentation, backup, and virtualization tools can perform low-level process access. Confirm source executable, signer or hash history, parent workflow, target cohort, access mask, call-trace shape, user/session context, recurrence, and quiet follow-on telemetry all align with one exact product workflow; require owner, inventory, vendor, or change evidence for legitimacy gaps. Recurrence is only corroboration: require the same stable source identity, parent/session context, target cohort, access pattern, and lack of dump or staging artifacts for the same `host.id` and `user.id`.
+- Build exceptions from the minimum confirmed pattern: recovered source executable or signer, recovered parent workflow, `winlog.event_data.TargetImage`, access-mask class, first-frame call-trace shape, and relevant `host.id` or `user.id` scope. Avoid exceptions on `winlog.event_data.GrantedAccess`, `winlog.event_data.CallTrace`, process name, or target image alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the source identity, launch/session context, source-target-access-call-trace tuple, target cohort, and evidence that confirmed the product workflow. Create an exception only for the exact recurring pattern.
+- If suspicious but unconfirmed, preserve the alert record, Sysmon Event ID 10 details, source and target process GUIDs, call trace string, recovered process start, relevant authentication records, dump files, staged payloads, and network indicators before containment or cleanup.
+- Apply reversible containment first: heightened monitoring, temporary outbound restrictions, or response-tool policy on the affected `host.id`. Escalate to host isolation or process suspension only when the target sensitivity, access rights, identity evidence, or follow-on artifacts indicate likely dumping, injection, or credential theft.
+- If confirmed malicious, isolate the endpoint and suspend or terminate the recovered source process after recording its identity, command line, parent chain, source-target pair, access mask, call trace, staged files, and network indicators. If direct response is unavailable, hand off that evidence set to the team that can isolate the host or account.
+- If the target process held credentials, browser secrets, or security-product context, scope related users, sessions, tokens, and hosts before credential resets or broad process termination so evidence and blast radius are not lost.
+- Eradicate only the dump files, injectors, loaders, persistence artifacts, or staged payloads identified during the investigation, then remediate the launcher, delivery path, or exposed credential path that enabled the direct-syscall process access.
+- Post-incident hardening: retain Sysmon Event ID 10 plus supporting process, file, network, and Windows Security telemetry, and document direct NtOpenProcess, unhooking, or call-stack-spoofing variants observed in the case for future detection review."""
+
+setup = """## Setup
+
+This rule requires Sysmon telemetry to be enabled and ingested.
+
+Setup instructions: https://ela.st/sysmon-event-10-setup
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "winlog.event_data.SourceProcessGUID",
+    "winlog.event_data.SourceImage",
+    "winlog.event_data.TargetProcessGUID",
+    "winlog.event_data.TargetImage",
+    "winlog.event_data.GrantedAccess",
+    "winlog.event_data.CallTrace",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Events for the same source process on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the source process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the source process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the source process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -147,7 +222,6 @@ framework = "MITRE ATT&CK"
 id = "T1055"
 name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
@@ -160,9 +234,7 @@ id = "T1106"
 name = "Native API"
 reference = "https://attack.mitre.org/techniques/T1106/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

@@ -2,7 +2,7 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -23,41 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Managed Code Hosting Process"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Managed Code Hosting Process
-
-Managed code hosting processes like wscript.exe, cscript.exe, and others are integral to executing scripts and managing code in Windows environments. Adversaries exploit these processes for code injection or executing malicious scripts, often evading detection. The detection rule identifies anomalies by monitoring specific process logs, flagging high-risk activities that deviate from normal operations, thus alerting analysts to potential threats.
-
-### Possible investigation steps
-
-- Review the process logs for the specific file names flagged in the alert, such as wscript.exe.log or cscript.exe.log, to identify any unusual or unauthorized script executions.
-- Correlate the suspicious process activity with user account activity to determine if the actions were performed by a legitimate user or potentially compromised account.
-- Examine the parent process of the flagged managed code hosting process to identify if it was spawned by a legitimate application or a known malicious process.
-- Check for any recent changes or modifications to the scripts or executables associated with the flagged process to identify potential tampering or unauthorized updates.
-- Investigate network connections initiated by the suspicious process to detect any communication with known malicious IP addresses or domains.
-- Utilize threat intelligence sources to cross-reference any identified indicators of compromise (IOCs) such as file hashes or IP addresses associated with the suspicious process.
-
-### False positive analysis
-
-- Legitimate administrative scripts may trigger alerts when executed by IT personnel using wscript.exe or cscript.exe. To manage this, create exceptions for known scripts and trusted user accounts.
-- Automated system maintenance tasks using mshta.exe or wmic.exe can be flagged as suspicious. Identify and whitelist these tasks if they are part of regular system operations.
-- Software updates or installations might use svchost.exe or dllhost.exe, leading to false positives. Monitor and document these activities, then exclude them from alerts if they are verified as safe.
-- Custom applications that rely on cmstp.exe or regsvr32.exe for legitimate purposes can be mistaken for threats. Validate these applications and add them to an exception list to prevent unnecessary alerts.
-- Regularly review and update the exception list to ensure it reflects current legitimate activities, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Terminate the suspicious process identified in the alert, such as wscript.exe, cscript.exe, or any other flagged process, to stop any ongoing malicious activity.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or scripts.
-- Review and restore any system or application configurations that may have been altered by the malicious process to ensure system integrity.
-- Collect and preserve relevant logs and forensic data from the affected system for further analysis and to aid in understanding the scope and impact of the incident.
-- Notify the security operations center (SOC) or incident response team to escalate the incident for further investigation and to determine if additional systems are affected.
-- Implement additional monitoring and detection rules to enhance visibility and prevent similar threats in the future, focusing on the specific processes and behaviors identified in the alert."""
 references = [
     "http://web.archive.org/web/20230329154538/https://blog.menasec.net/2019/07/interesting-difr-traces-of-net-clr.html",
 ]
@@ -92,6 +57,187 @@ file where host.os.type == "windows" and event.type != "deletion" and
                "regsvr32.exe.log")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Managed Code Hosting Process
+
+#### Possible investigation steps
+
+- What CLR UsageLog behavior did the alert preserve?
+  - Focus: `file.path`, `file.name`, `event.type`, and acting `process.name` / `process.executable`.
+  - Implication: escalate when the UsageLog host has no stable process/user pattern; lower suspicion only as an initial read when the same path and process recur for the same product, deployment, login-script, COM, or service-host context.
+- Is the managed host the genuine Windows binary rather than a lookalike?
+  - Focus: same-process start evidence for `host.id` and `process.entity_id`: `process.executable`, hash, original file name, signer, and trust. $investigate_0
+  - Hint: if a source lacks `process.entity_id`, fall back to `process.pid` plus `host.id` in a tight alert-time window to avoid PID reuse. $investigate_3
+  - Implication: escalate when the host binary runs from a user-writable path, has a mismatched original file name, or has an unexpected signer; lower suspicion only when identity, signer, path, and the UsageLog host name all point to the same genuine Windows host.
+- Does the launch chain explain why this host loaded managed code?
+  - Focus: `process.command_line`, parent executable/command line, `user.id`, and session context.
+  - Implication: escalate when Office, browsers, archive tools, remote sessions, or user-writable scripts drive mshta, wscript, cscript, wmic, regsvr32, or cmstp; lower suspicion when the same command line, parent, user, and session match a recognized installer, scheduled task, management agent, COM component, or login script.
+- Does this UsageLog path recur with the same process and user pattern?
+  - Focus: historical file and process events for the same `host.id`, comparing `file.path`, `event.type`, process/parent executable, and `user.id`. $investigate_4
+  - Implication: escalate when a first create, new `process.executable`, new parent, new user, or unusual update appears for a process that normally should not host managed code; lower suspicion when prior events show the same path, process identity, parent, and user with no follow-on artifacts.
+- Does the UsageLog artifact or same-process activity expose payload staging?
+  - Why: HTA/JS managed-code hosting and repeat UsageLog updates can hide intent in process text, so preserve the UsageLog while using same-process file/process telemetry for the decision.
+  - Focus: preserve `file.path`, then query file and process events for the same `host.id` and `process.entity_id`, comparing name, extension, size, and later `process.executable` reuse of written paths. $investigate_5 $investigate_6
+  - Hint: if only `process.pid` is available, keep the file/process correlation tightly scoped to the alert time and host; empty or multiple PID matches are unresolved, not benign.
+  - Implication: escalate when the process writes scriptable or executable content to user-writable paths, creates unusual payload-sized files, or later executes a written artifact; lower suspicion when artifacts stay inside the same recognized product or deployment path with no follow-on execution.
+- If local evidence remains suspicious or unresolved, does the same user or host show related managed-host abuse?
+  - Focus: related alerts for `user.id` and `host.id`: repeated UsageLog paths, script-host execution, payload staging, injection, or persistence.
+  - Hint: same-user alert view: $investigate_1
+  - Hint: same-host alert view: $investigate_2
+  - Implication: broaden scope only when UsageLog, identity, launch, recurrence, or artifact evidence remains suspicious or incomplete; keep local when the alert is isolated and all supported evidence resolves to one recognized workflow.
+- Escalate for unauthorized managed-code execution through a script host or LOLBin; close only when UsageLog, identity, launch, recurrence, artifact, and related-alert evidence bind to one recognized workflow with no contradictions; preserve artifacts and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Packaging, deployment, login-script, management-agent, product, COM, and service-hosted workflows can legitimately update CLR UsageLogs for wscript.exe, cscript.exe, mshta.exe, wmic.exe, cmstp.exe, svchost.exe, dllhost.exe, or regsvr32.exe. Confirm `file.path`, process identity, signer or hash history, parent or service/COM launch context, user/session context, artifact behavior, and same-process file/process activity all point to one workflow. If inventories are unavailable, require stable UsageLog path, parent chain, process identity, and user-host pairing across prior alerts before closing as benign.
+- Build exceptions only from the minimum confirmed workflow pattern: `file.path`, `process.executable`, `process.parent.executable`, stable signer or hash, and the relevant `host.id` or `user.id` scope. Avoid exceptions on `file.name`, process name, or host name alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the UsageLog path, process identity, launch chain, user/session context, recurrence pattern, and artifact evidence that proved the workflow. Create an exception only after the same pattern recurs consistently across prior alerts.
+- If suspicious but unconfirmed, preserve the UsageLog artifact, process start event, command line, parent chain, same-process file/process timeline, written artifacts, related alerts, and case notes before containment or cleanup.
+- If suspicious but unconfirmed, apply reversible containment tied to the findings, such as heightened monitoring or temporary isolation of the affected `host.id` when process/file evidence suggests payload execution. Avoid process termination or file deletion until the artifact set is preserved.
+- If confirmed malicious, isolate the endpoint when process identity, launch context, artifact behavior, or related alerts establish unauthorized managed-code execution. Before suspending or terminating the host process, record the recovered `process.entity_id`, command line, parent chain, UsageLog path, and staged files.
+- Scope related hosts and users for the same UsageLog path, parent process, process identity, and staged artifacts before deleting files or terminating additional processes.
+- Remove only malicious scripts, HTA/JS payloads, assemblies, staged binaries, or persistence artifacts identified during the investigation, then remediate the delivery path or launcher that caused the managed host to load CLR.
+- Post-incident hardening: restrict script-host and LOLBin execution through application control where feasible, keep endpoint file/process telemetry for CLR UsageLog triage, and document the confirmed benign workflow or malicious artifact set for future analysts."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.type",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "file.path",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Process events for the same process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the same PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the same UsageLog path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-7d/d"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the same process or PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the managed host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
