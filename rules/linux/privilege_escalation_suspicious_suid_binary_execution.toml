@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/04/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects execution of common privilege elevation helpers (su, sudo, pkexec, passwd, chsh, newgrp) under the root
+effective user when the real user and parent user are not root, combined with minimal argument counts and suspicious
+parent context (interpreters, short shell -c invocations, or parents running from user-writable paths).
+"""
+false_positives = [
+    """
+    Some automation or break-glass tooling may invoke sudo or su from scripts under /home; validate parent identity and
+    change tickets before escalating.
+    """,
+]
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious SUID Binary Execution"
+note = """## Triage and analysis
+
+### Investigating Suspicious SUID Binary Execution
+
+Confirm whether the non-root real user should be invoking su, sudo, pkexec, or account utilities as root. Review the
+parent process tree, script path, and any preceding download or decode activity.
+
+### Possible investigation steps
+
+- Inspect `process.parent.command_line` and working directory for obfuscation or one-liners.
+- Check authentication and sudoers policy for the user.
+- Pivot on the host for additional privilege escalation or persistence in the same session.
+
+### Response and remediation
+
+- If unauthorized, contain the session, revoke elevated access, and review sudoers and polkit policy for tampering.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1548/",
+]
+risk_score = 73
+rule_id = "e7856173-6489-449f-80ec-c1f5fcd7b87c"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.category:process and event.action:"exec" and
+process.name:("su" or "sudo" or "pkexec" or "passwd" or "chsh" or "newgrp") and
+process.user.id:"0" and not process.real_user.id:"0" and
+not process.parent.user.id:"0" and
+(
+  (process.name:("sudo" or "pkexec") and process.args_count:1) or
+  (process.name:("su" or "passwd" or "chsh" or "newgrp") and process.args_count <= 2)
+) and
+(
+  process.parent.name:(python* or perl* or ruby* or node or bun or java or php* or lua* or .*) or
+  process.parent.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or /home/* or /run/user/*) or
+  (process.parent.name:(bash or sh or zsh or dash or fish or ksh) and 
+   (process.parent.command_line: (-bash or -sh or -zsh or -dash or -fish or -ksh) or 
+   (process.parent.args:("-c" or "--command" or "-ic" or "-ci") and process.parent.args_count <= 4)))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
