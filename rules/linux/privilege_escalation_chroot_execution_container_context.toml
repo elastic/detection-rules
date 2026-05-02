@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/04/27"
+integration = ["endpoint", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects chroot execution on Linux when the process appears to run in a container-oriented context: the process title
+matches runc init, the entry leader is a container workload, or the parent process is runc. Chroot from inside a
+container can pivot to an alternate root filesystem and is a common step in container breakout attempts when combined
+with sensitive host mounts.
+"""
+false_positives = [
+    """
+    Build and packaging images sometimes run chroot against a staged root filesystem inside CI or init containers;
+    correlate with approved pipelines and image build jobs before escalating.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Chroot Execution in Container Context on Linux"
+note = """## Triage and analysis
+
+### Investigating Chroot Execution in Container Context on Linux
+
+This alert is the host-process analogue to Defend for Containers chroot coverage: it keys on chroot binaries or
+arguments plus signals that the execution is tied to a container runtime (runc parent, runc init title, or Elastic
+Defend container session metadata). Review the command line for the target root path, especially host-linked mounts such
+as `/host`, `/proc/1/root`, or unexpected node paths.
+
+### Possible investigation steps
+
+- Confirm whether the workload was expected to use chroot and whether the target directory is an internal build root
+  versus a host filesystem mount.
+- For Elastic Defend events, use session and entry leader context to map the pod or container image; for Auditd
+  Manager events, pivot on `process.parent` and nearby syscall activity on the same host.
+- Hunt for follow-on shell execution, access to the container runtime socket, or kubelet credential paths.
+
+### False positive analysis
+
+- Legitimate image builds and package installs may chroot into a prepared rootfs; tune by parent process, user, or CI
+  agent identity when noise is high.
+
+### Response and remediation
+
+- If unauthorized, isolate the workload and node, preserve artifacts, and rotate credentials exposed to the container.
+"""
+references = [
+    "https://some-natalie.dev/container-escapes-chroot/",
+    "https://attack.mitre.org/techniques/T1611/",
+]
+risk_score = 73
+rule_id = "9056d577-4da5-47bf-8c94-6c0b1bb3f8a5"
+setup = """## Setup
+
+This rule requires process execution telemetry from Elastic Defend and/or Auditd Manager on Linux.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditd Manager Integration Setup
+The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
+Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Auditd Manager" and select the integration to see more details about it.
+- Click "Add Auditd Manager".
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed "auditd manager" to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click "Save and Continue".
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+
+#### Rule Specific Setup Note
+Ensure execve (or equivalent process) auditing is enabled so `event.category:process` and process fields populate for
+chroot invocations. Container-context clauses that rely on `process.entry_leader` or `process.title` are primarily
+populated on Elastic Defend; Auditd Manager match when `process.title` matches on container runc.
+"""
+severity = "high"
+tags = [
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Domain: Container",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.category:process and 
+event.type:start and event.action:(executed or exec) and 
+(process.name:"chroot" or process.args:("chroot" or "/bin/chroot" or "/usr/bin/chroot" or "/usr/local/bin/chroot")) and 
+(process.title:"runc init" or process.entry_leader.entry_meta.type:"container" or process.parent.name:("runc" or "containerd-shim-runc-v2"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
