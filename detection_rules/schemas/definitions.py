@@ -79,6 +79,7 @@ MINOR_SEMVER = re.compile(r"^\d+\.\d+$")
 FROM_SOURCES_REGEX = re.compile(
     r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
 )
+ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
