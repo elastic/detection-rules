@@ -77,6 +77,9 @@ class PackageDocument(xlsxwriter.Workbook):
                     for technique in techniques:
                         if technique.id in matrix[tactic.name]:
                             coverage[tactic.name][technique.id][sub_dir] += 1
+                        for subtechnique in technique.subtechnique or []:
+                            if subtechnique.id in matrix[tactic.name]:
+                                coverage[tactic.name][subtechnique.id][sub_dir] += 1
 
         return coverage
 
@@ -93,10 +96,14 @@ class PackageDocument(xlsxwriter.Workbook):
         worksheet = self.add_worksheet("Summary")
         worksheet.freeze_panes(1, 0)
         worksheet.set_column(0, 0, 25)
-        worksheet.set_column(1, 1, 10)
+        worksheet.set_column(1, 1, 12)
+        worksheet.set_column(2, 2, 22)
+        worksheet.set_column(3, 3, 28)
+        worksheet.set_column(4, 4, 22)
+        worksheet.set_column(5, 5, 32)
 
         row = 0
-        worksheet.merge_range(row, 0, row, 1, "SUMMARY", self.bold_center)
+        worksheet.merge_range(row, 0, row, 5, "SUMMARY", self.bold_center)
         row += 1
 
         _ = worksheet.write(row, 0, "Package Name")
@@ -122,17 +129,30 @@ class PackageDocument(xlsxwriter.Workbook):
         _ = worksheet.write(row, 1, len(self.package.rules))
         row += 2
 
-        worksheet.merge_range(row, 0, row, 3, f"MITRE {attack_tm} TACTICS", self.bold_center)
+        worksheet.merge_range(row, 0, row, 5, f"MITRE {attack_tm} TACTICS", self.bold_center)
+        row += 1
+
+        _ = worksheet.write(row, 0, "Tactic", self.default_header_format)
+        _ = worksheet.write(row, 1, "Rule Count", self.default_header_format)
+        _ = worksheet.write(row, 2, "Techniques Coverage", self.default_header_format)
+        _ = worksheet.write(row, 3, f"Elastic / {attack_tm} Techniques", self.default_header_format)
+        _ = worksheet.write(row, 4, "Sub-techniques Coverage", self.default_header_format)
+        _ = worksheet.write(row, 5, f"Elastic / {attack_tm} Sub-techniques", self.default_header_format)
         row += 1
 
         for tactic in tactics:
+            covered_ids = self._coverage[tactic]
+            tech_total = sum(1 for tid in matrix[tactic] if "." not in tid)
+            sub_total = sum(1 for tid in matrix[tactic] if "." in tid)
+            tech_covered = sum(1 for tid in covered_ids if "." not in tid)
+            sub_covered = sum(1 for tid in covered_ids if "." in tid)
+
             _ = worksheet.write(row, 0, tactic)
             _ = worksheet.write(row, 1, tactic_counts[tactic])
-            num_techniques = len(self._coverage[tactic])
-            total_techniques = len(matrix[tactic])
-            percent = float(num_techniques) / float(total_techniques)
-            _ = worksheet.write(row, 2, percent, self.percent)
-            _ = worksheet.write(row, 3, f"{num_techniques}/{total_techniques}", self.right_align)
+            _ = worksheet.write(row, 2, (tech_covered / tech_total) if tech_total else 0, self.percent)
+            _ = worksheet.write(row, 3, f"{tech_covered}/{tech_total}", self.right_align)
+            _ = worksheet.write(row, 4, (sub_covered / sub_total) if sub_total else 0, self.percent)
+            _ = worksheet.write(row, 5, f"{sub_covered}/{sub_total}", self.right_align)
             row += 1
 
     def add_rule_details(
