@@ -88,13 +88,17 @@ note = """## Triage and analysis
   - Implication: escalate when the script or module was downloaded, extracted, renamed, or staged into AppData/Temp shortly before execution; lower suspicion when it stays in a stable repository, package cache, or product install tree consistent with the parent workflow.
 
 - If child-process or endpoint network telemetry is available, what did Node do next?
-  - Focus: recover child and network events with `host.id` + `process.entity_id`, or `host.id` + `process.pid` + the post-start window as weaker fallback; inspect child `process.name` / `process.executable`, DNS `dns.question.name`, and connection `destination.ip` / `destination.port`. $investigate_3 $investigate_4
+  - Focus: recover child and network events with `host.id` + `process.entity_id`, or `host.id` + `process.pid` + the post-start window as weaker fallback; inspect child `process.name` / `process.executable`, DNS `dns.question.name`, and connection `destination.ip` / `destination.port`.
+    - $investigate_3
+    - $investigate_4
   - Hint: separate DNS events from connection events before interpreting destinations; missing child or network telemetry is unresolved, not benign.
   - Implication: escalate when Node quickly launches shells, LOLBins, archivers, credential tooling, or reaches externally routable destinations unrelated to the workflow; lower suspicion when child activity and destinations stay bounded to recognized local development, build, package-registry, or deployment services.
 
 - If local evidence stays suspicious or unresolved, do related alerts show broader scripting, download, persistence, or beaconing activity?
   - Focus: same-`user.id` related alerts or process events, especially PowerShell, archive, downloader, persistence, and outbound-connection activity.
-  - Hint: if `user.id` is missing or ambiguous, review same-host alerts and process events for `host.id` in the last 48 hours. $investigate_0 $investigate_1
+  - Hint: if `user.id` is missing or ambiguous, review same-host alerts and process events for `host.id` in the last 48 hours.
+    - $investigate_0
+    - $investigate_1
   - Implication: expand scope when the host or user shows staged payload delivery, repeated Node misuse, persistence, or beaconing; keep scope local when behavior is isolated and local evidence supports one recognized workflow.
 
 - Escalate when branch, runtime, argument, lineage, or recovered artifact/child/network evidence shows staged script, unrecognized preload, inline decode, or spawn abuse; close only when those categories tightly support one recognized workflow with no contradictions; preserve artifacts and escalate when evidence is mixed or incomplete.
