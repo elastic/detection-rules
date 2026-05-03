@@ -2,7 +2,7 @@
 creation_date = "2022/02/24"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -19,65 +19,12 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AdminSDHolder SDProp Exclusion Added"
-note = """## Triage and analysis
-
-### Investigating AdminSDHolder SDProp Exclusion Added
-
-The SDProp process compares the permissions on protected objects with those defined on the AdminSDHolder object. If the permissions on any of the protected accounts and groups do not match, it resets the permissions on the protected accounts and groups to match those defined in the domain AdminSDHolder object.
-
-The dSHeuristics is a Unicode string attribute, in which each character in the string represents a heuristic that is used to determine the behavior of Active Directory.
-
-Administrators can use the dSHeuristics attribute to exclude privilege groups from the SDProp process by setting the 16th bit (dwAdminSDExMask) of the string to a certain value, which represents the group(s):
-
-- For example, to exclude the Account Operators group, an administrator would modify the string, so the 16th character is set to 1 (i.e., 0000000001000001).
-
-The usage of this exclusion can leave the accounts unprotected and facilitate the misconfiguration of privileges for the excluded groups, enabling attackers to add accounts to these groups to maintain long-term persistence with high privileges.
-
-This rule matches changes of the dsHeuristics object where the 16th bit is set to a value other than zero.
-
-#### Possible investigation steps
-
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account and system owners and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Check the value assigned to the 16th bit of the string on the `winlog.event_data.AttributeValue` field:
-    - Account Operators eq 1
-    - Server Operators eq 2
-    - Print Operators eq 4
-    - Backup Operators eq 8
-    The field value can range from 0 to f (15). If more than one group is specified, the values will be summed together; for example, Backup Operators and Print Operators will set the `c` value on the bit.
-
-### False positive analysis
-
-- While this modification can be done legitimately, it is not a best practice. Any potential benign true positive (B-TP) should be mapped and reviewed by the security team for alternatives as this weakens the security of the privileged group.
-
-### Response and remediation
-
-- The change can be reverted by setting the dwAdminSDExMask (16th bit) to 0 in dSHeuristics.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dsheuristics_bad",
     "https://petri.com/active-directory-security-understanding-adminsdholder-object",
 ]
 risk_score = 73
 rule_id = "61d29caf-6c15-4d1e-9ccb-7ad12ccc0bc7"
-setup = """## Setup
-
-The 'Audit Directory Service Changes' logging policy must be configured for (Success).
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Policies >
-Windows Settings >
-Security Settings >
-Advanced Audit Policies Configuration >
-Audit Policies >
-DS Access >
-Audit Directory Service Changes (Success)
-```
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -95,10 +42,152 @@ type = "eql"
 query = '''
 any where host.os.type == "windows" and event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
+  winlog.event_data.OperationType : "%%14674" and
   length(winlog.event_data.AttributeValue) > 15 and
   winlog.event_data.AttributeValue regex~ "[0-9]{15}([1-9a-f]).*"
 '''
 
+note = """## Triage and analysis
+
+### Investigating AdminSDHolder SDProp Exclusion Added
+
+#### Possible investigation steps
+
+- What did the 5136 record do to the SDProp exclusion mask?
+  - Focus: `winlog.event_data.OperationType` and `winlog.event_data.AttributeValue`; decode position "1" = Account Operators, "2" = Server Operators, "4" = Print Operators, "8" = Backup Operators, with additive hex combinations.
+  - Implication: escalate when an added or replaced value leaves any operator group excluded from SDProp, especially multiple groups; lower concern only when paired 5136 records prove removal and rollback to 0. If the active mask is unproven, treat as unresolved.
+
+- Did the change land on the forest configuration object controlling SDProp behavior?
+  - Focus: `winlog.event_data.ObjectDN`, `winlog.event_data.DSName`, and `host.name`.
+  - Implication: forest-impacting when `winlog.event_data.ObjectDN` is the Directory Service object under "CN=Windows NT,CN=Services,CN=Configuration" and the naming context is in scope; narrow only when `winlog.event_data.DSName` and `host.name` identify a lab or recovery forest.
+
+- Which identity changed "dSHeuristics", and does it fit directory configuration work?
+  - Focus: `user.id`, `user.name`, `user.domain`, and `winlog.event_data.SubjectLogonId`.
+  - Implication: suspicious when the writer is not a dedicated directory-configuration identity for the affected forest; reduce concern only when identity and object match confirmed hardening or recovery.
+
+- What source session produced the directory change?
+  - Why: the 5136 event names the writer, but session origin separates console or jump-host administration from remote or alternate-credential use.
+  - Focus: on the domain controller, find 4624 events where `winlog.event_data.TargetLogonId` equals the 5136 `winlog.event_data.SubjectLogonId`; read `source.ip`, `winlog.logon.type`, and `winlog.event_data.AuthenticationPackageName`. $investigate_0
+  - Hint: search 4648 by `winlog.event_data.SubjectLogonId` when explicit-credential use would change the answer. $investigate_1
+  - Hint: Missing authentication telemetry is unresolved, not benign.
+  - Implication: escalate for unexpected workstation, direct DC logon, remote-interactive path, NTLM where Kerberos is expected, or explicit-credential use; reduce concern when origin, logon type, and authentication package fit the confirmed directory-configuration case.
+
+- Did the same operation or session change other privileged directory state?
+  - Why: SDProp exclusion is most damaging with AdminSDHolder ACL, privileged membership, delegation, or security-descriptor changes that persist because SDProp no longer resets excluded groups.
+  - Focus: 5136 events on the same `host.id` where `winlog.event_data.OpCorrelationID` matches, then the same `winlog.event_data.SubjectLogonId` if needed; read `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue`. $investigate_2
+  - Range: inspect the alert burst first; if the mask stayed non-zero, extend through the weakened interval for follow-on membership, ACL, delegation, or security-descriptor changes on excluded groups.
+  - Implication: escalate when the same burst touches AdminSDHolder, privileged groups, delegation attributes, or security descriptors; lower suspicion only when grouped changes stay limited to one intentional SDProp configuration action.
+
+- If local evidence remains suspicious or unresolved, do related alerts change scope or urgency?
+  - Focus: recent alerts for the same `user.id`. $investigate_3
+  - Hint: also review domain controller `host.id` when controller compromise or change spread remains unresolved. $investigate_4
+  - Implication: broaden response when the writer or controller has related AD tampering, unusual authentication, privilege abuse, persistence, credential-access, or lateral-movement alerts; keep scope local only when related alerts are quiet and local telemetry supports a bounded explanation.
+
+- Escalate for an active non-zero in-scope mask, abnormal writer or source session, or grouped privileged changes; close only when mask, operation, scope, writer, session, and grouped 5136 prove rollback to 0 or confirmed hardening/testing without contradictions; preserve and escalate mixed or incomplete cases.
+
+### False positive analysis
+
+- Treat non-zero SDProp exclusions as suspicious. Directory hardening or delegated-admin redesign is benign only when excluded operator groups were intentionally stripped of privileged rights and a dedicated configuration workflow made the change. Confirm `winlog.event_data.AttributeValue` maps to the planned group set, `winlog.event_data.ObjectDN` and `winlog.event_data.DSName` identify the expected Directory Service object, `user.id` and recovered `source.ip` identify the authorized admin session, and `winlog.event_data.OpCorrelationID` activity stays bounded to maintenance. If evidence is unavailable, the alert remains unresolved; do not close from repetition.
+- Lab-forest or recovery-forest testing may intentionally change "dSHeuristics". Confirm `winlog.event_data.DSName` and `host.name` place the event in that forest, `user.id` and `winlog.event_data.SubjectLogonId` identify the designated test administrator, and related alerts on `host.id` lack unrelated credential-access, persistence, or lateral-movement activity. If records are unavailable, treat as unresolved unless another reliable source confirms forest identity and administrator.
+- Before creating an exception, validate recurrence for the same `user.id`, `host.id`, `winlog.event_data.ObjectDN`, `winlog.event_data.DSName`, `winlog.event_data.AttributeValue`, and bounded `winlog.event_data.OpCorrelationID` pattern. Avoid exceptions on "dSHeuristics", event 5136, or rule name alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the mask, object scope, writer, session origin, controller, and confirmation source proving the authorized workflow. Keep exceptions tied to the recurring workflow pattern, not the attribute or event code.
+- If suspicious but unconfirmed, preserve triggering and grouped 5136 records, linked 4624 or 4648 authentication records, and key identifiers: `winlog.event_data.ObjectGUID`, `winlog.event_data.OpCorrelationID`, `user.id`, `host.id`, and recovered `source.ip`. Apply reversible containment tied to those findings: restrict the implicated account from directory-configuration changes, increase DC monitoring, or contain the recovered source host if not a critical controller. Escalate to account disablement or host isolation only when related alerts or session evidence show broader abuse.
+- If confirmed malicious, preserve directory-change and authentication evidence before changing configuration. Restore "dSHeuristics" to the expected value, verify rollback replication on other domain controllers, and review the same `winlog.event_data.OpCorrelationID` or `winlog.event_data.SubjectLogonId` for unauthorized directory changes. Contain the writer account or recovered source host with identity or endpoint response tooling; avoid isolating a domain controller unless broader compromise is confirmed and directory owners can tolerate the action.
+- After containment, check whether excluded operator groups received unauthorized membership, ACL, delegation, or security-descriptor changes while SDProp protection was weakened, and roll back only malicious changes identified.
+- Post-incident hardening: keep Windows Security 5136 directory-service auditing enabled on domain controllers, restrict "dSHeuristics" changes to dedicated directory-configuration workflows, reduce or remove privileged rights from built-in operator groups where possible, and record visibility gaps or adjacent variants for engineering review.
+"""
+
+setup = """## Setup
+
+Audit Directory Service Changes must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-directory-service-changes
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ObjectDN",
+    "winlog.event_data.ObjectGUID",
+    "winlog.event_data.ObjectClass",
+    "winlog.event_data.AttributeLDAPDisplayName",
+    "winlog.event_data.AttributeValue",
+    "winlog.event_data.OperationType",
+    "winlog.event_data.OpCorrelationID",
+    "winlog.event_data.DSName",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Linked logon for the modifying session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Explicit credential events for the modifying session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "All 5136 events in this SDProp exclusion change set"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.OpCorrelationID", queryType = "phrase", value = "{{winlog.event_data.OpCorrelationID}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the domain controller"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
