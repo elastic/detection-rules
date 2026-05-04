@@ -1,13 +1,15 @@
 [metadata]
-creation_date = "2026/04/09"
+bypass_bbr_timing = true
+creation_date = "2026/05/04"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
-updated_date = "2026/04/09"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Adversaries may implement command and control (C2) communications that use common web services to hide their activity.
 This attack technique is typically targeted at an organization and uses web services common to the victim network, which
@@ -29,7 +31,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Tactic: Exfiltration",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -38,7 +41,7 @@ network where host.os.type == "linux" and dns.question.name != null and process.
 dns.question.name like~ (
   /* Google services */
   "drive.google.com", "docs.google.com", "script.google.com", "script.googleusercontent.com",
-  "*googleapis.com", "script.googleusercontent.com", "calendar.app.google*",
+  "*googleapis.com", "calendar.app.google*",
 
   /* Dropbox */
   "api.dropboxapi.com", "content.dropboxapi.com", "*dl.dropboxusercontent.com",
@@ -95,7 +98,7 @@ dns.question.name like~ (
   "*hosting-profi.de",
 
   /* IP / network utilities */
-  "api.mylnikov.org", "ipbase.com", "ipfs.io", "*.getmyip.com", "myexternalip.com", "*.geojs.io",
+  "api.mylnikov.org", "ipbase.com", "*.getmyip.com", "myexternalip.com", "*.geojs.io",
   "*api.2ip.ua", "*api.db-ip.com", "*api.ip.sb", "*api.ipify.org", "*api.myip.com",
   "*api.npoint.io", "*api64.ipify.org", "*bot.whatismyipaddress.com", "*checkip.amazonaws.com",
   "*checkip.dyndns.org", "*curlmyip.com", "*eth0.me", "*freegeoip.app", "*freegeoip.net",
