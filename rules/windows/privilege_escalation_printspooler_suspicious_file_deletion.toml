@@ -2,7 +2,7 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,7 @@ The Print Spooler service in Windows manages print jobs and interactions with pr
 - Examine the process responsible for the deletion by checking the process name and its parent process to determine if it is a known legitimate process or a potentially malicious one.
 - Investigate the timeline of events around the deletion to identify any preceding or subsequent suspicious activities, such as privilege escalation attempts or unauthorized access.
 - Check for any recent vulnerabilities or exploits related to the Print Spooler service that might have been leveraged in this context.
-- Correlate the event with other security logs and alerts from data sources like Sysmon, Microsoft Defender for Endpoint, or SentinelOne to gather additional context and confirm the presence of malicious activity.
+- Correlate the event with other security logs and alerts from data sources like Sysmon, Microsoft Defender XDR, or SentinelOne to gather additional context and confirm the presence of malicious activity.
 - Assess the affected system for any signs of compromise or persistence mechanisms that may have been established following the deletion event.
 
 ### False positive analysis
@@ -71,6 +71,7 @@ tags = [
     "OS: Windows",
     "Platform: Windows",
     "Data Source: Elastic Defend",
+<<<<<<< HEAD
     "Data Source: Elastic Endgame",
     "Data Source: Microsoft Defender for Endpoint Logs",
     "Data Source: SentinelOne Logs",
@@ -78,6 +79,11 @@ tags = [
     "Rule Type: Event Correlation (EQL)",
     "Tactic: Privilege Escalation",
     "Vuln: CVE-2021-34527",
+=======
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+>>>>>>> main
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -92,14 +98,31 @@ file where host.os.type == "windows" and event.type == "deletion" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

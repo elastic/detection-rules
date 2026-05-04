@@ -2,7 +2,7 @@
 creation_date = "2024/06/19"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -40,7 +40,7 @@ Microsoft Management Console (MMC) is a Windows utility that provides a framewor
 - Investigate the origin of the .msc file by examining file creation and modification timestamps, and check for any recent changes or unusual activity in the directory where the file resides.
 - Analyze the user account associated with the process execution to determine if the activity aligns with their typical behavior or if it appears suspicious.
 - Check for any related alerts or logs around the same timeframe that might indicate lateral movement or other malicious activities, such as unusual network connections or file access patterns.
-- Correlate the event with other data sources mentioned in the rule, such as Microsoft Defender for Endpoint or Crowdstrike, to gather additional context or corroborating evidence of potential malicious activity.
+- Correlate the event with other data sources mentioned in the rule, such as Microsoft Defender XDR or Crowdstrike, to gather additional context or corroborating evidence of potential malicious activity.
 - Assess the risk and impact of the execution by determining if the .msc file has any known malicious signatures or if it attempts to perform unauthorized actions on the system.
 
 ### False positive analysis
@@ -69,9 +69,14 @@ tags = [
     "Platform: Windows",
     "Data Source: CrowdStrike Falcon Logs",
     "Data Source: Elastic Defend",
+<<<<<<< HEAD
     "Data Source: Elastic Endgame",
     "Data Source: Microsoft Defender for Endpoint Logs",
     "Data Source: SentinelOne Logs",
+=======
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender XDR",
+>>>>>>> main
     "Data Source: Windows Security Event Logs",
     "Data Source: Windows Sysmon Logs",
     "Rule Type: Event Correlation (EQL)",
@@ -107,10 +112,12 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.005"
 name = "Visual Basic"
@@ -121,27 +128,35 @@ id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1218.014"
 name = "MMC"
 reference = "https://attack.mitre.org/techniques/T1218/014/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

@@ -9,7 +9,7 @@ integration = [
     "crowdstrike",
 ]
 maturity = "production"
-updated_date = "2026/03/23"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ note = """## Triage and analysis
 ### Investigating Multiple Remote Management Tool Vendors on Same Host
 
 This rule aggregates process start events by `host.id`, host name, and a nine-minute time bucket. Data can come from
-Elastic Defend, Sysmon, Winlogbeat, Windows Security / forwarded events, Microsoft Defender for Endpoint, SentinelOne,
+Elastic Defend, Sysmon, Winlogbeat, Windows Security / forwarded events, Microsoft Defender XDR, SentinelOne,
 CrowdStrike FDR, or Elastic Endgame—where ECS process fields are populated. Each known RMM-related process name maps
 to one **vendor** label (e.g. TeamViewer, AnyDesk, ScreenConnect). If **two or more different vendor labels** appear in
 the same bucket, the rule signals.
@@ -66,6 +66,14 @@ tags = [
     "Platform: Windows",
     "Data Source: CrowdStrike Falcon Logs",
     "Data Source: Elastic Defend",
+<<<<<<< HEAD
+=======
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: CrowdStrike",
+    "Data Source: Windows Security Event Logs",
+>>>>>>> main
     "Data Source: Elastic Endgame",
     "Data Source: Microsoft Defender for Endpoint Logs",
     "Data Source: SentinelOne Logs",
@@ -118,6 +126,9 @@ from logs-endpoint.events.process-*, endgame-*, logs-crowdstrike.fdr*, logs-m365
     process.name == "LvAgent.exe", "Level",
     process.name == "LMIIgnition.exe", "LogMeIn",
     process.name == "LogMeIn.exe", "LogMeIn",
+    process.name == "Lunixar.exe", "Lunixar",
+    process.name == "LunixarRemote.exe", "Lunixar",
+    process.name == "LunixarUpdater.exe", "Lunixar",
     process.name == "ManageEngine_Remote_Access_Plus.exe", "ManageEngine",
     process.name == "MeshAgent.exe", "MeshCentral",
     process.name == "meshagent.exe", "MeshCentral",
@@ -196,10 +207,12 @@ from logs-endpoint.events.process-*, endgame-*, logs-crowdstrike.fdr*, logs-m365
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1219"
 name = "Remote Access Tools"
 reference = "https://attack.mitre.org/techniques/T1219/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1219.002"
 name = "Remote Desktop Software"

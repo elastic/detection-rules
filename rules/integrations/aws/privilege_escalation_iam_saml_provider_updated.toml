@@ -2,7 +2,7 @@
 creation_date = "2021/09/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -115,7 +115,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: "UpdateSAMLProvider"
     and event.outcome: "success"
@@ -125,22 +125,39 @@ event.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1484"
 name = "Domain or Tenant Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1484.002"
 name = "Trust Modification"
 reference = "https://attack.mitre.org/techniques/T1484/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

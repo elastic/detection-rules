@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,7 @@ Werfault, the Windows Error Reporting service, can be manipulated by attackers t
 - Check the timestamp of the registry change event to determine when the modification occurred and correlate it with other suspicious activities or events on the system around the same time.
 - Investigate the user account or process responsible for the registry change to assess whether it is a legitimate action or potentially malicious. Look for unusual or unauthorized accounts making the change.
 - Examine the system for any recent executions of Werfault with the "-pr" parameter, as this could indicate attempts to trigger the malicious payload.
-- Search for any related alerts or logs from data sources such as Elastic Endgame, Elastic Defend, Microsoft Defender for Endpoint, SentinelOne, or Sysmon that might provide additional context or corroborate the suspicious activity.
+- Search for any related alerts or logs from data sources such as Elastic Endgame, Elastic Defend, Microsoft Defender XDR, SentinelOne, or Sysmon that might provide additional context or corroborate the suspicious activity.
 - Assess the system for any signs of compromise or persistence mechanisms, such as unexpected startup items, scheduled tasks, or other registry modifications that could indicate a broader attack.
 
 ### False positive analysis
@@ -66,12 +66,19 @@ tags = [
     "Platform: Windows",
     "Data Source: CrowdStrike Falcon Logs",
     "Data Source: Elastic Defend",
+<<<<<<< HEAD
     "Data Source: Elastic Endgame",
     "Data Source: Microsoft Defender for Endpoint Logs",
     "Data Source: SentinelOne Logs",
     "Data Source: Windows Sysmon Logs",
     "Rule Type: Event Correlation (EQL)",
     "Tactic: Persistence",
+=======
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Data Source: Crowdstrike",
+>>>>>>> main
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -90,26 +97,31 @@ registry where host.os.type == "windows" and event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1546.012"
+name = "Image File Execution Options Injection"
+reference = "https://attack.mitre.org/techniques/T1546/012/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

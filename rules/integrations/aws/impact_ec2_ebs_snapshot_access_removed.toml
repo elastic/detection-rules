@@ -2,7 +2,7 @@
 creation_date = "2025/06/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/21"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -106,7 +106,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-info where event.dataset == "aws.cloudtrail"  
+info where data_stream.dataset == "aws.cloudtrail"  
   and event.action == "ModifySnapshotAttribute"
   and event.outcome == "success"
   and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
@@ -116,6 +116,7 @@ info where event.dataset == "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1485"
 name = "Data Destruction"
@@ -126,12 +127,28 @@ id = "T1490"
 name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

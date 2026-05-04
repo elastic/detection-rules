@@ -2,7 +2,7 @@
 creation_date = "2024/06/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/01/16"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -126,7 +126,7 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where event.dataset == "aws.cloudtrail"
+| where data_stream.dataset == "aws.cloudtrail"
     and event.provider == "iam.amazonaws.com"
     and event.action == "CreateAccessKey"
     and event.outcome == "success"
@@ -138,7 +138,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     event.provider,
     event.action,
     event.outcome,
-    event.dataset,
+    data_stream.dataset,
     user.name,
     source.address,
     source.ip,

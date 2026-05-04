@@ -2,7 +2,7 @@
 creation_date = "2020/11/30"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/02/11"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -70,7 +70,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:(SkypeForBusiness or MicrosoftTeams) and
+data_stream.dataset:o365.audit and event.provider:(SkypeForBusiness or MicrosoftTeams) and
 event.category:web and event.action:"Set-CsTenantFederationConfiguration" and
 o365.audit.Parameters.AllowFederatedUsers:True and event.outcome:success
 '''
@@ -78,14 +78,18 @@ o365.audit.Parameters.AllowFederatedUsers:True and event.outcome:success
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
