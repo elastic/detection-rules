@@ -2,15 +2,15 @@
 creation_date = "2025/02/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation and modification of sitecustomize.py and usercustomize.py, which
-Python automatically executes on startup. Attackers can exploit these files for persistence by
-injecting malicious code. The rule monitors system-wide, user-specific, and virtual environment
-locations to catch unauthorized changes that could indicate persistence or backdooring attempts.
+This rule detects the creation and modification of sitecustomize.py and usercustomize.py, which Python automatically
+executes on startup. Attackers can exploit these files for persistence by injecting malicious code. The rule monitors
+system-wide, user-specific, and virtual environment locations to catch unauthorized changes that could indicate
+persistence or backdooring attempts.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
@@ -86,12 +86,13 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Execution",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and process.executable != null and
 file.path like (
@@ -112,37 +113,42 @@ file.path like (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1546.018"
 name = "Python Startup Hooks"
 reference = "https://attack.mitre.org/techniques/T1546/018/"
 
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
@@ -153,33 +159,27 @@ id = "T1059.006"
 name = "Python"
 reference = "https://attack.mitre.org/techniques/T1059/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1546.018"
 name = "Python Startup Hooks"
 reference = "https://attack.mitre.org/techniques/T1546/018/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

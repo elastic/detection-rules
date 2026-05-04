@@ -2,15 +2,15 @@
 creation_date = "2026/02/20"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects common utilities accessing kprobes and tracing-related paths in debugfs/tracefs, which may indicate
-discovery of kernel instrumentation hooks. Adversaries can enumerate these locations to understand or prepare
-for eBPF, kprobe, or tracepoint-based activity. This behavior can also be benign during troubleshooting,
-performance analysis, or observability tooling validation.
+Detects common utilities accessing kprobes and tracing-related paths in debugfs/tracefs, which may indicate discovery of
+kernel instrumentation hooks. Adversaries can enumerate these locations to understand or prepare for eBPF, kprobe, or
+tracepoint-based activity. This behavior can also be benign during troubleshooting, performance analysis, or
+observability tooling validation.
 """
 from = "now-9m"
 index = [
@@ -61,16 +61,17 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
@@ -84,9 +85,9 @@ process.name in (
 process.args like ("/sys/kernel/debug/kprobes/*", "/sys/kernel/debug/tracing/*", "/sys/kernel/tracing/*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
@@ -97,20 +98,21 @@ id = "T1083"
 name = "File and Directory Discovery"
 reference = "https://attack.mitre.org/techniques/T1083/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

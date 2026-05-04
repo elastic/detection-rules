@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2020/06/15"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the deletion of one or more Amazon CloudWatch alarms using the "DeleteAlarms" API. CloudWatch alarms are
+critical for monitoring metrics and triggering alerts when thresholds are exceeded. An adversary may delete alarms to
+impair visibility, silence alerts, and evade detection following malicious activity. This behavior may occur during
+post-exploitation or cleanup phases to remove traces of compromise or disable automated responses.
+"""
+false_positives = [
+    """
+    CloudWatch alarm deletions can occur legitimately during scheduled maintenance, infrastructure redeployments, or
+    automation workflows that clean up temporary monitoring configurations. Verify that the user identity, role, and IP
+    address are expected for the environment. If deletions are performed by CI/CD pipelines or authorized administrators
+    during controlled operations, consider adding exceptions based on specific IAM roles, automation accounts, or IP
+    address ranges.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CloudWatch Alarm Deletion"
+note = """## Triage and analysis
+
+### Investigating AWS CloudWatch Alarm Deletion
+
+Amazon CloudWatch is a monitoring and observability service that collects monitoring and operational data in the form of logs, metrics, and events for resources and applications. This data can be used to detect anomalous behavior in your environments, set alarms, visualize logs and metrics side by side, take automated actions, troubleshoot issues, and discover insights to keep your applications running smoothly.
+
+Amazon CloudWatch Alarms monitor key metrics and trigger automated alerts or remediation workflows. Deleting these alarms disables monitoring of associated metrics and can delay detection of performance degradation or security incidents. Attackers may delete alarms to evade detection, suppress alerts, or disable security automation that responds to anomalies or policy violations.
+
+This rule detects successful calls to the `DeleteAlarms` API via CloudTrail. These events should be rare and always associated with a valid change-control request or automation pipeline.
+
+#### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` to determine who initiated the deletion.
+  - Check whether this actor typically performs CloudWatch management or automation tasks.
+
+- **Review request details**
+  - Inspect `aws.cloudtrail.request_parameters` for the specific alarm names deleted. 
+  - Determine whether the alarms were security-related (e.g., CloudTrail log delivery, GuardDuty finding rate, or IAM API monitoring alarms).
+  - Cross-reference deleted alarms with your organization's list of critical monitoring configurations.
+
+- **Analyze source and context**
+  - Review `source.ip` and `user_agent.original` for anomalies such as external IPs, unusual user agents, or custom SDKs.
+  - Determine whether the activity occurred during a known maintenance window or from a trusted automation host.
+  - Examine `cloud.region` to identify whether alarms were deleted from unexpected regions.
+
+- **Correlate with surrounding events**
+  - Review CloudTrail events for related activity around the same time, such as:
+    - `PutMetricAlarm`, `DisableAlarmActions`, or `DeleteLogGroup`
+    - Changes to CloudTrail, Config, or GuardDuty configurations
+    - IAM policy or permission modifications that could facilitate evasion
+  - Identify whether the same actor has previously modified logging or monitoring infrastructure.
+
+- **Assess impact and scope**
+  - Determine which systems or detection workflows relied on the deleted alarms.
+  - Review whether the deletion affected automated responses, notifications, or third-party integrations (e.g., SNS, Lambda, or PagerDuty).
+
+### False positive analysis
+
+- **Legitimate automation or redeployment**
+  - Infrastructure as Code (IaC) frameworks such as Terraform or CloudFormation may delete and recreate alarms during updates.
+  - Validate automation account roles and ensure alarm deletions are immediately followed by re-creation actions.
+- **Operational maintenance**
+  - Scheduled monitoring cleanup, regional deactivation, or test environment resets can trigger legitimate deletions. 
+  - Verify timing and user identity against approved change management records.
+- **Organizational migrations**
+  - Security operations or DevOps teams may consolidate alarms during account merges or refactors. 
+  - Confirm intent with relevant teams and exclude authorized administrative accounts as necessary.
+
+### Response and remediation
+
+- **Containment**
+  - If the deletion was unauthorized, recreate the deleted alarms immediately using IaC templates or CloudFormation backups.
+  - Re-enable any dependent automation or alerts that rely on those alarms.
+  - Temporarily restrict CloudWatch modification privileges to designated IAM roles.
+
+- **Investigation**
+  - Review related CloudTrail logs for preceding IAM changes, STS activity, or anomalous role assumptions that might indicate compromised credentials.
+  - Investigate whether any alerts were suppressed or delayed prior to the deletion.
+
+- **Recovery and hardening**
+  - Implement AWS Config rules to continuously monitor alarm existence and alert on `DeleteAlarms` API calls.
+  - Restrict permissions to `cloudwatch:DeleteAlarms` and enforce MFA for users performing monitoring configuration changes.
+  - Maintain IaC definitions for all critical alarms to support rapid restoration.
+  - Audit IAM roles and automation accounts that manage CloudWatch configurations to ensure least privilege.
+  - Integrate alarm configuration checks into your CI/CD validation workflows.
+
+### Additional information
+
+- **[AWS Config Rule – cloudwatch-alarm-action-check](https://docs.aws.amazon.com/config/latest/developerguide/cloudwatch-alarm-action-check.html)**
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
+references = [
+    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudwatch/delete-alarms.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DeleteAlarms.html",
+]
+risk_score = 47
+rule_id = "f772ec8a-e182-483c-91d2-72058f76a44c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon CloudWatch",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" 
+  and event.provider: "monitoring.amazonaws.com" 
+  and event.action: "DeleteAlarms"
+  and event.outcome: "success"
+  and source.ip: *
+  and not user_agent.original : "AWS Internal"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+

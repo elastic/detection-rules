@@ -2,15 +2,11 @@
 creation_date = "2025/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies suspicious execution patterns using NodeJS interpeter like process path and arguments.
-"""
-
+description = "Identifies suspicious execution patterns using NodeJS interpeter like process path and arguments.\n"
 from = "now-9m"
 index = [
     "endgame-*",
@@ -26,40 +22,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution with NodeJS"
-references = ["https://nodejs.org"]
-risk_score = 73
-rule_id = "55f711c1-6b4d-4787-930d-c9317a885adf"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender XDR",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-
-(process.name : "node.exe" or ?process.pe.original_file_name == "node.exe" or ?process.code_signature.subject_name : "OpenJS Foundation") and
-
-(
-  (process.executable : ("?:\\Users\\*\\AppData\\*\\node.exe", "\\Device\\HarddiskVolume?\\\\Users\\*\\AppData\\*\\node.exe") and process.args : "*.js") or
-
-  (process.args : "-r" and process.parent.name : "powershell.exe") or
-
-   process.command_line : ("*eval(*", "*atob(*", "*require*child_process*")
-)
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -94,40 +56,75 @@ Windows scripts, often used for legitimate automation tasks, can be exploited by
 - Review and analyze the origin URL and referrer URL of the downloaded script to identify potential malicious websites or compromised sources, and block these URLs at the network level.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement application whitelisting to restrict the execution of unauthorized scripts and scripting utilities, reducing the risk of similar threats in the future."""
+references = ["https://nodejs.org"]
+risk_score = 73
+rule_id = "55f711c1-6b4d-4787-930d-c9317a885adf"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+
+(process.name : "node.exe" or ?process.pe.original_file_name == "node.exe" or ?process.code_signature.subject_name : "OpenJS Foundation") and
+
+(
+  (process.executable : ("?:\\Users\\*\\AppData\\*\\node.exe", "\\Device\\HarddiskVolume?\\\\Users\\*\\AppData\\*\\node.exe") and process.args : "*.js") or
+
+  (process.args : "-r" and process.parent.name : "powershell.exe") or
+
+   process.command_line : ("*eval(*", "*atob(*", "*require*child_process*")
+)
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1027.010"
 name = "Command Obfuscation"
 reference = "https://attack.mitre.org/techniques/T1027/010/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -2,12 +2,13 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a modification to a conditional access policy (CAP) in Microsoft Entra ID. Adversaries may modify existing CAPs to loosen access controls and maintain persistence in the environment with a compromised identity or entity.
+Identifies a modification to a conditional access policy (CAP) in Microsoft Entra ID. Adversaries may modify existing
+CAPs to loosen access controls and maintain persistence in the environment with a compromised identity or entity.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.auditlogs-*"]
@@ -65,7 +66,7 @@ If any of these cases apply and align with the activity's context, consider tuni
 """
 references = [
     "https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview",
-    "https://www.rezonate.io/blog/microsoft-entra-id-the-complete-guide-to-conditional-access-policies/"
+    "https://www.rezonate.io/blog/microsoft-entra-id-the-complete-guide-to-conditional-access-policies/",
 ]
 risk_score = 47
 rule_id = "bc48bba7-4a23-4232-b551-eca3ca1e3f20"
@@ -78,7 +79,8 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Use Case: Configuration Audit",
     "Tactic: Persistence",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -92,42 +94,44 @@ data_stream.dataset: "azure.auditlogs"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1556.009"
 name = "Conditional Access Policies"
 reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1556.009"
 name = "Conditional Access Policies"
 reference = "https://attack.mitre.org/techniques/T1556/009/"
 
+
+
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

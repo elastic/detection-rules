@@ -2,15 +2,15 @@
 creation_date = "2026/02/20"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects execution of bpftool commands used to load, attach, run, or pin eBPF programs, as well as create or update
-eBPF maps and links. These operations interact directly with the Linux eBPF subsystem and can modify kernel-level
-behavior. While commonly used by legitimate networking or observability tooling, unexpected or interactive usage
-may indicate eBPF-based rootkit activity, policy tampering, or unauthorized kernel instrumentation.
+Detects execution of bpftool commands used to load, attach, run, or pin eBPF programs, as well as create or update eBPF
+maps and links. These operations interact directly with the Linux eBPF subsystem and can modify kernel-level behavior.
+While commonly used by legitimate networking or observability tooling, unexpected or interactive usage may indicate
+eBPF-based rootkit activity, policy tampering, or unauthorized kernel instrumentation.
 """
 from = "now-9m"
 index = [
@@ -67,7 +67,6 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Threat: Rootkit",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
@@ -75,9 +74,11 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
@@ -88,51 +89,51 @@ process.name == "bpftool" and (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

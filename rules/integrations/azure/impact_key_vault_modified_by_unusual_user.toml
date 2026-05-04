@@ -2,14 +2,15 @@
 creation_date = "2020/08/31"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies modifications to a Key Vault in Azure. The Key Vault is a service that safeguards encryption keys and secrets
 like certificates, connection strings, and passwords. Because this data is sensitive and business critical, access to
-key vaults should be secured to allow only authorized applications and users. This is a New Terms rule that detects when this activity hasn't been seen by the user in a specified time frame.
+key vaults should be secured to allow only authorized applications and users. This is a New Terms rule that detects when
+this activity hasn't been seen by the user in a specified time frame.
 """
 false_positives = [
     """
@@ -54,7 +55,7 @@ Azure Key Vault is a cloud service that safeguards encryption keys and secrets l
 references = [
     "https://docs.microsoft.com/en-us/azure/key-vault/general/basic-concepts",
     "https://docs.microsoft.com/en-us/azure/key-vault/general/secure-your-key-vault",
-    "https://learn.microsoft.com/en-us/azure/key-vault/general/security-features"
+    "https://learn.microsoft.com/en-us/azure/key-vault/general/security-features",
 ]
 risk_score = 21
 rule_id = "792dd7a6-7e00-4a0a-8a9a-a7c24720b5ec"
@@ -66,7 +67,8 @@ tags = [
     "Data Source: Azure Activity Logs",
     "Tactic: Impact",
     "Use Case: Configuration Audit",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -85,28 +87,29 @@ framework = "MITRE ATT&CK"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1578"
 name = "Modify Cloud Compute Infrastructure"
 reference = "https://attack.mitre.org/techniques/T1578/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1578.005"
 name = "Modify Cloud Compute Configurations"
 reference = "https://attack.mitre.org/techniques/T1578/005/"
 
+
+
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

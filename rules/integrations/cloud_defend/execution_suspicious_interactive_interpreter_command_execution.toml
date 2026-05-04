@@ -4,13 +4,13 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when an interactive process executes a suspicious interpreter command inside a container.
-These commands are commonly used by attackers to execute malicious code or exfiltrate data.
+This rule detects when an interactive process executes a suspicious interpreter command inside a container. These
+commands are commonly used by attackers to execute malicious code or exfiltrate data.
 """
 from = "now-6m"
 index = ["logs-cloud_defend.process*"]
@@ -48,9 +48,7 @@ This detection flags an interactive session inside a Linux container launching P
 - Rotate credentials and secrets exposed to the container (service account tokens, API keys, database passwords) and invalidate active sessions if the one-liner performed network calls, decoded payloads, or spawned subprocesses.  
 - Escalate to the incident response team if the inline code includes base64/zlib decoding, establishes a socket connection, downloads a second stage, or any similar activity is observed across multiple pods/namespaces.  
 - Harden against recurrence by restricting `exec/attach` access, enforcing least-privilege pod security (no privileged, no host mounts, read-only root filesystem), and using egress allowlists plus image signing/admission controls to block unauthorized images and interactive debug containers."""
-references = [
-    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
-]
+references = ["https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware"]
 risk_score = 47
 rule_id = "cd24c340-b778-44bd-ab69-2f739bd70ce1"
 severity = "medium"
@@ -62,9 +60,11 @@ tags = [
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and
 process.parent.executable != null and (
@@ -114,14 +114,13 @@ process.parent.executable != null and (
 ) and container.id like "?*"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
@@ -137,43 +136,44 @@ id = "T1059.011"
 name = "Lua"
 reference = "https://attack.mitre.org/techniques/T1059/011/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
+
 
 [[rule.threat.technique]]
 id = "T1095"
 name = "Non-Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1095/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

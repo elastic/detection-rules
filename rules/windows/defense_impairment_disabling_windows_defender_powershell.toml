@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2021/07/07"
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the Set-MpPreference or Add-MpPreference PowerShell commands to disable or weaken certain Windows
+Defender settings, including detection of base64-encoded variants used to bypass command-line inspection.
+"""
+false_positives = ["Planned Windows Defender configuration changes."]
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Disabling Windows Defender Security Settings via PowerShell"
+note = """## Triage and analysis
+
+### Investigating Disabling Windows Defender Security Settings via PowerShell
+
+Microsoft Windows Defender is an antivirus product built into Microsoft Windows, which makes it popular across multiple environments. Disabling it is a common step in threat actor playbooks.
+
+This rule monitors the execution of commands that can tamper the Windows Defender antivirus features.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Examine the command line to determine which action was executed. Based on that, examine exceptions, antivirus state, sample submission, etc.
+
+### False positive analysis
+
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity, the configuration is justified (for example, it is being used to deploy other security solutions or troubleshooting), and no other suspicious activity has been observed.
+
+### Related rules
+
+- Windows Defender Disabled via Registry Modification - 2ffa1f1e-b6db-47fa-994b-1512743847eb
+- Microsoft Windows Defender Tampering - fe794edd-487f-4a90-b285-3ee54f2af2d3
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Based on the command line, take actions to restore the appropriate Windows Defender antivirus configurations.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://docs.microsoft.com/en-us/powershell/module/defender/set-mppreference?view=windowsserver2019-ps",
+    "https://www.elastic.co/security-labs/operation-bleeding-bear",
+    "https://www.elastic.co/security-labs/invisible-miners-unveiling-ghostengine",
+    "https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_powershell_defender_disable_feature.yml",
+]
+risk_score = 47
+rule_id = "c8cccb06-faf2-4cd5-886e-2c9636cfcb87"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+    process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or
+    ?process.pe.original_file_name in ("PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE")
+  ) and
+  (
+    (
+      process.args : ("Set-MpPreference", "Add-MpPreference") and
+      process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
+    ) or
+    /* base64-encoded (UTF-16LE) fragments of critical Defender settings, 3 byte-alignment offsets each */
+    (
+      process.command_line : ("*-e *", "*-en *", "* -enc*", "*FromBase64String*") and
+      process.command_line : (
+        /* DisableRealtimeMonitoring */
+        "*RABpAHMAYQBiAGwAZQBSAGUAYQBsAHQAaQBtAGUATQBvAG4AaQB0AG8AcgBpAG4AZwAgA*",
+        "*QAaQBzAGEAYgBsAGUAUgBlAGEAbAB0AGkAbQBlAE0AbwBuAGkAdABvAHIAaQBuAGcAIA*",
+        "*EAGkAcwBhAGIAbABlAFIAZQBhAGwAdABpAG0AZQBNAG8AbgBpAHQAbwByAGkAbgBnACAA*",
+        /* disablerealtimemonitoring */
+        "*ZABpAHMAYQBiAGwAZQByAGUAYQBsAHQAaQBtAGUAbQBvAG4AaQB0AG8AcgBpAG4AZwAgA*",
+        "*QAaQBzAGEAYgBsAGUAcgBlAGEAbAB0AGkAbQBlAG0AbwBuAGkAdABvAHIAaQBuAGcAIA*",
+        "*kAGkAcwBhAGIAbABlAHIAZQBhAGwAdABpAG0AZQBtAG8AbgBpAHQAbwByAGkAbgBnACAA*",
+        /* DisableIOAVProtection */
+        "*RABpAHMAYQBiAGwAZQBJAE8AQQBWAFAAcgBvAHQAZQBjAHQAaQBvAG4AIA*",
+        "*QAaQBzAGEAYgBsAGUASQBPAEEAVgBQAHIAbwB0AGUAYwB0AGkAbwBuACAA*",
+        "*EAGkAcwBhAGIAbABlAEkATwBBAFYAUAByAG8AdABlAGMAdABpAG8AbgAgA*",
+        /* disableioavprotection */
+        "*ZABpAHMAYQBiAGwAZQBpAG8AYQB2AHAAcgBvAHQAZQBjAHQAaQBvAG4AIA*",
+        "*QAaQBzAGEAYgBsAGUAaQBvAGEAdgBwAHIAbwB0AGUAYwB0AGkAbwBuACAA*",
+        "*kAGkAcwBhAGIAbABlAGkAbwBhAHYAcAByAG8AdABlAGMAdABpAG8AbgAgA*",
+        /* DisableBehaviorMonitoring */
+        "*RABpAHMAYQBiAGwAZQBCAGUAaABhAHYAaQBvAHIATQBvAG4AaQB0AG8AcgBpAG4AZwAgA*",
+        "*QAaQBzAGEAYgBsAGUAQgBlAGgAYQB2AGkAbwByAE0AbwBuAGkAdABvAHIAaQBuAGcAIA*",
+        "*EAGkAcwBhAGIAbABlAEIAZQBoAGEAdgBpAG8AcgBNAG8AbgBpAHQAbwByAGkAbgBnACAA*",
+        /* disablebehaviormonitoring */
+        "*ZABpAHMAYQBiAGwAZQBiAGUAaABhAHYAaQBvAHIAbQBvAG4AaQB0AG8AcgBpAG4AZwAgA*",
+        "*QAaQBzAGEAYgBsAGUAYgBlAGgAYQB2AGkAbwByAG0AbwBuAGkAdABvAHIAaQBuAGcAIA*",
+        "*kAGkAcwBhAGIAbABlAGIAZQBoAGEAdgBpAG8AcgBtAG8AbgBpAHQAbwByAGkAbgBnACAA*",
+        /* DisableBlockAtFirstSeen */
+        "*RABpAHMAYQBiAGwAZQBCAGwAbwBjAGsAQQB0AEYAaQByAHMAdABTAGUAZQBuACAA*",
+        "*QAaQBzAGEAYgBsAGUAQgBsAG8AYwBrAEEAdABGAGkAcgBzAHQAUwBlAGUAbgAgA*",
+        "*EAGkAcwBhAGIAbABlAEIAbABvAGMAawBBAHQARgBpAHIAcwB0AFMAZQBlAG4AIA*",
+        /* disableblockatfirstseen */
+        "*ZABpAHMAYQBiAGwAZQBiAGwAbwBjAGsAYQB0AGYAaQByAHMAdABzAGUAZQBuACAA*",
+        "*QAaQBzAGEAYgBsAGUAYgBsAG8AYwBrAGEAdABmAGkAcgBzAHQAcwBlAGUAbgAgA*",
+        "*kAGkAcwBhAGIAbABlAGIAbABvAGMAawBhAHQAZgBpAHIAcwB0AHMAZQBlAG4AIA*"
+      )
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

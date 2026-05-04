@@ -2,7 +2,7 @@
 creation_date = "2026/04/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/08"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -66,9 +66,9 @@ tags = [
     "Data Source: Amazon Web Services",
     "Data Source: AWS KMS",
     "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
     "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -80,6 +80,37 @@ event.dataset: "aws.cloudtrail"
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
 
 [rule.investigation_fields]
 field_names = [
@@ -100,34 +131,3 @@ field_names = [
     "aws.cloudtrail.response_elements",
 ]
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.005"
-name = "Temporary Elevated Cloud Access"
-reference = "https://attack.mitre.org/techniques/T1548/005/"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

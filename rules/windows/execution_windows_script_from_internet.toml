@@ -4,49 +4,19 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Changing min stack to 9.2.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.2.0"
-updated_date = "2026/04/22"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a Windows script downloaded from the internet followed by the execution of a scripting utility.
-Adversaries may use Windows script files for initial access and execution.
+Identifies the creation of a Windows script downloaded from the internet followed by the execution of a scripting
+utility. Adversaries may use Windows script files for initial access and execution.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file-*", "logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Execution of a Downloaded Windows Script"
-risk_score = 47
-rule_id = "79543b00-28a5-4461-81ac-644c4dc4012f"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-sequence by host.id, user.id with maxspan=3m
-[file where host.os.type == "windows" and event.action == "creation" and user.id != "S-1-5-18" and
-  process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and
-  file.extension in~ ("js", "jse", "vbs", "vbe", "wsh", "wsf", "sct", "hta", "cmd", "bat", "ps1", "msi") and
-  (file.origin_url != null or file.origin_referrer_url != null)]
-[process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : ("chrome.exe", "msedge.exe", "brave.exe", "firefox.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and 
- process.args_count >= 2 and
- (
-  process.name in~ ("wscript.exe", "cscript.exe", "mshta.exe") or
-  (process.name : "cmd.exe" and process.command_line : ("*.cmd*", "*.bat*", "*.wsf*")) or
-  (process.name in~ ("powershell.exe", "pwsh.exe") and process.command_line : "*.ps1*") or 
-  (process.name : "msiexec.exe" and process.command_line : "*.msi" and process.args : ("/i*", "-i*"))
-  )]
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -83,16 +53,45 @@ Windows scripts, often used for legitimate automation tasks, can be exploited by
 - Review and analyze the origin URL and referrer URL of the downloaded script to identify potential malicious websites or compromised sources, and block these URLs at the network level.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement application whitelisting to restrict the execution of unauthorized scripts and scripting utilities, reducing the risk of similar threats in the future."""
+risk_score = 47
+rule_id = "79543b00-28a5-4461-81ac-644c4dc4012f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id, user.id with maxspan=3m
+[file where host.os.type == "windows" and event.action == "creation" and user.id != "S-1-5-18" and
+  process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and
+  file.extension in~ ("js", "jse", "vbs", "vbe", "wsh", "wsf", "sct", "hta", "cmd", "bat", "ps1", "msi") and
+  (file.origin_url != null or file.origin_referrer_url != null)]
+[process where host.os.type == "windows" and event.type == "start" and
+ process.parent.name : ("chrome.exe", "msedge.exe", "brave.exe", "firefox.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "explorer.exe", "winrar.exe", "7zFM.exe", "7zG.exe", "Bandizip.exe") and 
+ process.args_count >= 2 and
+ (
+  process.name in~ ("wscript.exe", "cscript.exe", "mshta.exe") or
+  (process.name : "cmd.exe" and process.command_line : ("*.cmd*", "*.bat*", "*.wsf*")) or
+  (process.name in~ ("powershell.exe", "pwsh.exe") and process.command_line : "*.ps1*") or 
+  (process.name : "msiexec.exe" and process.command_line : "*.msi" and process.args : ("/i*", "-i*"))
+  )]
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
@@ -113,29 +112,28 @@ id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
+
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1204.002"
 name = "Malicious File"
 reference = "https://attack.mitre.org/techniques/T1204/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.005"
 name = "Mshta"
@@ -146,7 +144,10 @@ id = "T1218.007"
 name = "Msiexec"
 reference = "https://attack.mitre.org/techniques/T1218/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

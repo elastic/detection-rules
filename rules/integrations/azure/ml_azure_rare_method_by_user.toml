@@ -4,15 +4,15 @@ integration = ["azure"]
 maturity = "production"
 min_stack_comments = "New job added"
 min_stack_version = "9.4.0"
-updated_date = "2026/04/01"
+updated_date = "2026/05/04"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job detected Azure Activity Logs activity that, while not inherently suspicious or abnormal, is sourcing from
-user context that does not normally use the event action. This can be the result of compromised credentials or keys as
-someone uses a valid account to persist, move laterally, or exfiltrate data.
+A machine learning job detected Azure Activity Logs activity that, while not inherently suspicious or abnormal, is
+sourcing from user context that does not normally use the event action. This can be the result of compromised
+credentials or keys as someone uses a valid account to persist, move laterally, or exfiltrate data.
 """
 false_positives = [
     """
@@ -55,6 +55,9 @@ This rule flags an Azure Activity Logs event when a user performs an action they
 - Escalate to incident response and notify cloud security leadership if the unusual action involved new role assignments granting elevated rights, access to Key Vault secrets, listing storage account keys, disabling logs, or activity across multiple subscriptions.
 - Implement hardening by enforcing MFA with phishing-resistant methods, enabling risk-based Conditional Access, requiring just-in-time elevation via PIM, restricting management-plane access to approved network locations, and adding alerts for role assignment writes, secret reads, and key listings.
 """
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "81892f44-4946-4b27-95d3-1d8929b114a7"
 setup = """## Setup
 
 This rule requires the installation of associated Machine Learning jobs, as well as data coming in from Azure Activity Logs.
@@ -74,9 +77,6 @@ The Azure Activity Logs integration allows you to collect logs and metrics from 
 - Click “Save and Continue”.
 - For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/reference/integrations/azure/activitylogs).
 """
-references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
-risk_score = 21
-rule_id = "81892f44-4946-4b27-95d3-1d8929b114a7"
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -85,90 +85,87 @@ tags = [
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 type = "machine_learning"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.007"
 name = "Cloud Services"
 reference = "https://attack.mitre.org/techniques/T1021/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1041"
-name = "Exfiltration Over C2 Channel"
-reference = "https://attack.mitre.org/techniques/T1041/"
-
-[rule.threat.tactic]
-id = "TA0010"
-name = "Exfiltration"
-reference = "https://attack.mitre.org/tactics/TA0010/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

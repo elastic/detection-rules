@@ -2,7 +2,7 @@
 creation_date = "2022/09/20"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -57,15 +57,16 @@ risk_score = 47
 rule_id = "7164081a-3930-11ed-a261-0242ac120002"
 severity = "medium"
 tags = [
-  "Data Source: Kubernetes",
-  "Domain: Kubernetes",
-  "Use Case: Threat Detection",
-  "Tactic: Execution",
-  "Tactic: Privilege Escalation",
-  "Resources: Investigation Guide",
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 data_stream.dataset: kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
 kubernetes.audit.verb: create and kubernetes.audit.objectRef.resource: pods and
@@ -81,41 +82,29 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1610"
 name = "Deploy Container"
 reference = "https://attack.mitre.org/techniques/T1610/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1610"
-name = "Deploy Container"
-reference = "https://attack.mitre.org/techniques/T1610/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

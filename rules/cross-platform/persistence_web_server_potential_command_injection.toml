@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -66,9 +66,11 @@ tags = [
     "Data Source: IIS",
     "Data Source: Traefik",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, logs-iis.access-*, logs-traefik.access-*
 | where
@@ -154,32 +156,86 @@ from logs-nginx.access-*, logs-apache.access-*, logs-apache_tomcat.access-*, log
     Esql.any_payload_keyword_max == 1 and Esql.event_count < 5
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+[[rule.threat.technique.subtechnique]]
+id = "T1003.008"
+name = "/etc/passwd and /etc/shadow"
+reference = "https://attack.mitre.org/techniques/T1003/008/"
+
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+[[rule.threat.technique.subtechnique]]
+id = "T1552.001"
+name = "Credentials In Files"
+reference = "https://attack.mitre.org/techniques/T1552/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
@@ -195,37 +251,30 @@ id = "T1059.011"
 name = "Lua"
 reference = "https://attack.mitre.org/techniques/T1059/011/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1071"
-name = "Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1071/"
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
 
-[[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
 
 [rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1595.002"
 name = "Vulnerability Scanning"
@@ -236,61 +285,10 @@ id = "T1595.003"
 name = "Wordlist Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1003"
-name = "OS Credential Dumping"
-reference = "https://attack.mitre.org/techniques/T1003/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1003.008"
-name = "/etc/passwd and /etc/shadow"
-reference = "https://attack.mitre.org/techniques/T1003/008/"
-
-[[rule.threat.technique]]
-id = "T1552"
-name = "Unsecured Credentials"
-reference = "https://attack.mitre.org/techniques/T1552/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1552.001"
-name = "Credentials In Files"
-reference = "https://attack.mitre.org/techniques/T1552/001/"
-
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1190"
-name = "Exploit Public-Facing Application"
-reference = "https://attack.mitre.org/techniques/T1190/"
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"

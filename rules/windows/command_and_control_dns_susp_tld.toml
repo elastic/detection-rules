@@ -2,7 +2,46 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/05/04"
+
+[transform]
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the user"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the host"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Network activity for the alerting process"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
 
 [rule]
 author = ["Elastic"]
@@ -17,51 +56,11 @@ index = [
     "logs-sentinel_one_cloud_funnel.*",
     "logs-crowdstrike.fdr*",
     "logs-windows.sysmon_operational-*",
-    "winlogbeat-*"
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Activity to a Suspicious Top Level Domain"
-references = ["https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains"]
-risk_score = 73
-rule_id = "e516bf56-d51b-43e8-91ec-9e276331f433"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
-    "Data Source: Sysmon",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-network where host.os.type == "windows" and dns.question.name != null and
- (
-  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
-                  "bitsadmin.exe", "InstallUtil.exe", "python.exe", "regsvr32.exe", "dllhost.exe", "node.exe", "curl.exe",
-                  "java.exe", "javaw.exe", "*.pif", "*.com", "*.scr") or
-  (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
-  ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
-  ?process.executable : (
-    "?:\\Users\\Public\\*.exe", "?:\\ProgramData\\*.exe", "?:\\Users\\*\\Downloads\\*.exe",
-    "\\Device\\HarddiskVolume*\\Users\\Public\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\Downloads\\*.exe"
-  )
- ) and
-dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host|zone)""" and
-
-not process.executable : (
-    "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
-    "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
-)
-'''
-
 note = """## Triage and analysis
 
 ### Investigating Network Activity to a Suspicious Top Level Domain
@@ -116,7 +115,9 @@ note = """## Triage and analysis
 - If confirmed malicious, document the alert's `process.entity_id`, `process.command_line`, `process.parent.command_line`, written `file.path` artifacts, and connected `dns.question.name` or `destination.ip` infrastructure before initiating response actions. Prefer endpoint isolation as the first containment step; if direct endpoint response is unavailable, escalate with the preserved artifact set to the team that can isolate the host. Block the confirmed malicious domains and direct-IP destinations before terminating processes or deleting files.
 - After containment, review other `host.id` and `user.id` alerts for the same `dns.question.name`, `destination.ip`, or `process.executable` pattern before deleting artifacts or restoring access. Then eradicate staged binaries, scripts, and any persistence or proxy changes identified during the file or variant review, and remediate the entry path that allowed the suspicious process to run. If the same suspicious window includes credential, admin-tool, or remote-session alerts, review those sessions for follow-on misuse and reset exposed credentials when the evidence supports compromise.
 """
-
+references = ["https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains"]
+risk_score = 73
+rule_id = "e516bf56-d51b-43e8-91ec-9e276331f433"
 setup = """## Setup
 
 This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
@@ -131,6 +132,84 @@ This rule also supports the following third-party data sources. For setup instru
 - [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
 - [Sysmon Event ID 3 - Network Connection](https://ela.st/sysmon-event-3-setup)
 """
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and dns.question.name != null and
+ (
+  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
+                  "bitsadmin.exe", "InstallUtil.exe", "python.exe", "regsvr32.exe", "dllhost.exe", "node.exe", "curl.exe",
+                  "java.exe", "javaw.exe", "*.pif", "*.com", "*.scr") or
+  (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
+  ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+  ?process.executable : (
+    "?:\\Users\\Public\\*.exe", "?:\\ProgramData\\*.exe", "?:\\Users\\*\\Downloads\\*.exe",
+    "\\Device\\HarddiskVolume*\\Users\\Public\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\Downloads\\*.exe"
+  )
+ ) and
+dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host|zone)""" and
+
+not process.executable : (
+    "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
+    "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1127"
+name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+[[rule.threat.technique.subtechnique]]
+id = "T1127.001"
+name = "MSBuild"
+reference = "https://attack.mitre.org/techniques/T1127/001/"
+
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
 field_names = [
@@ -150,80 +229,3 @@ field_names = [
     "event.action",
 ]
 
-[[transform.investigate]]
-label = "Alerts associated with the user"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Alerts associated with the host"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Network activity for the alerting process"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
-    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1071"
-name = "Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1071/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1071.004"
-name = "DNS"
-reference = "https://attack.mitre.org/techniques/T1071/004/"
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1127.001"
-name = "MSBuild"
-reference = "https://attack.mitre.org/techniques/T1127/001/"
-
-[[rule.threat.technique]]
-id = "T1218"
-name = "System Binary Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1218/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

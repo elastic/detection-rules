@@ -2,15 +2,14 @@
 creation_date = "2025/09/18"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the execution of Node.js pre or post-install scripts. These scripts are executed
-by the Node.js package manager (npm) during the installation of packages. Adversaries may abuse
-this technique to execute arbitrary commands on the system and establish persistence. This activity
-was observed in the wild as part of the Shai-Hulud worm.
+This rule detects the execution of Node.js pre or post-install scripts. These scripts are executed by the Node.js
+package manager (npm) during the installation of packages. Adversaries may abuse this technique to execute arbitrary
+commands on the system and establish persistence. This activity was observed in the wild as part of the Shai-Hulud worm.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
@@ -51,33 +50,33 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "OS: macOS",
-  "Use Case: Threat Detection",
-  "Tactic: Persistence",
-  "Tactic: Execution",
-  "Tactic: Defense Evasion",
-  "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
-  "Data Source: SentinelOne",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Tactic: Stealth",
 ]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=10s
   [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "node" and process.args == "install"] by process.entity_id
   [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.parent.name == "node"] by process.parent.entity_id
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
@@ -88,61 +87,61 @@ id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
+
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1204.005"
 name = "Malicious Library"
 reference = "https://attack.mitre.org/techniques/T1204/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.001"
+name = "Compromise Software Dependencies and Development Tools"
+reference = "https://attack.mitre.org/techniques/T1195/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1195"
-name = "Supply Chain Compromise"
-reference = "https://attack.mitre.org/techniques/T1195/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1195.001"
-name = "Compromise Software Dependencies and Development Tools"
-reference = "https://attack.mitre.org/techniques/T1195/001/"
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"

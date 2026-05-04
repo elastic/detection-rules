@@ -2,7 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ index = [
     "endgame-*",
     "logs-endpoint.events.process*",
     "logs-sentinel_one_cloud_funnel.*",
-    "logs-crowdstrike.fdr*"
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -95,9 +95,11 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 ((process.args == "tail" and process.args == "-c" and process.args == "funzip")) and
@@ -106,43 +108,44 @@ not ?process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/x
 not (process.parent.name in ("sh", "sudo") and ?process.parent.command_line : "*nessus_su*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1027.015"
 name = "Compression"
 reference = "https://attack.mitre.org/techniques/T1027/015/"
+
 
 [[rule.threat.technique]]
 id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

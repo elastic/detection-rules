@@ -1,0 +1,227 @@
+[metadata]
+creation_date = "2021/01/21"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[transform]
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the user"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the host"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Process events for the same process"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "File events for the same process"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Process events for the same host and user"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious creation of Alternate Data Streams on highly targeted files using a script or command interpreter.
+This is uncommon for legitimate files and sometimes done by adversaries to hide malware.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual File Creation - Alternate Data Stream"
+note = """## Triage and analysis
+
+### Investigating Unusual File Creation - Alternate Data Stream
+#### Possible investigation steps
+
+- What ADS target did the alert create?
+  - Focus: `file.path`, `file.extension`, `file.size`, and the stream suffix after the base file.
+  - Implication: escalate when a command or script interpreter writes ADS on an executable, script, user document, or disk-image host file with a payload-like, DLL-like, or config-like stream name; lower concern only when stream name and file class match a narrow classification, tagging, or packaging marker.
+
+- Does stream metadata or collected content look like payload material?
+  - Focus: `file.size`, `file.Ext.header_bytes`, `file.Ext.entropy`, and collected ADS content when available.
+  - Hint: retrieve raw ADS content with "Get-Content -Path <host_file> -Stream <stream_name>" or collect the host file before cleanup; without content, do not close from absence.
+  - Implication: escalate for script text, encoded blobs, PE bytes, launcher syntax, or execution configuration; if content cannot be recovered, keep unresolved unless lineage, staging, or reuse proves the answer. Lower concern requires small, readable classification, package, validation, or test metadata.
+
+- How was the creating interpreter launched?
+  - Focus: `process.executable`, `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.code_signature.subject_name`. $investigate_2
+  - Implication: escalate when launched by a document, browser, user-writable binary, unusual parent command, or command line that writes hidden content; lower concern when identity, parent, command line, and user-host scope match a recognized tagging, packaging, or validation workflow.
+
+- Did the creating process stage, rename, or clean up supporting files?
+  - Focus: same-process file events on `host.id` and `process.entity_id`: `file.path`, `file.extension`, and `file.size`. $investigate_3
+  - Implication: escalate when the same process drops executables or scripts, renames content into a deceptive path, deletes staging material, or writes related ADS artifacts; lower concern when file activity stays limited to the expected file set and stream metadata pattern.
+
+- Did later commands reuse the ADS path or base file?
+  - Why: ADS creation becomes decisive when a later command uses file:path:stream syntax or a helper consumes hidden content.
+  - Focus: later process events on `host.id` and `user.id` where `process.command_line` references the ADS path, base path, or stream name; include `process.executable` and `process.parent.executable`. $investigate_4
+  - Hint: search first for the literal ADS path, then the base path and stream name separately if quoting or escaping differs.
+  - Implication: escalate when later commands read, execute, copy, extract, or persist from ADS; if no reuse appears, keep unresolved unless content and lineage prove benign metadata use.
+
+- Does the ADS pattern recur broadly enough to change scope?
+  - Focus: smallest stable suspicious indicator, such as stream name, `file.path` pattern, `process.executable`, or `process.command_line`, plus `host.id` and `user.id` scope.
+  - Hint: review host-related alerts for matching ADS or interpreter patterns. $investigate_1
+  - Hint: review user-related alerts before treating activity as one-host. $investigate_0
+  - Implication: broaden containment and scoping when unrelated hosts or users share the ADS pattern; keep scope local only when local content, lineage, and reuse are resolved or the pattern remains confined to one unresolved host.
+
+- Escalate for hidden payload staging, ADS execution, suspicious cleanup, or spread beyond the first host; close only when ADS path/content, command lines, parent lineage, same-process file activity, and `host.id`/`user.id` scope prove one exact marker-writing or lab workflow with no contradictory reuse; preserve artifacts and escalate when answers stay mixed or incomplete.
+
+### False positive analysis
+
+- Data-classification, packaging, or validation tools can legitimately create small ADS markers on fixed file classes. Confirm identity (`process.executable`, `process.code_signature.subject_name`, parent command line), artifacts (`file.path`, stream name, readable marker content), and scope (`host.id`, `user.id`, host cohort) all align with one exact workflow; if workflow records are unavailable, require prior alerts with the same process identity, parent command line, stream name, file class, and host cohort.
+- Controlled security testing or forensic labs can place samples or markers in ADS on isolated systems. Confirm the same `process.executable`, `process.command_line`, `file.path`, stream name, and lab host cohort, and no later execution or persistence from ADS; if test plans are unavailable, require repeated bounded testing patterns. Do not create exceptions on `process.name` or `file.extension` alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Document the evidence that established the workflow before changing response state: `process.executable`, `process.command_line`, parent command line, `file.path` pattern, stream name, stream content type, and the `host.id` or `host.name` cohort. Then reverse temporary containment. Build exceptions only from the minimum confirmed pattern, not from a generic interpreter or file-extension condition.
+- If suspicious but unconfirmed:
+  - Preserve the exact ADS path, base host file, recovered stream content or computed hash, process timeline, `process.entity_id`, `process.pid`, `process.command_line`, `process.parent.command_line`, and same-process file events before cleanup.
+  - Apply reversible containment tied to the findings, such as heightened monitoring, execution restrictions for the affected interpreter, or temporary containment of the affected `host.id`; avoid deleting the stream or base file until evidence is collected.
+  - Escalate to host isolation only if ADS reuse, payload-like content, suspicious cleanup, or continued staging shows active risk and the asset can tolerate isolation.
+- If confirmed malicious:
+  - Use endpoint response to isolate the host after preserving the ADS path, base file, stream content, process timeline, command lines, parent lineage, and related file artifacts. If direct endpoint response is unavailable, hand off that evidence set to the team that can contain the host.
+  - Review other hosts and users for the same stream name, ADS path pattern, `process.executable`, or `process.command_line` before deleting the stream, removing the base file, or terminating related processes.
+  - Remove the malicious stream, launched payloads, staging files, and the entry vector that created them, then remediate any persistence or delivery path identified during the investigation.
+- Post-incident hardening:
+  - Keep process and file telemetry enabled for the affected host class, and record recurring ADS naming or interpreter patterns for future triage.
+  - Restrict or monitor interpreter workflows that create ADS on high-value file types when that behavior is not required for the host role.
+"""
+risk_score = 73
+rule_id = "71bccb61-e19b-452f-b104-79a60e546a95"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 15 - FileCreateStreamHash](https://ela.st/sysmon-event-15-setup)
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type == "creation" and
+   process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "mshta.exe", "wscript.exe", "cscript.exe", "node.exe", "python*.exe") and
+   file.extension in~ (
+    "pdf", "dll", "exe", "dat", "com", "bat", "cmd", "sys", "vbs", "vbe", "ps1", "hta", "txt", "js", "jse",
+    "wsh", "wsf", "sct", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "rtf", "gif", "jpg", "png", "bmp", "img", "iso"
+  ) and
+  file.path : "C:\\*:*" and
+  not file.name :("*:$DATA", "*PG$Secure", "*Zone.Identifier", "*com.apple.lastuseddate#PS", "*com.apple.provenance")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.004"
+name = "NTFS File Attributes"
+reference = "https://attack.mitre.org/techniques/T1564/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.parent.executable",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "file.path",
+    "file.name",
+    "file.extension",
+    "file.size",
+]
+

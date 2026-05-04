@@ -2,14 +2,15 @@
 creation_date = "2025/04/30"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects suspicious child process from the kernel thread (kthreadd) parent process. Attackers may execute payloads from
-kernel space via kthreadd to perform actions on the host and evade detection. Through the usage of the new_terms rule type, this
-rule can identify uncommon child processes that may indicate the presence of a malicious process.
+This rule detects suspicious child process from the kernel thread (kthreadd) parent process. Attackers may execute
+payloads from kernel space via kthreadd to perform actions on the host and evade detection. Through the usage of the
+new_terms rule type, this rule can identify uncommon child processes that may indicate the presence of a malicious
+process.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
@@ -82,16 +83,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Execution",
-  "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:(exec or ProcessRollup2) and process.parent.name:kthreadd and (
   process.executable:(/dev/shm/* or /tmp/* or /var/tmp/* or /var/www/*) or
@@ -114,27 +117,26 @@ process.command_line:(
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
@@ -144,20 +146,23 @@ reference = "https://attack.mitre.org/techniques/T1014/"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.009"
 name = "Break Process Trees"
 reference = "https://attack.mitre.org/techniques/T1036/009/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name", "host.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

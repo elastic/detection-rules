@@ -2,15 +2,15 @@
 creation_date = "2026/03/18"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies abuse of rclone (or a renamed copy, e.g. disguised as a security or backup utility) to exfiltrate data to
 cloud storage or remote endpoints. Rclone is a legitimate file sync tool; threat actors rename it to blend with
-administrative traffic and use copy/sync with cloud backends (e.g. :s3:) and include filters to exfiltrate specific
-file types.
+administrative traffic and use copy/sync with cloud backends (e.g. :s3:) and include filters to exfiltrate specific file
+types.
 """
 from = "now-9m"
 index = [
@@ -50,10 +50,7 @@ Rclone is a legitimate file synchronization tool. Threat actors abuse it (often 
 - Identify and revoke access to the destination (S3 bucket, API keys, etc.); preserve logs for the exfil session.
 - Determine scope of data exposed and notify stakeholders; rotate credentials and secrets that may have been in exfiltrated paths.
 """
-references = [
-    "https://attack.mitre.org/techniques/T1048/",
-    "https://rclone.org/commands/rclone_copy/",
-]
+references = ["https://attack.mitre.org/techniques/T1048/", "https://rclone.org/commands/rclone_copy/"]
 risk_score = 47
 rule_id = "3f4c2b18-9d2e-4b7a-a3c1-8e6d9f2b5c7e"
 severity = "medium"
@@ -68,8 +65,9 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender XDR",
     "Data Source: Crowdstrike",
-    "Data Source: Elastic Endgame", 
-    "Data Source: Windows Security Event Logs"
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -84,7 +82,6 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1048"
 name = "Exfiltration Over Alternative Protocol"
@@ -94,31 +91,32 @@ reference = "https://attack.mitre.org/techniques/T1048/"
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1567.002"
 name = "Exfiltration to Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1567/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename Legitimate Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

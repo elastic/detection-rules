@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2025/01/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an AWS Simple Queue Service (SQS) queue is purged. Purging an SQS queue permanently deletes all messages
+currently in the queue. Adversaries may use this action to disrupt application workflows, destroy operational data, or
+impair monitoring and alerting by removing messages that contain evidence of malicious activity.
+"""
+false_positives = [
+    """
+    Authorized administrators or automated workflows may purge SQS queues for legitimate operational reasons, such as
+    clearing stale messages, resetting test environments, or performing approved maintenance. Verify that the action
+    aligns with documented procedures and expected operational behavior.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SQS Queue Purge"
+note = """## Triage and analysis
+
+### Investigating AWS SQS Queue Purge
+
+AWS SQS is a managed message queuing service commonly used to decouple services and buffer events across distributed and serverless architectures. Purging a queue removes all pending messages and cannot be undone. While this may be required for maintenance or testing, adversaries may abuse this action to disrupt operations, delete forensic evidence, or evade detection by removing queued security or audit events.
+
+### Possible investigation steps
+
+**Identify the actor**
+- Review `aws.cloudtrail.user_identity.arn` and `access_key_id` to determine who initiated the purge. Confirm whether this identity typically manages SQS resources and whether the action aligns with their role.
+
+**Review the affected queue**
+- Identify the purged queue using `aws.cloudtrail.request_parameters` or `aws.cloudtrail.resources.arn`. Determine the purpose of the queue and whether it supports critical workflows, security tooling, or monitoring pipelines.
+
+**Evaluate the context of the action**
+- Review the `@timestamp` to determine when the purge occurred and whether it aligns with maintenance windows or
+  deployment activity.
+- Examine `source.ip` and `user_agent.original` for anomalies such as unexpected locations, automation tools, or
+  unfamiliar clients.
+
+**Correlate related activity**
+- Search for other CloudTrail events from the same identity before and after the purge, including IAM changes, credential activity, or additional SQS operations.
+- Look for signs of follow-on behavior such as queue deletion, policy updates, or attempts to suppress logging.
+
+**Validate intent**
+- Confirm with the queue owner or application team whether the purge was intentional, approved, and expected. If no clear business justification exists, treat the activity as potentially suspicious.
+
+### False positive analysis
+
+- Queue purges performed during routine maintenance, incident recovery, or test resets may be legitimate.
+- Automated jobs or cleanup scripts may regularly purge queues as part of normal operation.
+
+### Response and remediation
+
+- If the purge was unauthorized, immediately restrict SQS permissions for the affected identity and investigate for credential compromise.
+- Assess operational impact and determine whether downstream systems were disrupted or lost critical data.
+- Review recent activity to identify any additional attempts to evade detection or disable monitoring.
+- Reinforce least-privilege IAM policies to limit which identities can perform `PurgeQueue`.
+- Enhance monitoring and alerting for destructive SQS actions, especially in production environments.
+- Work with application teams to document approved purge workflows and ensure adequate guardrails are in place.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **[AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/)**
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_PurgeQueue.html",
+    "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
+]
+risk_score = 47
+rule_id = "bab88bb8-cdd9-11ef-bd9a-f661ea17fbcd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SQS",
+    "Use Case: Threat Detection",
+    "Use Case: Log Auditing",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "sqs.amazonaws.com"
+    and event.action: "PurgeQueue"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+[[rule.threat.technique.subtechnique]]
+id = "T1685.002"
+name = "Disable or Modify Cloud Log"
+reference = "https://attack.mitre.org/techniques/T1685/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+

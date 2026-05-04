@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,13 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Started from Process ID (PID) File"
@@ -76,6 +82,7 @@ tags = [
     "Data Source: Auditd Manager",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -88,25 +95,22 @@ process where host.os.type == "linux" and event.type == "start" and user.id == "
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
 name = "Match Legitimate Resource Name or Location"
@@ -117,7 +121,10 @@ id = "T1036.008"
 name = "Masquerade File Type"
 reference = "https://attack.mitre.org/techniques/T1036/008/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

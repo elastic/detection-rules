@@ -2,15 +2,15 @@
 creation_date = "2024/11/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when a user or role has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain
 temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
-escalation. This is a New Terms rule that identifies when a user assumes a role in AWS Security Token Service (STS)
-to obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for
+escalation. This is a New Terms rule that identifies when a user assumes a role in AWS Security Token Service (STS) to
+obtain temporary credentials and access AWS resources. While often legitimate, adversaries may use this technique for
 unauthorized access, privilege escalation, or lateral movement within an AWS environment.
 """
 false_positives = [
@@ -80,6 +80,7 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
     "Tactic: Lateral Movement",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -95,62 +96,61 @@ data_stream.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
 
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

@@ -2,17 +2,16 @@
 creation_date = "2026/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation or modification of a mandatory user profile hive (NTUSER.MAN) by an unusual process.
-Adversaries may abuse Windows mandatory profiles by dropping a malicious NTUSER.MAN file containing
-pre-populated persistence-related registry keys. On the next user logon, Windows loads the registry hive
-from NTUSER.MAN, causing embedded persistence mechanisms to activate without directly modifying the live
-registry. This technique can evade traditional registry-based monitoring and indicate a stealthy
-persistence attempt.
+Detects the creation or modification of a mandatory user profile hive (NTUSER.MAN) by an unusual process. Adversaries
+may abuse Windows mandatory profiles by dropping a malicious NTUSER.MAN file containing pre-populated
+persistence-related registry keys. On the next user logon, Windows loads the registry hive from NTUSER.MAN, causing
+embedded persistence mechanisms to activate without directly modifying the live registry. This technique can evade
+traditional registry-based monitoring and indicate a stealthy persistence attempt.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file-*"]
@@ -71,6 +70,7 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timeline_id = "4d4c0b59-ea83-483f-b8c1-8c360ee53c5c"
 timeline_title = "Comprehensive File Timeline"
@@ -86,31 +86,31 @@ file where host.os.type == "windows" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.001"
 name = "Registry Run Keys / Startup Folder"
 reference = "https://attack.mitre.org/techniques/T1547/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
+
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+

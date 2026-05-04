@@ -2,18 +2,18 @@
 creation_date = "2025/12/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the first occurrence of an OAuth 2.0 authorization code grant flow for a specific combination of client
 application, target resource, and user principal in Microsoft Entra ID. Developer tools like Azure CLI, Visual Studio
-Code, and Azure PowerShell accessing Microsoft Graph or legacy Azure AD are flagged for infrequent or first time usage by a user.
-Additionally, any FOCI (Family of Client IDs) application accessing the deprecated Windows Azure Active Directory for
-the first time is flagged since this resource is rarely accessed legitimately. This pattern is indicative of OAuth
-phishing attacks like ConsentFix, where attackers steal authorization codes and exchange them for tokens from attacker
-controlled infrastructure.
+Code, and Azure PowerShell accessing Microsoft Graph or legacy Azure AD are flagged for infrequent or first time usage
+by a user. Additionally, any FOCI (Family of Client IDs) application accessing the deprecated Windows Azure Active
+Directory for the first time is flagged since this resource is rarely accessed legitimately. This pattern is indicative
+of OAuth phishing attacks like ConsentFix, where attackers steal authorization codes and exchange them for tokens from
+attacker controlled infrastructure.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.signinlogs-*"]
@@ -75,7 +75,7 @@ tags = [
     "Tactic: Initial Access",
     "Tactic: Credential Access",
     "Resources: Investigation Guide",
-
+    "Tactic: Lateral Movement",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -140,67 +140,66 @@ data_stream.dataset: "azure.signinlogs" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
-[[rule.threat.technique]]
-id = "T1566"
-name = "Phishing"
-reference = "https://attack.mitre.org/techniques/T1566/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1566.002"
-name = "Spearphishing Link"
-reference = "https://attack.mitre.org/techniques/T1566/002/"
 
 [[rule.threat.technique]]
 id = "T1199"
 name = "Trusted Relationship"
 reference = "https://attack.mitre.org/techniques/T1199/"
 
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1528"
 name = "Steal Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1528/"
 
+
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
+
+
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

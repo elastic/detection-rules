@@ -2,7 +2,7 @@
 creation_date = "2023/09/05"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [transform]
 [[transform.osquery]]
@@ -28,6 +28,7 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
+
 
 [rule]
 author = ["Elastic"]
@@ -145,9 +146,11 @@ tags = [
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
@@ -157,6 +160,7 @@ process.name == "setcap" and process.args : "cap_set?id+ep" and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -164,39 +168,21 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.001"
-name = "Setuid and Setgid"
-reference = "https://attack.mitre.org/techniques/T1548/001/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

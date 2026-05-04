@@ -2,13 +2,15 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
 Identifies AWS CloudTrail events where an EC2 route table or association has been modified or deleted. Route table or
-association modifications can be used by attackers to disrupt network traffic, reroute communications, or maintain persistence in a compromised environment. This is a New Terms rule that detects the first instance of this behavior by a user or role.
+association modifications can be used by attackers to disrupt network traffic, reroute communications, or maintain
+persistence in a compromised environment. This is a New Terms rule that detects the first instance of this behavior by a
+user or role.
 """
 false_positives = [
     """
@@ -23,8 +25,7 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Route Table Modified or Deleted"
-note = """
-## Triage and Analysis
+note = """## Triage and Analysis
 
 ### Investigating AWS EC2 Route Table Modified or Deleted
 
@@ -99,6 +100,7 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Resources: Investigation Guide",
     "Tactic: Persistence",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -116,6 +118,32 @@ data_stream.dataset: "aws.cloudtrail"
     and event.outcome: "success"
 '''
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -130,34 +158,9 @@ field_names = [
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
+    "aws.cloudtrail.response_elements",
 ]
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1578"
-name = "Modify Cloud Compute Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1578/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1578.005"
-name = "Modify Cloud Compute Configurations"
-reference = "https://attack.mitre.org/techniques/T1578/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["cloud.account.id", "user.name"]

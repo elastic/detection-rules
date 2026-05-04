@@ -4,7 +4,7 @@ integration = ["gcp"]
 maturity = "production"
 min_stack_comments = "Use EA (Entity Analytics) fields"
 min_stack_version = "9.4.0"
-updated_date = "2026/04/01"
+updated_date = "2026/05/04"
 
 [rule]
 anomaly_threshold = 50
@@ -15,9 +15,9 @@ successful persistence, privilege escalation, defense evasion, discovery, latera
 """
 false_positives = [
     """
-    Rare and unusual failures may indicate an impending service failure state. Rare and unusual user failure activity can
-    also be due to manual troubleshooting or reconfiguration attempts by insufficiently privileged users, bugs in cloud
-    automation scripts or workflows, or changes to IAM privileges.
+    Rare and unusual failures may indicate an impending service failure state. Rare and unusual user failure activity
+    can also be due to manual troubleshooting or reconfiguration attempts by insufficiently privileged users, bugs in
+    cloud automation scripts or workflows, or changes to IAM privileges.
     """,
 ]
 from = "now-2h"
@@ -25,6 +25,9 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "gcp_audit_rare_error_code_ea"
 name = "Rare GCP Audit Failure Event Code"
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "5378a829-30c2-435a-a0f2-e3d794bd6f80"
 setup = """## Setup
 
 This rule requires the installation of associated Machine Learning jobs, as well as data coming in from GCP.
@@ -44,9 +47,6 @@ The Google Cloud Platform (GCP) Audit logs integration allows you to collect log
 - Click “Save and Continue”.
 - For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/gcp).
 """
-references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
-risk_score = 21
-rule_id = "5378a829-30c2-435a-a0f2-e3d794bd6f80"
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -56,17 +56,25 @@ tags = [
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 type = "machine_learning"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1526"
 name = "Cloud Service Discovery"
@@ -77,6 +85,25 @@ id = "T1580"
 name = "Cloud Infrastructure Discovery"
 reference = "https://attack.mitre.org/techniques/T1580/"
 
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -85,34 +112,3 @@ id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0008"
-name = "Lateral Movement"
-reference = "https://attack.mitre.org/tactics/TA0008/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"

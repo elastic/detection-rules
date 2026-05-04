@@ -2,16 +2,16 @@
 creation_date = "2024/11/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when the STS AssumeRoot action is performed by a rare user in AWS. The AssumeRoot action allows users to
 assume the root member account role, granting elevated but specific permissions based on the task policy specified.
-Adversaries who have compromised user credentials can use this technique to
-escalate privileges and gain unauthorized access to AWS resources. This is a New Terms rule that identifies
-when the STS AssumeRoot action is performed by a user that rarely assumes this role against a specific member account.
+Adversaries who have compromised user credentials can use this technique to escalate privileges and gain unauthorized
+access to AWS resources. This is a New Terms rule that identifies when the STS AssumeRoot action is performed by a user
+that rarely assumes this role against a specific member account.
 """
 false_positives = [
     "AWS administrators or automated processes might regularly assume root for legitimate administrative purposes.",
@@ -23,8 +23,7 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS STS AssumeRoot by Rare User and Member Account"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS STS AssumeRoot by Rare User and Member Account
 
@@ -147,6 +146,7 @@ tags = [
     "Resources: Investigation Guide",
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -161,67 +161,66 @@ data_stream.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.005"
 name = "Temporary Elevated Cloud Access"
 reference = "https://attack.mitre.org/techniques/T1548/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -238,7 +237,7 @@ field_names = [
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
+    "aws.cloudtrail.response_elements",
 ]
 
 [rule.new_terms]

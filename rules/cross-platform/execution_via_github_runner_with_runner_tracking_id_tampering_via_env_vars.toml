@@ -2,14 +2,14 @@
 creation_date = "2025/11/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects processes spawned by GitHub Actions runners where "RUNNER_TRACKING_ID" is overridden from its
-default "github_*" value. Such tampering has been associated with attempts to evade runner tracking/cleanup on
-self-hosted runners, including behavior observed in the Shai-Hulud 2.0 npm worm campaign.
+This rule detects processes spawned by GitHub Actions runners where "RUNNER_TRACKING_ID" is overridden from its default
+"github_*" value. Such tampering has been associated with attempts to evade runner tracking/cleanup on self-hosted
+runners, including behavior observed in the Shai-Hulud 2.0 npm worm campaign.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -100,73 +100,77 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type in ("linux", "macos") and event.type == "start" and event.action == "exec" and
 process.parent.name in ("Runner.Worker", "Runner.Listener") and process.env_vars like~ "RUNNER_TRACKING_ID*" and
 not process.env_vars like~ "RUNNER_TRACKING_ID=github_*"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.009"
+name = "Break Process Trees"
+reference = "https://attack.mitre.org/techniques/T1036/009/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1195.001"
 name = "Compromise Software Dependencies and Development Tools"
 reference = "https://attack.mitre.org/techniques/T1195/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1036.009"
-name = "Break Process Trees"
-reference = "https://attack.mitre.org/techniques/T1036/009/"
-
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1562.001"
-name = "Disable or Modify Tools"
-reference = "https://attack.mitre.org/techniques/T1562/001/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

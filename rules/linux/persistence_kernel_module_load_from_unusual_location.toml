@@ -2,14 +2,14 @@
 creation_date = "2026/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the loading of a kernel module from an unusual location. Threat actors may use
-this technique to maintain persistence on a system by loading a kernel module into the kernel namespace.
-This behavior is strongly related to the presence of a rootkit on the system.
+This rule detects the loading of a kernel module from an unusual location. Threat actors may use this technique to
+maintain persistence on a system by loading a kernel module into the kernel namespace. This behavior is strongly related
+to the presence of a rootkit on the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -82,13 +82,14 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Threat: Rootkit",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
   (process.name == "kmod" and process.args == "insmod" and process.args like~ "*.ko*") or
@@ -115,51 +116,51 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -106,9 +106,11 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:file and event.action:(creation or file_create_event) and
 file.extension:(pid or lock or reboot) and file.path:(/var/run/* or /run/*) and (
@@ -140,40 +142,42 @@ file.extension:(pid or lock or reboot) and file.path:(/var/run/* or /run/*) and 
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1106"
 name = "Native API"
 reference = "https://attack.mitre.org/techniques/T1106/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
 name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name", "file.name"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"
+
+
