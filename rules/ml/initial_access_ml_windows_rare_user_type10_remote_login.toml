@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+updated_date = "2026/04/01"
 
 [rule]
 anomaly_threshold = 50
@@ -21,7 +23,7 @@ false_positives = [
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = ["v3_windows_rare_user_type10_remote_login"]
+machine_learning_job_id = ["v3_windows_rare_user_type10_remote_login_ea"]
 name = "Unusual Windows Remote User"
 note = """## Triage and analysis
 
@@ -89,14 +91,31 @@ tags = [
 type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.001"
+name = "Remote Desktop Protocol"
+reference = "https://attack.mitre.org/techniques/T1021/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

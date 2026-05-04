@@ -2,7 +2,7 @@
 creation_date = "2023/02/02"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -71,10 +71,10 @@ type = "eql"
 query = '''
 any where host.os.type == "windows" and
  (
-   (event.dataset == "windows.sysmon_operational" and event.code == "21" and
+   (data_stream.dataset == "windows.sysmon_operational" and event.code == "21" and
     ?winlog.event_data.Operation : "Created" and ?winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
 
-   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and ?process.Ext.api.name == "IWbemServices::PutInstance" and
+   (data_stream.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and ?process.Ext.api.name == "IWbemServices::PutInstance" and
     ?process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
  )
 '''

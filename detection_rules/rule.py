@@ -682,6 +682,8 @@ class QueryValidator:
 
         required: list[dict[str, Any]] = []
         unique_fields: list[str] = self.unique_fields or []
+        if isinstance(self, ESQLValidator):
+            unique_fields = [f for f in unique_fields if not f.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES)]
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
@@ -1741,6 +1743,11 @@ class TOMLRule:
         with path.absolute().open("w", newline="\n") as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             _ = f.write("\n")
+
+    def save_yaml(self, path: Path, contents_override: dict[str, Any] | None = None) -> None:
+        """Save the rule in YAML format."""
+        data = contents_override if contents_override is not None else self.contents.to_api_format()
+        utils.save_yaml(path.with_suffix(".yaml"), data, use_absolute_path=True)
 
 
 @dataclass(frozen=True)

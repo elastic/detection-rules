@@ -2,7 +2,7 @@
 creation_date = "2026/02/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/03"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -68,25 +68,22 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
   kubernetes.audit.verb in ("create", "update", "patch") and
   `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
   kubernetes.audit.level == "RequestResponse" and kubernetes.audit.stage == "ResponseComplete" and
-  KQL("""kubernetes.audit.requestObject.rules.verbs:("*" or "escalate" or "bind" or "impersonate") or kubernetes.audit.requestObject.rules.resources:("clusterroles" or "clusterrolebindings" or "roles" or "rolebindings")""")
-| KEEP
-  @timestamp,
-  data_stream.namespace,
-  `kubernetes.audit.annotations.authorization_k8s_io/decision`,
-  kubernetes.audit.level,
-  kubernetes.audit.objectRef.name,
-  kubernetes.audit.objectRef.resource,
-  kubernetes.audit.requestURI,
-  kubernetes.audit.responseStatus.code,
-  kubernetes.audit.sourceIPs,
-  kubernetes.audit.stage,
-  kubernetes.audit.user.groups,
-  kubernetes.audit.user.username,
-  user_agent.original,
-  kubernetes.audit.verb,
-  _id,
-  _index,
-  _version
+  not kubernetes.audit.sourceIPs in ("::1", "127.0.0.1") and 
+  not (user.name like "eks:*" and kubernetes.audit.objectRef.name like "eks:*") and 
+  not (user.name == "aksService" and event.action == "create" and kubernetes.audit.objectRef.name like "aks:*") and 
+  not (user.name == "system:serviceaccount:kube-system:clusterrole-aggregation-controller" and  kubernetes.audit.objectRef.name in ("admin", "edit") and event.action == "patch") and 
+  (
+    // using requestObject
+    KQL(""" kubernetes.audit.requestObject.rules.verbs:("*" or "escalate" or "bind" or "impersonate") """) or 
+    KQL(""" kubernetes.audit.requestObject.rules.verbs: ("*" or "create" or "patch" or "update") and kubernetes.audit.requestObject.rules.resources:("*" or "clusterroles" or "clusterrolebindings" or "roles" or "rolebindings" or "pods/exec" or "serviceaccounts/token" or "nodes/proxy" or "daemonsets") """) or 
+    KQL(""" kubernetes.audit.requestObject.rules.verbs: ("*" or "get" or "list") and kubernetes.audit.requestObject.rules.resources:("*" or "secrets") """) or
+
+    // using responseObject
+    KQL(""" kubernetes.audit.responseObject.rules.verbs:("*" or "escalate" or "bind" or "impersonate") """) or 
+    KQL(""" kubernetes.audit.responseObject.rules.verbs: ("*" or "create" or "patch" or "update") and kubernetes.audit.responseObject.rules.resources:("*" or "clusterroles" or "clusterrolebindings" or "roles" or "rolebindings" or "pods/exec" or "serviceaccounts/token" or "nodes/proxy" or "daemonsets") """) or 
+    KQL(""" kubernetes.audit.responseObject.rules.verbs: ("*" or "get" or "list") and kubernetes.audit.responseObject.rules.resources:("*" or "secrets") """)
+  )
+| keep user.name, user_agent.original, event.action, source.ip, kubernetes.audit.verb, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, kubernetes.audit.user.username, kubernetes.audit.user.groups, `kubernetes.audit.annotations.authorization_k8s_io/decision`, event.original, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]

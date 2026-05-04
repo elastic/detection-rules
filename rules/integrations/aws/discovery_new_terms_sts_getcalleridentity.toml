@@ -2,7 +2,7 @@
 creation_date = "2024/05/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/08/19"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -92,7 +92,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "sts.amazonaws.com"
     and event.action: "GetCallerIdentity"
     and event.outcome: "success"
@@ -116,10 +116,17 @@ field_names = [
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1033"
+name = "System Owner/User Discovery"
+reference = "https://attack.mitre.org/techniques/T1033/"
+
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1087.004"
 name = "Cloud Account"
@@ -129,7 +136,6 @@ reference = "https://attack.mitre.org/techniques/T1087/004/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["aws.cloudtrail.user_identity.arn"]

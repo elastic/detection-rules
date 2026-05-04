@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2026/04/27"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects nsenter executions that target PID with a namespace target flag, a pattern commonly used to attach to the
+host init namespace from a container or session and run with host context.
+"""
+false_positives = [
+    """
+    Platform engineers may nsenter into PID 1 namespaces during deep node debugging; correlate with tickets and bastion
+    sessions before escalating.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Nsenter to PID Namespace via Auditd"
+note = """## Triage and analysis
+
+### Investigating Nsenter to PID Namespace via Auditd
+
+Review process.args for the full nsenter invocation (target PID, mount, UTS, IPC, net, user namespaces), parent process,
+user identity, and host. PID targeting is a strong escape or host-administration signal when unexpected for the actor.
+
+### Possible investigation steps
+
+- Confirm whether the session originated from a container, SSH session, or automation agent.
+- Pivot on the same host for subsequent writes under /etc, docker.sock access, or new systemd units.
+
+### False positive analysis
+
+- Some CNI or snap workflows can resemble nsenter; rely on the built-in exclusions first, then tune by parent command
+  or service account.
+
+### Response and remediation
+
+- If malicious, isolate the host, revoke credentials, inspect for persistence, and re-image if integrity cannot be proven.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1611/",
+    "https://man7.org/linux/man-pages/man1/nsenter.1.html",
+]
+risk_score = 73
+rule_id = "75f9b95f-370b-4ff3-a84c-66d9ec0b84eb"
+setup = """## Setup
+
+Deploy the Auditd Manager integration on Linux hosts that should emit process execution telemetry (Fleet, Integrations,
+Auditd Manager, attach to an agent policy).
+
+Ensure syscall rules capture execve for utilities such as nsenter so event.category process and event.action executed
+populate with process.name and process.args.
+
+See https://docs.elastic.co/integrations/auditd_manager for integration details.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and 
+event.category:process and event.action:(executed or exec) and 
+(process.name:nsenter or process.args:nsenter) and 
+process.args:((--target* or -t) and not --net=/run/netns/* and not (--assertion and snap) and not (is-active and snap.*))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

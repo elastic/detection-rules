@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/19"
+updated_date = "2026/04/27"
 
 [transform]
 [[transform.osquery]]
@@ -124,18 +124,23 @@ sequence with maxspan=1m
               "ZOHO Corporation Private Limited",
               "BeyondTrust Corporation", 
               "CyberArk Software Ltd.", 
-              "Sophos Ltd"
+              "Sophos Ltd",
+              "AO Kaspersky Lab",
+              "Anthropic, PBC",
+              "Adobe Inc.",
+              "Netwrix Corporation"
         )
       ) or
       (
         process.executable : (
           "?:\\Windows\\ccmsetup\\ccmsetup.exe",
-          "?:\\Windows\\SoftwareDistribution\\Download\\Install\\AM_Delta*.exe",
-          "?:\\Windows\\CAInvokerService.exe"
+          "?:\\Windows\\SoftwareDistribution\\Download\\Install\\*.exe",
+          "?:\\Windows\\CAInvokerService.exe",
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\\OneDriveSetup.exe"
         ) and process.code_signature.trusted == true
       ) or
       (
-        process.executable : "G:\\SMS_*\\srvboot.exe" and 
+        process.executable : "?:\\SMS_*\\srvboot.exe" and 
         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation"
       )
     )
@@ -145,19 +150,23 @@ sequence with maxspan=1m
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.002"
 name = "SMB/Windows Admin Shares"
 reference = "https://attack.mitre.org/techniques/T1021/002/"
 
-
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
