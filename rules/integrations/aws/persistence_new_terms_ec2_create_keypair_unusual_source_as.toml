@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2026/04/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time a given IAM principal successfully creates an EC2 key pair when the request is sourced from a
+network whose autonomous system organization is not attributed to common cloud or hyperscaler providers in your GeoIP
+data. Adversaries may call CreateKeyPair to stage SSH access material before launching or accessing instances. A new
+terms baseline on `user_identity.arn` suppresses repeated noise from the same principal while still surfacing the initial
+suspicious creation from an unusual egress label.
+"""
+false_positives = [
+    """
+    Engineers creating key pairs from home ISP, corporate VPN, or colocation AS names will match until baselined.
+    GeoIP databases vary by vendor; organization labels may differ slightly from the excluded strings (for example
+    alternate Amazon or Google legal names). Tune exclusions on `source.as.organization.name` or principal ARN after
+    validation.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 CreateKeyPair by New Principal from Non-Cloud AS Organization"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 CreateKeyPair by New Principal from Non-Cloud AS Organization
+
+`CreateKeyPair` creates an Amazon EC2 SSH key pair in the account; the private key material is returned to the caller
+once. This is useful for persistence or preparation for instance access.
+
+This **new terms** rule alerts the **first** time `aws.cloudtrail.user_identity.arn` matches the query within the
+configured history window. Subsequent key-pair creations by the same principal (still matching the query) are
+suppressed until the term ages out of the window.
+
+#### Possible investigation steps
+
+- Review `aws.cloudtrail.request_parameters` / `response_elements` for `keyName` and whether the key aligns with change
+  management.
+- Correlate `source.ip`, `source.geo`, and `user_agent.original` with the principal’s normal admin paths.
+- Hunt for `RunInstances`, `ImportKeyPair`, or Instance Connect activity involving the same key name or actor.
+
+### False positive analysis
+
+- First-time legitimate admin activity from a new office or VPN provider.
+- Missing `source.as.organization.name` enrichment would **not** match the query’s positive wildcard; confirm fields are
+  populated if you expect coverage.
+
+### Response and remediation
+
+- If unauthorized: delete the key pair (`DeleteKeyPair`), review IAM for `ec2:CreateKeyPair`, and rotate any credentials
+  used by the actor.
+
+### Additional information
+
+- [CreateKeyPair](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateKeyPair.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateKeyPair.html",
+]
+risk_score = 47
+rule_id = "c8e4f1a2-9b3d-4c5e-a6f7-8b9c0d1e2f3a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: "CreateKeyPair"
+    and event.outcome: "success"
+    and source.as.organization.name: (
+        * and not (
+            "Amazon.com, Inc." or AMAZ* or "Google LLC" or "Microsoft Corporation"
+        )
+    )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.004"
+name = "Private Keys"
+reference = "https://attack.mitre.org/techniques/T1552/004/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "cloud.account.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
