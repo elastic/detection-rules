@@ -29,9 +29,10 @@ from elasticsearch import BadRequestError, Elasticsearch
 from elasticsearch import ConnectionError as ESConnectionError
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from semver import Version
+
 from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
 from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
-from semver import Version
 
 from . import attack, rule_loader, utils
 from .beats import download_beats_schema, download_latest_beats_schema, refresh_main_schema
@@ -1745,9 +1746,299 @@ def refresh_threat_mappings() -> None:
     attack.refresh_redirected_techniques_map()
 
 
+def _threat_entry_technique_flat(entry: ThreatMapping) -> tuple[list[str], list[str]]:
+    """Collect technique and sub-technique IDs and display names from one ``ThreatMapping`` row.
+
+    Order matches traversal of ``entry.technique`` and nested ``subtechnique`` lists. Used when
+    deciding whether redirects or MITRE ATT&CK data name drift require rebuilding that row.
+    """
+    technique_ids: list[str] = []
+    technique_names: list[str] = []
+    for technique in entry.technique or []:
+        technique_ids.append(technique.id)
+        technique_names.append(technique.name)
+        if technique.subtechnique:
+            for st in technique.subtechnique:
+                technique_ids.append(st.id)
+                technique_names.append(st.name)
+    return technique_ids, technique_names
+
+
+def _legacy_technique_name_drift(technique_ids: list[str], technique_names: list[str]) -> bool:
+    """Return True if any stored technique *name* no longer matches the bundled MITRE ATT&CK data name.
+
+    Mirrors historical ``update-rules`` logic: compares each non-empty ``technique_names`` entry to
+    ``technique_lookup[tid]['name']`` for IDs present in the lookup table.
+    """
+    return any(
+        tname
+        for tname in technique_names
+        if tname
+        not in [
+            attack.technique_lookup[str(tid)]["name"]
+            for tid in technique_ids
+            if str(tid) in attack.technique_lookup
+        ]
+    )
+
+
+def _mitre_threat_persist_sort_key(entry: ThreatMapping) -> tuple[int, str, str]:
+    """Save order for ``rule.threat`` rows (migrate / update-rules).
+
+    Primary sort: ``attack.priority_mitre_tactic_display_names_from_migration_hints``; then tactic name.
+    """
+    if entry.framework == "MITRE ATLAS":
+        return (10_000, entry.tactic.name, entry.tactic.id)
+    if entry.framework != "MITRE ATT&CK":
+        return (20_000, entry.tactic.name, entry.tactic.id)
+    priority = attack.priority_mitre_tactic_display_names_from_migration_hints()
+    if entry.tactic.name in priority:
+        return (priority.index(entry.tactic.name), entry.tactic.name, entry.tactic.id)
+    base = len(priority)
+    return (base, entry.tactic.name, entry.tactic.id)
+
+
+def _normalized_threat_signature(th: list[ThreatMapping] | None) -> tuple[Any, ...]:
+    """Build a comparable snapshot of MITRE threat rows (tactic + technique id sets).
+
+    Entries are sorted by ``(tactic.name, tactic.id)`` so order alone does not force a save.
+    Used by ``update-rules`` to skip writes when rebuilt threat metadata is equivalent.
+    """
+    if not th:
+        return ()
+    flat: list[tuple[str, str, tuple[str, ...], tuple[str, ...]]] = []
+    for entry in sorted(th, key=lambda x: (x.tactic.name, x.tactic.id)):
+        f = ThreatMapping.flatten([entry])
+        flat.append(
+            (
+                entry.tactic.name,
+                entry.tactic.id,
+                tuple(sorted(f.technique_ids)),
+                tuple(sorted(f.sub_technique_ids)),
+            )
+        )
+    return tuple(flat)
+
+
+def path_for_rule_file_name_tactic(
+    current: Path,
+    threat: list[ThreatMapping] | None,
+    authors: list[str],
+    rule_type: str,
+) -> Path:
+    """Return the filesystem path the rule file should use under ``test_rule_file_name_tactic``.
+
+    **Gates (same as the unit test):** skip ML rules; skip when there is no threat or ``Elastic`` is
+    not in ``authors``. Otherwise the basename must begin with the slug for ``threat[0].tactic``
+    (lower snake-case). ``threat`` should be sorted with ``_mitre_threat_persist_sort_key`` when produced
+    by migrate so ``threat[0]`` reflects TA0005 successor priority from migration hints.
+
+    **Rename strategy:** only when the stem matches a legacy prefix from
+    ``definitions.ATTACK_TACTIC_MIGRATION_FILENAME_LEGACY_STEM_PREFIXES`` (e.g. ``defense_evasion_``).
+    Replace that prefix with ``threat[0]`` slug. Otherwise leave the path unchanged.
+
+    **Returns:** ``current`` or a same-directory path with a new basename (``.toml`` preserved).
+    """
+    if rule_type == definitions.MACHINE_LEARNING:
+        return current
+    if not threat or "Elastic" not in authors:
+        return current
+    slug = threat[0].tactic.name.lower().replace(" ", "_")
+    filename = current.name
+    if len(filename) >= len(slug) and filename[: len(slug)] == slug:
+        return current
+    stem = current.stem
+    for legacy_prefix in sorted(attack.filename_legacy_stem_prefixes(), key=len, reverse=True):
+        if stem.startswith(legacy_prefix):
+            remainder = stem[len(legacy_prefix) :]
+            new_stem = f"{slug}_{remainder}" if remainder else slug
+            return current.with_name(new_stem + ".toml")
+    return current
+
+
+def remap_entries_with_unknown_mitre_tactics(
+    threat: list[ThreatMapping],
+    rule_label: str = "",
+) -> tuple[list[ThreatMapping], bool, set[str], list[tuple[str, list[str]]]]:
+    """Rewrite MITRE ATT&CK rows whose ``tactic.name`` is missing from bundled MITRE ATT&CK data.
+
+    **Preserves:** non-MITRE frameworks and MITRE rows whose tactic exists in ``attack.tactics_map``.
+    **Rewrites:** unknown ``tactic.name`` rows. If ``tactic.id`` is still a valid external id
+    (e.g. ``TA0005``) and every technique still appears under that id's current display name in
+    the matrix, the row is rebuilt with that name only (Defense Evasion → Stealth). Otherwise
+    ``attack.rebuild_threat_dicts_from_technique_ids`` infers from technique IDs. One input row
+    may become several rows if techniques truly span tactics.
+
+    **Returns:**
+      - New threat list sorted for persistence (see ``_mitre_threat_persist_sort_key``).
+      - Whether any row changed.
+      - Display names of tactics introduced by rebuilt rows (for ``replace_retired_tactic_tags``).
+      - **remap_log:** one ``(old_tactic_name, [new_tactic_names])`` per rewritten unknown row.
+
+    **Unknown tactic + no techniques:** if ``tactic.id`` maps to a current bundle tactic (via
+    ``attack.tactic_id_to_name``), write a tactic-only row using that display name. Otherwise
+    ``ValueError``.
+
+    **rule_label:** optional ``name (uuid)`` string for error messages.
+    """
+    new_list: list[ThreatMapping] = []
+    changed = False
+    replacement_tactic_names: set[str] = set()
+    remap_log: list[tuple[str, list[str]]] = []
+    for entry in threat:
+        if entry.framework != "MITRE ATT&CK" or entry.tactic.name in attack.tactics_map:
+            new_list.append(entry)
+            continue
+        old_tactic = entry.tactic.name
+        technique_ids, _ = _threat_entry_technique_flat(entry)
+        if not technique_ids:
+            fb = attack.tactic_id_to_name.get(entry.tactic.id)
+            if not fb:
+                prefix = f"{rule_label}: " if rule_label else ""
+                raise ValueError(
+                    f"{prefix}MITRE tactic {old_tactic!r} (id {entry.tactic.id!r}) is unknown to bundled "
+                    "ATT&CK data and no techniques were listed (cannot infer). Fix TOML or use techniques "
+                    "under this row."
+                )
+            rebuilt_empty = attack.build_threat_map_entry(fb)
+            remap_log.append((old_tactic, [fb]))
+            replacement_tactic_names.add(fb)
+            new_list.append(ThreatMapping.from_dict(rebuilt_empty))
+            changed = True
+            continue
+        retained = attack.retain_tactic_display_if_id_and_techniques_still_match(entry.tactic.id, technique_ids)
+        if retained is not None:
+            sorted_ids = sorted(set(technique_ids), key=lambda x: (x.split(".")[0], x))
+            rebuilt_retained = attack.build_threat_map_entry(retained, *sorted_ids)
+            remap_log.append((old_tactic, [retained]))
+            replacement_tactic_names.add(retained)
+            new_list.append(ThreatMapping.from_dict(rebuilt_retained))
+            changed = True
+            continue
+        row_tid = entry.tactic.id if entry.tactic.id in attack.tactic_id_to_name else None
+        rebuilt = attack.rebuild_threat_dicts_from_technique_ids(technique_ids, row_tactic_external_id=row_tid)
+        new_names = sorted({r["tactic"]["name"] for r in rebuilt})
+        remap_log.append((old_tactic, new_names))
+        for r in rebuilt:
+            replacement_tactic_names.add(r["tactic"]["name"])
+            new_list.append(ThreatMapping.from_dict(r))
+        changed = True
+    new_list.sort(key=_mitre_threat_persist_sort_key)
+    return new_list, changed, replacement_tactic_names, remap_log
+
+
+def replace_retired_tactic_tags(
+    tags: list[str],
+    new_mitre_tactic_names: set[str],
+    *,
+    retired_tactic_display_names: set[str],
+) -> tuple[list[str], bool]:
+    """Align ``tags`` with tactics produced by ``remap_entries_with_unknown_mitre_tactics``.
+
+    Drops ``Tactic: {name}`` for each ``retired_tactic_display_names`` entry (stale display names
+    from remapped rows). Appends ``Tactic: {name}`` for each name in ``new_mitre_tactic_names``
+    (sorted) when missing.
+
+    **Returns:** updated tag list and whether any tag string changed.
+    """
+    strip_tags = {f"Tactic: {n}" for n in retired_tactic_display_names}
+    out = [t for t in tags if t not in strip_tags]
+    tag_changed = len(out) != len(tags)
+    for name in sorted(new_mitre_tactic_names):
+        t = f"Tactic: {name}"
+        if t not in out:
+            out.append(t)
+            tag_changed = True
+    return out, tag_changed
+
+
+@attack_group.command("migrate-retired-tactics")
+@click.option("--dry-run", is_flag=True, help="Print rules that would change without writing TOML.")
+def migrate_retired_mitre_tactics(dry_run: bool) -> list[TOMLRule]:
+    """Bulk-fix rules whose MITRE tactic labels are absent from the current ATT&CK bundle.
+
+    Run after replacing ``attack-v*.json.gz`` when enterprise tactic names change (e.g. Defense
+    Evasion retired). For each production rule:
+
+    - Rebuild unknown MITRE tactic rows from technique IDs (see ``remap_entries_with_unknown_mitre_tactics``).
+    - Refresh tags: remove ``Tactic: …`` for each remapped old tactic name; add tactic tags for new rows.
+    - Rename files only when the stem matches ``ATTACK_TACTIC_MIGRATION_FILENAME_LEGACY_STEM_PREFIXES``
+      (``path_for_rule_file_name_tactic``); swap to ``threat[0]`` slug.
+
+    **``--dry-run``:** print rule names, **tactic remaps** (e.g. Defense Evasion -> Stealth), planned
+    file renames, then exit without writing files.
+
+    **Side effects:** sets ``metadata.updated_date`` to today on save; deletes the old file path
+    when the basename changes. Refuses to overwrite an existing target path.
+
+    **Returns:** rules written (or counted in dry-run); empty list if nothing needed migration.
+    """
+    today = time.strftime("%Y/%m/%d")
+    rules = RuleCollection.default()
+    updated: list[TOMLRule] = []
+
+    for rule in rules.rules:
+        threat = rule.contents.data.threat or []
+        new_threat, changed, replacement_names, remap_log = remap_entries_with_unknown_mitre_tactics(
+            threat, rule_label=f"{rule.contents.name} ({rule.id})"
+        )
+        if not changed:
+            continue
+        click.echo(f"{'[dry-run] ' if dry_run else ''}{rule.contents.name} ({rule.id})")
+        for old_tactic, new_names in remap_log:
+            click.echo(f"  tactics: {old_tactic} -> {', '.join(new_names)}")
+        retired_names = {old for old, _ in remap_log}
+        new_tags, _ = replace_retired_tactic_tags(
+            list(rule.contents.data.tags or []),
+            replacement_names,
+            retired_tactic_display_names=retired_names,
+        )
+        target_path = path_for_rule_file_name_tactic(
+            rule.path, new_threat, rule.contents.data.author, rule.contents.data.type
+        )
+        if target_path.resolve() != rule.path.resolve():
+            click.echo(f"  {'would rename' if dry_run else 'rename'}: {rule.path.name} -> {target_path.name}")
+        if dry_run:
+            updated.append(rule)
+            continue
+        if target_path.exists() and target_path.resolve() != rule.path.resolve():
+            raise FileExistsError(f"Refusing to overwrite existing file: {target_path}")
+        new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+        new_data = dataclasses.replace(rule.contents.data, threat=new_threat, tags=new_tags)
+        new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
+        new_rule = TOMLRule(contents=new_contents, path=target_path)
+        new_rule.save_toml()
+        if target_path.resolve() != rule.path.resolve() and rule.path.exists():
+            rule.path.unlink()
+        updated.append(new_rule)
+
+    if dry_run:
+        click.echo(f"\nDry-run: {len(updated)} rule(s) would be updated.")
+    elif updated:
+        click.echo(f"\nFinished — {len(updated)} rule(s) updated.")
+    else:
+        click.echo("No rule changes needed.")
+    return updated
+
+
 @attack_group.command("update-rules")
-def update_attack_in_rules() -> list[TOMLRule]:
-    """Update threat mappings attack data in all rules."""
+def update_attack_in_rules() -> list[TOMLRule]:  # noqa: PLR0912, PLR0915
+    """Refresh MITRE technique IDs, names, and tactics across all default rules.
+
+    For each ``[[rule.threat]]`` entry:
+
+    - **Atlas / non-MITRE:** copied unchanged.
+    - **MITRE + tactic unknown to MITRE ATT&CK data:** rebuilt from technique IDs via
+      ``attack.rebuild_threat_dicts_from_technique_ids`` (same inference as migrate).
+    - **MITRE + known tactic:** rebuilt when technique IDs hit ``attack-technique-redirects`` or
+      technique display names drift from ``technique_lookup``; otherwise left as-is.
+
+    Sorts threat rows by tactic name. Updates ``metadata.updated_date`` only when the normalized
+    threat signature changes. Does **not** rename files or edit tactic tags (use
+    ``migrate-retired-tactics`` for retired tactic labels and filenames).
+
+    **Returns:** list of rules that were saved.
+    """
     new_rules: list[TOMLRule] = []
     redirected_techniques = attack.load_techniques_redirect()
     today = time.strftime("%Y/%m/%d")
@@ -1755,57 +2046,82 @@ def update_attack_in_rules() -> list[TOMLRule]:
     rules = RuleCollection.default()
 
     for rule in rules.rules:
-        needs_update = False
-        updated_threat_map: dict[str, ThreatMapping] = {}
         threat = rule.contents.data.threat or []
+        new_threat_list: list[ThreatMapping] = []
 
         for entry in threat:
-            tactic_id = entry.tactic.id
-            tactic_name = entry.tactic.name
-            technique_ids: list[str] = []
-            technique_names: list[str] = []
-            for technique in entry.technique or []:
-                technique_ids.append(technique.id)
-                technique_names.append(technique.name)
-                if technique.subtechnique:
-                    technique_ids.extend([st.id for st in technique.subtechnique])
-                    technique_names.extend([st.name for st in technique.subtechnique])
+            technique_ids, technique_names = _threat_entry_technique_flat(entry)
 
-            if any(tid for tid in technique_ids if tid in redirected_techniques):
-                needs_update = True
-                click.echo(f"'{rule.contents.name}' requires update - technique ID change for tactic '{tactic_name}'")
-            elif any(
-                tname
-                for tname in technique_names
-                if tname
-                not in [
-                    attack.technique_lookup[str(tid)]["name"]
-                    for tid in technique_ids
-                    if str(tid) in attack.technique_lookup
-                ]
-            ):
-                needs_update = True
-                click.echo(f"'{rule.contents.name}' requires update - technique name change for tactic '{tactic_name}'")
+            redirect_hit = any(tid in redirected_techniques for tid in technique_ids)
+            name_drift = _legacy_technique_name_drift(technique_ids, technique_names)
+            tactic_unknown = entry.framework == "MITRE ATT&CK" and entry.tactic.name not in attack.tactics_map
 
-            if needs_update:
+            if redirect_hit:
+                click.echo(
+                    f"'{rule.contents.name}' requires update - technique ID change for tactic '{entry.tactic.name}'"
+                )
+            elif name_drift:
+                click.echo(
+                    f"'{rule.contents.name}' requires update - technique name change for tactic '{entry.tactic.name}'"
+                )
+
+            refresh = redirect_hit or name_drift
+
+            if entry.framework != "MITRE ATT&CK":
+                new_threat_list.append(entry)
+                continue
+
+            if tactic_unknown:
+                if not technique_ids:
+                    only_name = attack.tactic_id_to_name.get(entry.tactic.id)
+                    if not only_name:
+                        raise ValueError(
+                            f"{rule.id} - {rule.name}: MITRE tactic {entry.tactic.name!r} (id "
+                            f"{entry.tactic.id!r}) is unknown to bundled ATT&CK data and no techniques "
+                            "were listed to infer a replacement."
+                        )
+                    new_threat_list.append(
+                        ThreatMapping.from_dict(attack.build_threat_map_entry(only_name))
+                    )
+                    continue
+                retained = attack.retain_tactic_display_if_id_and_techniques_still_match(
+                    entry.tactic.id, technique_ids
+                )
+                if retained is not None:
+                    sorted_ids = sorted(set(technique_ids), key=lambda x: (x.split(".")[0], x))
+                    new_threat_list.append(
+                        ThreatMapping.from_dict(attack.build_threat_map_entry(retained, *sorted_ids))
+                    )
+                    continue
+                row_tid = entry.tactic.id if entry.tactic.id in attack.tactic_id_to_name else None
+                new_threat_list.extend(
+                    ThreatMapping.from_dict(r)
+                    for r in attack.rebuild_threat_dicts_from_technique_ids(
+                        technique_ids, row_tactic_external_id=row_tid
+                    )
+                )
+                continue
+
+            if refresh:
                 try:
-                    updated_threat_entry = attack.build_threat_map_entry(tactic_name, *technique_ids)
-                    updated_threat_map[tactic_id] = ThreatMapping.from_dict(updated_threat_entry)
+                    rebuilt = attack.build_threat_map_entry(entry.tactic.name, *technique_ids)
+                    new_threat_list.append(ThreatMapping.from_dict(rebuilt))
                 except ValueError as exc:
                     raise ValueError(f"{rule.id} - {rule.name}: {exc}") from exc
             else:
-                updated_threat_map[tactic_id] = entry
+                new_threat_list.append(entry)
 
-        if needs_update:
-            final_threat_list = list(updated_threat_map.values())
-            final_threat_list.sort(key=lambda x: x.tactic.name)
+        new_threat_list.sort(key=_mitre_threat_persist_sort_key)
 
-            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
-            new_data = dataclasses.replace(rule.contents.data, threat=final_threat_list)
-            new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
-            new_rule = TOMLRule(contents=new_contents, path=rule.path)
-            new_rule.save_toml()
-            new_rules.append(new_rule)
+        if _normalized_threat_signature(threat) == _normalized_threat_signature(new_threat_list):
+            continue
+
+        new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+        new_data = dataclasses.replace(rule.contents.data, threat=new_threat_list)
+        new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
+        new_rule = TOMLRule(contents=new_contents, path=rule.path)
+        new_rule.save_toml()
+        new_rules.append(new_rule)
 
     if new_rules:
         click.echo(f"\nFinished - {len(new_rules)} rules updated!")

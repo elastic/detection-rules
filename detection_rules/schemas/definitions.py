@@ -175,7 +175,7 @@ EXPECTED_RULE_TAGS = [
     "Tactic: Collection",
     "Tactic: Command and Control",
     "Tactic: Credential Access",
-    "Tactic: Defense Evasion",
+    "Tactic: Defense Impairment",
     "Tactic: Discovery",
     "Tactic: Execution",
     "Tactic: Exfiltration",
@@ -186,6 +186,7 @@ EXPECTED_RULE_TAGS = [
     "Tactic: Privilege Escalation",
     "Tactic: Reconnaissance",
     "Tactic: Resource Development",
+    "Tactic: Stealth",
     "Threat: BPFDoor",
     "Threat: Cobalt Strike",
     "Threat: Lightning Framework",
@@ -205,6 +206,13 @@ EXPECTED_RULE_TAGS = [
 ]
 
 MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
+
+# Migrate: extra matrix columns per TA id; feeds ``attack.priority_mitre_tactic_display_names_from_migration_hints``.
+ATTACK_TACTIC_MIGRATION_SECONDARY_MATRIX_PREFERENCES: Final[dict[str, tuple[str, ...]]] = {
+    "TA0005": ("Defense Impairment",),
+}
+# Old rule file stems to rewrite after tactic renames (e.g. defense_evasion_ -> stealth_).
+ATTACK_TACTIC_MIGRATION_FILENAME_LEGACY_STEM_PREFIXES: Final[tuple[str, ...]] = ("defense_evasion_",)
 
 CodeString = NewType("CodeString", str)
 Markdown = NewType("Markdown", CodeString)
