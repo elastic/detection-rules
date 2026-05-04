@@ -1,13 +1,17 @@
 [metadata]
-creation_date = "2023/06/09"
-integration = ["endpoint"]
+creation_date = "2022/07/12"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2026/05/04"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
-query = "SELECT * FROM file WHERE path = {{file.path}}\n"
+query = """
+SELECT * FROM file WHERE ( path = '/etc/ld.so.preload' OR path = '/lib64/ld-linux-x86-64.so.2' OR path =
+'/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR path = '/usr/lib64/ld-linux-x86-64.so.2' OR path =
+'/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' )
+"""
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
@@ -15,16 +19,14 @@ query = """
 SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
 file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
-JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path = {{file.path}}
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path = '/etc/ld.so.preload' OR path =
+'/lib64/ld-linux-x86-64.so.2' OR path = '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR path =
+'/usr/lib64/ld-linux-x86-64.so.2' OR path = '/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' )
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Running Processes by User"
 query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Crontab Information"
-query = "SELECT * FROM crontab"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Listening Ports"
@@ -46,35 +48,33 @@ query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors the creation of shared object files by previously unknown processes. The creation of a shared object
-file involves compiling code into a dynamically linked library that can be loaded by other programs at runtime. While
-this process is typically used for legitimate purposes, malicious actors can leverage shared object files to execute
-unauthorized code, inject malicious functionality into legitimate processes, or bypass security controls. This allows
-malware to persist on the system, evade detection, and potentially compromise the integrity and confidentiality of the
-affected system and its data.
+Detects the copying of the Linux dynamic loader binary and subsequent file creation for the purpose of creating a backup
+copy. This technique was seen recently being utilized by Linux malware prior to patching the dynamic loader in order to
+inject and preload a malicious shared object file. This activity should never occur and if it does then it should be
+considered highly suspicious or malicious.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Shared Object Created by Previously Unknown Process"
+name = "Dynamic Linker Copy"
 note = """## Triage and analysis
 
-### Investigating Shared Object Created by Previously Unknown Process
+### Investigating Dynamic Linker Copy
 
-A shared object file is a compiled library file (typically with a .so extension) that can be dynamically linked to executable programs at runtime, allowing for code reuse and efficient memory usage. The creation of a shared object file involves compiling code into a dynamically linked library that can be loaded by other programs at runtime.
+The Linux dynamic linker is responsible for loading shared libraries required by executables at runtime. It is a critical component of the Linux operating system and should not be tampered with. 
 
-Malicious actors can leverage shared object files to execute unauthorized code, inject malicious functionality into legitimate processes, or bypass security controls. This allows malware to persist on the system, evade detection, and potentially compromise the integrity and confidentiality of the affected system and its data.
+Adversaries may attempt to copy the dynamic linker binary and create a backup copy before patching it to inject and preload malicious shared object files. This technique has been observed in recent Linux malware attacks and is considered highly suspicious or malicious.
 
-This rule monitors the creation of shared object files by previously unknown processes through the usage of the new terms rule type.
+The detection rule 'Dynamic Linker Copy' is designed to identify such abuse by monitoring for processes with names "cp" or "rsync" that involve copying the dynamic linker binary ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2") and modifying the "/etc/ld.so.preload" file. Additionally, the rule checks for the creation of new files with the "so" extension on Linux systems. By detecting these activities within a short time span (1 minute), the rule aims to alert security analysts to potential malicious behavior.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
-#### Possible Investigation Steps
+### Possible investigation steps
 
-- Investigate the shared object that was created or modified through OSQuery.
+- Investigate the dynamic linker that was copied or altered.
   - $osquery_0
   - $osquery_1
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
@@ -89,24 +89,29 @@ This rule monitors the creation of shared object files by previously unknown pro
           - Check if the domain is newly registered or unexpected.
           - Check the reputation of the domain or IP address.
         - File access, modification, and creation activities.
-        - Cron jobs, services and other persistence mechanisms.
-            - $osquery_3
 - Investigate abnormal behaviors by the subject process/user such as network connections, file modifications, and any other spawned child processes.
   - Investigate listening ports and open sockets to look for potential command and control traffic or data exfiltration.
+    - $osquery_3
     - $osquery_4
-    - $osquery_5
   - Identify the user account that performed the action, analyze it, and check whether it should perform this kind of action.
-    - $osquery_6
+    - $osquery_5
 - Investigate whether the user is currently logged in and active.
-    - $osquery_7
+    - $osquery_6
 
-### False Positive Analysis
+### False positive analysis
 
-- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
-- If this activity is related to a system administrator that performed these actions for administrative purposes, consider adding exceptions for this specific administrator user account. 
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+- Any activity that triggered the alert and is not inherently malicious must be monitored by the security team.
+- The security team should address any potential benign true positive (B-TP), as this configuration can put the user and the domain at risk.
 - Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
 
-### Response and remediation
+### Related Rules
+
+- Modification of Dynamic Linker Preload Shared Object Inside A Container - 342f834b-21a6-41bf-878c-87d116eba3ee
+- Modification of Dynamic Linker Preload Shared Object - 717f82c2-7741-4f9b-85b8-d06aeb853f4f
+- Shared Object Created or Changed by Previously Unknown Process - aebaa51f-2a91-4f6a-850b-b601db2293f4
+
+### Response and Remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
@@ -120,9 +125,9 @@ This rule monitors the creation of shared object files by previously unknown pro
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = ["https://threatpost.com/sneaky-malware-backdoors-linux/180158/"]
-risk_score = 47
-rule_id = "aebaa51f-2a91-4f6a-850b-b601db2293f4"
+references = ["https://www.intezer.com/blog/incident-response/orbit-new-undetected-linux-threat/"]
+risk_score = 73
+rule_id = "df6f62d9-caab-4b88-affa-044f4395a1e0"
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -148,45 +153,28 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
+    "Threat: Orbit",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Tactic: Stealth",
 ]
-timestamp_override = "event.ingested"
-type = "new_terms"
+type = "eql"
 
 query = '''
-event.category:file and host.os.type:"linux" and event.action:("creation" or "file_create_event") and
-(file.extension:"so" or file.name:*.so.*) and
-file.path:(
-  /dev/shm/* or /usr/lib/* or /usr/lib64/* or /usr/local/lib/* or /usr/local/lib64/* or /lib/x86_64-linux-gnu/* or
-  /usr/lib/x86_64-linux-gnu/* or /lib/i386-linux-gnu/* or /usr/lib/i386-linux-gnu/* or /lib/* or /lib64/*
-) and not (
-  process.name:(
-    "dockerd" or "dpkg" or "rpm" or "snapd" or "yum" or "vmis-launcher" or "pacman" or "apt-get" or "dnf" or "podman" or
-    platform-python* or "dnf-automatic" or "unattended-upgrade" or "apk" or "snap-update-ns" or "install" or "exe" or
-    "systemd" or "root" or "sshd" or "pip" or "jlink" or python* or "update-alternatives" or pip* or "crio" or "packagekitd"
-  ) or 
-  (process.name:"vmware-install.pl" and file.path:/usr/lib/vmware-tools/*) or
-  (process.name:"ssm-agent-worker" and file.path:/usr/lib/jvm/java*) or 
-  process.executable : (
-    /dev/fd/* or "/" or "/kaniko/executor" or "/usr/bin/buildah" or "/usr/bin/microdnf" or "/usr/sbin/yum-cron" or
-    "/usr/lib/check_mk_agent/plugins/3600/cmk-update-agent" or "/usr/bin/pamac-daemon" or "/usr/bin/dnf5" or
-    "3600/cmk-update-agent" or "/usr/lib/dracut/dracut-install" or "/usr/bin/dockerd" or "/usr/sbin/crond" or
-    "./usr/bin/qemu-aarch64-static" or "/usr/bin/nvidia-installer" or "./nvidia-installer" or "/usr/bin/cmake" or
-    /var/lib/docker/overlay2/* or "/usr/sbin/gdm" or "/opt/ITSPlatform/plugin/scap/fortify-scap-plugin" or
-    /tmp/makeself* or /tmp/selfgz* or "./usr/bin/qemu-aarch64" or "/usr/local/bin/cmake" or /opt/lpruitt/tmp/selfgz* or
-    "/usr/lib/snapd/snap-update-ns" or "/sbin/yum-cron" or "/usr/local/psa/bin/dnf_install" or /opt/lmanteuffel/useful/tmp/makeself*
-  ) or
-  file.name:libnvidia*
-)
+sequence by process.entity_id with maxspan=1m
+  [process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
+  process.args in (
+   "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
+   "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
+  ) and
+  not process.args like ("/var/tmp/mkinitramfs*", "/var/tmp/dracut*", "/tmp/mkinitcpio*")]
+[file where host.os.type == "linux" and event.action == "creation" and (file.extension == "so" or file.name like "*.so.*")]
 '''
 
 
@@ -207,46 +195,4 @@ reference = "https://attack.mitre.org/techniques/T1574/006/"
 id = "TA0005"
 name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["file.name", "process.name"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-5d"
-
 
