@@ -73,23 +73,23 @@ note = """## Triage and analysis
   - Implication: escalate when metadata, signer, hash, or recent file age conflicts with the path or Microsoft telemetry role; lower suspicion when identity, signer, path, and age fit a stable Windows or enterprise diagnostic binary.
 
 - Which TelemetryController values enabled this launch, and which process wrote them?
-  - Focus: recovered registry events on `host.id` for TelemetryController `registry.path`, `registry.value`, `registry.data.strings`, and writer `process.executable`. $investigate_0
+  - Focus: recovered registry events on `host.id` for TelemetryController `registry.path`, `registry.value`, `registry.data.strings`, and writer `process.executable`.
   - Range: search back several days; the registry hijack can precede scheduled task execution.
   - Hint: search the TelemetryController root and subkeys, compare command-like `registry.data.strings` to the alert child, and treat registry telemetry as recovery evidence; missing registry history leaves persistence unresolved. Do not clear only because startup folders or service keys are clean.
   - Implication: escalate when a command value points to the alert child or another non-Windows binary or script and the same subkey enables execution; an unexpected writer exposes the privileged component that planted HKLM persistence. Lower suspicion only when values, writer, and child path all match one controlled diagnostic or test workflow.
 
 - Did the launched child stage or reuse artifacts that extend the persistence chain?
-  - Focus: same-process file events on `host.id` using `process.entity_id`, or `process.pid` in a tight alert window: `file.path`, `file.Ext.original.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse. $investigate_1
+  - Focus: same-process file events on `host.id` using `process.entity_id`, or `process.pid` in a tight alert window: `file.path`, `file.Ext.original.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse. $investigate_0
   - Implication: escalate when the child writes executable or scriptable content to user-writable, startup, service, or task paths, especially with external provenance or later execution; absent file telemetry does not clear a suspicious command or registry handoff.
 
 - Did the launched child contact destinations inconsistent with telemetry or the signer?
-  - Focus: same-process DNS and connection events on `host.id`: `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_2
+  - Focus: same-process DNS and connection events on `host.id`: `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_1
   - Hint: Missing network telemetry is unresolved, not benign. Treat infrastructure ownership as context rather than a verdict.
   - Implication: escalate when the child reaches public, rare, or signer-misaligned infrastructure; lower suspicion when destinations consistently fit Microsoft telemetry, internal servicing, or the same verified diagnostic workflow.
 
 - If local evidence remains suspicious or unresolved, is this a local test pattern or repeated TelemetryController persistence?
-  - Focus: recent alerts for the same `process.executable` before broader host review. $investigate_3
-  - Hint: use host alert history only after child identity, command line, registry, file, or network evidence remains suspicious or unresolved. $investigate_4
+  - Focus: recent alerts for the same `process.executable` before broader host review. $investigate_2
+  - Hint: use host alert history only after child identity, command line, registry, file, or network evidence remains suspicious or unresolved. $investigate_3
   - Implication: broaden when the same child path, TelemetryController pattern, or follow-on alert chain appears on unrelated hosts; keep scope local when telemetry ties the exact child, writer, values, and host scope to one verified lab or diagnostic workflow.
 
 - Escalate when the handoff, child identity, registry writer/values, artifacts, destinations, or alert history show arbitrary or staged execution through TelemetryController; close only when the same evidence ties the exact child, writer, values, and scope to a controlled diagnostic or validation workflow; preserve artifacts and escalate when registry, file, or network evidence is missing or contradictory.
@@ -150,19 +150,6 @@ field_names = [
 ]
 
 [transform]
-
-[[transform.investigate]]
-label = "Registry events on the host"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "registry.path", queryType = "phrase", value = "*\\TelemetryController\\*", valueType = "string" }
-  ]
-]
-relativeFrom = "now-7d"
-relativeTo = "now"
 
 [[transform.investigate]]
 label = "File events for the launched child"
