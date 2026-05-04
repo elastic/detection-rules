@@ -47,7 +47,7 @@ from .integrations import (
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
-from .schemas.definitions import FROM_SOURCES_REGEX
+from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES, FROM_SOURCES_REGEX
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -792,7 +792,7 @@ class ESQLValidator(QueryValidator):
         for column in query_columns:
             column_name = column["name"]
             # Skip Dynamic fields
-            if column_name.startswith(("Esql.", "Esql_priv.")):
+            if column_name.startswith(ESQL_DYNAMIC_FIELD_PREFIXES):
                 continue
             # Skip internal fields
             if column_name in ("_id", "_version", "_index"):
