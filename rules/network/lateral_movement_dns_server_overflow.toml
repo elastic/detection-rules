@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/07/16"
-integration = ["network_traffic"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
     authorized vulnerability scan or compromise assessment.
     """,
 ]
-index = ["packetbeat-*", "filebeat-*", "logs-network_traffic.*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
@@ -68,13 +68,18 @@ tags = [
     "Tactic: Impact",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
+    "Data Source: PAN-OS",
+    "Data Source: Network Traffic",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
-  (data_stream.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
+((event.category:(network or network_traffic) and destination.port:53) 
+      or network.protocol:"dns" 
+      or data_stream.dataset:(network_traffic.dns or zeek.dns))
+    and destination.bytes > 60000
+    and event.type:("allowed" or "end" or "protocol" or "start")
 '''
 
 
