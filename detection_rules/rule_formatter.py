@@ -23,6 +23,7 @@ SQ = "'"
 DQ = '"'
 TRIPLE_SQ = SQ * 3
 TRIPLE_DQ = DQ * 3
+TOML_STRING_WRAP_WIDTH = 120
 
 # Fields from nested objects (not BaseRuleData fields) that need to be perserved.
 # NOTE: we treat these as globally unique which might not be true in all cases
@@ -81,7 +82,7 @@ def wrap_text(v: str, block_indent: int = 0) -> list[str]:
         v,
         initial_indent=" " * block_indent,
         subsequent_indent=" " * block_indent,
-        width=120,
+        width=TOML_STRING_WRAP_WIDTH,
         break_long_words=False,
         break_on_hyphens=False,
     )
@@ -99,6 +100,10 @@ def wrap_text_and_join(v: str, block_indent: int = 0) -> str:
 
 class NonformattedField(str):  # noqa: SLOT000
     """Non-formatting class."""
+
+
+class UnwrappedField(str):  # noqa: SLOT000
+    """String field that should not receive artificial line wrapping."""
 
 
 def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preserve: list[str]) -> OrderedDict[str, Any]:
@@ -126,6 +131,22 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
     return data
 
 
+def preserve_filter_value_formatting(data: Any) -> Any:
+    """Preserve filter value strings so query DSL literals are not changed."""
+    if isinstance(data, dict):
+        for key, value in data.items():  # type: ignore[reportUnknownVariableType]
+            if key == "value" and isinstance(value, str):
+                data[key] = UnwrappedField(value)  # type: ignore[reportUnknownMemberType]
+            elif isinstance(value, dict | list):
+                preserve_filter_value_formatting(value)
+    elif isinstance(data, list):
+        for value in data:  # type: ignore[reportUnknownVariableType]
+            if isinstance(value, dict | list):
+                preserve_filter_value_formatting(value)
+
+    return data
+
+
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
     """Generate a pretty form of toml."""
 
@@ -137,6 +158,7 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         self.dump_funcs[str] = self.dump_str
         self.dump_funcs[list] = self.dump_list
         self.dump_funcs[NonformattedField] = self.dump_str
+        self.dump_funcs[UnwrappedField] = self.dump_unwrapped_str
 
     def dump_str(self, v: str | NonformattedField) -> str:
         """Change the TOML representation to multi-line or single quote when logical."""
@@ -164,6 +186,14 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
         # Also addresses an issue where backslashes in certain strings are not properly escaped in self._old_dump_str(v)
+        return json.dumps(v)
+
+    def dump_unwrapped_str(self, v: UnwrappedField) -> str:
+        """Serialize a string without inserting word-wrap newlines."""
+        if TRIPLE_DQ not in v and ("\n" in v or "\r" in v or (len(v) > TOML_STRING_WRAP_WIDTH and " " in v)):
+            escaped_value = v.replace("\\", "\\\\")
+            return f"{TRIPLE_DQ}\n{escaped_value}\n{TRIPLE_DQ}"
+
         return json.dumps(v)
 
     def _dump_flat_list(self, v: Iterable[Any]) -> str:
@@ -247,8 +277,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
             if k == "filters":
                 # explicitly preserve formatting for value field in filters
-                preserved_fields = ["meta.value"]
-                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
+                v = [preserve_filter_value_formatting(filter_) for filter_ in v] if v is not None else []
 
             if k == "note" and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
