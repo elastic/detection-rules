@@ -101,12 +101,21 @@ class NonformattedField(str):  # noqa: SLOT000
     """Non-formatting class."""
 
 
-class UnwrappedField(str):  # noqa: SLOT000
-    """String field that should not receive artificial line wrapping."""
-
-
 def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preserve: list[str]) -> OrderedDict[str, Any]:
     """Preserve formatting for specified nested fields in an action."""
+
+    def preserve_descendant_values(target: Any) -> None:
+        """Preserve any string value fields under query DSL nodes."""
+        if isinstance(target, dict):
+            for key, value in target.items():
+                if key == "value" and isinstance(value, str):
+                    target[key] = NonformattedField(value)
+                elif isinstance(value, dict | list):
+                    preserve_descendant_values(value)
+
+        if isinstance(target, list):
+            for value in target:
+                preserve_descendant_values(value)
 
     def apply_preservation(target: OrderedDict[str, Any], keys: list[str]) -> None:
         """Apply NonformattedField preservation based on keys path."""
@@ -120,6 +129,10 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
 
         final_key = keys[-1]
         if final_key in target:
+            if final_key == "query":
+                preserve_descendant_values(target[final_key])
+                return
+
             # Apply NonformattedField to the target field if it exists
             target[final_key] = NonformattedField(target[final_key])
 
@@ -128,22 +141,6 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
         apply_preservation(data, keys)
 
     return data
-
-
-def preserve_filter_value_formatting(data: Any) -> Any:
-    """Preserve filter value strings so query DSL literals are not changed."""
-    if isinstance(data, dict):
-        for key, value in data.items():  # type: ignore[reportUnknownVariableType]
-            if key == "value" and isinstance(value, str):
-                data[key] = UnwrappedField(value)  # type: ignore[reportUnknownMemberType]
-            elif isinstance(value, dict | list):
-                preserve_filter_value_formatting(value)
-    elif isinstance(data, list):
-        for value in data:  # type: ignore[reportUnknownVariableType]
-            if isinstance(value, dict | list):
-                preserve_filter_value_formatting(value)
-
-    return data  # type: ignore[reportUnknownVariableType]
 
 
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
@@ -157,7 +154,6 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         self.dump_funcs[str] = self.dump_str
         self.dump_funcs[list] = self.dump_list
         self.dump_funcs[NonformattedField] = self.dump_str
-        self.dump_funcs[UnwrappedField] = self.dump_unwrapped_str
 
     def dump_str(self, v: str | NonformattedField) -> str:
         """Change the TOML representation to multi-line or single quote when logical."""
@@ -182,10 +178,6 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
         # Also addresses an issue where backslashes in certain strings are not properly escaped in self._old_dump_str(v)
-        return json.dumps(v)
-
-    def dump_unwrapped_str(self, v: UnwrappedField) -> str:
-        """Serialize a string without inserting word-wrap newlines."""
         return json.dumps(v)
 
     def _dump_flat_list(self, v: Iterable[Any]) -> str:
@@ -269,7 +261,8 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
             if k == "filters":
                 # explicitly preserve formatting for value field in filters
-                v = [preserve_filter_value_formatting(filter_) for filter_ in v] if v is not None else []
+                preserved_fields = ["meta.value", "query"]
+                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
 
             if k == "note" and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
