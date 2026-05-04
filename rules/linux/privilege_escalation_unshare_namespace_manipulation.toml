@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/08/30"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/01"
 
 [rule]
 author = ["Elastic"]
@@ -11,8 +11,8 @@ Identifies suspicious usage of unshare to manipulate system namespaces. Unshare 
 or escape container security boundaries. Threat actors have utilized this binary to allow themselves to escape to the
 host and access other resources or escalate privileges.
 """
-from = "now-9m"
-index = ["auditbeat-*", "endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+from = "now-6m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Namespace Manipulation Using Unshare"
@@ -101,16 +101,17 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event", "start") and
-process.executable: "/usr/bin/unshare" and not (
-  process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
-  process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java") or
-  process.parent.args like (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "executed") and
+process.name: "unshare" and not (
+  ?process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
+  ?process.args == "/usr/bin/snap" and not ?process.parent.name in ("zz-proxmox-boot", "java") or
+  ?process.parent.args like (
     "/etc/kernel/postinst.d/zz-proxmox-boot", "/opt/openssh/sbin/sshd", "/usr/sbin/sshd",
     "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*"
   )
